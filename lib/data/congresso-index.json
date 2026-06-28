@@ -1,0 +1,4356 @@
+[
+  {
+    "id": "204379",
+    "nome": "Acácio Favacho",
+    "uf": "AP",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220714",
+    "nome": "Adail Filho",
+    "uf": "AM",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "221328",
+    "nome": "Adilson Barroso",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204560",
+    "nome": "Adolfo Viana",
+    "uf": "BA",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204528",
+    "nome": "Adriana Ventura",
+    "uf": "SP",
+    "partido": "NOVO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "121948",
+    "nome": "Adriano do Baldy",
+    "uf": "GO",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74646",
+    "nome": "Aécio Neves",
+    "uf": "MG",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160508",
+    "nome": "Afonso Florence",
+    "uf": "BA",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "136811",
+    "nome": "Afonso Hamm",
+    "uf": "RS",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178835",
+    "nome": "Afonso Motta",
+    "uf": "RS",
+    "partido": "PDT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160527",
+    "nome": "Aguinaldo Ribeiro",
+    "uf": "PB",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204495",
+    "nome": "Airton Faleiro",
+    "uf": "PA",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204549",
+    "nome": "AJ Albuquerque",
+    "uf": "CE",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73579",
+    "nome": "Alberto Fraga",
+    "uf": "DF",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220538",
+    "nome": "Albuquerque",
+    "uf": "RR",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160559",
+    "nome": "Alceu Moreira",
+    "uf": "RS",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204501",
+    "nome": "Alencar Santana",
+    "uf": "SP",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178972",
+    "nome": "Alex Manente",
+    "uf": "SP",
+    "partido": "CIDADANIA",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220542",
+    "nome": "Alexandre Guimarães",
+    "uf": "TO",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160545",
+    "nome": "Alexandre Leite",
+    "uf": "SP",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220554",
+    "nome": "Alexandre Lindenmeyer",
+    "uf": "RS",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "221148",
+    "nome": "Alfredinho",
+    "uf": "SP",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220576",
+    "nome": "Alfredo Gaspar",
+    "uf": "AL",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74057",
+    "nome": "Alice Portugal",
+    "uf": "BA",
+    "partido": "PCdoB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178927",
+    "nome": "Aliel Machado",
+    "uf": "PR",
+    "partido": "PV",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204353",
+    "nome": "Aline Gurgel",
+    "uf": "AP",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178937",
+    "nome": "Altineu Côrtes",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178881",
+    "nome": "Aluisio Mendes",
+    "uf": "MA",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220707",
+    "nome": "Amanda Gentil",
+    "uf": "MA",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204356",
+    "nome": "Amaro Neto",
+    "uf": "ES",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220715",
+    "nome": "Amom Mandel",
+    "uf": "AM",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "107970",
+    "nome": "Ana Paula Leão",
+    "uf": "MG",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220556",
+    "nome": "Ana Paula Lima",
+    "uf": "SC",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220632",
+    "nome": "Ana Pimentel",
+    "uf": "MG",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178831",
+    "nome": "André Abdon",
+    "uf": "AP",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220657",
+    "nome": "André Fernandes",
+    "uf": "CE",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204423",
+    "nome": "André Ferreira",
+    "uf": "PE",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "133439",
+    "nome": "André Figueiredo",
+    "uf": "CE",
+    "partido": "PDT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178882",
+    "nome": "André Fufuca",
+    "uf": "MA",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204515",
+    "nome": "André Janones",
+    "uf": "MG",
+    "partido": "REDE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220676",
+    "nome": "Andreia Siqueira",
+    "uf": "PA",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "123756",
+    "nome": "Antônia Lúcia",
+    "uf": "AC",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220544",
+    "nome": "Antonio Andrade",
+    "uf": "TO",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160553",
+    "nome": "Antonio Brito",
+    "uf": "BA",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220638",
+    "nome": "Antonio Carlos Rodrigues",
+    "uf": "SP",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220675",
+    "nome": "Antônio Doido",
+    "uf": "PA",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220549",
+    "nome": "Any Ortiz",
+    "uf": "RS",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73433",
+    "nome": "Arlindo Chinaglia",
+    "uf": "SP",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141391",
+    "nome": "Arnaldo Jardim",
+    "uf": "SP",
+    "partido": "CIDADANIA",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160541",
+    "nome": "Arthur Lira",
+    "uf": "AL",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160600",
+    "nome": "Arthur Oliveira Maia",
+    "uf": "BA",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74090",
+    "nome": "Átila Lins",
+    "uf": "AM",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "123086",
+    "nome": "Átila Lira",
+    "uf": "PI",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160665",
+    "nome": "Augusto Coutinho",
+    "uf": "PE",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160512",
+    "nome": "Aureo Ribeiro",
+    "uf": "RJ",
+    "partido": "SOLIDARIEDADE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "69871",
+    "nome": "Bacelar",
+    "uf": "BA",
+    "partido": "PV",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178975",
+    "nome": "Baleia Rossi",
+    "uf": "SP",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220605",
+    "nome": "Bandeira de Mello",
+    "uf": "RJ",
+    "partido": "PV",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220612",
+    "nome": "Bebeto",
+    "uf": "RJ",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73701",
+    "nome": "Benedita da Silva",
+    "uf": "RJ",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "109429",
+    "nome": "Benes Leocádio",
+    "uf": "RN",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204358",
+    "nome": "Beto Pereira",
+    "uf": "MS",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220698",
+    "nome": "Beto Preto",
+    "uf": "PR",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220683",
+    "nome": "Beto Richa",
+    "uf": "PR",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204374",
+    "nome": "Bia Kicis",
+    "uf": "DF",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204388",
+    "nome": "Bibo Nunes",
+    "uf": "RS",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160538",
+    "nome": "Bohn Gass",
+    "uf": "RS",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "210989",
+    "nome": "Bruno Farias",
+    "uf": "MG",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220635",
+    "nome": "Bruno Ganem",
+    "uf": "SP",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220574",
+    "nome": "Cabo Gilberto Silva",
+    "uf": "PB",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220548",
+    "nome": "Camila Jara",
+    "uf": "MS",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204572",
+    "nome": "Capitão Alberto Neto",
+    "uf": "AM",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220690",
+    "nome": "Capitão Alden",
+    "uf": "BA",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178829",
+    "nome": "Capitão Augusto",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "213762",
+    "nome": "Carla Dickson",
+    "uf": "RN",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204361",
+    "nome": "Carlos Chiodini",
+    "uf": "SC",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178962",
+    "nome": "Carlos Gomes",
+    "uf": "RS",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178993",
+    "nome": "Carlos Henrique Gaguim",
+    "uf": "TO",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204460",
+    "nome": "Carlos Jordy",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74262",
+    "nome": "Carlos Sampaio",
+    "uf": "SP",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204426",
+    "nome": "Carlos Veras",
+    "uf": "PE",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141398",
+    "nome": "Carlos Zarattini",
+    "uf": "SP",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220704",
+    "nome": "Carol Dartora",
+    "uf": "PR",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204369",
+    "nome": "Caroline de Toni",
+    "uf": "SC",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220699",
+    "nome": "Castro Neto",
+    "uf": "PI",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "206018",
+    "nome": "Célia Xakriabá",
+    "uf": "MG",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178876",
+    "nome": "Célio Silveira",
+    "uf": "GO",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204488",
+    "nome": "Célio Studart",
+    "uf": "CE",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73441",
+    "nome": "Celso Russomanno",
+    "uf": "SP",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204496",
+    "nome": "Celso Sabino",
+    "uf": "PA",
+    "partido": "PDT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204504",
+    "nome": "Cezinha de Madureira",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "205476",
+    "nome": "Charles Fernandes",
+    "uf": "BA",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74171",
+    "nome": "Chico Alencar",
+    "uf": "RJ",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204462",
+    "nome": "Chris Tonietto",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220665",
+    "nome": "Clarissa Tércio",
+    "uf": "PE",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74537",
+    "nome": "Claudio Cajado",
+    "uf": "BA",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141408",
+    "nome": "Cleber Verde",
+    "uf": "MA",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "88256",
+    "nome": "Clodoaldo Magalhães",
+    "uf": "PE",
+    "partido": "PV",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "98148",
+    "nome": "Cobalchini",
+    "uf": "SC",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220594",
+    "nome": "Coronel Assis",
+    "uf": "MT",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204378",
+    "nome": "Coronel Chrisóstomo",
+    "uf": "RO",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220595",
+    "nome": "Coronel Fernanda",
+    "uf": "MT",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220666",
+    "nome": "Coronel Meira",
+    "uf": "PE",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220590",
+    "nome": "Coronel Ulysses",
+    "uf": "AC",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220608",
+    "nome": "Cristiane Lopes",
+    "uf": "RO",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204355",
+    "nome": "Da Vitoria",
+    "uf": "ES",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141411",
+    "nome": "Dagoberto Nogueira",
+    "uf": "MS",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220555",
+    "nome": "Daiana Santos",
+    "uf": "RS",
+    "partido": "PCdoB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220692",
+    "nome": "Dal Barreto",
+    "uf": "BA",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74467",
+    "nome": "Damião Feliciano",
+    "uf": "PB",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220629",
+    "nome": "Dandara",
+    "uf": "MG",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220603",
+    "nome": "Dani Cunha",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220571",
+    "nome": "Daniel Agrobom",
+    "uf": "GO",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74060",
+    "nome": "Daniel Almeida",
+    "uf": "BA",
+    "partido": "PCdoB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220582",
+    "nome": "Daniel Barbosa",
+    "uf": "AL",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204367",
+    "nome": "Daniel Freitas",
+    "uf": "SC",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204409",
+    "nome": "Daniel Trzeciak",
+    "uf": "RS",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204459",
+    "nome": "Daniela do Waguinho",
+    "uf": "RJ",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220557",
+    "nome": "Daniela Reinehr",
+    "uf": "SC",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "62881",
+    "nome": "Danilo Forte",
+    "uf": "CE",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160552",
+    "nome": "Danrlei de Deus Hinterholz",
+    "uf": "RS",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204511",
+    "nome": "David Soares",
+    "uf": "SP",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220659",
+    "nome": "Dayany Bittencourt",
+    "uf": "CE",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220539",
+    "nome": "Defensor Stélio Dener",
+    "uf": "RR",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220565",
+    "nome": "Delegada Adriana Accorsi",
+    "uf": "GO",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220625",
+    "nome": "Delegada Ione",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220561",
+    "nome": "Delegada Katarina",
+    "uf": "SE",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220642",
+    "nome": "Delegado Bruno Lima",
+    "uf": "SP",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220673",
+    "nome": "Delegado Caveira",
+    "uf": "PA",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220649",
+    "nome": "Delegado da Cunha",
+    "uf": "SP",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178908",
+    "nome": "Delegado Éder Mauro",
+    "uf": "PA",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220583",
+    "nome": "Delegado Fabio Costa",
+    "uf": "AL",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204512",
+    "nome": "Delegado Marcelo Freitas",
+    "uf": "MG",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220701",
+    "nome": "Delegado Matheus Laiola",
+    "uf": "PR",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220652",
+    "nome": "Delegado Palumbo",
+    "uf": "SP",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220654",
+    "nome": "Delegado Paulo Bilynskyj",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220553",
+    "nome": "Denise Pessôa",
+    "uf": "RS",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220689",
+    "nome": "Detinha",
+    "uf": "MA",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160588",
+    "nome": "Diego Andrade",
+    "uf": "MG",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220691",
+    "nome": "Diego Coronel",
+    "uf": "BA",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178929",
+    "nome": "Diego Garcia",
+    "uf": "PR",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73768",
+    "nome": "Dilceu Sperafico",
+    "uf": "PR",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220671",
+    "nome": "Dilvanda Faro",
+    "uf": "PA",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160599",
+    "nome": "Dimas Fabiano",
+    "uf": "MG",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220602",
+    "nome": "Dimas Gadelha",
+    "uf": "RJ",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "143632",
+    "nome": "Domingos Neto",
+    "uf": "CE",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160758",
+    "nome": "Domingos Sávio",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220573",
+    "nome": "Dorinaldo Malafaia",
+    "uf": "AP",
+    "partido": "PDT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204450",
+    "nome": "Doutor Luizinho",
+    "uf": "RJ",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "227991",
+    "nome": "Dr Flávio",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220614",
+    "nome": "Dr. Daniel Soranz",
+    "uf": "RJ",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220610",
+    "nome": "Dr. Fernando Máximo",
+    "uf": "RO",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220688",
+    "nome": "Dr. Francisco",
+    "uf": "PI",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204518",
+    "nome": "Dr. Frederico",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220570",
+    "nome": "Dr. Ismael Alexandrino",
+    "uf": "GO",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204481",
+    "nome": "Dr. Jaziel",
+    "uf": "CE",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204351",
+    "nome": "Dr. Luiz Ovando",
+    "uf": "MS",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220528",
+    "nome": "Dr. Victor Linhalis",
+    "uf": "ES",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204412",
+    "nome": "Dr. Zacharias Calil",
+    "uf": "GO",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220674",
+    "nome": "Dra. Alessandra Haber",
+    "uf": "PA",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220686",
+    "nome": "Duarte Jr.",
+    "uf": "MA",
+    "partido": "AVANTE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220540",
+    "nome": "Duda Ramos",
+    "uf": "RR",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220623",
+    "nome": "Duda Salabert",
+    "uf": "MG",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204541",
+    "nome": "Eduardo Bismarck",
+    "uf": "CE",
+    "partido": "PV",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141421",
+    "nome": "Eduardo da Fonte",
+    "uf": "PE",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220589",
+    "nome": "Eduardo Velloso",
+    "uf": "AC",
+    "partido": "SOLIDARIEDADE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74075",
+    "nome": "Elcione Barbalho",
+    "uf": "PA",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204364",
+    "nome": "Eli Borges",
+    "uf": "TO",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178854",
+    "nome": "Elmar Nascimento",
+    "uf": "BA",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "198783",
+    "nome": "Emanuel Pinheiro Neto",
+    "uf": "MT",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "161550",
+    "nome": "Emidinho Madeira",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "230765",
+    "nome": "Enfermeira Rejane",
+    "uf": "RJ",
+    "partido": "PCdoB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220663",
+    "nome": "Eriberto Medeiros",
+    "uf": "PE",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220645",
+    "nome": "Erika Hilton",
+    "uf": "SP",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160575",
+    "nome": "Erika Kokay",
+    "uf": "DF",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160640",
+    "nome": "Eros Biondini",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74454",
+    "nome": "Eunício Oliveira",
+    "uf": "CE",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178871",
+    "nome": "Evair Vieira de Melo",
+    "uf": "ES",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178905",
+    "nome": "Fabio Garcia",
+    "uf": "MT",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220681",
+    "nome": "Fábio Macedo",
+    "uf": "MA",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "171623",
+    "nome": "Fabio Reis",
+    "uf": "SE",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204368",
+    "nome": "Fabio Schiochet",
+    "uf": "SC",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220653",
+    "nome": "Fábio Teruel",
+    "uf": "SP",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220712",
+    "nome": "Fausto Jr.",
+    "uf": "AM",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "66828",
+    "nome": "Fausto Pinato",
+    "uf": "SP",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220646",
+    "nome": "Felipe Becari",
+    "uf": "SP",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "72442",
+    "nome": "Felipe Carreras",
+    "uf": "PE",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204398",
+    "nome": "Felipe Francischini",
+    "uf": "PR",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160666",
+    "nome": "Félix Mendonça Júnior",
+    "uf": "BA",
+    "partido": "PDT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204407",
+    "nome": "Fernanda Melchionna",
+    "uf": "RS",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220656",
+    "nome": "Fernanda Pessoa",
+    "uf": "CE",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141431",
+    "nome": "Fernando Coelho Filho",
+    "uf": "PE",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204445",
+    "nome": "Fernando Mineiro",
+    "uf": "RN",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "92699",
+    "nome": "Fernando Monteiro",
+    "uf": "PE",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204427",
+    "nome": "Fernando Rodolfo",
+    "uf": "PE",
+    "partido": "PRD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204411",
+    "nome": "Filipe Barros",
+    "uf": "PR",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220545",
+    "nome": "Filipe Martins",
+    "uf": "TO",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160598",
+    "nome": "Flávia Morais",
+    "uf": "GO",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "191923",
+    "nome": "Flávio Nogueira",
+    "uf": "PI",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220700",
+    "nome": "Florentino Neto",
+    "uf": "PI",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220551",
+    "nome": "Franciane Bayer",
+    "uf": "RS",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204494",
+    "nome": "Fred Costa",
+    "uf": "MG",
+    "partido": "PRD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220534",
+    "nome": "Fred Linhares",
+    "uf": "DF",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "224117",
+    "nome": "Gabriel Mota",
+    "uf": "RR",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220708",
+    "nome": "Gabriel Nunes",
+    "uf": "BA",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204473",
+    "nome": "General Girão",
+    "uf": "RN",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220611",
+    "nome": "General Pazuello",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178966",
+    "nome": "Geovania de Sá",
+    "uf": "SC",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220702",
+    "nome": "Geraldo Mendes",
+    "uf": "PR",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74374",
+    "nome": "Geraldo Resende",
+    "uf": "MS",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204394",
+    "nome": "Gervásio Maia",
+    "uf": "PB",
+    "partido": "PCdoB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204491",
+    "nome": "Gilberto Abramo",
+    "uf": "MG",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74270",
+    "nome": "Gilberto Nascimento",
+    "uf": "SP",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220529",
+    "nome": "Gilson Daniel",
+    "uf": "ES",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204365",
+    "nome": "Gilson Marques",
+    "uf": "SC",
+    "partido": "NOVO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220526",
+    "nome": "Gilvan da Federal",
+    "uf": "ES",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160673",
+    "nome": "Giovani Cherini",
+    "uf": "RS",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "152605",
+    "nome": "Glauber Braga",
+    "uf": "RJ",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204419",
+    "nome": "Glaustin da Fokus",
+    "uf": "GO",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "236284",
+    "nome": "Glaycon Franco",
+    "uf": "MG",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "107283",
+    "nome": "Gleisi Hoffmann",
+    "uf": "PR",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "198197",
+    "nome": "Greyce Elias",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204531",
+    "nome": "Guilherme Derrite",
+    "uf": "SP",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220664",
+    "nome": "Guilherme Uchoa",
+    "uf": "PE",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220568",
+    "nome": "Gustavo Gayer",
+    "uf": "GO",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204408",
+    "nome": "Gustinho Ribeiro",
+    "uf": "SE",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204456",
+    "nome": "Gutemberg Reis",
+    "uf": "RJ",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178964",
+    "nome": "Heitor Schuch",
+    "uf": "RS",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178873",
+    "nome": "Helder Salomão",
+    "uf": "ES",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220537",
+    "nome": "Helena Lima",
+    "uf": "RR",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204444",
+    "nome": "Helio Lopes",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220672",
+    "nome": "Henderson Pinto",
+    "uf": "PA",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204539",
+    "nome": "Hercílio Coelho Diniz",
+    "uf": "MG",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178884",
+    "nome": "Hildo Rocha",
+    "uf": "MA",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141450",
+    "nome": "Hugo Leal",
+    "uf": "RJ",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160674",
+    "nome": "Hugo Motta",
+    "uf": "PB",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220563",
+    "nome": "Icaro de Valmir",
+    "uf": "SE",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204533",
+    "nome": "Idilvan Alencar",
+    "uf": "CE",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204508",
+    "nome": "Igor Timo",
+    "uf": "MG",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "235620",
+    "nome": "Ilacir Bicalho",
+    "uf": "MG",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74295",
+    "nome": "Inácio Arruda",
+    "uf": "CE",
+    "partido": "PCdoB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "98615",
+    "nome": "Ismael",
+    "uf": "SC",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204436",
+    "nome": "Isnaldo Bulhões Jr.",
+    "uf": "AL",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "225846",
+    "nome": "Itamar Paim",
+    "uf": "PR",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220696",
+    "nome": "Ivoneide Caetano",
+    "uf": "BA",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220670",
+    "nome": "Iza Arruda",
+    "uf": "PE",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220527",
+    "nome": "Jack Rocha",
+    "uf": "ES",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220697",
+    "nome": "Jadyel Alencar",
+    "uf": "PI",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74848",
+    "nome": "Jandira Feghali",
+    "uf": "RJ",
+    "partido": "PCdoB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220567",
+    "nome": "Jeferson Rodrigues",
+    "uf": "GO",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74273",
+    "nome": "Jefferson Campos",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141456",
+    "nome": "Jilmar Tatto",
+    "uf": "SP",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "235869",
+    "nome": "João Carlos",
+    "uf": "AM",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141458",
+    "nome": "João Carlos Bacelar",
+    "uf": "BA",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "230957",
+    "nome": "João Cury",
+    "uf": "SP",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178970",
+    "nome": "João Daniel",
+    "uf": "SE",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141459",
+    "nome": "João Maia",
+    "uf": "RN",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178910",
+    "nome": "Joaquim Passarinho",
+    "uf": "PA",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160548",
+    "nome": "Jonas Donizette",
+    "uf": "SP",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "235800",
+    "nome": "Jorge Araújo",
+    "uf": "BA",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "205550",
+    "nome": "Jorge Braz",
+    "uf": "RJ",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "214694",
+    "nome": "Jorge Goetten",
+    "uf": "SC",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178857",
+    "nome": "Jorge Solla",
+    "uf": "BA",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141464",
+    "nome": "José Airton Félix Cirilo",
+    "uf": "CE",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204472",
+    "nome": "José Medeiros",
+    "uf": "MT",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204391",
+    "nome": "José Nelto",
+    "uf": "GO",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74079",
+    "nome": "José Priante",
+    "uf": "PA",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74554",
+    "nome": "José Rocha",
+    "uf": "BA",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "209189",
+    "nome": "Joseildo Ramos",
+    "uf": "BA",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220578",
+    "nome": "Josenildo",
+    "uf": "AP",
+    "partido": "PDT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204563",
+    "nome": "Josimar Maranhãozinho",
+    "uf": "MA",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "215043",
+    "nome": "Josivaldo JP",
+    "uf": "MA",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204474",
+    "nome": "Juarez Costa",
+    "uf": "MT",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220559",
+    "nome": "Julia Zanatta",
+    "uf": "SC",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220640",
+    "nome": "Juliana Cardoso",
+    "uf": "SP",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "66385",
+    "nome": "Julio Arcoverde",
+    "uf": "PI",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74317",
+    "nome": "Júlio Cesar",
+    "uf": "PI",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204372",
+    "nome": "Julio Cesar Ribeiro",
+    "uf": "DF",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74253",
+    "nome": "Julio Lopes",
+    "uf": "RJ",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204457",
+    "nome": "Juninho do Pneu",
+    "uf": "RJ",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204520",
+    "nome": "Junio Amaral",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204497",
+    "nome": "Júnior Ferrari",
+    "uf": "PA",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204574",
+    "nome": "Junior Lourenço",
+    "uf": "MA",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204550",
+    "nome": "Júnior Mano",
+    "uf": "CE",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178886",
+    "nome": "Juscelino Filho",
+    "uf": "MA",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220677",
+    "nome": "Keniston Braga",
+    "uf": "PA",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "162067",
+    "nome": "Kiko Celeguim",
+    "uf": "SP",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204536",
+    "nome": "Kim Kataguiri",
+    "uf": "SP",
+    "partido": "MISSÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "98057",
+    "nome": "Lafayette de Andrada",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74856",
+    "nome": "Laura Carneiro",
+    "uf": "RJ",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178832",
+    "nome": "Leandre",
+    "uf": "PR",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220566",
+    "nome": "Lêda Borges",
+    "uf": "GO",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "80815",
+    "nome": "Leo Prates",
+    "uf": "BA",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74156",
+    "nome": "Leonardo Monteiro",
+    "uf": "MG",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "92102",
+    "nome": "Leur Lomanto Júnior",
+    "uf": "BA",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "139285",
+    "nome": "Lídice da Mata",
+    "uf": "BA",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74585",
+    "nome": "Lincoln Portela",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74858",
+    "nome": "Lindbergh Farias",
+    "uf": "RJ",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220662",
+    "nome": "Lucas Ramos",
+    "uf": "PE",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204404",
+    "nome": "Lucas Redecker",
+    "uf": "RS",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220581",
+    "nome": "Luciano Amaral",
+    "uf": "AL",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74478",
+    "nome": "Luciano Bivar",
+    "uf": "PE",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178931",
+    "nome": "Luciano Ducci",
+    "uf": "PR",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178954",
+    "nome": "Lucio Mosquini",
+    "uf": "RO",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204410",
+    "nome": "Luisa Canziani",
+    "uf": "PR",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141485",
+    "nome": "Luiz Carlos Busato",
+    "uf": "RS",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73778",
+    "nome": "Luiz Carlos Hauly",
+    "uf": "PR",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204485",
+    "nome": "Luiz Carlos Motta",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74041",
+    "nome": "Luiz Couto",
+    "uf": "PB",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141487",
+    "nome": "Luiz Fernando Faria",
+    "uf": "MG",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220658",
+    "nome": "Luiz Gastão",
+    "uf": "CE",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204455",
+    "nome": "Luiz Lima",
+    "uf": "RJ",
+    "partido": "NOVO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "162332",
+    "nome": "Luiz Nishimori",
+    "uf": "PR",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204526",
+    "nome": "Luiz Philippe de Orleans e Bragança",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74784",
+    "nome": "Luiza Erundina",
+    "uf": "SP",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178866",
+    "nome": "Luizianne Lins",
+    "uf": "CE",
+    "partido": "REDE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220669",
+    "nome": "Lula da Fonte",
+    "uf": "PE",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "166402",
+    "nome": "Magda Mofatto",
+    "uf": "GO",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220648",
+    "nome": "Marangoni",
+    "uf": "SP",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "156190",
+    "nome": "Marcel van Hattem",
+    "uf": "RS",
+    "partido": "NOVO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "179000",
+    "nome": "Marcelo Álvaro Antônio",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220599",
+    "nome": "Marcelo Crivella",
+    "uf": "RJ",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "133810",
+    "nome": "Marcelo Moraes",
+    "uf": "RS",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204558",
+    "nome": "Marcelo Nilo",
+    "uf": "BA",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160161",
+    "nome": "Marcelo Queiroz",
+    "uf": "RJ",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178983",
+    "nome": "Marcio Alvino",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "179001",
+    "nome": "Márcio Biolchi",
+    "uf": "RS",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220687",
+    "nome": "Márcio Honaiser",
+    "uf": "MA",
+    "partido": "SOLIDARIEDADE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "81055",
+    "nome": "Márcio Jerry",
+    "uf": "MA",
+    "partido": "PCdoB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "150418",
+    "nome": "Márcio Marinho",
+    "uf": "BA",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160535",
+    "nome": "Marcon",
+    "uf": "RS",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204431",
+    "nome": "Marcos Aurélio Sampaio",
+    "uf": "PI",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "236375",
+    "nome": "Marcos Braz",
+    "uf": "RJ",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204506",
+    "nome": "Marcos Pereira",
+    "uf": "SP",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220547",
+    "nome": "Marcos Pollon",
+    "uf": "MS",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178943",
+    "nome": "Marcos Soares",
+    "uf": "RJ",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220604",
+    "nome": "Marcos Tavares",
+    "uf": "RJ",
+    "partido": "PDT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220668",
+    "nome": "Maria Arraes",
+    "uf": "PE",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74398",
+    "nome": "Maria do Rosário",
+    "uf": "RS",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204540",
+    "nome": "Maria Rosas",
+    "uf": "SP",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220637",
+    "nome": "Marina Silva",
+    "uf": "SP",
+    "partido": "REDE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220655",
+    "nome": "Mario Frias",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74158",
+    "nome": "Mário Heringer",
+    "uf": "MG",
+    "partido": "PDT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178858",
+    "nome": "Mário Negromonte Jr.",
+    "uf": "BA",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204566",
+    "nome": "Marreca Filho",
+    "uf": "MA",
+    "partido": "PRD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220572",
+    "nome": "Marussa Boldrin",
+    "uf": "GO",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178843",
+    "nome": "Marx Beltrão",
+    "uf": "AL",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220661",
+    "nome": "Matheus Noronha",
+    "uf": "CE",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220609",
+    "nome": "Maurício Carvalho",
+    "uf": "RO",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220628",
+    "nome": "Mauricio do Vôlei",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220550",
+    "nome": "Mauricio Marcon",
+    "uf": "RS",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220647",
+    "nome": "Mauricio Neves",
+    "uf": "SP",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204486",
+    "nome": "Mauro Benevides Filho",
+    "uf": "CE",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220607",
+    "nome": "Max Lemos",
+    "uf": "RJ",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220591",
+    "nome": "Meire Serafim",
+    "uf": "AC",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74428",
+    "nome": "Mendonça Filho",
+    "uf": "PE",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "188097",
+    "nome": "Merlong Solano",
+    "uf": "PI",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220585",
+    "nome": "Mersinho Lucena",
+    "uf": "PB",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220530",
+    "nome": "Messias Donato",
+    "uf": "ES",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "171786",
+    "nome": "Miguel Ângelo",
+    "uf": "MG",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178985",
+    "nome": "Miguel Lombardi",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "154178",
+    "nome": "Milton Vieira",
+    "uf": "SP",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178895",
+    "nome": "Misael Varella",
+    "uf": "MG",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160561",
+    "nome": "Missionário José Olimpio",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178997",
+    "nome": "Moses Rodrigues",
+    "uf": "CE",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220617",
+    "nome": "Murillo Gouvea",
+    "uf": "RJ",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204453",
+    "nome": "Natália Bonavides",
+    "uf": "RN",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204449",
+    "nome": "Nelson Barbudo",
+    "uf": "MT",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220622",
+    "nome": "Nely Aquino",
+    "uf": "MG",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220703",
+    "nome": "Neto Carletto",
+    "uf": "BA",
+    "partido": "AVANTE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178896",
+    "nome": "Newton Cardoso Jr",
+    "uf": "MG",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204479",
+    "nome": "Nicoletti",
+    "uf": "RR",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "209787",
+    "nome": "Nikolas Ferreira",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178986",
+    "nome": "Nilto Tatto",
+    "uf": "SP",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204498",
+    "nome": "Olival Marques",
+    "uf": "PA",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178987",
+    "nome": "Orlando Silva",
+    "uf": "SP",
+    "partido": "PCdoB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73692",
+    "nome": "Osmar Terra",
+    "uf": "RS",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204441",
+    "nome": "Otoni de Paula",
+    "uf": "RJ",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160556",
+    "nome": "Padre João",
+    "uf": "MG",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "180214",
+    "nome": "Pastor Diniz",
+    "uf": "RR",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160642",
+    "nome": "Pastor Eurico",
+    "uf": "PE",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204570",
+    "nome": "Pastor Gil",
+    "uf": "MA",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220615",
+    "nome": "Pastor Henrique Vieira",
+    "uf": "RJ",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204553",
+    "nome": "Pastor Sargento Isidório",
+    "uf": "BA",
+    "partido": "AVANTE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74160",
+    "nome": "Patrus Ananias",
+    "uf": "MG",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "171617",
+    "nome": "Paulão",
+    "uf": "AL",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141518",
+    "nome": "Paulinho da Força",
+    "uf": "SP",
+    "partido": "SOLIDARIEDADE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141516",
+    "nome": "Paulo Abi-Ackel",
+    "uf": "MG",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220650",
+    "nome": "Paulo Alexandre Barbosa",
+    "uf": "SP",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178860",
+    "nome": "Paulo Azi",
+    "uf": "BA",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160517",
+    "nome": "Paulo Folletto",
+    "uf": "ES",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160558",
+    "nome": "Paulo Freire Costa",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204492",
+    "nome": "Paulo Guedes",
+    "uf": "MG",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "233592",
+    "nome": "Paulo Lemos",
+    "uf": "AP",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220685",
+    "nome": "Paulo Litro",
+    "uf": "PR",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74574",
+    "nome": "Paulo Magalhães",
+    "uf": "BA",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74400",
+    "nome": "Paulo Pimenta",
+    "uf": "RS",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "154700",
+    "nome": "Paulo Soares",
+    "uf": "SP",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141488",
+    "nome": "Paulo Teixeira",
+    "uf": "SP",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220630",
+    "nome": "Pedro Aihara",
+    "uf": "MG",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220667",
+    "nome": "Pedro Campos",
+    "uf": "PE",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "122974",
+    "nome": "Pedro Lucas Fernandes",
+    "uf": "MA",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204395",
+    "nome": "Pedro Lupion",
+    "uf": "PR",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "122158",
+    "nome": "Pedro Paulo",
+    "uf": "RJ",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160604",
+    "nome": "Pedro Uczai",
+    "uf": "SC",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204406",
+    "nome": "Pedro Westphalen",
+    "uf": "RS",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "161440",
+    "nome": "Pezenti",
+    "uf": "SC",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204524",
+    "nome": "Pinheirinho",
+    "uf": "MG",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73486",
+    "nome": "Pompeo de Mattos",
+    "uf": "RS",
+    "partido": "PDT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160601",
+    "nome": "Pr. Marco Feliciano",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220533",
+    "nome": "Prof. Reginaldo Veras",
+    "uf": "DF",
+    "partido": "PV",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204390",
+    "nome": "Professor Alcides",
+    "uf": "GO",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "221338",
+    "nome": "Professora Luciene Cavalcante",
+    "uf": "SP",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160641",
+    "nome": "Professora Marcivania",
+    "uf": "AP",
+    "partido": "PCdoB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220586",
+    "nome": "Rafael Brito",
+    "uf": "AL",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "233594",
+    "nome": "Rafael Fera",
+    "uf": "RO",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220532",
+    "nome": "Rafael Prudente",
+    "uf": "DF",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220626",
+    "nome": "Rafael Simoes",
+    "uf": "MG",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204567",
+    "nome": "Raimundo Costa",
+    "uf": "BA",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74084",
+    "nome": "Raimundo Santos",
+    "uf": "PA",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "115200",
+    "nome": "Raniery Paulino",
+    "uf": "PB",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74161",
+    "nome": "Reginaldo Lopes",
+    "uf": "MG",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220606",
+    "nome": "Reimont",
+    "uf": "RJ",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "153423",
+    "nome": "Renilce Nicodemos",
+    "uf": "PA",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73801",
+    "nome": "Renildo Calheiros",
+    "uf": "PE",
+    "partido": "PCdoB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "175765",
+    "nome": "Ribamar Silva",
+    "uf": "SP",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "221329",
+    "nome": "Ricardo Abrão",
+    "uf": "RJ",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220543",
+    "nome": "Ricardo Ayres",
+    "uf": "TO",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73788",
+    "nome": "Ricardo Barros",
+    "uf": "PR",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204362",
+    "nome": "Ricardo Guidi",
+    "uf": "SC",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220694",
+    "nome": "Ricardo Maia",
+    "uf": "BA",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220633",
+    "nome": "Ricardo Salles",
+    "uf": "SP",
+    "partido": "NOVO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204489",
+    "nome": "Robério Monteiro",
+    "uf": "CE",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220693",
+    "nome": "Roberta Roma",
+    "uf": "BA",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220588",
+    "nome": "Roberto Duarte",
+    "uf": "AC",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220613",
+    "nome": "Roberto Monteiro Pai",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220624",
+    "nome": "Robinson Faria",
+    "uf": "RN",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220546",
+    "nome": "Rodolfo Nogueira",
+    "uf": "MS",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "230767",
+    "nome": "Rodrigo da Zaeli",
+    "uf": "MT",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141531",
+    "nome": "Rodrigo de Castro",
+    "uf": "MG",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220641",
+    "nome": "Rodrigo Gambale",
+    "uf": "SP",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141533",
+    "nome": "Rodrigo Rollemberg",
+    "uf": "DF",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "165470",
+    "nome": "Rodrigo Valadares",
+    "uf": "SE",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220695",
+    "nome": "Rogéria Santos",
+    "uf": "BA",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204480",
+    "nome": "Rogério Correia",
+    "uf": "MG",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160629",
+    "nome": "Romero Rodrigues",
+    "uf": "PB",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204525",
+    "nome": "Rosana Valle",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178945",
+    "nome": "Rosangela Gomes",
+    "uf": "RJ",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220644",
+    "nome": "Rosangela Moro",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220620",
+    "nome": "Rosângela Reis",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74371",
+    "nome": "Rubens Otoni",
+    "uf": "GO",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178887",
+    "nome": "Rubens Pereira Júnior",
+    "uf": "MA",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73604",
+    "nome": "Rui Falcão",
+    "uf": "SP",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160635",
+    "nome": "Ruy Carneiro",
+    "uf": "PB",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204535",
+    "nome": "Sâmia Bomfim",
+    "uf": "SP",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220631",
+    "nome": "Samuel Viana",
+    "uf": "MG",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204416",
+    "nome": "Sanderson",
+    "uf": "RS",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160621",
+    "nome": "Sandro Alex",
+    "uf": "PR",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "236518",
+    "nome": "Santin Roveda",
+    "uf": "PR",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204387",
+    "nome": "Sargento Fahur",
+    "uf": "PR",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220621",
+    "nome": "Sargento Gonçalves",
+    "uf": "RN",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220618",
+    "nome": "Sargento Portugal",
+    "uf": "RJ",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220713",
+    "nome": "Saullo Vianna",
+    "uf": "AM",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "226837",
+    "nome": "Saulo Pedroso",
+    "uf": "SP",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "73808",
+    "nome": "Sérgio Brito",
+    "uf": "BA",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178933",
+    "nome": "Sergio Souza",
+    "uf": "PR",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "235776",
+    "nome": "Sérgio Turra",
+    "uf": "RS",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204557",
+    "nome": "Sidney Leite",
+    "uf": "AM",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204360",
+    "nome": "Silvia Cristina",
+    "uf": "RO",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204425",
+    "nome": "Silvio Costa Filho",
+    "uf": "PE",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220569",
+    "nome": "Silvye Alves",
+    "uf": "GO",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220651",
+    "nome": "Simone Marquetto",
+    "uf": "SP",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "104552",
+    "nome": "Socorro Neri",
+    "uf": "AC",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220643",
+    "nome": "Sônia Guajajara",
+    "uf": "SP",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178946",
+    "nome": "Soraya Santos",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178947",
+    "nome": "Sóstenes Cavalcante",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "92776",
+    "nome": "Stefano Aguiar",
+    "uf": "MG",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204534",
+    "nome": "Tabata Amaral",
+    "uf": "SP",
+    "partido": "PSB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220682",
+    "nome": "Tadeu Veneri",
+    "uf": "PR",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204464",
+    "nome": "Talíria Petrone",
+    "uf": "RJ",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220598",
+    "nome": "Tarcísio Motta",
+    "uf": "RJ",
+    "partido": "PSOL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220560",
+    "nome": "Thiago de Joaldo",
+    "uf": "SE",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220597",
+    "nome": "Thiago Flores",
+    "uf": "RO",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "143084",
+    "nome": "Tiago Dimas",
+    "uf": "TO",
+    "partido": "PODE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220684",
+    "nome": "Tião Medeiros",
+    "uf": "PR",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160976",
+    "nome": "Tiririca",
+    "uf": "SP",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178934",
+    "nome": "Toninho Wandscheer",
+    "uf": "PR",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "157130",
+    "nome": "Túlio Gadêlha",
+    "uf": "PE",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "236423",
+    "nome": "Valdir Trindade",
+    "uf": "PB",
+    "partido": "REPUBLICANOS",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160610",
+    "nome": "Valmir Assunção",
+    "uf": "BA",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74376",
+    "nome": "Vander Loubet",
+    "uf": "MS",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "235712",
+    "nome": "Vavá",
+    "uf": "MG",
+    "partido": "AVANTE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204396",
+    "nome": "Vermelho",
+    "uf": "PR",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "137070",
+    "nome": "Vicentinho Júnior",
+    "uf": "TO",
+    "partido": "PSDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "141555",
+    "nome": "Vinicius Carvalho",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160591",
+    "nome": "Vinicius Gurgel",
+    "uf": "AP",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "178992",
+    "nome": "Vitor Lippi",
+    "uf": "SP",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "91228",
+    "nome": "Waldemar Oliveira",
+    "uf": "PE",
+    "partido": "AVANTE",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160569",
+    "nome": "Waldenor Pereira",
+    "uf": "BA",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160518",
+    "nome": "Weliton Prado",
+    "uf": "MG",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "74043",
+    "nome": "Wellington Roberto",
+    "uf": "PB",
+    "partido": "PSD",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "224333",
+    "nome": "Welter",
+    "uf": "PR",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220564",
+    "nome": "Yandra Moura",
+    "uf": "SE",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220660",
+    "nome": "Yury do Paredão",
+    "uf": "CE",
+    "partido": "MDB",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "230768",
+    "nome": "Zé Adriano",
+    "uf": "AC",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220536",
+    "nome": "Zé Haroldo Cathedral",
+    "uf": "RR",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204559",
+    "nome": "Zé Neto",
+    "uf": "BA",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160632",
+    "nome": "Zé Silva",
+    "uf": "MG",
+    "partido": "UNIÃO",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220558",
+    "nome": "Zé Trovão",
+    "uf": "SC",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "204517",
+    "nome": "Zé Vitor",
+    "uf": "MG",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "160592",
+    "nome": "Zeca Dirceu",
+    "uf": "PR",
+    "partido": "PT",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220592",
+    "nome": "Zezinho Barbary",
+    "uf": "AC",
+    "partido": "PP",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "220552",
+    "nome": "Zucco",
+    "uf": "RS",
+    "partido": "PL",
+    "casa": "CAMARA"
+  },
+  {
+    "id": "5672",
+    "nome": "Alan Rick",
+    "uf": "AC",
+    "partido": "REPUBLICANOS",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5982",
+    "nome": "Alessandro Vieira",
+    "uf": "SE",
+    "partido": "MDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6358",
+    "nome": "Ana Paula Lobato",
+    "uf": "MA",
+    "partido": "PSB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5967",
+    "nome": "Angelo Coronel",
+    "uf": "BA",
+    "partido": "REPUBLICANOS",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6009",
+    "nome": "Astronauta Marcos Pontes",
+    "uf": "SP",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "4639",
+    "nome": "Beto Faro",
+    "uf": "PA",
+    "partido": "PT",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6336",
+    "nome": "Camilo Santana",
+    "uf": "CE",
+    "partido": "PT",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6295",
+    "nome": "Carlos Fávaro",
+    "uf": "MT",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5936",
+    "nome": "Carlos Portinho",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5990",
+    "nome": "Carlos Viana",
+    "uf": "MG",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "470",
+    "nome": "Chico Rodrigues",
+    "uf": "RR",
+    "partido": "PSB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5973",
+    "nome": "Cid Gomes",
+    "uf": "CE",
+    "partido": "PSB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "739",
+    "nome": "Ciro Nogueira",
+    "uf": "PI",
+    "partido": "PP",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6337",
+    "nome": "Cleitinho",
+    "uf": "MG",
+    "partido": "REPUBLICANOS",
+    "casa": "SENADO"
+  },
+  {
+    "id": "475",
+    "nome": "Confúcio Moura",
+    "uf": "RO",
+    "partido": "MDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6335",
+    "nome": "Damares Alves",
+    "uf": "DF",
+    "partido": "REPUBLICANOS",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5998",
+    "nome": "Daniella Ribeiro",
+    "uf": "PB",
+    "partido": "PP",
+    "casa": "SENADO"
+  },
+  {
+    "id": "3830",
+    "nome": "Davi Alcolumbre",
+    "uf": "AP",
+    "partido": "UNIÃO",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5793",
+    "nome": "Dr. Hiran",
+    "uf": "RR",
+    "partido": "PP",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5906",
+    "nome": "Dra. Eudócia",
+    "uf": "AL",
+    "partido": "PSDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "4994",
+    "nome": "Eduardo Braga",
+    "uf": "AM",
+    "partido": "MDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5976",
+    "nome": "Eduardo Girão",
+    "uf": "CE",
+    "partido": "NOVO",
+    "casa": "SENADO"
+  },
+  {
+    "id": "3777",
+    "nome": "Eduardo Gomes",
+    "uf": "TO",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "4642",
+    "nome": "Efraim Filho",
+    "uf": "PB",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5718",
+    "nome": "Eliziane Gama",
+    "uf": "MA",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "22",
+    "nome": "Esperidião Amin",
+    "uf": "SC",
+    "partido": "PP",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5953",
+    "nome": "Fabiano Contarato",
+    "uf": "ES",
+    "partido": "PT",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5917",
+    "nome": "Fernando Dueire",
+    "uf": "PE",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "345",
+    "nome": "Flávio Arns",
+    "uf": "PR",
+    "partido": "PSB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5894",
+    "nome": "Flávio Bolsonaro",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6008",
+    "nome": "Giordano",
+    "uf": "SP",
+    "partido": "PODEMOS",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6341",
+    "nome": "Hamilton Mourão",
+    "uf": "RS",
+    "partido": "REPUBLICANOS",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6381",
+    "nome": "Hermes Klann",
+    "uf": "SC",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5008",
+    "nome": "Humberto Costa",
+    "uf": "PE",
+    "partido": "PT",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5385",
+    "nome": "Irajá",
+    "uf": "TO",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6010",
+    "nome": "Ivete da Silveira",
+    "uf": "SC",
+    "partido": "MDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "4770",
+    "nome": "Izalci Lucas",
+    "uf": "DF",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "35",
+    "nome": "Jader Barbalho",
+    "uf": "PA",
+    "partido": "MDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6340",
+    "nome": "Jaime Bagattoli",
+    "uf": "RO",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "581",
+    "nome": "Jaques Wagner",
+    "uf": "BA",
+    "partido": "PT",
+    "casa": "SENADO"
+  },
+  {
+    "id": "4531",
+    "nome": "Jayme Campos",
+    "uf": "MT",
+    "partido": "UNIÃO",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5895",
+    "nome": "Jorge Kajuru",
+    "uf": "GO",
+    "partido": "PSB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6369",
+    "nome": "Jussara Lima",
+    "uf": "PI",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "4811",
+    "nome": "Laércio Oliveira",
+    "uf": "SE",
+    "partido": "PP",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5979",
+    "nome": "Leila Barros",
+    "uf": "DF",
+    "partido": "PDT",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5926",
+    "nome": "Lucas Barreto",
+    "uf": "AP",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "1186",
+    "nome": "Luis Carlos Heinze",
+    "uf": "RS",
+    "partido": "PP",
+    "casa": "SENADO"
+  },
+  {
+    "id": "631",
+    "nome": "Magno Malta",
+    "uf": "ES",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5376",
+    "nome": "Mara Gabrilli",
+    "uf": "SP",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "742",
+    "nome": "Marcelo Castro",
+    "uf": "PI",
+    "partido": "MDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "285",
+    "nome": "Marcio Bittar",
+    "uf": "AC",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5422",
+    "nome": "Marcos Rogério",
+    "uf": "RO",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5942",
+    "nome": "Marcos do Val",
+    "uf": "ES",
+    "partido": "AVANTE",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5985",
+    "nome": "Nelsinho Trad",
+    "uf": "MS",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5525",
+    "nome": "Omar Aziz",
+    "uf": "AM",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5924",
+    "nome": "Oriovisto Guimarães",
+    "uf": "PR",
+    "partido": "PSDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5523",
+    "nome": "Otto Alencar",
+    "uf": "BA",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "825",
+    "nome": "Paulo Paim",
+    "uf": "RS",
+    "partido": "PT",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5502",
+    "nome": "Plínio Valério",
+    "uf": "AM",
+    "partido": "PSDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5386",
+    "nome": "Professora Dorinha Seabra",
+    "uf": "TO",
+    "partido": "UNIÃO",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5012",
+    "nome": "Randolfe Rodrigues",
+    "uf": "AP",
+    "partido": "PT",
+    "casa": "SENADO"
+  },
+  {
+    "id": "70",
+    "nome": "Renan Calheiros",
+    "uf": "AL",
+    "partido": "MDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5207",
+    "nome": "Renan Filho",
+    "uf": "AL",
+    "partido": "MDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6025",
+    "nome": "Roberta Acioly",
+    "uf": "RR",
+    "partido": "REPUBLICANOS",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5732",
+    "nome": "Rodrigo Pacheco",
+    "uf": "MG",
+    "partido": "PSB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "4694",
+    "nome": "Rogerio Marinho",
+    "uf": "RN",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5352",
+    "nome": "Rogério Carvalho",
+    "uf": "SE",
+    "partido": "PT",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5322",
+    "nome": "Romário",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6331",
+    "nome": "Sergio Moro",
+    "uf": "PR",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5988",
+    "nome": "Soraya Thronicke",
+    "uf": "MS",
+    "partido": "PSB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5959",
+    "nome": "Styvenson Valentim",
+    "uf": "RN",
+    "partido": "PODEMOS",
+    "casa": "SENADO"
+  },
+  {
+    "id": "4560",
+    "nome": "Sérgio Petecão",
+    "uf": "AC",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "6338",
+    "nome": "Teresa Leitão",
+    "uf": "PE",
+    "partido": "PT",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5736",
+    "nome": "Tereza Cristina",
+    "uf": "MS",
+    "partido": "PP",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5899",
+    "nome": "Vanderlan Cardoso",
+    "uf": "GO",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5748",
+    "nome": "Veneziano Vital do Rêgo",
+    "uf": "PB",
+    "partido": "MDB",
+    "casa": "SENADO"
+  },
+  {
+    "id": "1173",
+    "nome": "Wellington Fagundes",
+    "uf": "MT",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5411",
+    "nome": "Weverton",
+    "uf": "MA",
+    "partido": "PDT",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5070",
+    "nome": "Wilder Morais",
+    "uf": "GO",
+    "partido": "PL",
+    "casa": "SENADO"
+  },
+  {
+    "id": "5783",
+    "nome": "Zenaide Maia",
+    "uf": "RN",
+    "partido": "PSD",
+    "casa": "SENADO"
+  },
+  {
+    "id": "3806",
+    "nome": "Zequinha Marinho",
+    "uf": "PA",
+    "partido": "PODEMOS",
+    "casa": "SENADO"
+  },
+  {
+    "id": "Gladson Cameli",
+    "nome": "Gladson Cameli",
+    "uf": "AC",
+    "partido": "PP",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Paulo Dantas",
+    "nome": "Paulo Dantas",
+    "uf": "AL",
+    "partido": "MDB",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Clécio Luis",
+    "nome": "Clécio Luis",
+    "uf": "AP",
+    "partido": "Solidariedade",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Wilson Lima",
+    "nome": "Wilson Lima",
+    "uf": "AM",
+    "partido": "UNIÃO",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Jerônimo Rodrigues",
+    "nome": "Jerônimo Rodrigues",
+    "uf": "BA",
+    "partido": "PT",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Elmano de Freitas",
+    "nome": "Elmano de Freitas",
+    "uf": "CE",
+    "partido": "PT",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Ibaneis Rocha",
+    "nome": "Ibaneis Rocha",
+    "uf": "DF",
+    "partido": "MDB",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Renato Casagrande",
+    "nome": "Renato Casagrande",
+    "uf": "ES",
+    "partido": "PSB",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Ronaldo Caiado",
+    "nome": "Ronaldo Caiado",
+    "uf": "GO",
+    "partido": "UNIÂO",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Carlos Brandão Júnior",
+    "nome": "Carlos Brandão Júnior",
+    "uf": "MA",
+    "partido": "PSB",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Mauro Mendes",
+    "nome": "Mauro Mendes",
+    "uf": "MT",
+    "partido": "UNIÂO",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Eduardo Riedel",
+    "nome": "Eduardo Riedel",
+    "uf": "MS",
+    "partido": "PSDB",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Romeu Zema",
+    "nome": "Romeu Zema",
+    "uf": "MG",
+    "partido": "NOVO",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Ratinho Júnior",
+    "nome": "Ratinho Júnior",
+    "uf": "PR",
+    "partido": "PSD",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "João Azevêdo",
+    "nome": "João Azevêdo",
+    "uf": "PB",
+    "partido": "PSB",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Helder Barbalho",
+    "nome": "Helder Barbalho",
+    "uf": "PA",
+    "partido": "MDB",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Raquel Lyra",
+    "nome": "Raquel Lyra",
+    "uf": "PE",
+    "partido": "PSDB",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Rafael Fonteles",
+    "nome": "Rafael Fonteles",
+    "uf": "PI",
+    "partido": "PT",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Fátima Bezerra",
+    "nome": "Fátima Bezerra",
+    "uf": "RN",
+    "partido": "PT",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Eduardo Leite",
+    "nome": "Eduardo Leite",
+    "uf": "RS",
+    "partido": "PSDB",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Cláudio Castro",
+    "nome": "Cláudio Castro",
+    "uf": "RJ",
+    "partido": "PL",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Marcos Rocha",
+    "nome": "Marcos Rocha",
+    "uf": "RO",
+    "partido": "UNIÂO",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Antonio Denarium",
+    "nome": "Antonio Denarium",
+    "uf": "RR",
+    "partido": "PP",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Jorginho Mello",
+    "nome": "Jorginho Mello",
+    "uf": "SC",
+    "partido": "PL",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Fábio Mitidieri",
+    "nome": "Fábio Mitidieri",
+    "uf": "SE",
+    "partido": "PSD",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Tarcísio de Freitas",
+    "nome": "Tarcísio de Freitas",
+    "uf": "SP",
+    "partido": "Republicanos",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "Wanderlei Barbosa",
+    "nome": "Wanderlei Barbosa",
+    "uf": "TO",
+    "partido": "Republicanos",
+    "casa": "GOVERNO_ESTADUAL"
+  },
+  {
+    "id": "141470",
+    "nome": "José Guimarães",
+    "uf": "CE",
+    "partido": "PT",
+    "casa": "CAMARA"
+  }
+]

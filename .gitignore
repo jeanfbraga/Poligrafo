@@ -1,0 +1,46 @@
+node_modules
+.vercel
+.next
+out
+build
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+.env*.development
+.env*.production
+
+# Temp and debug logs
+dev-error.log
+error.html
+figma_image.json
+figma_node.json
+scratch_*.js
+*.log
+temp_out*.txt
+vercel_logs.txt
+
+# AI agent configuration
+.agents/
+skills-lock.json
+
+# Temporary data downloads
+.tmp_ceap/
+.tmp_tse/
+mcp-brasil/
+
+# Dados de Teste Locais
+*.csv
+!public/**/*.csv
+romario.json
+senado.json
+test-output.json
+
+# Obsidian vault (documentação interna/confidencial)
+Obsidian Poligrafo Docs/
+implementation_plan.md

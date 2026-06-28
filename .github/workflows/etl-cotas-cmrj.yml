@@ -1,0 +1,55 @@
+name: ETL - Cota de Gabinete CMRJ
+
+on:
+  schedule:
+    - cron: '0 21 * * 1-5' # 18h BRT (UTC-3) = 21h UTC, segunda a sexta
+  workflow_dispatch: # Permite disparo manual pelo GitHub UI
+
+# Secrets necessários no repositório (Settings > Secrets and Variables > Actions):
+# NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+# GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY
+
+jobs:
+  etl-cotas-cmrj:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60 # PDFs podem ser lentos; damos margem generosa
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Instalar Playwright + Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Instalar dependência pdf-parse (se necessário)
+        run: npm install pdf-parse --no-save
+
+      - name: Rodar ETL Cota de Gabinete CMRJ
+        env:
+          # Supabase (admin)
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # APIs de IA — precisam estar cadastradas em Settings > Secrets > Actions
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Ignora erros TLS do portal da CMRJ
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'
+        run: npx tsx scripts/etl/cmrj_cotas_etl.ts
+
+      - name: Reportar resultado
+        if: always()
+        run: echo "ETL concluído em $(date '+%Y-%m-%d %H:%M:%S BRT')"
