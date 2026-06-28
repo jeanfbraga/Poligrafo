@@ -37,3 +37,11 @@ jobs:
 
     - name: Run Tests
       run: npx vitest run __tests__/unit
+
+    - name: Generate Job Summary
+      if: always()
+      run: |
+        echo "## 📊 Resumo da CI" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status Final:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Node.js:** ${{ matrix.node-version }}" >> $GITHUB_STEP_SUMMARY
+        echo "O workflow de validação do repositório foi finalizado." >> $GITHUB_STEP_SUMMARY
