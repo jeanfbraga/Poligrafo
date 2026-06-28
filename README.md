@@ -5,53 +5,60 @@
 
 > **Plataforma de auditoria cidadã (OSINT) e inteligência artificial para monitoramento e investigação do Congresso Nacional.**
 
-O **Polígrafo** é uma aplicação web voltada para auditoria cidadã, jornalismo investigativo e análise de risco (OSINT). Com uma interface inspirada em terminais *hacker*, o sistema permite buscar por políticos (Deputados, Senadores, Vereadores) e cruzar automaticamente dados da Câmara, Senado, Tribunal Superior Eleitoral (TSE) e Controladoria-Geral da União (CGU).
+O **Polígrafo** é uma aplicação web voltada para auditoria cidadã, jornalismo investigativo e análise de risco (OSINT). Com uma interface inspirada em terminais *hacker*, o sistema permite buscar por políticos (Deputados, Senadores, Vereadores e Deputados Estaduais) e cruzar automaticamente dados de múltiplas fontes públicas: Câmara Federal, Senado, TSE, CGU, DataJud (CNJ) e Tribunais de Contas.
 
-Através da integração com IA (Gemini), o Polígrafo atua como um detetive de dados, identificando gastos com pontuação alta de "letalidade" (suspeitos) e exibindo laços com fornecedores inidôneos, expandindo dossiês societários através do *breakdown* de CNPJs (via BrasilAPI / ReceitaWS).
+O coração do sistema é uma **Pipeline de Inteligência Artificial em Cascata (4 Níveis)** que atua como detetive de dados. Ela julga a "letalidade" de gastos com recursos públicos (CEAP, Cotas, Emendas) identificando notas frias, empresas fantasmas e conflito de interesses através de quebras societárias (via BrasilAPI / ReceitaWS).
 
 ---
 
 ## 🔥 Funcionalidades Principais
 
-*   **🔍 Busca Multi-Câmara**: Identifique imediatamente de onde é o parlamentar (Câmara dos Deputados vs. Senado Federal). Para vereadores, utilize o prefixo do estado (ex: `sp: eduardo`).
-*   **⚠️ Alertas da CGU (Cadastro de Inidôneos)**: Verifica automaticamente se o político ou fornecedor possui registros de punições no CEIS/CNEP ou pelo Tribunal Superior Eleitoral.
-*   **💸 Dossiê de Patrimônio**: Exibição centralizada dos bens declarados pelos políticos ao TSE.
-*   **⚖️ IA de Julgamento de Despesas (Score de Letalidade)**: Integração com IA para classificar reembolsos (CEAP) do parlamentar, flagrando notas suspeitas de gráficas fantasmas, restaurantes de luxo ou serviços exorbitantes em vermelho (🔥).
-*   **🔗 Malha Societária Dinâmica**: Clique em **"Aprofundar Investigação"** em qualquer despesa suspeita para quebrar o sigilo societário. A aplicação fará o *pivot* buscando a Razão Social, CNAE e Quadro de Sócios (QSA) via API, expandindo a rede na tela.
-*   **🕷️ Grafo Investigativo Interativo (React Flow)**: Visualize todas as conexões em uma interface *drag-and-drop* no canvas, permitindo arrastar evidências suspeitas direto da Sandbox Lateral.
-*   **📄 Exportação de Dossiês**: Gere relatórios consolidados das investigações em PDF, DOCX ou XLSX para uso off-line, reportagens ou documentação legal.
+*   **🔍 Busca Multi-Câmara e Regional**: Busca automatizada em diversas esferas legislativas (Câmara, Senado, ALERJ, CMRJ) e verificação cruzada com Tribunais de Contas (TCE-SP, TCE-SC).
+*   **⚖️ IA de Julgamento em Cascata (Score de Letalidade)**: Classificação automatizada de despesas através de um motor resiliente:
+    *   **L1 (Groq - Llama 3 70B)**: Engine principal ultra-rápida.
+    *   **L2 (OpenRouter)**: Fallback dinâmico (Gemma, DeepSeek).
+    *   **L3 (Google Gemini)**: Fallback secundário.
+    *   **L4 (Heurística Matemática)**: Classificação via RegEx e limites da Câmara, ativado caso as APIs falhem.
+*   **⚠️ Alertas Judiciais e Fiscais**:
+    *   **DataJud (CNJ)**: Busca automática por **Ações Civis de Improbidade Administrativa** ligadas ao político.
+    *   **CGU (Cadastro de Inidôneos)**: Alertas sobre empresas punidas (CEIS/CNEP).
+*   **💸 Dossiê de Patrimônio**: Exibição centralizada dos bens declarados ao TSE e varredura de sócios.
+*   **🔗 Malha Societária Dinâmica**: Pivotamento societário automático (QSA) com 1 clique para rastrear donos de empresas suspeitas.
+*   **🕷️ Grafo Investigativo Interativo (React Flow)**: Canvas visual *drag-and-drop* para mapeamento da rede de corrupção ou influência.
+*   **📄 Exportação de Dossiês**: Geração de relatórios consolidados em PDF, DOCX ou XLSX para uso jornalístico ou legal.
 
 ---
 
 ## 🛠️ Stack Tecnológico
 
-*   **Frontend**: [Next.js](https://nextjs.org/) (React), [Tailwind CSS](https://tailwindcss.com/) (Styling), [Lucide-React](https://lucide.dev/) (Ícones).
-*   **Visualização e Animação**: [@xyflow/react](https://reactflow.dev/), `cytoscape`, `graphology` (Grafos complexos), `recharts` (Gráficos), e `GSAP` (Animações).
-*   **Estilização Avançada**: Terminal/OSINT UI, cores `green-500`, sombras neon e bordas afiadas (`rounded-none`).
-*   **Backend / Serverless**: Next.js API Routes com Server-Sent Events (SSE) para *streaming* em tempo real.
-    *   `app/api/investigar`: Núcleo de OSINT e IA.
-    *   `app/api/dashboard`: Dados consolidados para dashboards.
-    *   `app/api/exportar-dossie`: Geração de documentos (PDF, DOCX, XLSX).
+*   **Frontend**: [Next.js](https://nextjs.org/), [Tailwind CSS](https://tailwindcss.com/), [Lucide-React](https://lucide.dev/).
+*   **Visualização e Animação**: [@xyflow/react](https://reactflow.dev/) (React Flow), `cytoscape`, `graphology`, `recharts` e `GSAP`.
+*   **Estilização Avançada**: Terminal/OSINT UI, modo escuro forçado (`green-500`, sombras neon).
+*   **Backend / Serverless**: API Routes com SSE (*Server-Sent Events*) em `app/api/investigar` para streaming de OSINT em tempo real.
 *   **Banco de Dados**: [Supabase](https://supabase.com/) (PostgreSQL + Auth/Storage).
-*   **Inteligência Artificial**: API do Google Gemini acionada pelo servidor.
-*   **Analytics e Testes**: Microsoft Clarity, Vercel Analytics, e Playwright.
-*   **APIs Governamentais Consumidas**:
-    *   Dados Abertos da Câmara dos Deputados
-    *   Dados Abertos do Senado Federal
-    *   `DivulgaCand` do TSE
-    *   Portal da Transparência da CGU
-    *   `BrasilAPI` e `ReceitaWS` (Dossiês de CNPJ)
+*   **Analytics e E2E**: Microsoft Clarity, Vercel Analytics, e Playwright.
 
 ---
 
 ## 🚀 Como Executar Localmente
 
-### Pré-requisitos
-*   Node.js instalado (v18+).
-*   Chave de API do **Google Gemini** ativa (para habilitar o scoring de IA e extração de QSA).
-*   URL e Chaves do **Supabase** (para banco de dados e sincronização de cache).
+### 1. Pré-requisitos e Chaves de API
+Para rodar o ecossistema completo de IA e extração de dados, você precisará das seguintes chaves no seu `.env.local`:
 
-### Passos
+| Chave de Ambiente | Serviço / Uso | Obrigatório? |
+| :--- | :--- | :--- |
+| `GROQ_API_KEY` | Groq (Llama-3 70B) - Motor IA Primário (L1) | **Recomendado** |
+| `OPENROUTER_API_KEY` | OpenRouter - Motor IA Secundário (L2) | Opcional |
+| `GEMINI_API_KEY` | Google Gemini - Fallback IA (L3) | Opcional |
+| `DATAJUD_API_KEY` | CNJ - Busca de Improbidade Administrativa | Opcional |
+| `TRANSPARENCIA_API_KEY` | CGU - Alertas CEIS/CNEP em massa | Opcional |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase (Banco de Dados e Sync) | **Sim** |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`| Supabase Público | **Sim** |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Admin Role | Opcional |
+
+*(Nota: O sistema foi desenhado para não quebrar. Se faltar a chave de IA, ele assume o Nível 4 de Heurística de RegEx para pontuar os gastos).*
+
+### 2. Passos de Instalação
 
 1. **Clone o repositório:**
    ```bash
@@ -65,54 +72,43 @@ Através da integração com IA (Gemini), o Polígrafo atua como um detetive de 
    ```
 
 3. **Configure as Variáveis de Ambiente:**
-   Copie o arquivo de exemplo e adicione suas chaves:
    ```bash
    cp .env.example .env.local
    ```
-   *Edite o arquivo `.env.local` adicionando suas credenciais do Gemini, Supabase, etc.*
+   *Edite `.env.local` adicionando suas chaves geradas.*
 
-4. **Inicie o Servidor de Desenvolvimento:**
+4. **Inicie o Servidor:**
    ```bash
    npm run dev
    ```
 
-5. **Acesse no Navegador:**
-   Abra `http://localhost:3000` e comece sua investigação.
-
-### 🛠️ Scripts Utilitários
-*   `npm run update:index`: Sincroniza/atualiza o índice de deputados e senadores em cache local.
-*   `npm run sync:spu`: Sincroniza dados com o banco Supabase.
+### 🛠️ Scripts Utilitários (ETLs)
+*   `npm run update:index`: Sincroniza/atualiza o índice de parlamentares federais.
+*   `npm run sync:spu`: Sincroniza dados com a nuvem Supabase.
 
 ---
 
 ## 🌐 Deploy em Produção
 
-O projeto está configurado e perfeitamente otimizado para deploy sem atrito na **Vercel**. 
-Garantido que as Serverless Functions (`route.ts`) suportem streaming SSE ativando o suporte a Edge ou Streaming prolongado.
+Projeto otimizado para deploy imediato na **Vercel**, com suporte configurado para Serverless Functions estendidas e Edge Runtime (para segurar as rotas de OSINT via SSE).
 
 ---
 
 ## 🤝 Como Contribuir
 
-Como um projeto **Open Source** (Licença MIT), toda contribuição da comunidade investigativa e de desenvolvedores é muito bem-vinda!
+Toda contribuição da comunidade investigativa, de dados e desenvolvedores é essencial. O projeto tem Licença MIT e é código aberto.
 
-Recomendamos fortemente a leitura dos nossos guias antes de enviar seu código:
-*   [**Código de Conduta**](CODE_OF_CONDUCT.md): Diretrizes de convivência para a comunidade.
-*   [**Guia de Contribuição**](CONTRIBUTING.md): Padrões de código, arquitetura e como submeter Pull Requests.
-*   [**Política de Segurança**](SECURITY.md): Como relatar vulnerabilidades de forma responsável.
+Antes de enviar PRs, leia nossos guias:
+*   [**Código de Conduta**](CODE_OF_CONDUCT.md): Diretrizes da comunidade.
+*   [**Guia de Contribuição**](CONTRIBUTING.md): Padrões de código e fluxo de PR.
+*   [**Política de Segurança**](SECURITY.md): Para relatórios de vulnerabilidades.
 
-1. Faça um *Fork* do projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/MinhaInovacao`)
-3. Faça o commit de suas mudanças (`git commit -m 'feat: adicionando X'`)
-4. Faça o push para a branch (`git push origin feature/MinhaInovacao`)
-5. Abra um **Pull Request**
-
-Temos templates pré-configurados para facilitar o envio de correções de bugs (Bug Reports) ou pedidos de novas funcionalidades (Feature Requests) lá na aba de *Issues* do GitHub.
+Temos templates pré-configurados em *Issues* para facilitar Bug Reports ou Feature Requests.
 
 ---
 
 ## 👨‍💻 Autor
 
-Desenvolvido e atualizado por **Jean Braga** como um experimento de Dados Abertos e Interação de UI.
+Desenvolvido e mantido por **Jean Braga** como um esforço independente de dados abertos cívicos.
 
-> *Disclaimer: Esta aplicação utiliza dados 100% públicos e hospedados pelo Governo Federal Brasileiro através da Lei de Acesso à Informação (LAI). O objetivo é facilitar a visualização jornalística via tecnologia de redes.*
+> *Disclaimer: Esta aplicação utiliza dados públicos amparados pela Lei de Acesso à Informação (LAI) do Governo Federal Brasileiro. Seu uso visa facilitar o jornalismo de dados e a auditoria social.*
