@@ -6,7 +6,7 @@ import { fetchContratosByCNPJ } from '../../src/services/integrations/pncp/clien
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
-vi.mock('../../lib/pncp/client', () => ({
+vi.mock('../../src/services/integrations/pncp/client', () => ({
   fetchContratosByCNPJ: vi.fn(),
 }));
 

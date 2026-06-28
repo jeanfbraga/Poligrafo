@@ -21,7 +21,7 @@ const { mockChain } = vi.hoisted(() => {
     return { mockChain: chain };
 });
 
-vi.mock('../../lib/supabase-admin', () => ({
+vi.mock('../../src/lib/supabase-admin', () => ({
     supabaseAdmin: mockChain
 }));
 

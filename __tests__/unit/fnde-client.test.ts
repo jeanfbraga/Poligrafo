@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { consultarPNAE, consultarFUNDEB, consultarPNATE } from '../../src/services/integrations/fnde/client';
 import { fetchWithTimeout } from '../../src/app/api/investigar/tse';
 
-vi.mock('../../app/api/investigar/tse', () => ({
+vi.mock('../../src/app/api/investigar/tse', () => ({
     fetchWithTimeout: vi.fn(),
 }));
 

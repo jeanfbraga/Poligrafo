@@ -9,7 +9,7 @@ const { supabaseAdmin } = vi.hoisted(() => ({
   }
 }));
 
-vi.mock('../../lib/supabase-admin', () => ({
+vi.mock('../../src/lib/supabase-admin', () => ({
   supabaseAdmin
 }));
 

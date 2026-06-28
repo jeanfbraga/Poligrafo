@@ -4,12 +4,12 @@ import { fetchWithTimeout } from '../../src/app/api/investigar/tse';
 import { buscarProxyOsint } from '../../src/app/api/investigar/proxy_osint';
 
 // Mock dependencies
-vi.mock('../../app/api/investigar/tse', () => ({
+vi.mock('../../src/app/api/investigar/tse', () => ({
     fetchWithTimeout: vi.fn(),
     buscarCpfNoTSE: vi.fn()
 }));
 
-vi.mock('../../app/api/investigar/proxy_osint', () => ({
+vi.mock('../../src/app/api/investigar/proxy_osint', () => ({
     buscarProxyOsint: vi.fn()
 }));
 

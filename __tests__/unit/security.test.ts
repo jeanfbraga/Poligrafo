@@ -9,19 +9,19 @@ import { analisarComIAPNCP } from '../../src/app/api/investigar/licitacoes/ai_li
 import { buscarVoosAeronave } from '../../src/services/integrations/opensky/client';
 
 // Mock de dependências de rede
-vi.mock('../../lib/services/socio-search', () => ({
+vi.mock('../../src/services/core/socio-search', () => ({
     buscarEmpresasDoSocio: vi.fn(),
 }));
 
-vi.mock('../../lib/pncp/client', () => ({
+vi.mock('../../src/services/integrations/pncp/client', () => ({
     fetchContratosByCNPJ: vi.fn(),
 }));
 
-vi.mock('../../app/api/investigar/licitacoes/ai_licitacoes', () => ({
+vi.mock('../../src/app/api/investigar/licitacoes/ai_licitacoes', () => ({
     analisarComIAPNCP: vi.fn(),
 }));
 
-vi.mock('../../lib/opensky/client', () => ({
+vi.mock('../../src/services/integrations/opensky/client', () => ({
     buscarVoosAeronave: vi.fn(),
 }));
 
