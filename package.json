@@ -7,7 +7,7 @@
     "start": "next start",
     "dev": "node node_modules/next/dist/bin/next dev",
     "build": "next build",
-    "lint": "next lint",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "test": "vitest run",
     "test:all": "npm run lint && npx tsc --noEmit && vitest run",
     "update:index": "tsx scripts/update-congresso-index.ts",
