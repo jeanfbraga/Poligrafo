@@ -9,13 +9,11 @@ Atualmente, apenas a versão mais recente na branch `main` recebe suporte para a
 Levamos a segurança a sério. Se você encontrar uma vulnerabilidade de segurança, siga as etapas abaixo:
 
 1. **NÃO abra uma Issue pública.** Expor uma vulnerabilidade publicamente antes que possamos corrigi-la pode ser perigoso para as instâncias ativas do projeto.
-2. Envie um e-mail com o relatório de vulnerabilidade para **jeanfelipe.design@gmail.com**.
-3. Inclua todos os detalhes possíveis:
-   - Como reproduzir o problema.
-   - O impacto potencial.
-   - Prova de conceito, se houver.
+2. Acesse a aba **Security** (Segurança) deste repositório no GitHub.
+3. Clique em **Advisories** e depois no botão **Report a Vulnerability** para abrir um canal de comunicação restrito conosco.
+4. Descreva a falha com todos os detalhes possíveis (como reproduzir, impacto potencial e prova de conceito).
 
-Entraremos em contato assim que possível para tratar a vulnerabilidade e lançar uma correção antes de publicar um CVE ou um aviso (advisory).
+A equipe receberá um alerta privado e entrará em contato assim que possível para tratar a vulnerabilidade e lançar uma correção antes de publicar um CVE ou um aviso (advisory) público.
 
 ## Boas Práticas da Aplicação
 
