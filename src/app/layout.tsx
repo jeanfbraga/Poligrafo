@@ -1,0 +1,67 @@
+import { IBM_Plex_Mono } from 'next/font/google'
+import './globals.css'
+import { Toaster } from "@/components/ui/sonner"
+import { Analytics } from "@vercel/analytics/next"
+import Clarity from "@/components/analytics/Clarity"
+import GoogleAnalytics from "@/components/analytics/GoogleAnalytics"
+
+const plexMono = IBM_Plex_Mono({
+    weight: ['400', '500', '600', '700'],
+    subsets: ['latin'],
+    variable: '--font-plex-mono',
+})
+
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+    title: 'Polígrafo - Scan de Políticos',
+    description: 'Ferramenta OSINT de auditoria pública. Cruze dados da Câmara, Senado, TSE e Receita Federal para investigar políticos e contratos públicos.',
+    keywords: ['OSINT', 'Polígrafo', 'Auditoria Pública', 'Dados Abertos', 'Política', 'TSE', 'CGU'],
+    openGraph: {
+        title: 'Polígrafo - Auditoria Cidadã',
+        description: 'Cruze dados públicos de políticos para gerar dossiês e encontrar conexões suspeitas em tempo real.',
+        url: 'https://poligrafo.app',
+        siteName: 'Polígrafo',
+        images: [
+            {
+                url: '/og-image.jpg',
+                width: 1200,
+                height: 630,
+                alt: 'Polígrafo OSINT',
+            },
+        ],
+        locale: 'pt_BR',
+        type: 'website',
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: 'Polígrafo - Auditoria Cidadã',
+        description: 'Cruze dados públicos de políticos para gerar dossiês e encontrar conexões suspeitas em tempo real.',
+        images: ['/og-image.jpg'],
+    },
+}
+
+import type { Viewport } from 'next'
+
+export const viewport: Viewport = {
+    themeColor: '#050505',
+}
+
+export default function RootLayout({
+    children,
+}: {
+    children: React.ReactNode
+}) {
+    return (
+        <html lang="pt-BR" className={plexMono.variable} suppressHydrationWarning>
+            <body className="font-mono antialiased" suppressHydrationWarning>
+                {children}
+                <GoogleAnalytics gaId="G-1VS9S268X2" />
+                <Clarity projectId="vvch9dpeeq" />
+                <Analytics />
+                <Toaster />
+            </body>
+        </html>
+    )
+}

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { buscarImoveisMunicipioSupabase } from '../../lib/spu/client';
-import { supabaseAdmin } from '../../lib/supabase-admin';
+import { buscarImoveisMunicipioSupabase } from '../../src/services/integrations/spu/client';
+import { supabaseAdmin } from '../../src/lib/supabase-admin';
 
 const { mockChain } = vi.hoisted(() => {
     const chain: any = {

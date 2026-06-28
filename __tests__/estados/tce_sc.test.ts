@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { buscarDespesasMunicipalSC } from '../../app/api/investigar/estados/sc/tce';
-import * as proxyOsint from '../../app/api/investigar/proxy_osint';
+import { buscarDespesasMunicipalSC } from '../../src/app/api/investigar/estados/sc/tce';
+import * as proxyOsint from '../../src/app/api/investigar/proxy_osint';
 
 describe('TCE-SC: Extrator de Despesas (Unidades Gestoras)', () => {
 

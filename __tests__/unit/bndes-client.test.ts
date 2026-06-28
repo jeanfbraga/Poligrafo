@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { buscarOperacoesBNDES } from '../../lib/bndes/client';
+import { buscarOperacoesBNDES } from '../../src/services/integrations/bndes/client';
 
 // =====================================================
 // BNDES CKAN Client Unit Tests

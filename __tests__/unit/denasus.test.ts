@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { listarAtividadesAuditoria } from '../../lib/denasus/client';
+import { listarAtividadesAuditoria } from '../../src/services/integrations/denasus/client';
 
 describe('DENASUS Cheerio Scraper Client', () => {
     beforeEach(() => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { consultarPNAE, consultarFUNDEB, consultarPNATE } from '../../lib/fnde/client';
-import { fetchWithTimeout } from '../../app/api/investigar/tse';
+import { consultarPNAE, consultarFUNDEB, consultarPNATE } from '../../src/services/integrations/fnde/client';
+import { fetchWithTimeout } from '../../src/app/api/investigar/tse';
 
 vi.mock('../../app/api/investigar/tse', () => ({
     fetchWithTimeout: vi.fn(),

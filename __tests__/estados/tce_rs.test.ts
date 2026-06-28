@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { buscarCodigoMunicipioRS, buscarDespesasMunicipalRS } from '../../app/api/investigar/estados/rs/tce';
-import { fetchWithTimeout } from '../../app/api/investigar/tse';
-import { buscarProxyOsint } from '../../app/api/investigar/proxy_osint';
+import { buscarCodigoMunicipioRS, buscarDespesasMunicipalRS } from '../../src/app/api/investigar/estados/rs/tce';
+import { fetchWithTimeout } from '../../src/app/api/investigar/tse';
+import { buscarProxyOsint } from '../../src/app/api/investigar/proxy_osint';
 
 // Mock dependencies
 vi.mock('../../app/api/investigar/tse', () => ({

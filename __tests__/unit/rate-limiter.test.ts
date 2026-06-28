@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { RateLimiter, transparenciaLimiter } from '../../lib/services/rate-limiter';
+import { RateLimiter, transparenciaLimiter } from '../../src/services/core/rate-limiter';
 
 describe('RateLimiter', () => {
     beforeEach(() => {

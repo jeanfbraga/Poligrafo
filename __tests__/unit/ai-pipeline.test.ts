@@ -4,7 +4,7 @@ import {
     analisarEmendasComInteligencia, 
     analisarLoteComInteligencia,
     analisarMalhaOsintComInteligencia
-} from '../../app/api/investigar/ai_helpers';
+} from '../../src/app/api/investigar/ai_helpers';
 
 describe('🧠 AI Pipeline - Resolvedor Normativo & Triagem', () => {
 

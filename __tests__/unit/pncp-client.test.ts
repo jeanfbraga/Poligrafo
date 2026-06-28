@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
-import { fetchContratosByCNPJ } from '../../lib/pncp/client';
+import { fetchContratosByCNPJ } from '../../src/services/integrations/pncp/client';
 
 // O fetch global é mockado automaticamente pelo Next/Jest se usarmos window.fetch,
 // mas para Node.js fetch, precisamos mockar o global.fetch

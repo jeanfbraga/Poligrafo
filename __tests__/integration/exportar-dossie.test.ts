@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { POST } from '../../app/api/exportar-dossie/route';
+import { POST } from '../../src/app/api/exportar-dossie/route';
 
 // Helper para criar um Request fake
 function createRequest(body: any): Request {

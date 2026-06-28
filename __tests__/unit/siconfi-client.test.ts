@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { buscarEnteSiconfi, consultarIndicadoresLRF } from '../../lib/siconfi/client';
+import { buscarEnteSiconfi, consultarIndicadoresLRF } from '../../src/services/integrations/siconfi/client';
 
 // =====================================================
 // SICONFI Client Unit Tests

@@ -9,7 +9,7 @@ import {
   detalheEmenda,
   gerarResumoEmendasPIX,
   parseTransferencia,
-} from '../../lib/transferegov/client';
+} from '../../src/services/integrations/transferegov/client';
 
 // ==========================================
 // Mock do fetch global

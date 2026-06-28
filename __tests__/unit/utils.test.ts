@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cn, getPortalTransparenciaFallback } from '../../lib/utils';
+import { cn, getPortalTransparenciaFallback } from '../../src/lib/utils';
 
 describe('🛠️ Utils', () => {
 

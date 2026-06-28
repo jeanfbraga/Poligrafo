@@ -13,7 +13,7 @@ vi.mock('../../lib/supabase-admin', () => ({
   supabaseAdmin
 }));
 
-import { buscarBensHistoricoTSE } from '../../lib/tse/bens';
+import { buscarBensHistoricoTSE } from '../../src/services/integrations/tse/bens';
 
 describe('TSE Histórico Client Supabase', () => {
   it('should return historico de bens on success', async () => {

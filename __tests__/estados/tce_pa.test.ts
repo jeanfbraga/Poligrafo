@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { buscarDespesasPA } from '../../app/api/investigar/estados/pa/tce';
+import { buscarDespesasPA } from '../../src/app/api/investigar/estados/pa/tce';
 
 describe('TCE-PA: Extrator de Despesas (Diário Oficial)', () => {
 

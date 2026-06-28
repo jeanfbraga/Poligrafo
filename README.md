@@ -34,7 +34,7 @@ O coração do sistema é uma **Pipeline de Inteligência Artificial em Cascata 
 *   **Frontend**: [Next.js](https://nextjs.org/), [Tailwind CSS](https://tailwindcss.com/), [Lucide-React](https://lucide.dev/).
 *   **Visualização e Animação**: [@xyflow/react](https://reactflow.dev/) (React Flow), `cytoscape`, `graphology`, `recharts` e `GSAP`.
 *   **Estilização Avançada**: Terminal/OSINT UI, modo escuro forçado (`green-500`, sombras neon).
-*   **Backend / Serverless**: API Routes com SSE (*Server-Sent Events*) em `app/api/investigar` para streaming de OSINT em tempo real.
+*   **Backend / Serverless**: API Routes com SSE (*Server-Sent Events*) em `src/app/api/investigar` para streaming de OSINT em tempo real.
 *   **Banco de Dados**: [Supabase](https://supabase.com/) (PostgreSQL + Auth/Storage).
 *   **Analytics e E2E**: Microsoft Clarity, Vercel Analytics, e Playwright.
 

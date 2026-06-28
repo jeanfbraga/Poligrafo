@@ -4,7 +4,7 @@
 import "@testing-library/jest-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import HomeDashboard from "@/components/HomeDashboard";
+import HomeDashboard from "@/components/dashboard/HomeDashboard";
 
 // Mock GSAP to avoid animation issues in tests
 vi.mock("gsap", () => ({

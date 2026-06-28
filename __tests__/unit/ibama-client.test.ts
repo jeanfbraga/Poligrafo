@@ -12,7 +12,7 @@ vi.mock('../../lib/supabase-admin', () => ({
   supabaseAdmin
 }));
 
-import { buscarInfracoesIbama } from '../../lib/ibama/client';
+import { buscarInfracoesIbama } from '../../src/services/integrations/ibama/client';
 
 describe('IBAMA Client Supabase', () => {
   it('should return infracoes on success', async () => {

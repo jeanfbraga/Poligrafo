@@ -21,12 +21,12 @@ Nosso sistema de IA de julgamento (Score de Letalidade) funciona em um esquema d
 *   **L3 (Google Gemini)**: Fallback secundário.
 *   **L4 (Heurística Matemática)**: Classificação via RegEx se todas as APIs falharem.
 
-> **Importante:** Se for alterar ou criar novos prompts de IA (arquivos em `app/api/investigar/ai_helpers.ts`), certifique-se de testar os prompts **em todos os níveis da cascata**. Modelos diferentes reagem de formas diferentes aos prompts de JSON estrito.
+> **Importante:** Se for alterar ou criar novos prompts de IA (arquivos em `src/app/api/investigar/ai_helpers.ts`), certifique-se de testar os prompts **em todos os níveis da cascata**. Modelos diferentes reagem de formas diferentes aos prompts de JSON estrito.
 
 ### 2. Adicionando Novos Scrapers (Motores OSINT)
 O Polígrafo coleta dados de diversas casas legislativas e tribunais. Se você for adicionar uma nova fonte de dados:
-*   Coloque os scrapers estaduais/municipais na pasta `app/api/investigar/estados/[UF]/`. (Exemplo: `app/api/investigar/estados/rj/alerj.ts`).
-*   Scrapers de âmbito federal ou judicial geral (como CNJ/DataJud e CGU) devem ficar em `app/api/investigar/scrapers/`.
+*   Coloque os scrapers estaduais/municipais na pasta `src/app/api/investigar/estados/[UF]/`. (Exemplo: `src/app/api/investigar/estados/rj/alerj.ts`).
+*   Scrapers de âmbito federal ou judicial geral (como CNJ/DataJud e CGU) devem ficar em `src/app/api/investigar/scrapers/`.
 *   Todo novo *fetch* externo deve usar a função de utilidade `fetchWithTimeout` para evitar travar as requisições *serverless* da Vercel.
 *   Mantenha a segurança e higienize os dados contra injestão maliciosa.
 

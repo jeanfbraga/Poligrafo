@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeString, matchPalavraInteira } from '../../app/api/investigar/tse';
+import { normalizeString, matchPalavraInteira } from '../../src/app/api/investigar/tse';
 
 const BASE_URL = 'http://localhost:3000';
 

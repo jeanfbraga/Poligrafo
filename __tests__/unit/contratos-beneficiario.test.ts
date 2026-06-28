@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GET } from '../../app/api/investigar/contratos-beneficiario/route';
-import { fetchContratosByCNPJ } from '../../lib/pncp/client';
+import { GET } from '../../src/app/api/investigar/contratos-beneficiario/route';
+import { fetchContratosByCNPJ } from '../../src/services/integrations/pncp/client';
 
 // Mock do fetch global
 const mockFetch = vi.fn();

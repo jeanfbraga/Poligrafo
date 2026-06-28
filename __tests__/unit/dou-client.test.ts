@@ -1,7 +1,7 @@
 // __tests__/unit/dou-client.test.ts
 // Testes unitários para o client do Diário Oficial da União
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { buscarDOU, buscarNomeacoesDOU, lerPublicacaoDOU, extractJsonFromHtml, parsePublicacao } from '../../lib/dou/client';
+import { buscarDOU, buscarNomeacoesDOU, lerPublicacaoDOU, extractJsonFromHtml, parsePublicacao } from '../../src/services/integrations/dou/client';
 
 // ==========================================
 // Mock do fetch global

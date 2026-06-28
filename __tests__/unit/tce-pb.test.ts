@@ -1,6 +1,6 @@
-import { buscarDespesasMunicipalPB } from '../../app/api/investigar/estados/pb/tce';
-import * as tse from '../../app/api/investigar/tse';
-import * as proxyOsint from '../../app/api/investigar/proxy_osint';
+import { buscarDespesasMunicipalPB } from '../../src/app/api/investigar/estados/pb/tce';
+import * as tse from '../../src/app/api/investigar/tse';
+import * as proxyOsint from '../../src/app/api/investigar/proxy_osint';
 import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 
 describe('TCE-PB Sagres Extrator', () => {

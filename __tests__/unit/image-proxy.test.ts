@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fetchImageAsBase64 } from '../../lib/image-proxy';
+import { fetchImageAsBase64 } from '../../src/lib/image-proxy';
 
 describe('🖼️ Image Proxy Utils', () => {
     it('deve converter uma URL de imagem para base64 com sucesso usando domínio permitido', async () => {

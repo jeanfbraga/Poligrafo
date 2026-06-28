@@ -228,7 +228,7 @@ describe('🧠 Motor de IA — Triage OSINT', () => {
             return;
         }
 
-        const { analisarMalhaOsintComInteligencia } = await import('../../app/api/investigar/ai_helpers');
+        const { analisarMalhaOsintComInteligencia } = await import('@/app/api/investigar/ai_helpers');
 
         const malha = [
             {
@@ -253,7 +253,7 @@ describe('🧠 Motor de IA — Triage OSINT', () => {
 
     it('deve dar score baixo para bem trivial', async () => {
         if (!process.env.GROQ_API_KEY && !process.env.OPENROUTER_API_KEY && !process.env.GEMINI_API_KEY) return;
-        const { analisarMalhaOsintComInteligencia } = await import('../../app/api/investigar/ai_helpers');
+        const { analisarMalhaOsintComInteligencia } = await import('@/app/api/investigar/ai_helpers');
 
         const malha = [
             { id: 'bem_trivial', type: 'DESPESA', data: { label: 'Apartamento Quitado', valor: 250000, tipo: 'BEM DECLARADO', score_letalidade: 0, motivo_ia: null } }
@@ -269,7 +269,7 @@ describe('🧠 Motor de IA — Triage OSINT', () => {
 
     it('não deve retornar nós _isContextOnly no resultado final', async () => {
         if (!process.env.GROQ_API_KEY && !process.env.OPENROUTER_API_KEY && !process.env.GEMINI_API_KEY) return;
-        const { analisarMalhaOsintComInteligencia } = await import('../../app/api/investigar/ai_helpers');
+        const { analisarMalhaOsintComInteligencia } = await import('@/app/api/investigar/ai_helpers');
 
         const malha = [
             { id: 'empresa_x', type: 'EMPRESA', data: { label: 'Empresa X', valor: 100, score_letalidade: 0, motivo_ia: null } },

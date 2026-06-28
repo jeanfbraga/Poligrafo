@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GET as getSocio } from '../../app/api/investigar/socio/route';
-import { GET as getLicitacoes } from '../../app/api/investigar/licitacoes/route';
-import { GET as getCnpj } from '../../app/api/investigar/cnpj/route';
-import { POST as postOpensky } from '../../app/api/investigar/opensky/route';
-import { buscarEmpresasDoSocio } from '../../lib/services/socio-search';
-import { fetchContratosByCNPJ } from '../../lib/pncp/client';
-import { analisarComIAPNCP } from '../../app/api/investigar/licitacoes/ai_licitacoes';
-import { buscarVoosAeronave } from '../../lib/opensky/client';
+import { GET as getSocio } from '../../src/app/api/investigar/socio/route';
+import { GET as getLicitacoes } from '../../src/app/api/investigar/licitacoes/route';
+import { GET as getCnpj } from '../../src/app/api/investigar/cnpj/route';
+import { POST as postOpensky } from '../../src/app/api/investigar/opensky/route';
+import { buscarEmpresasDoSocio } from '../../src/services/core/socio-search';
+import { fetchContratosByCNPJ } from '../../src/services/integrations/pncp/client';
+import { analisarComIAPNCP } from '../../src/app/api/investigar/licitacoes/ai_licitacoes';
+import { buscarVoosAeronave } from '../../src/services/integrations/opensky/client';
 
 // Mock de dependências de rede
 vi.mock('../../lib/services/socio-search', () => ({

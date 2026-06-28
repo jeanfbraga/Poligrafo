@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import * as tse from '../../app/api/investigar/tse';
+import * as tse from '../../src/app/api/investigar/tse';
 import { 
     buscarDespesasCamara,
     buscarDespesasSenado,
     buscarEmendas
-} from '../../app/api/investigar/etl_extractors';
+} from '../../src/app/api/investigar/etl_extractors';
 
 // Mock do fetchWithTimeout para não lidar com global.fetch
 vi.spyOn(tse, 'fetchWithTimeout');

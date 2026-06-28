@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { buscarDiariosMunicipais } from '../../lib/dou/queridodiario';
+import { buscarDiariosMunicipais } from '../../src/services/integrations/dou/queridodiario';
 
 describe('Querido Diário Client', () => {
 

@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import MobileView from '../../components/MobileView';
+import MobileView from '../../src/components/layout/MobileView';
 import '@testing-library/jest-dom';
 import React from 'react';
 

@@ -498,7 +498,7 @@ describe('🔒 Invariantes Transversais (Regressão)', () => {
 
     it('[BUG-FIX] Prompt IA deve usar chave "despesas_avaliadas" (não "despesas_suspeitas")', async () => {
         // Este teste importa diretamente o módulo e verifica o contrato
-        const { analisarLoteComInteligencia } = await import('../../app/api/investigar/ai_helpers');
+        const { analisarLoteComInteligencia } = await import('@/app/api/investigar/ai_helpers');
 
         // Lote vazio deve retornar vazio sem crash
         const resultado = await analisarLoteComInteligencia([], 'SP', [], 'FEDERAL', 'CAMARA');

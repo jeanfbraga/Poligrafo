@@ -13,7 +13,7 @@ vi.mock('../../lib/supabase-admin', () => ({
   supabaseAdmin
 }));
 
-import { buscarAeronavesProprietario } from '../../lib/anac/client';
+import { buscarAeronavesProprietario } from '../../src/services/integrations/anac/client';
 
 describe('ANAC Client Supabase', () => {
   it('should return aeronaves on success', async () => {
