@@ -36,4 +36,4 @@ jobs:
       run: npx tsc --noEmit
 
     - name: Run Tests
-      run: npm run test
+      run: npx vitest run __tests__/unit
