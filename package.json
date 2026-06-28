@@ -1,7 +1,7 @@
 {
   "name": "poligrafo",
   "version": "1.0.0",
-  "description": "Ferramenta de auditoria pública",
+  "description": "Plataforma de auditoria cidadã (OSINT) e inteligência artificial para monitoramento e investigação do Congresso Nacional.",
   "main": "index.js",
   "scripts": {
     "start": "next start",
@@ -13,9 +13,9 @@
     "update:index": "tsx scripts/update-congresso-index.ts",
     "sync:spu": "tsx scripts/sync-spu-supabase.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["osint", "investigação", "auditoria", "nextjs", "react-flow", "gemini", "groq", "transparência"],
+  "author": "Jean Felipe Braga",
+  "license": "MIT",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",

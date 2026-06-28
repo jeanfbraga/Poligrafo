@@ -1,8 +1,9 @@
 # 🕵️‍♂️ POLÍGRAFO
 
-![Polígrafo](https://github.com/jeanfbraga/Poligrafo/assets/your-actual-header-image.png) <!-- Update with actual screenshot or logo -->
+![GitHub License](https://img.shields.io/github/license/jeanfbraga/Poligrafo?style=flat-square&color=green)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)
 
-> **Investigação OSINT de Dados Públicos e Cruzamento de Indícios de Irregularidades.**
+> **Plataforma de auditoria cidadã (OSINT) e inteligência artificial para monitoramento e investigação do Congresso Nacional.**
 
 O **Polígrafo** é uma aplicação web voltada para auditoria cidadã, jornalismo investigativo e análise de risco (OSINT). Com uma interface inspirada em terminais *hacker*, o sistema permite buscar por políticos (Deputados, Senadores, Vereadores) e cruzar automaticamente dados da Câmara, Senado, Tribunal Superior Eleitoral (TSE) e Controladoria-Geral da União (CGU).
 
@@ -81,6 +82,19 @@ Garantido que as Serverless Functions (`route.ts`) suportem streaming SSE ativan
 
 ---
 
+## 🤝 Como Contribuir
+
+Como um projeto **Open Source** (Licença MIT), toda contribuição da comunidade investigativa e de desenvolvedores é muito bem-vinda!
+
+1. Faça um *Fork* do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/MinhaInovacao`)
+3. Faça o commit de suas mudanças (`git commit -m 'feat: adicionando X'`)
+4. Faça o push para a branch (`git push origin feature/MinhaInovacao`)
+5. Abra um **Pull Request**
+
+Temos templates pré-configurados para facilitar o envio de correções de bugs (Bug Reports) ou pedidos de novas funcionalidades (Feature Requests) lá na aba de *Issues* do GitHub. Não esqueça de ler nosso `CODE_OF_CONDUCT.md`.
+
+---
 ## 👨‍💻 Autor
 
 Desenvolvido e atualizado por **Jean Braga** como um experimento de Dados Abertos e Interação de UI.
