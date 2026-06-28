@@ -41,8 +41,11 @@ export default function HomeDashboard() {
       });
   }, []);
 
-  const anoAtual = new Date().getFullYear();
-  const totalCeap = data?.ceapTotal?.filter((item: any) => Number(item.ano) === anoAtual).reduce((acc: number, item: { total_gasto: string }) => acc + Number(item.total_gasto), 0) || 0;
+  const anoMaisRecente = data?.ceapTotal && data.ceapTotal.length > 0 
+    ? Math.max(...data.ceapTotal.map((item: any) => Number(item.ano)))
+    : new Date().getFullYear();
+    
+  const totalCeap = data?.ceapTotal?.filter((item: any) => Number(item.ano) === anoMaisRecente).reduce((acc: number, item: { total_gasto: string }) => acc + Number(item.total_gasto), 0) || 0;
 
   return (
     <div className="absolute inset-0 z-10 overflow-y-auto bg-[#050505] custom-scrollbar" style={{ backgroundImage: "radial-gradient(circle, #002200 1px, transparent 1px)", backgroundSize: "24px 24px" }}>

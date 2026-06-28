@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [22.x]
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Check Formatting & Linting
+      run: npm run lint
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
+        SUPABASE_SERVICE_ROLE_KEY: dummy_key
+
+    - name: Type Check
+      run: npx tsc --noEmit
+
+    - name: Run Tests
+      run: npm run test

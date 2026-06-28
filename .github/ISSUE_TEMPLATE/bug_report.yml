@@ -1,0 +1,53 @@
+name: Bug Report
+description: Crie um relatório de bug para nos ajudar a melhorar o Polígrafo.
+title: "[Bug]: "
+labels: ["bug"]
+assignees:
+  - jeanfbraga
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por relatar um bug e ajudar a manter o Polígrafo funcionando! Por favor, preencha o máximo de informações possível.
+  - type: textarea
+    id: description
+    attributes:
+      label: Descrição do Bug
+      description: Uma descrição clara e concisa do que é o bug.
+      placeholder: Exemplo - Ao clicar no botão X, a página Y não carrega...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Passos para Reproduzir
+      description: Descreva o passo a passo exato para chegarmos ao bug.
+      value: |
+        1. Vá para '...'
+        2. Clique em '...'
+        3. Role até '...'
+        4. Veja o erro
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento Esperado
+      description: O que você esperava que acontecesse?
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots ou Gravações
+      description: Se aplicável, adicione prints ou gravações que ajudem a explicar o problema.
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Ambiente
+      description: Qual navegador e sistema operacional você está usando?
+      placeholder: Exemplo - Chrome 120, Windows 11
+    validations:
+      required: true

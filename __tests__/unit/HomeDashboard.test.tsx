@@ -67,8 +67,10 @@ describe("HomeDashboard Component", () => {
         faltosos: [{ nome: "Deputado Faltoso", ausencias_nao_justificadas: 10 }],
         votantes: [{ nome: "Deputado Votante", votos_registrados: 50 }],
         categorias: [],
-        pixEstados: [],
-        pixTop10: []
+        emendasTop10: [],
+        emendasUF: [],
+        ceapEstados: {},
+        pesquisas: []
       })
     });
 
@@ -80,7 +82,7 @@ describe("HomeDashboard Component", () => {
 
     // Subtitle check
     const subtitles = screen.getAllByText(/últimos 90 dias/i);
-    expect(subtitles).toHaveLength(2); // Faltosos and Votantes
+    expect(subtitles).toHaveLength(1); // Faltosos
   });
 
   it("renders updated widget titles correctly", async () => {
@@ -91,17 +93,20 @@ describe("HomeDashboard Component", () => {
         faltosos: [],
         votantes: [],
         categorias: [],
-        pixEstados: [],
-        pixTop10: []
+        emendasTop10: [],
+        emendasUF: [],
+        ceapEstados: {},
+        pesquisas: []
       })
     });
 
     render(<HomeDashboard />);
 
     await waitFor(() => {
-      expect(screen.getByText(/VOLUME DE PIX POR ESTADO/i)).toBeInTheDocument();
-      expect(screen.getByText(/CATEGORIAS DE GASTOS/i)).toBeInTheDocument();
-      expect(screen.getByText(/MAIORES GASTOS DE DEPUTADOS FEDERAIS/i)).toBeInTheDocument();
+      expect(screen.getByText(/Emendas PIX por Estado/i)).toBeInTheDocument();
+      expect(screen.getByText(/Categorias de gastos/i)).toBeInTheDocument();
+      expect(screen.getByText(/Deputados Federais que mais gastaram/i)).toBeInTheDocument();
     });
   });
 });
+

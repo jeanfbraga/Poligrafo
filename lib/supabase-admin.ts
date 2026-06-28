@@ -14,7 +14,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 // O Service Role ignora as restrições Row Level Security (RLS)
 // MANTENHA ESTE ARQUIVO APENAS NO LADO DO SERVIDOR (API ROUTES)
-export const supabaseAdmin = createClient(supabaseUrl || '', supabaseServiceKey || '', {
+export const supabaseAdmin = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseServiceKey || 'placeholder', {
     auth: {
         autoRefreshToken: false,
         persistSession: false

@@ -1,0 +1,39 @@
+name: Feature Request
+description: Sugira uma nova ideia para o projeto
+title: "[Feature]: "
+labels: ["enhancement"]
+assignees:
+  - jeanfbraga
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado pelo seu interesse em ajudar o Polígrafo! Compartilhe sua ideia abaixo.
+  - type: textarea
+    id: problem
+    attributes:
+      label: O seu pedido de funcionalidade está relacionado a um problema?
+      description: Uma descrição clara e concisa do problema. Ex. Sempre fico frustrado quando...
+    validations:
+      required: false
+  - type: textarea
+    id: solution
+    attributes:
+      label: Descreva a solução que você gostaria
+      description: Uma descrição clara e concisa do que você deseja que aconteça.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Descreva alternativas que você considerou
+      description: Uma descrição clara e concisa de quaisquer soluções ou funcionalidades alternativas que você considerou.
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto Adicional
+      description: Adicione qualquer outro contexto ou capturas de tela sobre a solicitação aqui.
+    validations:
+      required: false
