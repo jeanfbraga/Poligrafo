@@ -19,16 +19,22 @@ Através da integração com IA (Gemini), o Polígrafo atua como um detetive de 
 *   **⚖️ IA de Julgamento de Despesas (Score de Letalidade)**: Integração com IA para classificar reembolsos (CEAP) do parlamentar, flagrando notas suspeitas de gráficas fantasmas, restaurantes de luxo ou serviços exorbitantes em vermelho (🔥).
 *   **🔗 Malha Societária Dinâmica**: Clique em **"Aprofundar Investigação"** em qualquer despesa suspeita para quebrar o sigilo societário. A aplicação fará o *pivot* buscando a Razão Social, CNAE e Quadro de Sócios (QSA) via API, expandindo a rede na tela.
 *   **🕷️ Grafo Investigativo Interativo (React Flow)**: Visualize todas as conexões em uma interface *drag-and-drop* no canvas, permitindo arrastar evidências suspeitas direto da Sandbox Lateral.
+*   **📄 Exportação de Dossiês**: Gere relatórios consolidados das investigações em PDF, DOCX ou XLSX para uso off-line, reportagens ou documentação legal.
 
 ---
 
 ## 🛠️ Stack Tecnológico
 
 *   **Frontend**: [Next.js](https://nextjs.org/) (React), [Tailwind CSS](https://tailwindcss.com/) (Styling), [Lucide-React](https://lucide.dev/) (Ícones).
-*   **Grafo e Visualização**: [@xyflow/react](https://reactflow.dev/) (Diagramação interativa de redes).
+*   **Visualização e Animação**: [@xyflow/react](https://reactflow.dev/), `cytoscape`, `graphology` (Grafos complexos), `recharts` (Gráficos), e `GSAP` (Animações).
 *   **Estilização Avançada**: Terminal/OSINT UI, cores `green-500`, sombras neon e bordas afiadas (`rounded-none`).
-*   **Backend / Serverless**: Next.js API Routes (`app/api/investigar`) usando Server-Sent Events (SSE) para *streaming* em tempo real das descobertas no painel frontal.
-*   **Inteligência Artificial**: API do Google Gemini (`@google/genai`) acionada pelo servidor.
+*   **Backend / Serverless**: Next.js API Routes com Server-Sent Events (SSE) para *streaming* em tempo real.
+    *   `app/api/investigar`: Núcleo de OSINT e IA.
+    *   `app/api/dashboard`: Dados consolidados para dashboards.
+    *   `app/api/exportar-dossie`: Geração de documentos (PDF, DOCX, XLSX).
+*   **Banco de Dados**: [Supabase](https://supabase.com/) (PostgreSQL + Auth/Storage).
+*   **Inteligência Artificial**: API do Google Gemini acionada pelo servidor.
+*   **Analytics e Testes**: Microsoft Clarity, Vercel Analytics, e Playwright.
 *   **APIs Governamentais Consumidas**:
     *   Dados Abertos da Câmara dos Deputados
     *   Dados Abertos do Senado Federal
@@ -43,6 +49,7 @@ Através da integração com IA (Gemini), o Polígrafo atua como um detetive de 
 ### Pré-requisitos
 *   Node.js instalado (v18+).
 *   Chave de API do **Google Gemini** ativa (para habilitar o scoring de IA e extração de QSA).
+*   URL e Chaves do **Supabase** (para banco de dados e sincronização de cache).
 
 ### Passos
 
@@ -58,12 +65,11 @@ Através da integração com IA (Gemini), o Polígrafo atua como um detetive de 
    ```
 
 3. **Configure as Variáveis de Ambiente:**
-   Crie um arquivo `.env.local` na raiz do projeto e adicione sua chave de API:
-   ```env
-   GEMINI_API_KEY=sua-chave-aqui-das-apis-do-google
-   # Opcional (se você tiver chave da CGU para expandir os radares):
-   TRANSPARENCIA_API_KEY=sua-chave-cgu
+   Copie o arquivo de exemplo e adicione suas chaves:
+   ```bash
+   cp .env.example .env.local
    ```
+   *Edite o arquivo `.env.local` adicionando suas credenciais do Gemini, Supabase, etc.*
 
 4. **Inicie o Servidor de Desenvolvimento:**
    ```bash
@@ -72,6 +78,10 @@ Através da integração com IA (Gemini), o Polígrafo atua como um detetive de 
 
 5. **Acesse no Navegador:**
    Abra `http://localhost:3000` e comece sua investigação.
+
+### 🛠️ Scripts Utilitários
+*   `npm run update:index`: Sincroniza/atualiza o índice de deputados e senadores em cache local.
+*   `npm run sync:spu`: Sincroniza dados com o banco Supabase.
 
 ---
 
@@ -86,15 +96,21 @@ Garantido que as Serverless Functions (`route.ts`) suportem streaming SSE ativan
 
 Como um projeto **Open Source** (Licença MIT), toda contribuição da comunidade investigativa e de desenvolvedores é muito bem-vinda!
 
+Recomendamos fortemente a leitura dos nossos guias antes de enviar seu código:
+*   [**Código de Conduta**](CODE_OF_CONDUCT.md): Diretrizes de convivência para a comunidade.
+*   [**Guia de Contribuição**](CONTRIBUTING.md): Padrões de código, arquitetura e como submeter Pull Requests.
+*   [**Política de Segurança**](SECURITY.md): Como relatar vulnerabilidades de forma responsável.
+
 1. Faça um *Fork* do projeto
 2. Crie uma branch para sua feature (`git checkout -b feature/MinhaInovacao`)
 3. Faça o commit de suas mudanças (`git commit -m 'feat: adicionando X'`)
 4. Faça o push para a branch (`git push origin feature/MinhaInovacao`)
 5. Abra um **Pull Request**
 
-Temos templates pré-configurados para facilitar o envio de correções de bugs (Bug Reports) ou pedidos de novas funcionalidades (Feature Requests) lá na aba de *Issues* do GitHub. Não esqueça de ler nosso `CODE_OF_CONDUCT.md`.
+Temos templates pré-configurados para facilitar o envio de correções de bugs (Bug Reports) ou pedidos de novas funcionalidades (Feature Requests) lá na aba de *Issues* do GitHub.
 
 ---
+
 ## 👨‍💻 Autor
 
 Desenvolvido e atualizado por **Jean Braga** como um experimento de Dados Abertos e Interação de UI.
