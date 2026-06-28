@@ -87,7 +87,7 @@ describe('🛡️ Endpoint Input Security & Sanitization Tests', () => {
 
         it('deve sanitizar injeção de prompt no nome do político', async () => {
             vi.mocked(fetchContratosByCNPJ).mockResolvedValueOnce([
-                { numeroControlePNCP: '123-1', orgaoEntidade: { cnpj: '12345', razaoSocial: 'Órgão' }, nomeRazaoSocialFornecedor: 'F', niFornecedor: '123' }
+                { numeroControlePNCP: '123-1', orgaoEntidade: { cnpj: '12345', razaoSocial: 'Órgão' }, nomeRazaoSocialFornecedor: 'F', niFornecedor: '123' } as any
             ]);
             vi.mocked(analisarComIAPNCP).mockResolvedValueOnce({
                 conclusao_geral: 'Inocente',
@@ -117,7 +117,7 @@ describe('🛡️ Endpoint Input Security & Sanitization Tests', () => {
             vi.mocked(global.fetch).mockResolvedValueOnce({
                 ok: true,
                 json: async () => ({ status: 'ERROR' }) // Retorna erro simulado para pular lógica pesada do QSA
-            });
+            } as any);
 
             const req = new Request('http://localhost:3000/api/investigar/cnpj?cnpj=12.345.678/0001-99&origemId=node-1%20;%20DROP');
             const res = await getCnpj(req);
