@@ -406,7 +406,7 @@ async function fallbackOpenRouter(despesas: any[], promptTexto: string) {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
-                    'HTTP-Referer': 'https://poligrafo.com.br',
+                    'HTTP-Referer': 'https://poligrafo.app.br',
                     'X-Title': 'Poligrafo',
                     'Content-Type': 'application/json'
                 },
@@ -792,7 +792,7 @@ export async function analisarEmendasComInteligencia(
                 console.log(`[OPENROUTER EMENDAS] Tentando modelo: ${model}...`);
                 const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${openRouterKey}`, 'HTTP-Referer': 'https://poligrafo.com.br', 'Content-Type': 'application/json' },
+                    headers: { 'Authorization': `Bearer ${openRouterKey}`, 'HTTP-Referer': 'https://poligrafo.app.br', 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         model: model,
                         messages: [
@@ -1135,7 +1135,7 @@ export async function analisarMalhaOsintComInteligencia(
                 console.log(`[OPENROUTER OSINT] Tentando modelo: ${model}...`);
                 const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${openRouterKey}`, 'HTTP-Referer': 'https://poligrafo.com.br', 'Content-Type': 'application/json' },
+                    headers: { 'Authorization': `Bearer ${openRouterKey}`, 'HTTP-Referer': 'https://poligrafo.app.br', 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         model: model,
                         messages: [
@@ -1377,7 +1377,7 @@ export async function traduzirJuridiquesSancoes(sancoes: any[]) {
                 try {
                     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                         method: 'POST',
-                        headers: { 'Authorization': `Bearer ${openRouterKey}`, 'HTTP-Referer': 'https://poligrafo.com.br', 'Content-Type': 'application/json' },
+                        headers: { 'Authorization': `Bearer ${openRouterKey}`, 'HTTP-Referer': 'https://poligrafo.app.br', 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             model: model,
                             messages: [

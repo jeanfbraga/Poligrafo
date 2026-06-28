@@ -164,7 +164,7 @@ Return [] if no data. No text outside JSON.`;
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${key}`,
-                    'HTTP-Referer': 'https://poligrafo.com.br',
+                    'HTTP-Referer': 'https://poligrafo.app.br',
                     'X-Title': 'Poligrafo ETL',
                     'Content-Type': 'application/json'
                 },

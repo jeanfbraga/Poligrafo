@@ -103,7 +103,7 @@ export async function analisarComIAPNCP(cnpj: string, politico: string, contrato
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${openRouterKey}`,
-                        'HTTP-Referer': 'https://poligrafo.com.br',
+                        'HTTP-Referer': 'https://poligrafo.app.br',
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
