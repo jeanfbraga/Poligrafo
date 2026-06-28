@@ -197,7 +197,7 @@ Return [] if no data. No text outside JSON.`;
 async function ocrViaPdfParse(pdfBuffer: Buffer, context: string): Promise<Despesa[] | null> {
     try {
         // pdf-parse é importado dinamicamente para evitar erros de tipos no build Next.js
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        // eslint-disable-next-line
         const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>;
         const parsed = await pdfParse(pdfBuffer);
         const text = parsed.text;

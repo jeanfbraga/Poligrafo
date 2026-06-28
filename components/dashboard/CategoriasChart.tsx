@@ -15,10 +15,9 @@ interface Props {
 }
 
 export function CategoriasChart({ data }: Props) {
-  if (!data || data.length === 0) return null;
-
   // Process and sort data
   const chartData = useMemo(() => {
+    if (!data || data.length === 0) return [];
     return data
       .slice(0, 5) // top 5
       .map(item => ({
@@ -29,6 +28,8 @@ export function CategoriasChart({ data }: Props) {
       }))
       .sort((a, b) => b.total - a.total); // largest first
   }, [data]);
+
+  if (!data || data.length === 0) return null;
 
   // Cyberpunk/neon green color scale
   const colors = [
