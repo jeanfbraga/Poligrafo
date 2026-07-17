@@ -159,6 +159,14 @@ async function run() {
     
     if (!anySuccess) {
         console.error("[CEAP SYNC] Falha total: Não foi possível baixar os dados de nenhum ano recente.");
+    } else {
+        console.log("[CEAP SYNC] Atualizando views materializadas no banco de dados...");
+        const { error: rpcError } = await supabaseAdmin.rpc('refresh_ceap_materialized_views');
+        if (rpcError) {
+            console.error("[CEAP SYNC] Erro ao atualizar views materializadas:", rpcError.message);
+        } else {
+            console.log("[CEAP SYNC] Views materializadas atualizadas com sucesso.");
+        }
     }
 }
 
