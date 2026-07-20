@@ -142,10 +142,10 @@ async function prepare(ano: number) {
 }
 
 async function run() {
-    let year = 2023;
+    let year = 2024;
     let anySuccess = false;
     
-    // Roda de 2023 até o ano atual
+    // Roda de 2024 até o ano atual
     while (year <= ANO_ATUAL) {
         await prepare(year);
         const success = await runForYear(year);
