@@ -107,12 +107,12 @@ label[for],
 [role="switch"],
 [tabindex]:not([tabindex="-1"]),
 .cursor-pointer {
-  cursor: pointer !important;
+  cursor: pointer;
 }
 
 /* Inputs de texto mantêm cursor-text */
 input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
-  cursor: text !important;
+  cursor: text;
 }
 
 input[type="button"],
@@ -121,7 +121,7 @@ input[type="reset"],
 input[type="checkbox"],
 input[type="radio"],
 input[type="file"] {
-  cursor: pointer !important;
+  cursor: pointer;
 }
 
 /* Desabilitados: não sobrescrever pointer-events:none do Tailwind */
@@ -131,7 +131,7 @@ a[aria-disabled="true"],
 input:disabled,
 select:disabled,
 button[disabled] {
-  cursor: not-allowed !important;
+  cursor: not-allowed;
   pointer-events: auto;
 }
 
