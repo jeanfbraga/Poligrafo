@@ -15,6 +15,7 @@ export interface DashboardListProfile {
 	foto?: string | null;
 	id?: string | number;
 	cargo?: string;
+	casa?: string;
 }
 
 export interface DashboardListItem {
@@ -123,6 +124,7 @@ export function DashboardList({
 														detail: {
 															nome: item.profile?.nome,
 															id: item.profile?.id,
+															casa: item.profile?.casa,
 														},
 													});
 													window.dispatchEvent(event);

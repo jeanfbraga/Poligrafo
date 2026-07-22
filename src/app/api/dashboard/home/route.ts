@@ -57,6 +57,7 @@ export async function GET() {
 					nome: dep?.nome || `Deputado ID ${item.id_deputado}`,
 					partido: dep?.partido || "N/A",
 					uf: dep?.uf || "BR",
+					casa: dep?.casa || "CAMARA",
 					foto: dep
 						? dep.casa === "SENADO"
 							? `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${dep.id}.jpg`

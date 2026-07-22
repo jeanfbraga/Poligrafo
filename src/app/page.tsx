@@ -134,10 +134,15 @@ function DashboardArea() {
 
 	useEffect(() => {
 		const handlePoligrafoSearch = (e: any) => {
-			const { nome, id } = e.detail;
+			const { nome, id, casa } = e.detail;
 			setSearchTerm(nome);
 			setSelectedUf("FEDERAL");
-			const refOverride = id ? `FEDERAL:CAMARA:${id}` : undefined;
+			const refOverride =
+				id && casa
+					? `FEDERAL:${casa}:${id}`
+					: id
+						? `FEDERAL:CAMARA:${id}`
+						: undefined;
 			if (handleSearchRef.current) {
 				handleSearchRef.current(refOverride, nome);
 				window.scrollTo({ top: 0, behavior: "smooth" });

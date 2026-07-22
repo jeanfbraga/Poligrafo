@@ -23,6 +23,7 @@ export interface DraftProfile {
 	foto?: string | null;
 	id?: string | number;
 	cargo?: string | null;
+	casa?: string;
 }
 
 const ProfileAvatar = ({ profile }: { profile: DraftProfile }) => {
@@ -149,7 +150,7 @@ export function PoliticianHoverCard({
 								e.stopPropagation();
 								setOpen(false);
 								const event = new CustomEvent("poligrafo:search", {
-									detail: { nome: profile.nome, id: profile.id },
+									detail: { nome: profile.nome, id: profile.id, casa: profile.casa },
 								});
 								window.dispatchEvent(event);
 							}}

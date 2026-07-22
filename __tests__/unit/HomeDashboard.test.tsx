@@ -49,8 +49,8 @@ describe("HomeDashboard Component", () => {
     render(<HomeDashboard />);
 
     await waitFor(() => {
-      // The Central de Inteligência title should be there
-      expect(screen.getByText(/Central de Inteligência/i)).toBeInTheDocument();
+      // The Campeonato estadual de gastos title should be there
+      expect(screen.getByText(/Campeonato estadual de gastos/i)).toBeInTheDocument();
     });
 
     // Check if the empty state text "Sem registros." is rendered multiple times (for each widget)
