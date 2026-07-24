@@ -832,6 +832,23 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			}
 		}
 
+		// ==========================================
+		// CONTAGEM DE PESQUISAS (Dashboard "Mais Investigados")
+		// ==========================================
+		if (!isDev) {
+			try {
+				const nomeNormalizado = deputadoBasico.nome.toLowerCase().trim();
+				await supabaseAdmin.rpc("incrementar_pesquisa", {
+					p_nome: nomeNormalizado,
+					p_id_politico: String(deputadoBasico.id || ""),
+					p_casa: deputadoBasico.casa || "GLOBAL",
+					p_ref: refParam || null,
+				});
+			} catch (_e) {
+				// Silencioso — contagem é telemetria, não deve travar investigação
+			}
+		}
+
 		// Pré-Passo CGU/BrasilAPI: SKIP para executivos (Deep OSINT já faz essas chamadas adiante)
 		const isExecutivo =
 			deputadoBasico.casa === "GOVERNO_ESTADUAL" ||

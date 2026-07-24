@@ -108,22 +108,11 @@ export async function GET() {
 		const enriquecerPesquisas = (lista: any[]) => {
 			if (!lista) return [];
 			return lista.map((item) => {
-				let dep;
-				if (item.id_deputado) {
-					dep = congressoIndex.find(
-						(d) => parseInt(d.id, 10) === item.id_deputado,
-					);
-				} else {
-					const termoStr = removerAcentos(item.termo);
-					dep = congressoIndex.find((d) => {
-						const depNome = removerAcentos(d.nome);
-						return (
-							depNome.includes(termoStr) ||
-							termoStr.includes(depNome) ||
-							removerAcentos(d.nome.split(" ")[0]) === termoStr
-						);
-					});
-				}
+				// A view agora retorna id_deputado como string (id_politico da contagem_pesquisas)
+				const idNum = item.id_deputado ? parseInt(String(item.id_deputado), 10) : null;
+				const dep = idNum
+					? congressoIndex.find((d) => parseInt(d.id, 10) === idNum)
+					: null;
 
 				return {
 					...item,
@@ -134,12 +123,12 @@ export async function GET() {
 							? `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${dep.id}.jpg`
 							: `https://www.camara.leg.br/internet/deputado/bandep/${dep.id}.jpg`
 						: null,
-					id_deputado: dep ? parseInt(dep.id, 10) : undefined,
+					id_deputado: idNum || undefined,
 					cargo: dep
 						? dep.casa === "SENADO"
 							? "SENADOR(A)"
 							: "DEPUTADO FEDERAL"
-						: null,
+						: item.casa || null,
 				};
 			});
 		};
@@ -176,9 +165,7 @@ export async function GET() {
 			emendasUF: err7 ? null : emendasUF || [],
 			pesquisas: err8
 				? null
-				: enriquecerPesquisas(pesquisas || [])
-						.filter((item: any) => item.id_deputado)
-						.slice(0, 10),
+				: enriquecerPesquisas(pesquisas || []).slice(0, 10),
 			ceapEstados: ceapEstadosSorted,
 		});
 	} catch (error: any) {
