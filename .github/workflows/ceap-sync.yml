@@ -2,7 +2,7 @@ name: Sync CEAP Despesas
 
 on:
   schedule:
-    - cron: '0 3 * * 0' # Run every Sunday at 3 AM
+    - cron: '0 3 */3 * *' # Run every 3 days at 3 AM
   workflow_dispatch: # Allow manual trigger
 
 jobs:
