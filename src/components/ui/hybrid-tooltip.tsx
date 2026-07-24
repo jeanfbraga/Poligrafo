@@ -12,47 +12,63 @@ interface HybridTooltipProps {
 export function HybridTooltip({ content, children }: HybridTooltipProps) {
 	const [show, setShow] = useState(false);
 	const triggerRef = useRef<HTMLDivElement>(null);
+	const tooltipRef = useRef<HTMLDivElement>(null);
+	const [placement, setPlacement] = useState<"top" | "bottom">("top");
 	const [coords, setCoords] = useState({
 		top: 0,
 		left: 0,
-		transform: "translateX(-50%)",
+		transformX: "translateX(-50%)",
 	});
 
 	const updatePosition = () => {
-		if (triggerRef.current) {
-			const rect = triggerRef.current.getBoundingClientRect();
-			let newLeft = rect.left + rect.width / 2;
-			let newTransform = "translateX(-50%)";
-			const margin = 16;
+		if (!triggerRef.current) return;
+		const rect = triggerRef.current.getBoundingClientRect();
+		const margin = 16;
 
-			// Assumindo max-width 200px do tooltip, a metade é 100px
-			if (newLeft < 100 + margin) {
-				newLeft = margin; // Gruda na esquerda com margem
-				newTransform = "translateX(0)";
-			} else if (newLeft > window.innerWidth - 100 - margin) {
-				newLeft = window.innerWidth - margin; // Gruda na direita com margem
-				newTransform = "translateX(-100%)";
-			}
+		// Mede altura real do tooltip, se já renderizado; senão usa estimativa conservadora
+		const tooltipHeight = tooltipRef.current?.offsetHeight ?? 90;
+		const topSpace = rect.top - margin;
+		const bottomSpace = window.innerHeight - rect.bottom - margin;
 
-			setCoords({
-				top: rect.top - 8, // 8px above the badge
-				left: newLeft,
-				transform: newTransform,
-			});
+		// Escolhe o lado que tem mais espaço disponível; prefere cima se empatar
+		const nextPlacement =
+			topSpace >= tooltipHeight && topSpace >= bottomSpace ? "top" : "bottom";
+		if (nextPlacement !== placement) {
+			setPlacement(nextPlacement);
 		}
+
+		// Alinha horizontalmente e evita estouro nas laterais
+		let newLeft = rect.left + rect.width / 2;
+		let newTransformX = "translateX(-50%)";
+		if (newLeft < 100 + margin) {
+			newLeft = margin;
+			newTransformX = "translateX(0)";
+		} else if (newLeft > window.innerWidth - 100 - margin) {
+			newLeft = window.innerWidth - margin;
+			newTransformX = "translateX(-100%)";
+		}
+
+		setCoords({
+			top:
+				nextPlacement === "top"
+					? rect.top - 8
+					: rect.bottom + 8,
+			left: newLeft,
+			transformX: newTransformX,
+		});
 	};
 
 	useEffect(() => {
-		if (show) {
-			updatePosition();
-			window.addEventListener("scroll", updatePosition, true);
-			window.addEventListener("resize", updatePosition);
-			return () => {
-				window.removeEventListener("scroll", updatePosition, true);
-				window.removeEventListener("resize", updatePosition);
-			};
-		}
-	}, [show, updatePosition]);
+		if (!show) return;
+		updatePosition();
+		window.addEventListener("scroll", updatePosition, true);
+		window.addEventListener("resize", updatePosition);
+		return () => {
+			window.removeEventListener("scroll", updatePosition, true);
+			window.removeEventListener("resize", updatePosition);
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [show, placement]);
 
 	// Fecha o tooltip se clicar fora
 	useEffect(() => {
@@ -96,11 +112,15 @@ export function HybridTooltip({ content, children }: HybridTooltipProps) {
 				typeof document !== "undefined" &&
 				createPortal(
 					<div
+						ref={tooltipRef}
 						className="fixed z-[99999] bg-black border border-green-900 text-green-400 text-xs px-3 py-2 shadow-lg max-w-[200px] text-center pointer-events-none"
 						style={{
 							top: coords.top,
 							left: coords.left,
-							transform: `translateY(-100%) ${coords.transform}`,
+							transform:
+								placement === "top"
+									? `translateY(-100%) ${coords.transformX}`
+									: `translateY(0) ${coords.transformX}`,
 						}}
 					>
 						{content}

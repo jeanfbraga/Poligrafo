@@ -38,7 +38,8 @@ describe("HomeDashboard Component", () => {
       json: vi.fn().mockResolvedValue({
         ceapTotal: [],
         ceapTop10: [],
-        faltosos: [],
+        menosPresentes: [],
+        totalSessoes: null,
         votantes: [],
         categorias: [],
         pixEstados: [],
@@ -58,13 +59,14 @@ describe("HomeDashboard Component", () => {
     expect(emptyMessages.length).toBeGreaterThan(0);
   });
 
-  it("renders the 'Últimos 90 dias' subtitle on Frequência and Votações widgets", async () => {
-    // Mock the fetch call to return some mock data so it doesn't stay in loading
+  it("renders 'Menos Presentes' widget with presence data and fraction format", async () => {
+    // Mock da API com novo contrato: menosPresentes + totalSessoes
     global.fetch = vi.fn().mockResolvedValue({
       json: vi.fn().mockResolvedValue({
         ceapTotal: [],
         ceapTop10: [],
-        faltosos: [{ nome: "Deputado Faltoso", ausencias_nao_justificadas: 10 }],
+        menosPresentes: [{ nome: "Deputado Ausente", presencas: 2 }],
+        totalSessoes: 121,
         votantes: [{ nome: "Deputado Votante", votos_registrados: 50 }],
         categorias: [],
         emendasTop10: [],
@@ -77,12 +79,19 @@ describe("HomeDashboard Component", () => {
     render(<HomeDashboard />);
 
     await waitFor(() => {
-      expect(screen.getByText("Deputado Faltoso")).toBeInTheDocument();
+      // Deputado deve aparecer no ranking
+      expect(screen.getByText("Deputado Ausente")).toBeInTheDocument();
     });
 
-    // Subtitle check
-    const subtitles = screen.getAllByText(/últimos 90 dias/i);
-    expect(subtitles).toHaveLength(1); // Faltosos
+    // Widget deve ter o novo título
+    expect(screen.getByText(/Menos Presentes/i)).toBeInTheDocument();
+
+    // Subtítulo e tooltip devem mencionar sessões deliberativas (ambos presentes)
+    const sessoesEls = screen.getAllByText(/sess.es deliberativas/i);
+    expect(sessoesEls.length).toBeGreaterThanOrEqual(2); // subtitle do widget + tooltip
+
+    // Tooltip de explicação deve estar presente
+    expect(screen.getByText(/O que s.o sess.es deliberativas/i)).toBeInTheDocument();
   });
 
   it("renders updated widget titles correctly", async () => {
@@ -90,7 +99,8 @@ describe("HomeDashboard Component", () => {
       json: vi.fn().mockResolvedValue({
         ceapTotal: [],
         ceapTop10: [],
-        faltosos: [],
+        menosPresentes: [],
+        totalSessoes: null,
         votantes: [],
         categorias: [],
         emendasTop10: [],
@@ -106,6 +116,10 @@ describe("HomeDashboard Component", () => {
       expect(screen.getByText(/Emendas PIX por Estado/i)).toBeInTheDocument();
       expect(screen.getByText(/Categorias de gastos/i)).toBeInTheDocument();
       expect(screen.getByText(/Deputados Federais que mais gastaram/i)).toBeInTheDocument();
+      // Garante que o widget antigo "Mais Faltosos" NÃO existe mais
+      expect(screen.queryByText(/Mais Faltosos/i)).not.toBeInTheDocument();
+      // Garante que o widget novo "Menos Presentes" existe
+      expect(screen.getByText(/Menos Presentes/i)).toBeInTheDocument();
     });
   });
 });

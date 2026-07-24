@@ -17,6 +17,7 @@ import { type DraftProfile, PoliticianHoverCard } from "./PoliticianHoverCard";
 export interface BarRankingItem {
 	label: React.ReactNode;
 	value: number;
+	valueTotal?: number; // quando presente, exibe "value/valueTotal" (ex: "12/121 sessões")
 	profile?: DraftProfile | null;
 }
 
@@ -66,6 +67,7 @@ interface BarRankingProps {
 	valuePrefix?: string;
 	valueSuffix?: string;
 	isCurrency?: boolean;
+	showFraction?: boolean; // se true, usa item.valueTotal para renderizar fração
 }
 
 export function BarRanking({
@@ -75,6 +77,7 @@ export function BarRanking({
 	valuePrefix,
 	valueSuffix,
 	isCurrency,
+	showFraction,
 }: BarRankingProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const styles = ACCENTS[accent];
@@ -137,16 +140,29 @@ export function BarRanking({
 									nameEl
 								)}
 							</div>
-							<span
-								className={`font-bold shrink-0 text-right text-xs md:text-sm ${styles.value}`}
-							>
-								<AnimatedNumber
-									value={item.value}
-									prefix={valuePrefix}
-									suffix={valueSuffix}
-									isCurrency={isCurrency}
-								/>
-							</span>
+							{/* Valor: fração "X/Y" ou valor simples */}
+							{showFraction && item.valueTotal ? (
+								<span
+									className={`font-bold shrink-0 text-right text-xs md:text-sm ${styles.value} flex items-baseline gap-0.5`}
+								>
+									<AnimatedNumber value={item.value} isCurrency={isCurrency} />
+									<span className="text-green-800 font-mono text-[10px]">/{item.valueTotal}</span>
+									{valueSuffix && (
+										<span className="text-green-700 font-mono text-[10px] ml-0.5">{valueSuffix}</span>
+									)}
+								</span>
+							) : (
+								<span
+									className={`font-bold shrink-0 text-right text-xs md:text-sm ${styles.value}`}
+								>
+									<AnimatedNumber
+										value={item.value}
+										prefix={valuePrefix}
+										suffix={valueSuffix}
+										isCurrency={isCurrency}
+									/>
+								</span>
+							)}
 						</div>
 
 						{/* Barra proporcional — cantos retos + ponta luminosa (tema pixel/terminal) */}

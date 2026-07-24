@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { AnimatedNumber } from "@/components/dashboard/AnimatedNumber";
-import { formatName } from "@/lib/utils";
+import { HybridTooltip } from "@/components/ui/hybrid-tooltip";
 
 // ==========================================================================
 // RASCUNHO (layout v2) — Faixa hero do big number.
@@ -15,7 +15,6 @@ interface KpiBandProps {
 	ceapTotal?: { total_gasto: string }[] | null;
 	ceapTop10?: { nome: string; total_gasto: number; uf?: string }[] | null;
 	emendasTop10?: { autor: string; total_pix: number }[] | null;
-	ufCount: number;
 }
 
 export function KpiBand({
@@ -23,7 +22,6 @@ export function KpiBand({
 	ceapTotal,
 	ceapTop10,
 	emendasTop10,
-	ufCount,
 }: KpiBandProps) {
 	const anoMaisRecente = useMemo(() => {
 		return ceapTotal && ceapTotal.length > 0
@@ -56,7 +54,14 @@ export function KpiBand({
 		return emendasTop10.reduce((acc, i) => acc + Number(i.total_pix || 0), 0);
 	}, [emendasTop10]);
 
-	const topGastador = ceapTop10 && ceapTop10.length > 0 ? ceapTop10[0] : null;
+	const concentracaoTop10 = useMemo(() => {
+		if (!ceapTop10 || ceapTop10.length === 0 || !totalCeap) return 0;
+		const somaTop10 = ceapTop10.reduce(
+			(acc, i) => acc + Number(i.total_gasto || 0),
+			0,
+		);
+		return (somaTop10 / totalCeap) * 100;
+	}, [ceapTop10, totalCeap]);
 
 	return (
 		<div className="relative border border-green-500/50 bg-black overflow-hidden shadow-[0_0_25px_rgba(0,34,0,0.6)]">
@@ -101,22 +106,21 @@ export function KpiBand({
 				{!loading && (
 					<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 lg:text-right shrink-0">
 						<div className="border-l-2 lg:border-l-0 lg:border-r-2 border-green-900/60 pl-3 lg:pl-0 lg:pr-3">
-							<p className="text-[10px] text-green-700 uppercase tracking-widest mb-1">
-								Top gastador
+							<div className="text-[10px] text-green-700 uppercase tracking-widest mb-1">
+								<HybridTooltip content="Percentual do gasto total da Cota Parlamentar (CEAP) do ano corrente que está concentrado nos 10 deputados que mais gastaram. Fórmula: soma do Top 10 ÷ total do ano × 100.">
+									<span className="inline-flex items-center gap-1 cursor-help border-b border-dashed border-green-400/50 hover:text-green-200 transition-colors">
+										<span>concentração no top 10</span>
+										<span className="text-[10px] text-green-500 font-normal normal-case tracking-normal">[?]</span>
+									</span>
+								</HybridTooltip>
+							</div>
+							<p className="text-sm font-bold text-amber-400">
+								{concentracaoTop10 > 0
+									? `${concentracaoTop10.toFixed(1).replace(".", ",")}%`
+									: "—"}
 							</p>
-							<p className="text-sm font-bold text-amber-400 truncate max-w-55">
-								{topGastador ? formatName(topGastador.nome) : "—"}
-							</p>
-							<p className="text-xs text-green-500">
-								{topGastador ? (
-									<AnimatedNumber
-										value={topGastador.total_gasto}
-										prefix="R$ "
-										isCurrency={true}
-									/>
-								) : (
-									"—"
-								)}
+							<p className="text-[10px] text-green-800 uppercase tracking-wider">
+								do valor total
 							</p>
 						</div>
 						<div className="border-l-2 lg:border-l-0 lg:border-r-2 border-green-900/60 pl-3 lg:pl-0 lg:pr-3">
@@ -136,7 +140,7 @@ export function KpiBand({
 						</div>
 						<div className="border-l-2 lg:border-l-0 border-green-900/60 pl-3 lg:pl-0">
 							<p className="text-[10px] text-green-700 uppercase tracking-widest mb-1">
-								Emendas PIX (Top 10)
+								Soma Top 10 Emendas PIX
 							</p>
 							<p className="text-sm font-bold text-teal-400">
 								<AnimatedNumber
@@ -146,7 +150,7 @@ export function KpiBand({
 								/>
 							</p>
 							<p className="text-[10px] text-green-800 uppercase tracking-wider">
-								{ufCount} UFs monitoradas
+								valores pagos
 							</p>
 						</div>
 					</div>

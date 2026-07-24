@@ -19,20 +19,22 @@ export async function GET() {
 			{ data: ceapTop10, error: err1 },
 			{ data: ceapTotal, error: err2 },
 			{ data: ceapCategorias, error: err3 },
-			{ data: faltosos, error: err4 },
+			{ data: menosPresentes, error: err4 },
 			{ data: votantes, error: err5 },
 			{ data: emendasTop10, error: err6 },
 			{ data: emendasUF, error: err7 },
 			{ data: pesquisas, error: err8 },
 			{ data: ceap2025Raw, error: err9 },
+			{ data: totalSessoesRow, error: err10 },
 		] = await Promise.all([
 			supabaseAdmin.from("dashboard_ceap_top10").select("*"),
 			supabaseAdmin.from("dashboard_ceap_total").select("*"),
 			supabaseAdmin.from("dashboard_ceap_categorias").select("*"),
+			// Ordenar pelos MENOS presentes (presencas ASC) — dado factual e verificável
 			supabaseAdmin
 				.from("camara_frequencia")
 				.select("*")
-				.order("ausencias_nao_justificadas", { ascending: false })
+				.order("presencas", { ascending: true })
 				.limit(10),
 			supabaseAdmin
 				.from("camara_votacoes")
@@ -43,6 +45,12 @@ export async function GET() {
 			supabaseAdmin.from("dashboard_emendas_uf").select("*"),
 			supabaseAdmin.from("dashboard_pesquisas_top10").select("*"),
 			supabaseAdmin.from("dashboard_ceap_2025_deputados").select("*"),
+			// Total de sessões no período: todos os deputados têm a mesma soma presencas+ausencias
+			supabaseAdmin
+				.from("camara_frequencia")
+				.select("presencas, ausencias_nao_justificadas")
+				.order("presencas", { ascending: false })
+				.limit(1),
 		]);
 
 		// Helper para mapear id_deputado para Nome e Partido do congresso-index
@@ -59,6 +67,9 @@ export async function GET() {
 					uf: dep?.uf || "BR",
 					casa: dep?.casa || "CAMARA",
 					foto: dep
+						? `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${dep.id}.jpg`
+						: null,
+					fotoFallback: dep
 						? dep.casa === "SENADO"
 							? `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${dep.id}.jpg`
 							: `https://www.camara.leg.br/internet/deputado/bandep/${dep.id}.jpg`
@@ -91,6 +102,9 @@ export async function GET() {
 					partido: dep?.partido || "CONGRESSO",
 					uf: dep?.uf || "BR",
 					foto: dep
+						? `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${dep.id}.jpg`
+						: null,
+					fotoFallback: dep
 						? dep.casa === "SENADO"
 							? `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${dep.id}.jpg`
 							: `https://www.camara.leg.br/internet/deputado/bandep/${dep.id}.jpg`
@@ -119,6 +133,9 @@ export async function GET() {
 					partido: dep?.partido || "N/A",
 					uf: dep?.uf || "BR",
 					foto: dep
+						? `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${dep.id}.jpg`
+						: null,
+					fotoFallback: dep
 						? dep.casa === "SENADO"
 							? `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${dep.id}.jpg`
 							: `https://www.camara.leg.br/internet/deputado/bandep/${dep.id}.jpg`
@@ -155,11 +172,20 @@ export async function GET() {
 				{} as Record<string, any[]>,
 			);
 
+		// Calcula o total de sessões deliberativas do período
+		const primeiroReg = totalSessoesRow?.[0];
+		const totalSessoes =
+			!err10 && primeiroReg
+				? (primeiroReg.presencas ?? 0) + (primeiroReg.ausencias_nao_justificadas ?? 0)
+				: null;
+
 		return NextResponse.json({
 			ceapTop10: err1 ? null : enriquecerDeputados(ceapTop10 || []),
 			ceapTotal: err2 ? null : ceapTotal || [],
 			ceapCategorias: err3 ? null : ceapCategorias || [],
-			faltosos: err4 ? null : enriquecerDeputados(faltosos || []),
+			// menosPresentes: top 10 com menos presenças em sessões deliberativas (dado factual)
+			menosPresentes: err4 ? null : enriquecerDeputados(menosPresentes || []),
+			totalSessoes,
 			votantes: err5 ? null : enriquecerDeputados(votantes || []),
 			emendasTop10: err6 ? null : enriquecerEmendasPorNome(emendasTop10 || []),
 			emendasUF: err7 ? null : emendasUF || [],

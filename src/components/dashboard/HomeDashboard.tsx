@@ -33,15 +33,16 @@ interface DashboardData {
 		id_deputado?: number;
 		cargo?: string;
 	}[];
-	faltosos: {
+	menosPresentes: {
 		nome: string;
-		ausencias_nao_justificadas: number;
+		presencas: number;
 		partido?: string;
 		uf?: string;
 		foto?: string | null;
 		id_deputado?: number;
 		cargo?: string;
 	}[];
+	totalSessoes: number | null;
 	votantes: {
 		nome: string;
 		votos_registrados: number;
@@ -93,8 +94,6 @@ export function HomeDashboard() {
 			});
 	}, []);
 
-	const ufCount = data?.ceapEstados ? Object.keys(data.ceapEstados).length : 0;
-
 	// Mapeadores padronizados com formatName (Title Case / Caixa Normal)
 	const ceapTop10Items: BarRankingItem[] = (data?.ceapTop10 || []).map(
 		(item) => ({
@@ -114,10 +113,11 @@ export function HomeDashboard() {
 		}),
 	);
 
-	const faltososItems: BarRankingItem[] = (data?.faltosos || []).map(
+	const menosPresItem: BarRankingItem[] = (data?.menosPresentes || []).map(
 		(item) => ({
 			label: formatName(item.nome),
-			value: item.ausencias_nao_justificadas,
+			value: item.presencas,
+			valueTotal: data?.totalSessoes ?? undefined,
 			profile:
 				item.partido && item.partido !== "N/A"
 					? {
@@ -206,7 +206,6 @@ export function HomeDashboard() {
 					ceapTotal={data?.ceapTotal}
 					ceapTop10={data?.ceapTop10}
 					emendasTop10={data?.emendasTop10}
-					ufCount={ufCount}
 				/>
 
 				<div className="flex flex-col xl:flex-row gap-6 items-start">
@@ -242,19 +241,28 @@ export function HomeDashboard() {
 							/>
 						</Widget>
 
-						{/* Widget: Top Faltosos */}
+						{/* Widget: Menos Presentes em Sessões Deliberativas */}
 						<Widget
-							title="Mais Faltosos"
-							subtitle="Últimos 90 dias"
+							title="Menos Presentes"
+							subtitle="Em sessões deliberativas (últimos 90 dias)"
 							icon={AlertTriangle}
-							data={data?.faltosos}
+							data={data?.menosPresentes}
 							error={error}
 							loading={loading}
 						>
+							<div className="mb-3">
+								<HybridTooltip content="Conta as presenças registradas em sessões deliberativas do Plenário da Câmara (votações, debates e deliberações) nos últimos 90 dias. Os dados vêm da API oficial da Câmara dos Deputados. Deputados licenciados, em missão oficial ou com mandato em exercício podem ter presenças baixas sem que isso signifique ausência injustificada.">
+									<span className="inline-flex items-center gap-1 text-[11px] text-green-700 cursor-help border-b border-dashed border-green-800/60 hover:text-green-500 transition-colors">
+										O que são sessões deliberativas?
+										<span className="text-[10px] text-green-800">[?]</span>
+									</span>
+								</HybridTooltip>
+							</div>
 							<BarRanking
-								items={faltososItems}
+								items={menosPresItem}
 								accent="green"
-								valueSuffix=" faltas"
+								showFraction={true}
+								valueSuffix=" sess."
 							/>
 						</Widget>
 
