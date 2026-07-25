@@ -2,10 +2,14 @@ import type { PNCPContract } from "@/services/integrations/pncp/client";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const GEMINI_MODELS = [
-	"gemini-2.5-flash",
+	"gemini-3.5-flash-lite",
+	"gemini-3.1-flash-lite",
+	"gemma-4-31b-it",
+	"gemini-3.6-flash",
+	"gemini-3.5-flash",
 	"gemini-3-flash",
+	"gemini-2.5-flash",
 	"gemini-2.5-flash-lite",
-	"gemini-2.0-flash",
 ];
 
 function construirPromptLicitacoes(
@@ -64,7 +68,9 @@ export async function analisarComIAPNCP(
 
 	// NÍVEL 1: GROQ (Velocidade e Precisão Primária)
 	const groqKey = process.env.GROQ_API_KEY;
-	if (groqKey) {
+	const isDev = process.env.NODE_ENV === "development";
+
+	if (groqKey && !isDev) {
 		try {
 			console.log(`[PNCP L1 GROQ] Iniciando motor inteligente...`);
 			const res = await fetch(
@@ -104,13 +110,18 @@ export async function analisarComIAPNCP(
 
 	// NÍVEL 2: OPENROUTER (Modelos Open Source - Kimi/Llama)
 	const openRouterKey = process.env.OPENROUTER_API_KEY;
-	if (openRouterKey) {
+	if (openRouterKey && !isDev) {
 		console.log(`[PNCP L2 OPENROUTER] Fallback acionado...`);
 		const openRouterModels = [
-			"liquid/lfm-2.5-1.2b-instruct:free",
-			"liquid/lfm-2.5-1.2b-thinking:free",
 			"meta-llama/llama-3.3-70b-instruct:free",
-			"meta-llama/llama-3.2-3b-instruct:free",
+			"meta-llama/llama-3.1-8b-instruct:free",
+			"google/gemini-2.0-flash-exp:free",
+			"deepseek/deepseek-r1:free",
+			"deepseek/deepseek-chat:free",
+			"inclusionai/ling-3.0-flash:free",
+			"poolside/laguna-s-2.1:free",
+			"qwen/qwen-2.5-coder-32b-instruct:free",
+			"mistralai/mistral-7b-instruct:free",
 		];
 
 		for (const model of openRouterModels) {
@@ -163,7 +174,7 @@ export async function analisarComIAPNCP(
 
 	// NÍVEL 3: GEMINI (Fallback Neural Cognitivo)
 	const geminiKey = process.env.GEMINI_API_KEY;
-	if (geminiKey) {
+	if (geminiKey && !isDev) {
 		console.log(`[PNCP L3 GEMINI] Fallback L3 acionado...`);
 		for (const model of GEMINI_MODELS) {
 			try {

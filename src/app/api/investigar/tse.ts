@@ -425,8 +425,8 @@ export async function buscarDoadoresTSE(
 		const { data: cacheData, error: cacheErr } = await supabaseAdmin
 			.from("tse_doadores_cache")
 			.select("doadores")
-			.eq("nome_politico", nomePolitico)
-			.eq("uf", uf)
+			.ilike("nome_politico", nomePolitico)
+			.eq("uf", uf.toUpperCase())
 			.limit(1)
 			.single();
 
@@ -437,7 +437,7 @@ export async function buscarDoadoresTSE(
 			cacheData.doadores.length > 0
 		) {
 			console.log(
-				`[TSE DEBUG] Doadores recuperados do cache Supabase (bypass WAF) para ${nomePolitico}.`,
+				`[TSE DOADORES] ✅ Cache Supabase: ${cacheData.doadores.length} doadores para ${nomePolitico} (bypass WAF).`,
 			);
 			return cacheData.doadores;
 		}
@@ -497,7 +497,7 @@ export async function buscarDoadoresTSE(
 			timeout: 8000,
 			headers: {
 				"User-Agent":
-					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.120 Safari/537.36",
 				Accept: "application/json, text/plain, */*",
 				"Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
 				Referer: "https://divulgacandcontas.tse.jus.br/divulga/",
@@ -520,7 +520,10 @@ export async function buscarDoadoresTSE(
 			dataContas = await resContas.json();
 		} catch (_e) {
 			console.warn(
-				`[TSE DEBUG] WAF bloqueou a busca de contas (Resposta não-JSON)`,
+				`[TSE DOADORES] ⚠️  WAF bloqueou a rota /prestador/consulta (body não-JSON). Doadores de campanha indisponíveis.`,
+			);
+			console.warn(
+				`[TSE DOADORES]    → Em produção, execute o ETL para popular o cache: npx tsx scripts/etl/tse-doadores-sync.ts`,
 			);
 			return [];
 		}
@@ -534,6 +537,14 @@ export async function buscarDoadoresTSE(
 
 		// Remove duplicatas usando Set
 		const doadoresUnicos = [...new Set<string>(listaDoadores)];
+
+		if (doadoresUnicos.length > 0) {
+			console.log(
+				`[TSE DOADORES] ✅ Extraídos ${doadoresUnicos.length} doadores da API oficial (WAF Bypass).`,
+			);
+		} else {
+			console.log(`[TSE DOADORES] ℹ️  Candidato não possui doadores registrados na prestação de contas.`);
+		}
 
 		console.log(
 			`[TSE DEBUG] ${doadoresUnicos.length} doadores únicos capturados! Salvando no cache Supabase...`,

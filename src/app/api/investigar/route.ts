@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import { fetchWithTimeout } from "./tse";
 
 // ==========================================
@@ -206,6 +207,10 @@ async function _buscarViagensFAB(
 // ROTA GET (Server-Sent Events)
 // ==========================================
 export async function GET(request: Request) {
+	// Proteção de entrada: esta rota consome quotas pagas de LLM
+	const limited = checkRateLimit(request, { scope: "investigar", limit: 10 });
+	if (limited) return limited;
+
 	const { parseInvestigarRequest } = await import(
 		"@/services/core/request-parser"
 	);

@@ -1,9 +1,12 @@
 const GEMINI_MODELS = [
-	"gemini-3.5-flash",
+	"gemini-3.5-flash-lite",
 	"gemini-3.1-flash-lite",
+	"gemma-4-31b-it",
+	"gemini-3.6-flash",
+	"gemini-3.5-flash",
+	"gemini-3-flash",
 	"gemini-2.5-flash",
-	"gemini-2.5-pro",
-	"gemini-3.1-pro-preview",
+	"gemini-2.5-flash-lite",
 ];
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 
@@ -450,13 +453,20 @@ function fallbackL4HeuristicaMatematica(
 async function fallbackOpenRouter(despesas: any[], promptTexto: string) {
 	console.log(`[OPENROUTER L2] Iniciando fallback com OpenRouter...`);
 	const apiKey = process.env.OPENROUTER_API_KEY;
+	const isDev = process.env.NODE_ENV === "development";
+	if (isDev) throw new Error("DEV_MODE: Pulando OpenRouter");
 	if (!apiKey) throw new Error("OPENROUTER_API_KEY ausente");
 
 	const models = [
-		"google/gemma-4-31b-it:free",
-		"deepseek/deepseek-v4-flash:free",
-		"nvidia/nemotron-3-super-120b-a12b:free",
-		"minimax/minimax-m2.5:free",
+		"meta-llama/llama-3.3-70b-instruct:free",
+		"meta-llama/llama-3.1-8b-instruct:free",
+		"google/gemini-2.0-flash-exp:free",
+		"deepseek/deepseek-r1:free",
+		"deepseek/deepseek-chat:free",
+		"inclusionai/ling-3.0-flash:free",
+		"poolside/laguna-s-2.1:free",
+		"qwen/qwen-2.5-coder-32b-instruct:free",
+		"mistralai/mistral-7b-instruct:free",
 	];
 
 	let lastError = null;
@@ -553,6 +563,8 @@ async function fallbackOpenRouter(despesas: any[], promptTexto: string) {
 async function fallbackGemini(despesas: any[], promptTexto: string) {
 	console.log(`[GEMINI L3] Iniciando fallback cognitivo secundário...`);
 	const geminiKey = process.env.GEMINI_API_KEY;
+	const isDev = process.env.NODE_ENV === "development";
+	if (isDev) throw new Error("DEV_MODE: Pulando Gemini");
 	if (!geminiKey) throw new Error("GEMINI_API_KEY ausente");
 
 	let lastError = null;
@@ -660,13 +672,18 @@ export async function analisarLoteComInteligencia(
 	const groqKey = process.env.GROQ_API_KEY;
 
 	// TENTATIVA NÍVEL 1: GROQ API (LLAMA-3 NATIVO)
-	if (groqKey) {
+	const isDev = process.env.NODE_ENV === "development";
+	if (groqKey && !isDev) {
 		console.time("GroqTriage");
 		let successResult = null;
 		const groqModels = [
 			GROQ_MODEL,
-			"meta-llama/llama-4-scout-17b-16e-instruct",
-			"qwen/qwen3-32b",
+			"llama-3.1-8b-instant",
+			"openai/gpt-oss-120b",
+			"openai/gpt-oss-20b",
+			"qwen/qwen3.6-27b",
+			"groq/compound",
+			"groq/compound-mini",
 		];
 		for (const model of groqModels) {
 			console.log(
@@ -862,13 +879,18 @@ export async function analisarEmendasComInteligencia(
 	);
 	const groqKey = process.env.GROQ_API_KEY;
 
-	if (groqKey) {
+	const isDev = process.env.NODE_ENV === "development";
+	if (groqKey && !isDev) {
 		console.time("GroqEmendas");
 		let successResult = null;
 		const groqModels = [
 			GROQ_MODEL,
-			"meta-llama/llama-4-scout-17b-16e-instruct",
-			"qwen/qwen3-32b",
+			"llama-3.1-8b-instant",
+			"openai/gpt-oss-120b",
+			"openai/gpt-oss-20b",
+			"qwen/qwen3.6-27b",
+			"groq/compound",
+			"groq/compound-mini",
 		];
 		for (const model of groqModels) {
 			console.log(
@@ -952,14 +974,19 @@ export async function analisarEmendasComInteligencia(
 	}
 
 	const openRouterKey = process.env.OPENROUTER_API_KEY;
-	if (openRouterKey) {
+	if (openRouterKey && !isDev) {
 		console.time("OpenRouterEmendas");
 		console.log(`[OPENROUTER L2] Fallback para Emendas em andamento...`);
 		const models = [
-			"google/gemma-4-31b-it:free",
-			"deepseek/deepseek-v4-flash:free",
-			"nvidia/nemotron-3-super-120b-a12b:free",
-			"minimax/minimax-m2.5:free",
+			"meta-llama/llama-3.3-70b-instruct:free",
+			"meta-llama/llama-3.1-8b-instruct:free",
+			"google/gemini-2.0-flash-exp:free",
+			"deepseek/deepseek-r1:free",
+			"deepseek/deepseek-chat:free",
+			"inclusionai/ling-3.0-flash:free",
+			"poolside/laguna-s-2.1:free",
+			"qwen/qwen-2.5-coder-32b-instruct:free",
+			"mistralai/mistral-7b-instruct:free",
 		];
 		let successResult = null;
 		for (const model of models) {
@@ -1043,7 +1070,7 @@ export async function analisarEmendasComInteligencia(
 	}
 
 	const geminiKey = process.env.GEMINI_API_KEY;
-	if (geminiKey) {
+	if (geminiKey && !isDev) {
 		console.time("GeminiEmendas");
 		console.log(`[GEMINI L3] Fallback para Emendas em andamento...`);
 		for (const model of GEMINI_MODELS) {
@@ -1317,13 +1344,18 @@ export async function analisarMalhaOsintComInteligencia(
 	);
 	const groqKey = process.env.GROQ_API_KEY;
 
-	if (groqKey) {
+	const isDev = process.env.NODE_ENV === "development";
+	if (groqKey && !isDev) {
 		console.time("GroqOSINT");
 		let successResult = null;
 		const groqModels = [
 			GROQ_MODEL,
 			"llama-3.1-8b-instant",
-			"mixtral-8x7b-32768",
+			"openai/gpt-oss-120b",
+			"openai/gpt-oss-20b",
+			"qwen/qwen3.6-27b",
+			"groq/compound",
+			"groq/compound-mini",
 		];
 		for (const model of groqModels) {
 			console.log(
@@ -1413,16 +1445,19 @@ export async function analisarMalhaOsintComInteligencia(
 	}
 
 	const openRouterKey = process.env.OPENROUTER_API_KEY;
-	if (openRouterKey) {
+	if (openRouterKey && !isDev) {
 		console.time("OpenRouterOSINT");
 		console.log(`[OPENROUTER L2] Fallback para OSINT em andamento...`);
 		const models = [
-			"google/gemini-2.0-flash-lite-preview-02-05:free",
 			"meta-llama/llama-3.3-70b-instruct:free",
-			"deepseek/deepseek-r1-distill-llama-70b:free",
-			"qwen/qwen-2.5-72b-instruct:free",
-			"nvidia/llama-3.1-nemotron-70b-instruct:free",
-			"mistralai/mistral-small-24b-instruct-2501:free",
+			"meta-llama/llama-3.1-8b-instruct:free",
+			"google/gemini-2.0-flash-exp:free",
+			"deepseek/deepseek-r1:free",
+			"deepseek/deepseek-chat:free",
+			"inclusionai/ling-3.0-flash:free",
+			"poolside/laguna-s-2.1:free",
+			"qwen/qwen-2.5-coder-32b-instruct:free",
+			"mistralai/mistral-7b-instruct:free",
 		];
 		let successResult = null;
 		for (const model of models) {
@@ -1512,7 +1547,7 @@ export async function analisarMalhaOsintComInteligencia(
 	}
 
 	const geminiKey = process.env.GEMINI_API_KEY;
-	if (geminiKey) {
+	if (geminiKey && !isDev) {
 		console.time("GeminiOSINT");
 		console.log(`[GEMINI L3] Fallback para OSINT em andamento...`);
 		for (const model of GEMINI_MODELS) {
@@ -1669,7 +1704,6 @@ export async function analisarMalhaOsintComInteligencia(
 export async function traduzirJuridiquesSancoes(sancoes: any[]) {
 	try {
 		const geminiKey = process.env.GEMINI_API_KEY;
-		if (!geminiKey) return null;
 
 		const textosBrutos = sancoes
 			.slice(0, 3)
@@ -1713,11 +1747,16 @@ export async function traduzirJuridiquesSancoes(sancoes: any[]) {
 		].join("\n");
 
 		const groqKey = process.env.GROQ_API_KEY;
-		if (groqKey) {
+		const isDev = process.env.NODE_ENV === "development";
+		if (groqKey && !isDev) {
 			const groqModels = [
 				GROQ_MODEL,
 				"llama-3.1-8b-instant",
-				"mixtral-8x7b-32768",
+				"openai/gpt-oss-120b",
+				"openai/gpt-oss-20b",
+				"qwen/qwen3.6-27b",
+				"groq/compound",
+				"groq/compound-mini",
 			];
 			for (const model of groqModels) {
 				try {
@@ -1767,14 +1806,17 @@ export async function traduzirJuridiquesSancoes(sancoes: any[]) {
 		}
 
 		const openRouterKey = process.env.OPENROUTER_API_KEY;
-		if (openRouterKey) {
+		if (openRouterKey && !isDev) {
 			const models = [
-				"google/gemini-2.0-flash-lite-preview-02-05:free",
 				"meta-llama/llama-3.3-70b-instruct:free",
-				"deepseek/deepseek-r1-distill-llama-70b:free",
-				"qwen/qwen-2.5-72b-instruct:free",
-				"nvidia/llama-3.1-nemotron-70b-instruct:free",
-				"mistralai/mistral-small-24b-instruct-2501:free",
+				"meta-llama/llama-3.1-8b-instruct:free",
+				"google/gemini-2.0-flash-exp:free",
+				"deepseek/deepseek-r1:free",
+				"deepseek/deepseek-chat:free",
+				"inclusionai/ling-3.0-flash:free",
+				"poolside/laguna-s-2.1:free",
+				"qwen/qwen-2.5-coder-32b-instruct:free",
+				"mistralai/mistral-7b-instruct:free",
 			];
 			for (const model of models) {
 				try {
@@ -1819,42 +1861,44 @@ export async function traduzirJuridiquesSancoes(sancoes: any[]) {
 			}
 		}
 
-		for (const model of GEMINI_MODELS) {
-			try {
-				const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-				const response = await fetch(url, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"x-goog-api-key": geminiKey,
-					},
-					body: JSON.stringify({
-						contents: [{ parts: [{ text: promptTexto }] }],
-						generationConfig: {
-							temperature: 0.1,
-							responseMimeType: "application/json",
+		if (geminiKey && !isDev) {
+			for (const model of GEMINI_MODELS) {
+				try {
+					const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+					const response = await fetch(url, {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"x-goog-api-key": geminiKey,
 						},
-					}),
-					signal: AbortSignal.timeout(35000),
-				});
+						body: JSON.stringify({
+							contents: [{ parts: [{ text: promptTexto }] }],
+							generationConfig: {
+								temperature: 0.1,
+								responseMimeType: "application/json",
+							},
+						}),
+						signal: AbortSignal.timeout(35000),
+					});
 
-				if (response.ok) {
-					const data = await response.json();
-					let textResult = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-					if (textResult) {
-						textResult = textResult
-							.replace(/```json/g, "")
-							.replace(/```/g, "")
-							.trim();
-						const startIdx = textResult.indexOf("{");
-						const endIdx = textResult.lastIndexOf("}") + 1;
-						if (startIdx !== -1 && endIdx !== -1) {
-							return JSON.parse(textResult.substring(startIdx, endIdx));
+					if (response.ok) {
+						const data = await response.json();
+						let textResult = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+						if (textResult) {
+							textResult = textResult
+								.replace(/```json/g, "")
+								.replace(/```/g, "")
+								.trim();
+							const startIdx = textResult.indexOf("{");
+							const endIdx = textResult.lastIndexOf("}") + 1;
+							if (startIdx !== -1 && endIdx !== -1) {
+								return JSON.parse(textResult.substring(startIdx, endIdx));
+							}
 						}
 					}
+				} catch (e) {
+					console.warn(`[GEMINI SANC ${model}] Falhou`, e);
 				}
-			} catch (e) {
-				console.warn(`[GEMINI SANC ${model}] Falhou`, e);
 			}
 		}
 	} catch (e) {

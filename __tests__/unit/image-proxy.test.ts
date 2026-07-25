@@ -20,7 +20,8 @@ describe('🖼️ Image Proxy Utils', () => {
             headers: {
                 'User-Agent': 'Poligrafo-Bot/1.0',
                 'Accept': 'image/*'
-            }
+            },
+            signal: expect.any(AbortSignal)
         });
         expect(result).toMatch(/^data:image\/png;base64,/);
     });

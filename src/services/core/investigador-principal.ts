@@ -814,23 +814,28 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			try {
 				const { data, error } = await supabaseAdmin
 					.from("pesquisas")
-					.insert({
-						termo_busca: chaveCacheDeSalvamento,
-						cpf_raiz: cpfLimpo && cpfLimpo !== "00000000000" ? cpfLimpo : null,
-						grafo_dados: {
-							timestamp: new Date().toISOString(),
-							nodes: supabaseNodes,
-							escopo: deputadoBasico?.casa || "GLOBAL",
-							partial: true,
+					.upsert(
+						{
+							termo_busca: chaveCacheDeSalvamento,
+							cpf_raiz: cpfLimpo && cpfLimpo !== "00000000000" ? cpfLimpo : null,
+							grafo_dados: {
+								timestamp: new Date().toISOString(),
+								nodes: supabaseNodes,
+								escopo: deputadoBasico?.casa || "GLOBAL",
+								partial: true,
+							},
 						},
-					})
+						{ onConflict: "termo_busca" },
+					)
 					.select("id")
 					.single();
 				if (data?.id) dbSearchId = data.id;
+				if (error) console.error("[Partial Cache Init Error]", error);
 			} catch (e) {
 				console.error("[Partial Cache Init Error]", e);
 			}
 		}
+
 
 		// ==========================================
 		// CONTAGEM DE PESQUISAS (Dashboard "Mais Investigados")
@@ -1983,6 +1988,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				cargoTse,
 				eleicaoIdTse,
 			);
+			// Armazena para reutilização na segunda etapa (injeta no contexto da IA)
+			(deputadoBasico as any)._doadoresTseCache = doadoresCnpj;
 			const doadoresUnicosFornecedores = [
 				...new Set(doadoresCnpj.filter((d: string) => d.length === 14)),
 			].slice(0, 15);
@@ -2042,8 +2049,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		sendEvent("STATUS", {
 			msg: `Puxando financiadores de campanha no TSE...`,
 		});
-		const doadores = (deputadoBasico as any)._tseResult?.doadores // Tenta aproveitar se já buscou
-			? (deputadoBasico as any)._tseResult.doadores
+		const doadores = (deputadoBasico as any)._doadoresTseCache // Reutiliza resultado já buscado na etapa anterior
+			? (deputadoBasico as any)._doadoresTseCache
 			: await buscarDoadoresTSE(
 					deputadoBasico.nome,
 					deputadoBasico.uf,

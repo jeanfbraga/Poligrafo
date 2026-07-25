@@ -66,12 +66,17 @@ export default function RootLayout({
 }: {
 	children: React.ReactNode;
 }) {
+	// Analytics só é ativado quando os IDs são configurados via env —
+	// forks/deploys devem usar seus próprios IDs, nunca os do autor.
+	const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+	const clarityId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
+
 	return (
 		<html lang="pt-BR" className={plexMono.variable} suppressHydrationWarning>
 			<body className="font-mono antialiased" suppressHydrationWarning>
 				{children}
-				<GoogleAnalytics gaId="G-1VS9S268X2" />
-				<Clarity projectId="vvch9dpeeq" />
+				{gaId && <GoogleAnalytics gaId={gaId} />}
+				{clarityId && <Clarity projectId={clarityId} />}
 				<Analytics />
 				<Toaster />
 			</body>

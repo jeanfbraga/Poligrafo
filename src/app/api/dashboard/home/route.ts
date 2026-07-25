@@ -8,16 +8,24 @@ import congressoIndex from "@/services/integrations/data/congresso-index.json";
 
 export const revalidate = 0; // Temporariamente sem cache para dev
 
-const supabaseUrl =
-	process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseServiceKey =
-	process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder";
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-	auth: { autoRefreshToken: false, persistSession: false },
-});
+// Esta rota lê apenas views/tabelas com policy SELECT pública (USING true),
+// portanto a anon key basta — service role violaria o menor privilégio.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export async function GET() {
+	if (!supabaseUrl || !supabaseAnonKey) {
+		console.error("[DASHBOARD HOME] Variáveis do Supabase não configuradas.");
+		return NextResponse.json(
+			{ error: "Serviço indisponível no momento" },
+			{ status: 500 },
+		);
+	}
+
+	const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+		auth: { autoRefreshToken: false, persistSession: false },
+	});
+
 	try {
 		const [
 			{ data: ceapTop10, error: err1 },
@@ -31,29 +39,29 @@ export async function GET() {
 			{ data: ceap2025Raw, error: err9 },
 			{ data: totalSessoesRow, error: err10 },
 		] = await Promise.all([
-			supabaseAdmin.from("dashboard_ceap_top10").select("*"),
-			supabaseAdmin.from("dashboard_ceap_total").select("*"),
-			supabaseAdmin.from("dashboard_ceap_categorias").select("*"),
+			supabase.from("dashboard_ceap_top10").select("*"),
+			supabase.from("dashboard_ceap_total").select("*"),
+			supabase.from("dashboard_ceap_categorias").select("*"),
 			// Ordenar pelos MENOS presentes (presencas ASC) — dado factual e verificável
-			supabaseAdmin
+			supabase
 				.from("camara_frequencia")
 				.select("*")
 				.order("presencas", { ascending: true })
 				.limit(10),
-			supabaseAdmin
+			supabase
 				.from("camara_votacoes")
 				.select("*")
 				.order("votos_registrados", { ascending: false })
 				.limit(10),
-			supabaseAdmin.from("dashboard_emendas_top10").select("*"),
-			supabaseAdmin.from("dashboard_emendas_uf").select("*"),
-			supabaseAdmin.from("dashboard_pesquisas_top10").select("*"),
-			supabaseAdmin
+			supabase.from("dashboard_emendas_top10").select("*"),
+			supabase.from("dashboard_emendas_uf").select("*"),
+			supabase.from("dashboard_pesquisas_top10").select("*"),
+			supabase
 				.from("dashboard_ceap_2025_deputados")
 				.select("*")
 				.order("total_gasto", { ascending: false }),
 			// Total de sessões no período: todos os deputados têm a mesma soma presencas+ausencias
-			supabaseAdmin
+			supabase
 				.from("camara_frequencia")
 				.select("presencas, ausencias_nao_justificadas")
 				.order("presencas", { ascending: false })
@@ -190,6 +198,10 @@ export async function GET() {
 			ceapEstados,
 		});
 	} catch (error: any) {
-		return NextResponse.json({ error: error.message }, { status: 500 });
+		console.error("[DASHBOARD HOME] Erro ao montar dashboard:", error);
+		return NextResponse.json(
+			{ error: "Falha ao carregar o dashboard" },
+			{ status: 500 },
+		);
 	}
 }

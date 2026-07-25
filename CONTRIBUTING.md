@@ -18,7 +18,7 @@ Para garantir que a base do projeto permaneça coesa e que o motor de OSINT cont
 Nosso sistema de IA de julgamento (Score de Letalidade) funciona em um esquema de cascata de 4 níveis para garantir resiliência e evitar custos abusivos:
 *   **L1 (Groq - Llama 3 70B)**: Usado para triagem de alta velocidade e custo zero.
 *   **L2 (OpenRouter)**: Fallback dinâmico caso a cota do Groq acabe.
-*   **L3 (Google Gemini)**: Fallback secundário.
+*   **L3 (Google Gemini)**: Fallback secundário (Flash Lite, Flash, Gemma).
 *   **L4 (Heurística Matemática)**: Classificação via RegEx se todas as APIs falharem.
 
 > **Importante:** Se for alterar ou criar novos prompts de IA (arquivos em `src/app/api/investigar/ai_helpers.ts`), certifique-se de testar os prompts **em todos os níveis da cascata**. Modelos diferentes reagem de formas diferentes aos prompts de JSON estrito.

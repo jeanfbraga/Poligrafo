@@ -43,11 +43,11 @@ export async function buscarProcessosDataJud(
 				{
 					method: "POST",
 					headers: {
-						Authorization: datajudKey,
+						Authorization: datajudKey.startsWith("APIKey ") ? datajudKey : `APIKey ${datajudKey}`,
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify(payload),
-					timeout: 15000,
+					timeout: 60000, // ElasticSearch governamental costuma demorar MUITO para responder queries em wildcard
 				},
 			);
 
@@ -118,6 +118,10 @@ export async function buscarProcessosDataJud(
 					},
 				});
 			}
+		} else {
+			console.log(
+				`[DATAJUD] Busca concluída com sucesso. 0 processos encontrados para o CPF.`,
+			);
 		}
 	} catch (error) {
 		console.error("[DATAJUD] Erro ao buscar processos:", error);

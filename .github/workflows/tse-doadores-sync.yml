@@ -1,0 +1,36 @@
+name: Sincronização TSE Doadores (ETL)
+
+on:
+  schedule:
+    # Executa todo domingo às 04:00 UTC (01:00 BRT)
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      ano:
+        description: 'Ano eleitoral a sincronizar (ex: 2022, 2024, todos)'
+        required: false
+        default: 'todos'
+
+jobs:
+  tse-doadores-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Repositório
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar Dependências
+        run: npm ci
+
+      - name: Executar ETL TSE Doadores
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/etl/tse-doadores-sync.ts --ano=${{ github.event.inputs.ano || 'todos' }}

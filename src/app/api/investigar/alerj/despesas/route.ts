@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import { analisarLoteComInteligencia } from "../../ai_helpers";
 import { buscarDespesasDeputadoEstadualRJ } from "../../estados/rj/alerj";
 import { buscarDoadoresTSE } from "../../tse";
@@ -7,6 +8,13 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export async function GET(request: Request) {
+	// Proteção de entrada: esta rota dispara scraper Playwright (headless browser)
+	const limited = checkRateLimit(request, {
+		scope: "alerj-despesas",
+		limit: 5,
+	});
+	if (limited) return limited;
+
 	const { searchParams } = new URL(request.url);
 	const nomeBruto = searchParams.get("nome");
 	const origemIdBruto = searchParams.get("origemId");

@@ -1,12 +1,11 @@
+import { describe, expect, it, vi } from "vitest";
 import { buscarDeputadoEstadualRJ, buscarPerfilDOCIGP } from "./alerj";
 
+// Teste de integração ao vivo (rede) — roda apenas em `npm run test:integration`
 describe("Testes de Integração da ALERJ", () => {
-	// Aumentar o timeout geral do Jest para evitar falhas por tempo de rede
-	jest.setTimeout(120000);
-
-	it("Deve encontrar a deputada Sarah Poncio sem timeout e processar o DOCIGP corretamente", async () => {
+	it("Deve encontrar a deputada Sarah Poncio sem timeout e processar o DOCIGP corretamente", { timeout: 120000 }, async () => {
 		// Mock do sendEvent
-		const sendEvent = jest.fn((event: string, payload: any) => {
+		const sendEvent = vi.fn((event: string, payload: any) => {
 			console.log(`[EVENT: ${event}]`, payload);
 		});
 
@@ -29,8 +28,8 @@ describe("Testes de Integração da ALERJ", () => {
 		}
 	});
 
-	it("Deve encontrar o deputado Márcio Poncio sem timeout", async () => {
-		const sendEvent = jest.fn((event: string, payload: any) => {
+	it("Deve encontrar o deputado Márcio Poncio sem timeout", { timeout: 120000 }, async () => {
+		const sendEvent = vi.fn((event: string, payload: any) => {
 			console.log(`[EVENT: ${event}]`, payload);
 		});
 

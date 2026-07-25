@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import { fetchContratosByCNPJ } from "@/services/integrations/pncp/client";
 import { analisarComIAPNCP } from "./ai_licitacoes";
 
 export async function GET(request: Request) {
+	// Proteção de entrada: esta rota pode acionar análise por LLM (custo pago)
+	const limited = checkRateLimit(request, { scope: "licitacoes", limit: 10 });
+	if (limited) return limited;
+
 	const { searchParams } = new URL(request.url);
 	const cnpj = searchParams.get("cnpj");
 	const politicoBruto = searchParams.get("politico");

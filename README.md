@@ -17,7 +17,7 @@ O coração do sistema é uma **Pipeline de Inteligência Artificial em Cascata 
 *   **⚖️ IA de Julgamento em Cascata (Score de Letalidade)**: Classificação automatizada de despesas através de um motor resiliente:
     *   **L1 (Groq - Llama 3 70B)**: Engine principal ultra-rápida.
     *   **L2 (OpenRouter)**: Fallback dinâmico (Gemma, DeepSeek).
-    *   **L3 (Google Gemini)**: Fallback secundário.
+    *   **L3 (Google Gemini)**: Fallback secundário (Flash Lite, Flash, Gemma).
     *   **L4 (Heurística Matemática)**: Classificação via RegEx e limites da Câmara, ativado caso as APIs falhem.
 *   **⚠️ Alertas Judiciais e Fiscais**:
     *   **DataJud (CNJ)**: Busca automática por **Ações Civis de Improbidade Administrativa** ligadas ao político.
@@ -44,8 +44,13 @@ O coração do sistema é uma **Pipeline de Inteligência Artificial em Cascata 
 
 ### 1. Pré-requisitos
 
-*   **Node.js ≥ 20** (Next.js 16 exige versão recente; rode `node -v` para verificar).
+*   **Node.js ≥ 20** (Next.js 16 exige versão recente; rode `node -v` para verificar. Há um `.nvmrc` com a versão 22 para quem usa `nvm`).
 *   **Conta no [Supabase](https://supabase.com/)** (plano gratuito funciona).
+*   **`curl`, `tar` e `unzip`** disponíveis no shell — usados pelos ETLs para baixar e extrair os dados públicos (já presentes no Windows 10+, Linux e macOS).
+*   **(Opcional) Playwright**: necessário apenas para os ETLs/scrapers que usam navegador headless (ex.: cotas da CMRJ). Após o `npm install`, rode:
+    ```bash
+    npx playwright install chromium
+    ```
 
 ### 2. Chaves de API
 
@@ -59,10 +64,14 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
 | `GROQ_API_KEY` | Groq (Llama-3 70B) - Motor IA Primário (L1) | **Recomendado** |
 | `OPENROUTER_API_KEY` | OpenRouter - Motor IA Secundário (L2) | Opcional |
 | `GEMINI_API_KEY` | Google Gemini - Fallback IA (L3) | Opcional |
-| `DATAJUD_API_KEY` | CNJ - Busca de Improbidade Administrativa | Opcional |
+| `DATAJUD_API_KEY` | CNJ - Busca de Improbidade Administrativa. Suporta chave crua ou com prefixo `APIKey ` | Opcional |
 | `TRANSPARENCIA_API_KEY` | CGU - Alertas CEIS/CNEP e Emendas PIX | Opcional |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics 4 — **desligado por padrão** | Opcional |
+| `NEXT_PUBLIC_CLARITY_PROJECT_ID` | Microsoft Clarity — **desligado por padrão** | Opcional |
 
 > **Nota:** O sistema foi desenhado para degradar graciosamente. Sem chaves de IA, ele usa o **Nível 4 (Heurística de RegEx)** para pontuar gastos. Sem o `SUPABASE_SERVICE_ROLE_KEY`, caching, dashboard e ETLs ficam indisponíveis — mas a investigação básica funciona via APIs externas.
+
+> **Analytics:** GA e Clarity só são ativados se você preencher as variáveis acima. Se você fez fork ou deploy próprio, use os **seus** IDs de analytics — nunca os do autor. Com as variáveis vazias (padrão), nenhum script de analytics é carregado.
 
 ### 3. Passos de Instalação
 
@@ -102,11 +111,14 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
    npx tsx scripts/etl/votacoes-sync.ts         # Participação em votações
    npx tsx scripts/etl/emendas-pix-sync.ts      # Emendas PIX (requer TRANSPARENCIA_API_KEY)
    npx tsx scripts/etl/tse-sync-real.ts         # Bens declarados ao TSE
+   npm run sync:tse-doadores                    # Doadores de Campanha do TSE (Bypass de WAF)
    npx tsx scripts/etl/fotos-sync.ts            # Fotos dos parlamentares
    npm run sync:spu                             # Imóveis da União (requer CSV local)
    npx tsx scripts/etl/sync-cmrj-servidores.ts  # Servidores CMRJ
    npx tsx scripts/etl/cmrj_cotas_etl.ts        # Cotas CMRJ (requer Playwright)
    ```
+
+   > O `npm run sync:spu` exige um CSV local — veja o formato esperado na seção **Scripts Utilitários** abaixo.
 
 6. **Inicie o Servidor:**
    ```bash
@@ -115,9 +127,10 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
 
 ### 🛠️ Scripts Utilitários
 *   `npm run update:index`: Sincroniza/atualiza o índice de parlamentares federais.
-*   `npm run sync:spu`: Sincroniza dados de imóveis da União com o Supabase.
-*   `npm run test`: Roda os testes unitários e de integração (Vitest).
-*   `npm run test:all`: Lint + Type-check + Testes completos.
+*   `npm run sync:spu`: Sincroniza dados de imóveis da União (SPU) com o Supabase. Requer um CSV local em `scripts/patrimonio-uniao.csv` (não versionado): baixe o dataset de imóveis/patrimônio da União no portal de dados abertos do SPU ([dados.gov.br](https://dados.gov.br/) / gov.br/spu). Formato esperado: separador `;`, cabeçalho com as colunas `UF`, `Municipio`, `Endereco`, `Tipo_Imovel`, `Area_m2`, `Valor_Imovel` (decimais com vírgula).
+*   `npm run test`: Roda os testes **unitários** (Vitest, em `__tests__/unit`) — não exige rede, Supabase nem servidor rodando.
+*   `npm run test:integration`: Roda a suíte de **integração** (`__tests__/integration`, `__tests__/estados` e testes colocalizados em `src/`). Pré-requisitos: servidor rodando em `localhost:3000` (`npm run dev`), Supabase real populado e acesso à rede (alguns testes usam Playwright e scraping ao vivo).
+*   `npm run test:all`: Lint + Type-check + Testes unitários.
 
 ---
 

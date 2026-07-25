@@ -405,7 +405,7 @@ END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2.1 dashboard_ceap_top10 — Top 10 deputados por gasto CEAP (ano corrente)
---     MATERIALIZED porque é custosa e atualizada via RPC após ETL
+--     MATERIALIZED — atualizada via RPC refresh_ceap_materialized_views após ETL
 -- ─────────────────────────────────────────────────────────────────────────────
 DROP MATERIALIZED VIEW IF EXISTS public.dashboard_ceap_top10;
 CREATE MATERIALIZED VIEW public.dashboard_ceap_top10 AS
@@ -416,38 +416,44 @@ GROUP BY id_deputado
 ORDER BY total_gasto DESC
 LIMIT 10;
 
+-- Leitura pública (dado agregado e público exibido no dashboard) — igual às
+-- demais MVs CEAP abaixo. A rota /api/dashboard/home usa a anon key.
 GRANT SELECT ON public.dashboard_ceap_top10 TO anon, authenticated, service_role;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 2.2 dashboard_ceap_total — Total geral de gastos CEAP (ano corrente)
+-- 2.2 dashboard_ceap_total — Total de gastos CEAP por ano (>= 2024)
+--     MATERIALIZED no banco real — refrescada após ETL
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE VIEW public.dashboard_ceap_total AS
-SELECT
-    EXTRACT(YEAR FROM CURRENT_DATE)::int AS ano,
-    SUM(valor_documento) AS total_gasto,
-    COUNT(*) AS total_notas
+DROP MATERIALIZED VIEW IF EXISTS public.dashboard_ceap_total;
+CREATE MATERIALIZED VIEW public.dashboard_ceap_total AS
+SELECT ano, SUM(valor_documento) AS total_gasto
 FROM public.ceap_despesas_cache
-WHERE ano = EXTRACT(YEAR FROM CURRENT_DATE)::int;
+WHERE ano >= 2024
+GROUP BY ano;
 
 GRANT SELECT ON public.dashboard_ceap_total TO anon, authenticated, service_role;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 2.3 dashboard_ceap_categorias — Gastos CEAP agrupados por tipo de despesa
+-- 2.3 dashboard_ceap_categorias — Top 5 tipos de despesa CEAP (>= 2024)
+--     MATERIALIZED no banco real — refrescada após ETL
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE VIEW public.dashboard_ceap_categorias AS
+DROP MATERIALIZED VIEW IF EXISTS public.dashboard_ceap_categorias;
+CREATE MATERIALIZED VIEW public.dashboard_ceap_categorias AS
 SELECT tipo_despesa, SUM(valor_documento) AS total_gasto
 FROM public.ceap_despesas_cache
-WHERE ano = EXTRACT(YEAR FROM CURRENT_DATE)::int
+WHERE ano >= 2024
 GROUP BY tipo_despesa
-ORDER BY total_gasto DESC;
+ORDER BY total_gasto DESC
+LIMIT 5;
 
 GRANT SELECT ON public.dashboard_ceap_categorias TO anon, authenticated, service_role;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 2.4 dashboard_ceap_2025_deputados — Todos os deputados com gasto (ano >= 2025)
---     Usado no mapa de calor por UF (front calcula agrupamento por estado)
+-- 2.4 dashboard_ceap_2025_deputados — Todos os deputados com gasto (>= 2025)
+--     MATERIALIZED no banco real — usada no mapa de calor por UF
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE VIEW public.dashboard_ceap_2025_deputados AS
+DROP MATERIALIZED VIEW IF EXISTS public.dashboard_ceap_2025_deputados;
+CREATE MATERIALIZED VIEW public.dashboard_ceap_2025_deputados AS
 SELECT id_deputado, SUM(valor_documento) AS total_gasto
 FROM public.ceap_despesas_cache
 WHERE ano >= 2025
@@ -459,7 +465,8 @@ GRANT SELECT ON public.dashboard_ceap_2025_deputados TO anon, authenticated, ser
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2.5 dashboard_emendas_top10 — Top 10 autores de emendas PIX
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE VIEW public.dashboard_emendas_top10 AS
+CREATE OR REPLACE VIEW public.dashboard_emendas_top10
+WITH (security_invoker = true) AS
 SELECT autor, SUM(valor_investimento) AS total_pix
 FROM public.emendas_pix
 GROUP BY autor
@@ -471,7 +478,8 @@ GRANT SELECT ON public.dashboard_emendas_top10 TO anon, authenticated, service_r
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2.6 dashboard_emendas_uf — Emendas PIX agrupadas por UF de destino
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE VIEW public.dashboard_emendas_uf AS
+CREATE OR REPLACE VIEW public.dashboard_emendas_uf
+WITH (security_invoker = true) AS
 SELECT uf_destino, SUM(valor_investimento) AS total_pix
 FROM public.emendas_pix
 GROUP BY uf_destino
@@ -480,17 +488,21 @@ ORDER BY total_pix DESC;
 GRANT SELECT ON public.dashboard_emendas_uf TO anon, authenticated, service_role;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 2.7 dashboard_pesquisas_top10 — Top 10 políticos mais investigados
+-- 2.7 dashboard_pesquisas_top10 — Top 50 políticos mais investigados
+--     Colunas reais da contagem_pesquisas: nome, id_politico, casa, ref, quantidade
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE VIEW public.dashboard_pesquisas_top10 AS
+CREATE OR REPLACE VIEW public.dashboard_pesquisas_top10
+WITH (security_invoker = true) AS
 SELECT
-    nome,
+    nome AS termo,
     id_politico AS id_deputado,
     casa,
-    total AS total_pesquisas
+    ref,
+    quantidade
 FROM public.contagem_pesquisas
-ORDER BY total DESC
-LIMIT 10;
+WHERE quantidade > 0
+ORDER BY quantidade DESC
+LIMIT 50;
 
 GRANT SELECT ON public.dashboard_pesquisas_top10 TO anon, authenticated, service_role;
 
@@ -502,26 +514,36 @@ GRANT SELECT ON public.dashboard_pesquisas_top10 TO anon, authenticated, service
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 3.1 incrementar_pesquisa — Upsert + incremento atômico no contador
 --     Chamado em: src/services/core/investigador-principal.ts
+--
+-- Estrutura real do banco: colunas quantidade/ultima_pesquisa, UNIQUE (nome, ref)
+-- SET search_path fixo evita search_path hijacking (função é SECURITY DEFINER)
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.incrementar_pesquisa(
+DROP FUNCTION IF EXISTS public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT);
+CREATE FUNCTION public.incrementar_pesquisa(
     p_nome        TEXT,
     p_id_politico TEXT,
     p_casa        TEXT DEFAULT 'GLOBAL',
     p_ref         TEXT DEFAULT NULL
 )
-RETURNS VOID AS $$
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 BEGIN
-    INSERT INTO public.contagem_pesquisas (nome, id_politico, casa, ref, total, updated_at)
-    VALUES (p_nome, p_id_politico, p_casa, p_ref, 1, NOW())
-    ON CONFLICT (nome, id_politico)
+    INSERT INTO public.contagem_pesquisas (nome, id_politico, casa, ref, quantidade, ultima_pesquisa)
+    VALUES (p_nome, p_id_politico, p_casa, p_ref, 1, now())
+    ON CONFLICT (nome, ref)
     DO UPDATE SET
-        total      = contagem_pesquisas.total + 1,
-        casa       = EXCLUDED.casa,
-        ref        = COALESCE(EXCLUDED.ref, contagem_pesquisas.ref),
-        updated_at = NOW();
+        quantidade      = public.contagem_pesquisas.quantidade + 1,
+        ultima_pesquisa = now(),
+        id_politico     = COALESCE(EXCLUDED.id_politico, public.contagem_pesquisas.id_politico),
+        casa            = COALESCE(EXCLUDED.casa, public.contagem_pesquisas.casa);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
+REVOKE EXECUTE ON FUNCTION public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT) TO service_role;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -533,8 +555,10 @@ RETURNS VOID AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW public.dashboard_ceap_top10;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
+REVOKE EXECUTE ON FUNCTION public.refresh_ceap_materialized_views() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.refresh_ceap_materialized_views() FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.refresh_ceap_materialized_views() TO service_role;
 
 
