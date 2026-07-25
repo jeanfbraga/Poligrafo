@@ -63,7 +63,7 @@ async function runForYear(ano: number): Promise<boolean> {
 
     console.log(`[CEAP SYNC] Parseando e inserindo CSV: ${csvPath}`);
 
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         let batch: any[] = [];
         let count = 0;
 
@@ -75,10 +75,8 @@ async function runForYear(ano: number): Promise<boolean> {
             relax_column_count: true
         }));
 
-        parser.on('readable', async function() {
-            let record;
-            while ((record = parser.read()) !== null) {
-                // Algumas colunas no CSV oficial podem ser txNomeParlamentar, ideCadastro, etc.
+        try {
+            for await (const record of parser) {
                 const ideCadastro = record['txIdCadastro'] || record['ideCadastro'];
                 if (!ideCadastro) continue;
 
@@ -96,28 +94,22 @@ async function runForYear(ano: number): Promise<boolean> {
                 });
 
                 if (batch.length >= BATCH_SIZE) {
-                    parser.pause();
                     await insertBatch(batch);
                     count += batch.length;
                     batch = [];
-                    parser.resume();
                 }
             }
-        });
-
-        parser.on('error', function(err) {
-            console.error('[CEAP SYNC] Erro ao parsear CSV:', err.message);
-            reject(err);
-        });
-
-        parser.on('end', async function() {
+            
             if (batch.length > 0) {
                 await insertBatch(batch);
                 count += batch.length;
             }
             console.log(`[CEAP SYNC] Concluído! ${count} registros inseridos/atualizados para ${ano}.`);
             resolve(true);
-        });
+        } catch (err: any) {
+            console.error('[CEAP SYNC] Erro ao parsear CSV:', err.message);
+            reject(err);
+        }
     });
 }
 
