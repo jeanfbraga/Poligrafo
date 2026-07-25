@@ -73,7 +73,7 @@ export default function RootLayout({
 
 	return (
 		<html lang="pt-BR" className={plexMono.variable} suppressHydrationWarning>
-			<body className="font-mono antialiased" suppressHydrationWarning>
+			<body className="font-mono subpixel-antialiased" suppressHydrationWarning>
 				{children}
 				{gaId && <GoogleAnalytics gaId={gaId} />}
 				{clarityId && <Clarity projectId={clarityId} />}

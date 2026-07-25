@@ -81,13 +81,13 @@ export function KpiBand({
 				]
 			</span>
 
-			<div className="relative z-0 flex flex-col lg:flex-row lg:items-end gap-6 p-5 md:p-6">
+			<div className="relative z-0 flex flex-col xl:flex-row xl:items-end gap-6 p-5 md:p-6">
 				{/* Big number */}
 				<div className="flex-1 min-w-0">
 					<p className="text-[11px] md:text-xs text-green-600 uppercase tracking-widest mb-2">
 						&gt; GASTO_EM_COTA_PARLAMENTAR :: {anoMaisRecente}
 					</p>
-					<div className="text-4xl md:text-5xl xl:text-6xl font-bold text-green-400 tracking-tight [text-shadow:0_0_18px_rgba(34,197,94,0.45)]">
+					<div className="text-[28px] leading-tight sm:text-4xl md:text-5xl xl:text-6xl font-bold text-green-400 tracking-tight [text-shadow:0_0_18px_rgba(34,197,94,0.45)] whitespace-nowrap">
 						{loading ? (
 							<span className="animate-pulse text-2xl md:text-3xl">
 								CARREGANDO...
@@ -104,8 +104,8 @@ export function KpiBand({
 
 				{/* Micro-stats derivadas */}
 				{!loading && (
-					<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 lg:text-right shrink-0">
-						<div className="border-l-2 lg:border-l-0 lg:border-r-2 border-green-900/60 pl-3 lg:pl-0 lg:pr-3">
+					<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 xl:gap-6 xl:text-right shrink-0">
+						<div className="border-l-2 xl:border-l-0 xl:border-r-2 border-green-900/60 pl-3 xl:pl-0 xl:pr-3">
 							<div className="text-[10px] text-green-700 uppercase tracking-widest mb-1">
 								<HybridTooltip content="Percentual do gasto total da Cota Parlamentar (CEAP) do ano corrente que está concentrado nos 10 deputados que mais gastaram. Fórmula: soma do Top 10 ÷ total do ano × 100.">
 									<span className="inline-flex items-center gap-1 cursor-help border-b border-dashed border-green-400/50 hover:text-green-200 transition-colors">
@@ -123,7 +123,7 @@ export function KpiBand({
 								do valor total
 							</p>
 						</div>
-						<div className="border-l-2 lg:border-l-0 lg:border-r-2 border-green-900/60 pl-3 lg:pl-0 lg:pr-3">
+						<div className="border-l-2 xl:border-l-0 xl:border-r-2 border-green-900/60 pl-3 xl:pl-0 xl:pr-3">
 							<p className="text-[10px] text-green-700 uppercase tracking-widest mb-1">
 								Média do Top 10
 							</p>
@@ -138,7 +138,7 @@ export function KpiBand({
 								por deputado
 							</p>
 						</div>
-						<div className="border-l-2 lg:border-l-0 border-green-900/60 pl-3 lg:pl-0">
+						<div className="border-l-2 xl:border-l-0 border-green-900/60 pl-3 xl:pl-0">
 							<p className="text-[10px] text-green-700 uppercase tracking-widest mb-1">
 								Soma Top 10 Emendas PIX
 							</p>

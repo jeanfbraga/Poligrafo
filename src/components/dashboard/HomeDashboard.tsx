@@ -195,7 +195,7 @@ export function HomeDashboard() {
 					POLÍGRAFO
 				</span>
 				<Badge variant="cyber-green" className="ml-1">
-					DRAFT
+					IA
 				</Badge>
 			</div>
 

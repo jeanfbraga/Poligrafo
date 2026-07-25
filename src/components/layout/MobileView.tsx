@@ -382,19 +382,19 @@ export default function MobileView({
 						onClick={() => setSearchDrawerOpen(true)}
 						className="h-14 px-8 pointer-events-auto"
 					>
-						<Search className="w-5 h-5 mr-2" /> INVESTIGAR POLÍTICO
+						<Search className="w-5 h-5 mr-2" /> Investigar Político
 					</Button>
 				</div>
 
 				<Drawer open={searchDrawerOpen} onOpenChange={setSearchDrawerOpen}>
 					<DrawerContent className="bg-black border-t-2 border-green-500 rounded-none px-5 pb-8 pt-4 z-70 max-h-[90vh]">
 						<div className="text-center mb-6 mt-6">
-							<CyberLabel>SISTEMA DE INVESTIGAÇÃO POLÍTICA</CyberLabel>
-							<DrawerTitle className="text-xl font-bold text-green-400 tracking-widest uppercase">
-								Nova Busca
+							<CyberLabel>Sistema de Investigação Política</CyberLabel>
+							<DrawerTitle className="text-xl font-bold text-green-400 tracking-widest">
+								Nova busca
 							</DrawerTitle>
 						</div>
-						<div className="w-full overflow-y-auto custom-scrollbar">
+						<div className="w-full">
 							<SearchBar
 								searchTerm={searchTerm}
 								setSearchTerm={setSearchTerm}
@@ -411,7 +411,7 @@ export default function MobileView({
 							/>
 						</div>
 						{statusMessage && !statusMessage.includes("Insira o nome") && (
-							<p className="text-xs font-bold font-mono text-yellow-400 uppercase tracking-wider leading-tight text-center mt-4">
+							<p className="text-xs font-bold font-mono text-yellow-400 tracking-wider leading-tight text-center mt-4">
 								{statusMessage}
 							</p>
 						)}

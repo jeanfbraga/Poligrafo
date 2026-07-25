@@ -1793,31 +1793,32 @@ function DashboardArea() {
 		<div className="h-screen w-screen flex flex-col bg-black text-green-500 font-mono overflow-hidden">
 			{/* HEADER — só desktop, ou mobile no estado de busca inicial (sem dados/loading) */}
 			<header
-				className={`h-auto md:h-14 py-2 md:py-0 border-b border-green-500 bg-black flex-col md:flex-row items-center justify-between px-4 md:px-6 shrink-0 z-50 relative gap-2 md:gap-0 ${isMobile ? "hidden" : "flex"}`}
+				className={`h-auto md:h-14 py-2 md:py-0 border-b border-green-500 bg-black flex-col md:flex-row items-center justify-between px-4 md:px-6 shrink-0 z-50 relative gap-2 md:gap-4 ${isMobile ? "hidden" : "flex"}`}
 			>
-				<div className="flex items-center justify-between w-full md:w-auto">
+				<div className="flex items-center shrink-0 w-full md:w-auto justify-between">
 					<div className="flex items-center gap-3">
 						<button
 							onClick={clearAll}
 							className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity outline-none"
 						>
-							<Terminal className="text-green-500" size={20} />
+							<Terminal className="text-green-500 shrink-0" size={20} />
 							<h1 className="text-xl font-bold tracking-widest text-green-500 flex items-center gap-2">
-								<span className="bytesized-regular uppercase">POLÍGRAFO</span>
-								<span className="text-xs bg-green-900/50 text-green-400 px-2 py-0.5 rounded-none border border-green-500/50">
+								<span className="bytesized-regular uppercase hidden lg:inline">POLÍGRAFO</span>
+								<span className="bytesized-regular uppercase lg:hidden">POL.</span>
+								<span className="text-xs bg-green-900/50 text-green-400 px-2 py-0.5 rounded-none border border-green-500/50 shrink-0">
 									IA
 								</span>
 							</h1>
 						</button>
 						{isLoading && (
 							<div className="flex items-center ml-2 text-green-500 space-x-2">
-								<Loader2 className="w-4 h-4 animate-spin" />
+								<Loader2 className="w-4 h-4 animate-spin shrink-0" />
 							</div>
 						)}
 					</div>
 				</div>
 
-				<div className="absolute left-1/2 -translate-x-1/2 top-0 h-14 w-full max-w-4xl z-20">
+				<div className="flex-1 w-full md:max-w-2xl lg:max-w-4xl flex items-center h-14 z-20">
 					<SearchBar
 						searchTerm={searchTerm}
 						setSearchTerm={setSearchTerm}
@@ -1831,7 +1832,7 @@ function DashboardArea() {
 					/>
 				</div>
 
-				<div className="flex items-center gap-4">
+				<div className="flex items-center gap-4 shrink-0">
 					{nodes.length > 0 && (
 						<Button
 							variant="outline"
