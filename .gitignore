@@ -43,4 +43,6 @@ test-output.json
 
 # Obsidian vault (documentação interna/confidencial)
 Obsidian Poligrafo Docs/
-implementation_plan.md
+implementation_plan.md
+# Supabase CLI temp files
+supabase/.temp/
