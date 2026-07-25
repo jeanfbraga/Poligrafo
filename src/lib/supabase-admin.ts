@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
-// REGRA: NUNCA usar valores placeholder/mock para credenciais.
-// Se as variáveis de ambiente estiverem ausentes, o sistema deve falhar explicitamente.
+// REGRA: Credenciais ausentes degradam o sistema (cache/persistência desativados).
+// Um placeholder é usado para evitar crash no build, mas operações reais falharão silenciosamente.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

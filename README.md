@@ -42,23 +42,29 @@ O coração do sistema é uma **Pipeline de Inteligência Artificial em Cascata 
 
 ## 🚀 Como Executar Localmente
 
-### 1. Pré-requisitos e Chaves de API
+### 1. Pré-requisitos
+
+*   **Node.js ≥ 20** (Next.js 16 exige versão recente; rode `node -v` para verificar).
+*   **Conta no [Supabase](https://supabase.com/)** (plano gratuito funciona).
+
+### 2. Chaves de API
+
 Para rodar o ecossistema completo de IA e extração de dados, você precisará das seguintes chaves no seu `.env.local`:
 
 | Chave de Ambiente | Serviço / Uso | Obrigatório? |
 | :--- | :--- | :--- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase (Banco de Dados e Sync) | **Sim** |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`| Supabase Público | **Sim** |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Admin Role (cache, ETL, dashboard) | **Sim (backend)** |
 | `GROQ_API_KEY` | Groq (Llama-3 70B) - Motor IA Primário (L1) | **Recomendado** |
 | `OPENROUTER_API_KEY` | OpenRouter - Motor IA Secundário (L2) | Opcional |
 | `GEMINI_API_KEY` | Google Gemini - Fallback IA (L3) | Opcional |
 | `DATAJUD_API_KEY` | CNJ - Busca de Improbidade Administrativa | Opcional |
-| `TRANSPARENCIA_API_KEY` | CGU - Alertas CEIS/CNEP em massa | Opcional |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase (Banco de Dados e Sync) | **Sim** |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY`| Supabase Público | **Sim** |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Admin Role | Opcional |
+| `TRANSPARENCIA_API_KEY` | CGU - Alertas CEIS/CNEP e Emendas PIX | Opcional |
 
-*(Nota: O sistema foi desenhado para não quebrar. Se faltar a chave de IA, ele assume o Nível 4 de Heurística de RegEx para pontuar os gastos).*
+> **Nota:** O sistema foi desenhado para degradar graciosamente. Sem chaves de IA, ele usa o **Nível 4 (Heurística de RegEx)** para pontuar gastos. Sem o `SUPABASE_SERVICE_ROLE_KEY`, caching, dashboard e ETLs ficam indisponíveis — mas a investigação básica funciona via APIs externas.
 
-### 2. Passos de Instalação
+### 3. Passos de Instalação
 
 1. **Clone o repositório:**
    ```bash
@@ -77,14 +83,58 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
    ```
    *Edite `.env.local` adicionando suas chaves geradas.*
 
-4. **Inicie o Servidor:**
+4. **Configure o Banco de Dados (Supabase):**
+
+   Abra o **SQL Editor** do seu projeto Supabase e execute o conteúdo do arquivo [`supabase/schema.sql`](supabase/schema.sql). Esse script cria todas as tabelas, views, funções RPC, políticas de segurança (RLS) e o storage bucket necessários.
+
+   ```bash
+   # Ou, se preferir via CLI do Supabase:
+   supabase db reset --db-url "postgresql://postgres:[SUA_SENHA]@db.[SEU_REF].supabase.co:5432/postgres" < supabase/schema.sql
+   ```
+
+5. **(Opcional) Popule os dados com ETLs:**
+
+   Os ETLs extraem dados de fontes públicas e salvam no Supabase. Todos são independentes e podem ser executados em qualquer ordem:
+
+   ```bash
+   npx tsx scripts/etl/ceap-sync.ts            # Despesas CEAP (Câmara Federal)
+   npx tsx scripts/etl/frequencia-sync.ts       # Frequência em sessões
+   npx tsx scripts/etl/votacoes-sync.ts         # Participação em votações
+   npx tsx scripts/etl/emendas-pix-sync.ts      # Emendas PIX (requer TRANSPARENCIA_API_KEY)
+   npx tsx scripts/etl/tse-sync-real.ts         # Bens declarados ao TSE
+   npx tsx scripts/etl/fotos-sync.ts            # Fotos dos parlamentares
+   npm run sync:spu                             # Imóveis da União (requer CSV local)
+   npx tsx scripts/etl/sync-cmrj-servidores.ts  # Servidores CMRJ
+   npx tsx scripts/etl/cmrj_cotas_etl.ts        # Cotas CMRJ (requer Playwright)
+   ```
+
+6. **Inicie o Servidor:**
    ```bash
    npm run dev
    ```
 
-### 🛠️ Scripts Utilitários (ETLs)
+### 🛠️ Scripts Utilitários
 *   `npm run update:index`: Sincroniza/atualiza o índice de parlamentares federais.
-*   `npm run sync:spu`: Sincroniza dados com a nuvem Supabase.
+*   `npm run sync:spu`: Sincroniza dados de imóveis da União com o Supabase.
+*   `npm run test`: Roda os testes unitários e de integração (Vitest).
+*   `npm run test:all`: Lint + Type-check + Testes completos.
+
+---
+
+## 🗄️ Arquitetura do Banco de Dados
+
+O schema completo está em [`supabase/schema.sql`](supabase/schema.sql). O banco contém:
+
+| Camada | Tabelas/Views | Propósito |
+|:---|:---|:---|
+| **Investigação** | `pesquisas`, `contagem_pesquisas` | Cache de grafos e telemetria de uso |
+| **CEAP** | `ceap_despesas_cache` + 4 views | Despesas parlamentares federais |
+| **TSE** | `tse_bens_historico`, `tse_doadores_cache` | Patrimônio e doadores de campanha |
+| **Emendas** | `emendas_pix` + 2 views | Emendas PIX (Transferências Especiais) |
+| **CMRJ** | `cmrj_despesas`, `cmrj_vereador_gabinete`, `cmrj_servidores` | Câmara Municipal do Rio de Janeiro |
+| **Câmara Federal** | `camara_frequencia`, `camara_votacoes` | Presença e votações |
+| **OSINT** | `ibama_infracoes`, `anac_rab`, `spu_imoveis` | Infrações ambientais, aeronaves, imóveis |
+| **Storage** | `fotos-politicos` (bucket) | Fotos oficiais dos parlamentares |
 
 ---
 
