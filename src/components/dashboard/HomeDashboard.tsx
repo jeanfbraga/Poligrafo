@@ -72,7 +72,7 @@ interface DashboardData {
 		id_deputado?: number;
 		cargo?: string;
 	}[];
-	ceapEstados: Record<string, any[]>;
+	ceapEstados: Record<string, { total: number; deputados: any[] }>;
 }
 
 export function HomeDashboard() {
@@ -213,7 +213,7 @@ export function HomeDashboard() {
 					<div className="w-full xl:w-105 shrink-0 flex flex-col gap-4">
 						<Widget
 							title="Campeonato estadual de gastos"
-							subtitle="Mapa de calor por UF e maiores gastos (Jan/2025 - atualizado diariamente)"
+							subtitle="Mapa de calor por UF — CEAP acumulada desde Jan/2025"
 							icon={MapPin}
 							data={data?.ceapEstados}
 							error={error}
@@ -228,6 +228,7 @@ export function HomeDashboard() {
 						{/* Widget: Top 10 Gastos CEAP */}
 						<Widget
 							title="Deputados Federais que mais gastaram"
+							subtitle={`CEAP ${new Date().getFullYear()} — acumulado do ano`}
 							icon={DollarSign}
 							data={data?.ceapTop10}
 							error={error}
@@ -269,6 +270,7 @@ export function HomeDashboard() {
 						{/* Widget: Categorias CEAP */}
 						<Widget
 							title="Categorias de gastos"
+							subtitle="Top 5 — CEAP acumulada desde Jan/2024"
 							icon={FileText}
 							data={data?.ceapCategorias}
 							error={error}
@@ -280,6 +282,7 @@ export function HomeDashboard() {
 						{/* Widget: Top Emendas PIX */}
 						<Widget
 							title="Maiores Emendas PIX"
+							subtitle="Valores pagos — acumulado de todos os anos"
 							icon={Landmark}
 							data={data?.emendasTop10}
 							error={error}
@@ -296,7 +299,7 @@ export function HomeDashboard() {
 						{/* Widget: Emendas por UF */}
 						<Widget
 							title="Emendas PIX por Estado"
-							subtitle="Destinação de Recursos"
+							subtitle="Destinação de recursos — valores pagos"
 							icon={Users}
 							data={data?.emendasUF}
 							error={error}

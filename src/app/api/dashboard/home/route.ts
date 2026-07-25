@@ -1,5 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import {
+	agregarEmendasPorUf,
+	agruparCeapPorUf,
+} from "@/lib/dashboard-aggregations";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
 
 export const revalidate = 0; // Temporariamente sem cache para dev
@@ -44,7 +48,10 @@ export async function GET() {
 			supabaseAdmin.from("dashboard_emendas_top10").select("*"),
 			supabaseAdmin.from("dashboard_emendas_uf").select("*"),
 			supabaseAdmin.from("dashboard_pesquisas_top10").select("*"),
-			supabaseAdmin.from("dashboard_ceap_2025_deputados").select("*"),
+			supabaseAdmin
+				.from("dashboard_ceap_2025_deputados")
+				.select("*")
+				.order("total_gasto", { ascending: false }),
 			// Total de sessões no período: todos os deputados têm a mesma soma presencas+ausencias
 			supabaseAdmin
 				.from("camara_frequencia")
@@ -151,26 +158,12 @@ export async function GET() {
 		};
 
 		const ceap2025Enriched = err9 ? [] : enriquecerDeputados(ceap2025Raw || []);
-		const ceapEstados: Record<string, any[]> = {};
-		for (const item of ceap2025Enriched) {
-			const uf = item.uf;
-			if (!uf || uf === "BR") continue;
-			if (!ceapEstados[uf]) ceapEstados[uf] = [];
-			if (ceapEstados[uf].length < 5) {
-				ceapEstados[uf].push(item);
-			}
-		}
-
-		// Ordenar os UFs alfabeticamente
-		const ceapEstadosSorted = Object.keys(ceapEstados)
-			.sort()
-			.reduce(
-				(acc, uf) => {
-					acc[uf] = ceapEstados[uf];
-					return acc;
-				},
-				{} as Record<string, any[]>,
-			);
+		// Total da UF = soma de TODOS os deputados da UF na janela da view
+		// (ano >= 2025). A lista de deputados (máx. 5) é só o detalhe sob demanda.
+		// Antes, o frontend somava os 5 como se fossem o total do estado, o que
+		// quebrava o ranking e fazia UFs distintas exibirem o mesmo valor
+		// arredondado (ex.: RS, RR e AC todos em "4,4 mi").
+		const ceapEstados = agruparCeapPorUf(ceap2025Enriched);
 
 		// Calcula o total de sessões deliberativas do período
 		const primeiroReg = totalSessoesRow?.[0];
@@ -188,11 +181,13 @@ export async function GET() {
 			totalSessoes,
 			votantes: err5 ? null : enriquecerDeputados(votantes || []),
 			emendasTop10: err6 ? null : enriquecerEmendasPorNome(emendasTop10 || []),
-			emendasUF: err7 ? null : emendasUF || [],
+			// Funde uf_destino equivalentes ("SP" + "SÃO PAULO (UF)") que o ETL
+			// grava em formatos mistos — antes cada formato virava uma barra.
+			emendasUF: err7 ? null : agregarEmendasPorUf(emendasUF || []),
 			pesquisas: err8
 				? null
 				: enriquecerPesquisas(pesquisas || []).slice(0, 10),
-			ceapEstados: ceapEstadosSorted,
+			ceapEstados,
 		});
 	} catch (error: any) {
 		return NextResponse.json({ error: error.message }, { status: 500 });

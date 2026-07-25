@@ -9,7 +9,7 @@ interface PoliticoIndex {
     casa: 'CAMARA' | 'SENADO' | 'GOVERNO_ESTADUAL';
 }
 
-const INDEX_FILE_PATH = path.join(__dirname, '../lib/data/congresso-index.json');
+const INDEX_FILE_PATH = path.join(__dirname, '../src/services/integrations/data/congresso-index.json');
 
 const ESTADO_PARA_UF: Record<string, string> = {
     "Acre": "AC",
@@ -63,21 +63,32 @@ async function updateCongressoIndex() {
     console.log("=== INICIANDO ATUALIZAÇÃO DO CONGRESSO INDEX ===");
     const index: PoliticoIndex[] = [];
 
-    // 1. Deputados Federais (Câmara)
-    const urlCamara = 'https://dadosabertos.camara.leg.br/api/v2/deputados';
+    // 1. Deputados Federais (Câmara) — legislatura 57 COMPLETA, com paginação.
+    // Inclui suplentes que exerceram e deputados que deixaram o mandato:
+    // todos podem ter gasto CEAP na janela do dashboard (ano >= 2025) e
+    // precisam de UF no índice para entrar no mapa de calor estadual.
+    const urlCamara = (pagina: number) =>
+        `https://dadosabertos.camara.leg.br/api/v2/deputados?idLegislatura=57&ordem=ASC&ordenarPor=nome&itens=100&pagina=${pagina}`;
     try {
-        const dataCamara = await fetchWithRetry(urlCamara);
-        const deputados = dataCamara.dados || [];
-        for (const dep of deputados) {
-            index.push({
-                id: String(dep.id),
-                nome: dep.nome,
-                uf: dep.siglaUf,
-                partido: dep.siglaPartido,
-                casa: 'CAMARA'
-            });
+        let pagina = 1;
+        let deputadosCount = 0;
+        while (true) {
+            const dataCamara = await fetchWithRetry(urlCamara(pagina));
+            const deputados = dataCamara.dados || [];
+            for (const dep of deputados) {
+                index.push({
+                    id: String(dep.id),
+                    nome: dep.nome,
+                    uf: dep.siglaUf,
+                    partido: dep.siglaPartido,
+                    casa: 'CAMARA'
+                });
+            }
+            deputadosCount += deputados.length;
+            if (deputados.length < 100 || pagina >= 20) break;
+            pagina++;
         }
-        console.log(`✅ Câmara: ${deputados.length} deputados obtidos.`);
+        console.log(`✅ Câmara: ${deputadosCount} deputados obtidos (legislatura 57 completa).`);
     } catch (e: any) {
         console.error("❌ Erro fatal ao buscar dados da Câmara:", e.message);
     }
@@ -137,11 +148,16 @@ async function updateCongressoIndex() {
     }
 
     if (index.length > 500) {
-        fs.writeFileSync(INDEX_FILE_PATH, JSON.stringify(index, null, 2), 'utf-8');
-        console.log(`\n🎉 Sucesso! Index atualizado com ${index.length} parlamentares/governadores.`);
+        // A API da Câmara retorna uma linha por filiação partidária na
+        // legislatura (mesmo id, partidos diferentes). Para o índice basta
+        // um registro por id — UF e nome são consistentes entre as linhas.
+        const unicos = [...new Map(index.map((p) => [p.id, p])).values()];
+        console.log(`ℹ️  Deduplicados por id: ${index.length} -> ${unicos.length} registros.`);
+        fs.writeFileSync(INDEX_FILE_PATH, JSON.stringify(unicos, null, 2), 'utf-8');
+        console.log(`\n🎉 Sucesso! Index atualizado com ${unicos.length} parlamentares/governadores.`);
         console.log(`📍 Arquivo gravado em: ${INDEX_FILE_PATH}`);
-        
-        const trovao = index.find(p => p.nome.toLowerCase().includes('trovão'));
+
+        const trovao = unicos.find(p => p.nome.toLowerCase().includes('trovão'));
         if (trovao) {
             console.log(`⚡ Zé Trovão foi encontrado no index novo! ID: ${trovao.id}`);
         } else {

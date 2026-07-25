@@ -15,10 +15,20 @@ import { BarRanking } from "./BarRanking";
 // v2.1: Top 3 sai do grid e vira PÓDIO pixel (1º com troféu pixelado);
 // escala de calor com mais contraste (transformação sqrt nos thresholds);
 // hover exibe o nome completo do estado (sigla permanece no quadradinho).
+//
+// v2.2 (fix 2026-07): o total da UF vem pré-computado da API (soma de TODOS
+// os deputados da UF na janela da view). Antes o componente somava apenas os
+// 5 deputados do detalhe, o que quebrava o ranking e exibia valores iguais
+// arredondados para UFs diferentes (ex.: RS, RR e AC em "4,4 mi").
 // ==========================================================================
 
+interface CeapEstadoData {
+	total: number;
+	deputados: any[];
+}
+
 interface UfHeatGridProps {
-	data?: Record<string, any[]>;
+	data?: Record<string, CeapEstadoData>;
 }
 
 const fmtBRL = (v: number) =>
@@ -114,13 +124,10 @@ export function UfHeatGrid({ data }: UfHeatGridProps) {
 	const ufStats = useMemo(() => {
 		if (!data) return [];
 		return Object.entries(data)
-			.map(([uf, deps]) => ({
+			.map(([uf, grupo]) => ({
 				uf,
-				total: deps.reduce(
-					(acc: number, d: any) => acc + (Number(d.total_gasto) || 0),
-					0,
-				),
-				deputados: deps,
+				total: Number(grupo?.total) || 0,
+				deputados: grupo?.deputados ?? [],
 			}))
 			.sort((a, b) => b.total - a.total);
 	}, [data]);
