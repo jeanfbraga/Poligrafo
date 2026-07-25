@@ -135,10 +135,25 @@ async function insertBatch(batch: any[]) {
 
 async function prepare(ano: number) {
     console.log(`[CEAP SYNC] Limpando cache antigo para o ano ${ano}...`);
-    await supabaseAdmin
-        .from('ceap_despesas_cache')
-        .delete()
-        .eq('ano', ano);
+    let deletedCount = 0;
+    while (true) {
+        const { data, error } = await supabaseAdmin
+            .from('ceap_despesas_cache')
+            .delete()
+            .eq('ano', ano)
+            .select('id');
+            
+        if (error) {
+            console.error("[CEAP SYNC] Erro ao deletar:", error);
+            break;
+        }
+        
+        const batchDeleted = data ? data.length : 0;
+        deletedCount += batchDeleted;
+        
+        if (batchDeleted === 0) break;
+    }
+    console.log(`[CEAP SYNC] Total de registros apagados para ${ano}: ${deletedCount}`);
 }
 
 async function run() {
