@@ -816,6 +816,9 @@ function DashboardArea() {
 			nodes.forEach((n) => localPositions.set(n.id, n.position));
 			const childCounts = new Map<string, number>();
 
+			let totalCompaniesFound = 0;
+			let newCompaniesAdded = 0;
+
 			while (true) {
 				const { value, done } = await reader.read();
 				if (done) break;
@@ -838,9 +841,19 @@ function DashboardArea() {
 								setStatusMessage(event.payload.msg);
 								setIsLoading(false);
 								setTimeout(() => {
-									toast.success(
-										`> [BUSCA REVERSA CONCLUÍDA] Conexões de ${nomeSocio} mapeadas.`,
-									);
+									if (totalCompaniesFound > 0 && newCompaniesAdded === 0) {
+										toast.info(
+											`> Busca Reversa: ${totalCompaniesFound} empresa(s) de ${nomeSocio} já estavam no painel.`,
+										);
+									} else if (totalCompaniesFound === 0) {
+										toast.info(
+											`> Busca Reversa: Nenhuma empresa adicional vinculada a ${nomeSocio} foi encontrada publicamente.`,
+										);
+									} else {
+										toast.success(
+											`> [BUSCA REVERSA CONCLUÍDA] ${newCompaniesAdded} nova(s) conexão(ões) de ${nomeSocio} mapeada(s).`,
+										);
+									}
 									setNodes((nds) =>
 										nds.map((n) =>
 											n.id === origemId
@@ -858,6 +871,41 @@ function DashboardArea() {
 								}, 1500);
 							} else if (event.tipo === "NODE_NOVO") {
 								const nodeParams = event.payload;
+
+								if (nodeParams.type === "EMPRESA") {
+									totalCompaniesFound++;
+									const incomingCnpj = String(nodeParams.data?.cnpj || "").replace(/\D/g, "");
+									const existingNode =
+										nodes.find(
+											(n) =>
+												n.type === "EMPRESA" &&
+												String(n.data?.cnpj || "").replace(/\D/g, "") === incomingCnpj,
+										) ||
+										nodesToAddBuffer.current.find(
+											(n) =>
+												n.type === "EMPRESA" &&
+												String(n.data?.cnpj || "").replace(/\D/g, "") === incomingCnpj,
+										);
+
+									if (existingNode) {
+										if (nodeParams._origemId) {
+											edgesToAddBuffer.current.push({
+												id: `edge-rev-dup-${nodeParams._origemId}-${existingNode.id}`,
+												source: nodeParams._origemId,
+												target: existingNode.id,
+												label: "PARTICIPAÇÃO",
+												animated: true,
+												style: {
+													stroke: "#a855f7",
+													strokeWidth: 2,
+													strokeDasharray: "5,5",
+												},
+											});
+										}
+										continue;
+									}
+									newCompaniesAdded++;
+								}
 
 								// Posição Dinâmica Fixa para Bolhas Reversas
 								const parentPos = localPositions.get(nodeParams._origemId);

@@ -50,8 +50,11 @@ export async function GET(request: Request) {
 				const empresasAssociadas = await buscarEmpresasDoSocio(nomeSocio);
 
 				if (!empresasAssociadas || empresasAssociadas.length === 0) {
-					sendEvent("ERROR", {
-						mensagem: `Não foram encontradas (ou não foi possível validar via LAI) outras empresas para o sócio ${nomeSocio}.`,
+					sendEvent("STATUS", {
+						msg: `Busca reversa concluída: Nenhuma outra empresa foi localizada publicamente para ${nomeSocio}.`,
+					});
+					sendEvent("DONE", {
+						msg: `Aprofundamento de Malha Societária finalizado sem novas empresas.`,
 					});
 					safeClose();
 					return;
