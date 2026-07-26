@@ -307,10 +307,12 @@ export function HomeDashboard() {
 						>
 							<div className="flex flex-col gap-3">
 								{multiploEmendaItem && (
-									<div className="border border-green-500/40 bg-green-950/20 p-2.5 flex items-center justify-between gap-2">
-										<HybridTooltip content="Recursos de emendas PIX destinados a múltiplos municípios ou regiões simultaneamente sem restrição de UF única.">
-											<span className="text-xs font-bold text-green-300 uppercase cursor-help border-b border-dashed border-green-400/50 hover:text-green-200 transition-colors tracking-wider flex items-center gap-1">
-												<span>MÚLTIPLO / NACIONAL</span>
+									<div className="pb-3 mb-1 border-b border-green-900/30 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+										<HybridTooltip 
+											content="Recursos de emendas PIX destinados a múltiplos municípios ou regiões simultaneamente sem restrição de UF única."
+										>
+											<span className="text-xs font-bold text-green-300 cursor-help border-b border-dashed border-green-400/50 hover:text-green-200 transition-colors tracking-wider inline-flex items-center gap-1.5 whitespace-nowrap">
+												<span>Múltiplas regiões</span>
 												<span className="text-[10px] text-green-500 font-normal">
 													[?]
 												</span>

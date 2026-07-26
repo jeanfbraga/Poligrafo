@@ -7,9 +7,10 @@ import { createPortal } from "react-dom";
 interface HybridTooltipProps {
 	content: React.ReactNode;
 	children: React.ReactNode;
+	className?: string;
 }
 
-export function HybridTooltip({ content, children }: HybridTooltipProps) {
+export function HybridTooltip({ content, children, className }: HybridTooltipProps) {
 	const [show, setShow] = useState(false);
 	const triggerRef = useRef<HTMLDivElement>(null);
 	const tooltipRef = useRef<HTMLDivElement>(null);
@@ -91,7 +92,7 @@ export function HybridTooltip({ content, children }: HybridTooltipProps) {
 		<>
 			<div
 				ref={triggerRef}
-				className="inline-block cursor-help relative"
+				className={`inline-block cursor-help relative ${className || ""}`}
 				onPointerEnter={(e) => {
 					// Apenas reage ao hover se for mouse genuíno. Evita conflitos no touch.
 					if (e.pointerType === "mouse") setShow(true);
@@ -113,7 +114,7 @@ export function HybridTooltip({ content, children }: HybridTooltipProps) {
 				createPortal(
 					<div
 						ref={tooltipRef}
-						className="fixed z-[99999] bg-black border border-green-900 text-green-400 text-xs px-3 py-2 shadow-lg max-w-[200px] text-center pointer-events-none"
+						className="fixed z-99999 bg-black border border-green-900 text-green-400 text-xs px-3 py-2 shadow-lg max-w-50 text-center pointer-events-none"
 						style={{
 							top: coords.top,
 							left: coords.left,
