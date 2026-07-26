@@ -3,9 +3,11 @@
 export const AIProgressBar = ({
 	score,
 	motivo,
+	isMobile = false,
 }: {
 	score?: number;
 	motivo?: string;
+	isMobile?: boolean;
 }) => {
 	const s = score || 0;
 	const isLetal = s >= 85;

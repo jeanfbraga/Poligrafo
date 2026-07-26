@@ -27,7 +27,9 @@ import React, {
 import { HomeDashboard } from "@/components/dashboard/HomeDashboard";
 import MobileView from "@/components/layout/MobileView";
 import SearchBar from "@/components/search/SearchBar";
+import congressoIndex from "@/services/integrations/data/congresso-index.json";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { formatDateOnly } from "@/lib/utils";
 import "@xyflow/react/dist/style.css";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import {
@@ -1128,6 +1130,60 @@ function DashboardArea() {
 		setErrorMsg("");
 		setApiWarnings([]);
 
+		// Tenta pré-popular cargo, UF e foto imediatamente a partir de refOverride, selectedUf ou congressoIndex
+		let initialCargo: string | undefined = undefined;
+		let initialUf: string | undefined =
+			selectedUf && selectedUf !== "FEDERAL" ? selectedUf : undefined;
+		let initialFoto: string | undefined = undefined;
+
+		if (refOverride && typeof refOverride === "string") {
+			const parts = refOverride.split(":");
+			if (parts[0] === "FEDERAL" && parts[1] === "CAMARA" && parts[2]) {
+				initialCargo = "DEPUTADO FEDERAL";
+				initialFoto = `https://www.camara.leg.br/internet/deputado/bandep/${parts[2]}.jpg`;
+			} else if (parts[0] === "FEDERAL" && parts[1] === "SENADO" && parts[2]) {
+				initialCargo = "SENADOR";
+				initialFoto = `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador_${parts[2]}.jpg`;
+			} else if (parts[0] === "GOVERNADOR") {
+				initialCargo = "GOVERNADOR";
+				initialUf = parts[1];
+			} else if (parts[0] === "PREFEITO") {
+				initialCargo = "PREFEITO";
+				initialUf = parts[1];
+			}
+		}
+
+		const termoNorm = termo
+			.toLowerCase()
+			.normalize("NFD")
+			.replace(/[\u0300-\u036f]/g, "");
+		const matchedCandidate = congressoIndex.find(
+			(p: any) =>
+				p.nome
+					.toLowerCase()
+					.normalize("NFD")
+					.replace(/[\u0300-\u036f]/g, "") === termoNorm,
+		);
+
+		if (matchedCandidate) {
+			if (!initialUf && matchedCandidate.uf) initialUf = matchedCandidate.uf;
+			if (!initialCargo) {
+				initialCargo =
+					matchedCandidate.casa === "CAMARA"
+						? "DEPUTADO FEDERAL"
+						: matchedCandidate.casa === "SENADO"
+							? "SENADOR"
+							: undefined;
+			}
+			if (!initialFoto && matchedCandidate.id) {
+				if (matchedCandidate.casa === "CAMARA") {
+					initialFoto = `https://www.camara.leg.br/internet/deputado/bandep/${matchedCandidate.id}.jpg`;
+				} else if (matchedCandidate.casa === "SENADO") {
+					initialFoto = `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador_${matchedCandidate.id}.jpg`;
+				}
+			}
+		}
+
 		// Exibe um node de PESSOA temporário como "loading card" imediatamente
 		const tmpNodeId = `loading-pessoa`;
 		setNodes([
@@ -1137,6 +1193,15 @@ function DashboardArea() {
 				position: { x: (window.innerWidth - 320) / 2 - 144, y: 150 },
 				data: {
 					label: termo.toUpperCase(),
+					cargo:
+						initialCargo ||
+						(selectedUf === "FEDERAL"
+							? "GOVERNO FEDERAL"
+							: selectedUf
+								? `POLÍTICO (${selectedUf})`
+								: "POLÍTICO"),
+					uf: initialUf || selectedUf || undefined,
+					urlFoto: initialFoto,
 					isSearching: true,
 					currentStatus: "Iniciando conexão...",
 				},
@@ -1897,11 +1962,7 @@ function DashboardArea() {
 													})}
 												</p>
 												<p className="text-xs mt-1 opacity-60 uppercase font-mono tracking-wider">
-													{item.data.dataDocumento
-														? new Date(
-																item.data.dataDocumento,
-															).toLocaleDateString("pt-BR", { timeZone: "UTC" })
-														: "Sem Data"}
+													{formatDateOnly(item.data.dataDocumento)}
 												</p>
 											</div>
 										)}
@@ -2332,7 +2393,7 @@ function DashboardArea() {
 									<div
 										className={`text-xs font-mono mt-1 ${selectedNode.data.score_letalidade >= 85 ? "text-red-400/70" : selectedNode.data.score_letalidade >= 60 ? "text-yellow-400/70" : "text-slate-500"}`}
 									>
-										Data: {selectedNode.data.dataDocumento}
+										Data: {formatDateOnly(selectedNode.data.dataDocumento)}
 									</div>
 								)}
 							</SheetHeader>

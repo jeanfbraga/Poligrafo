@@ -18,8 +18,25 @@ import {
 	Users,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import gsap from "gsap";
 import { toast } from "sonner";
-import { AIProgressBar } from "@/components/nodes";
+import {
+	AIProgressBar,
+	ENTITY_THEME,
+	getVisual,
+	NodeLoadingBar,
+	resolveRisk,
+	ContratoNode,
+	DespesaNode,
+	EmendaNode,
+	EmendaResumoNode,
+	EmpresaNode,
+	OrgaoNode,
+	PessoaNode,
+	ProcessoJudicialNode,
+	RaioXGastosNode,
+	SocioNode
+} from "@/components/nodes";
 import SearchBar from "@/components/search/SearchBar";
 import { type ShareData, ShareDialog } from "@/components/shared/ShareDialog";
 import { Badge } from "@/components/ui/badge";
@@ -219,6 +236,30 @@ interface MobileViewProps {
 	statusMessage: string;
 }
 
+const NODE_COMPONENTS: Record<string, any> = {
+	PESSOA: PessoaNode,
+	EMPRESA: EmpresaNode,
+	DESPESA: DespesaNode,
+	EMENDA: EmendaNode,
+	EMENDA_RESUMO: EmendaResumoNode,
+	CONTRATO: ContratoNode,
+	PROCESSO_JUDICIAL: ProcessoJudicialNode,
+	ORGAO: OrgaoNode,
+	SOCIO: SocioNode,
+	RESUMO_GASTOS: RaioXGastosNode,
+};
+
+function MobileResultCard({ node, onSelect, onShare, footer }: { node: any; onSelect: () => void; onShare: (data: any, type: string) => void; footer?: React.ReactNode; }) {
+	const Component = NODE_COMPONENTS[node.type];
+	if (!Component) return <div className="text-red-500 p-4 font-mono text-xs">Desconhecido: {node.type}</div>;
+	
+	return (
+		<div onClick={onSelect} className="snap-center shrink-0 cursor-pointer w-[80vw] max-w-[320px]">
+			<Component data={{ ...node.data, onShare, mobileFooter: footer, mobileOnClick: onSelect }} isMobile={true} />
+		</div>
+	);
+}
+
 export default function MobileView({
 	nodes,
 	edges,
@@ -331,25 +372,47 @@ export default function MobileView({
 		return c;
 	}, [allResults]);
 
-	// Scroll tracking
+
+	// Scroll tracking e centralização fluida para larguras variáveis
 	const handleScroll = useCallback(() => {
 		if (!galleryRef.current) return;
 		const el = galleryRef.current;
-		const cardW = el.firstElementChild?.clientWidth || 1;
-		setActiveIndex(Math.round(el.scrollLeft / (cardW + 16)));
+		
+		// Encontra qual filho está mais próximo do centro do scroll
+		const center = el.scrollLeft + el.clientWidth / 2;
+		let closestIndex = 0;
+		let minDiff = Infinity;
+		
+		Array.from(el.children).forEach((child, index) => {
+			const childCenter = (child as HTMLElement).offsetLeft + child.clientWidth / 2;
+			const diff = Math.abs(childCenter - center);
+			if (diff < minDiff) {
+				minDiff = diff;
+				closestIndex = index;
+			}
+		});
+		
+		setActiveIndex(closestIndex);
 	}, []);
 
-	// Setas de navegação
+	// Setas de navegação usando o cálculo exato e scroll nativo (evita conflito com snap)
 	const scrollTo = useCallback(
 		(direction: "prev" | "next") => {
 			if (!galleryRef.current) return;
 			const el = galleryRef.current;
-			const cardW = el.firstElementChild?.clientWidth || 280;
 			const newIndex =
 				direction === "next"
 					? Math.min(activeIndex + 1, filteredResults.length - 1)
 					: Math.max(activeIndex - 1, 0);
-			el.scrollTo({ left: newIndex * (cardW + 16), behavior: "smooth" });
+			
+			const targetChild = el.children[newIndex] as HTMLElement;
+			if (targetChild) {
+				el.scrollTo({
+					left: targetChild.offsetLeft - el.clientWidth / 2 + targetChild.clientWidth / 2,
+					behavior: "smooth"
+				});
+			}
+			
 			setActiveIndex(newIndex);
 		},
 		[activeIndex, filteredResults.length],
@@ -671,9 +734,6 @@ export default function MobileView({
 								{rootNode.data.cargo || "POLÍTICO"} — {rootNode.data.uf || "??"}
 							</p>
 						</div>
-						<Badge variant="cyber-green" className="w-fit mb-4">
-							SISTEMA PRONTO
-						</Badge>
 					</div>
 				</div>
 			)}
@@ -735,7 +795,7 @@ export default function MobileView({
 						<div
 							ref={galleryRef}
 							onScroll={handleScroll}
-							className="w-full flex gap-4 overflow-x-auto snap-x snap-mandatory px-[10vw] py-4 items-center h-full"
+							className="w-full flex gap-4 overflow-x-auto snap-x snap-mandatory py-4 items-center h-full scroll-smooth before:content-[''] before:shrink-0 before:w-[10vw] sm:before:w-[calc(50vw-160px)] after:content-[''] after:shrink-0 after:w-[10vw] sm:after:w-[calc(50vw-160px)]"
 							style={{
 								scrollbarWidth: "none",
 								msOverflowStyle: "none",
@@ -743,158 +803,51 @@ export default function MobileView({
 							}}
 						>
 							{filteredResults.map((node: any) => {
-								const score = Number(node.data?.score_letalidade || 0);
-								const s = getCardStyles(node.type, score);
+								const cardEdges = edges.filter((e: any) => e.source === node.id);
+								const s = getCardStyles(node.type, Number(node.data?.score_letalidade || 0));
+								
+								let footer = null;
+								if (cardEdges.length > 0) {
+									footer = (
+										<Button
+											variant="outline"
+											className={`w-full bg-black ${s.text} ${s.border} active:scale-95 transition-all text-xs font-bold uppercase tracking-widest h-10 mt-3`}
+											onClick={(e) => {
+												e.stopPropagation();
+												setSubGalleryOwnerId(node.id);
+												setActiveSubIndex(0);
+												setSubGalleryDrawerOpen(true);
+											}}
+										>
+											ITEM COM CONEXÕES ({cardEdges.length})
+										</Button>
+									);
+								} else if (node.type === "EMPRESA" && handleInvestigarContratos && !node.data.isSearching) {
+									footer = (
+										<Button
+											variant="outline"
+											className={`w-full bg-blue-950/20 text-blue-400 border-blue-900 active:bg-blue-900 transition-all text-[10px] font-bold uppercase tracking-widest h-10 mt-3`}
+											onClick={(e) => {
+												e.stopPropagation();
+												handleInvestigarContratos(node.data.cnpj || node.data.documento, node.id);
+											}}
+										>
+											<Search className="w-3 h-3 mr-1.5" /> INVESTIGAR CONTRATOS (PNCP)
+										</Button>
+									);
+								}
+
 								return (
-									<div
+									<MobileResultCard
 										key={node.id}
-										className={`flex-none w-[78vw] max-w-75 snap-center border ${s.border} ${s.bg} p-4 flex flex-col justify-between active:scale-[0.97] transition-transform duration-200 uppercase font-mono min-h-[42vh] max-h-[52vh]`}
-										onClick={() => {
+										node={node}
+										onSelect={() => {
 											setSelectedCard(node);
 											setDrawerOpen(true);
 										}}
-									>
-										<div>
-											<div className="flex justify-between items-start mb-3">
-												{s.icon}
-												<div className="flex gap-2 items-center">
-													<button
-														onClick={(e) => {
-															e.stopPropagation();
-															handleShareClick(node.data, node.type);
-														}}
-														className="w-10 h-10 flex items-center justify-center shrink-0"
-													>
-														<Share2 className="w-5 h-5 text-inherit opacity-70 hover:opacity-100 transition-opacity" />
-													</button>
-													<Badge
-														variant={s.variant}
-														className="rounded-none text-xs uppercase font-bold border-inherit bg-transparent"
-													>
-														{node.type === "EMENDA_RESUMO"
-															? "EMENDA"
-															: node.type}
-													</Badge>
-												</div>
-											</div>
-											<h3
-												className={`text-base font-bold leading-tight line-clamp-3 mb-2 ${s.text}`}
-											>
-												{node.data?.label || "Sem título"}
-											</h3>
-
-											{node.data?.valor !== undefined && (
-												<div className="mt-2 border-l-2 border-inherit pl-3">
-													<span className="text-xs block opacity-60 font-bold uppercase">
-														VALOR (R$):
-													</span>
-													<span
-														className={`text-xl font-bold tracking-widest ${s.text}`}
-													>
-														{Number(node.data.valor).toLocaleString("pt-BR", {
-															minimumFractionDigits: 2,
-														})}
-													</span>
-												</div>
-											)}
-
-											{node.type === "DESPESA" && node.data?.nomeFornecedor && (
-												<div className="mt-2">
-													<span className="text-xs block opacity-60 font-bold">
-														FORN.:
-													</span>
-													<span
-														className={`text-xs ${s.text} line-clamp-2 font-bold`}
-													>
-														{node.data.nomeFornecedor}
-													</span>
-												</div>
-											)}
-
-											{node.type === "DESPESA" && node.data?.dataDocumento && (
-												<div className="mt-2">
-													<span className="text-xs block opacity-60 font-bold">
-														DATA:
-													</span>
-													<span className={`text-xs ${s.text} font-bold`}>
-														{node.data.dataDocumento}
-													</span>
-												</div>
-											)}
-
-											{node.type === "EMPRESA" && node.data?.cnpj && (
-												<div className="mt-2">
-													<span className="text-xs block opacity-60 font-bold text-blue-600">
-														CNPJ:
-													</span>
-													<span className="text-xs text-blue-400 font-bold">
-														{node.data.cnpj}
-													</span>
-												</div>
-											)}
-
-											{node.data?.motivo_ia && (
-												<div className="mt-3">
-													<AIProgressBar
-														score={score}
-														motivo={node.data.motivo_ia}
-													/>
-												</div>
-											)}
-										</div>
-										<div className="mt-auto pt-3 border-t border-inherit/30 flex flex-col gap-2">
-											{(() => {
-												const cardEdges = edges.filter(
-													(e) => e.source === node.id,
-												);
-												if (cardEdges.length > 0) {
-													return (
-														<Button
-															variant="outline"
-															className={`w-full bg-black ${s.text} ${s.border} active:scale-95 transition-all text-xs font-bold uppercase tracking-widest h-10`}
-															onClick={(e) => {
-																e.stopPropagation();
-																e.stopPropagation();
-																setSubGalleryOwnerId(node.id);
-																setActiveSubIndex(0);
-																setSubGalleryDrawerOpen(true);
-															}}
-														>
-															ITEM COM CONEXÕES ({cardEdges.length})
-														</Button>
-													);
-												}
-												if (
-													node.type === "EMPRESA" &&
-													handleInvestigarContratos &&
-													!node.data.isSearching
-												) {
-													return (
-														<Button
-															variant="outline"
-															className={`w-full bg-blue-950/20 text-blue-400 border-blue-900 active:bg-blue-900 transition-all text-[10px] font-bold uppercase tracking-widest h-10`}
-															onClick={(e) => {
-																e.stopPropagation();
-																handleInvestigarContratos(
-																	node.data.cnpj || node.data.documento,
-																	node.id,
-																);
-															}}
-														>
-															<Search className="w-3 h-3 mr-1.5" /> INVESTIGAR
-															CONTRATOS (PNCP)
-														</Button>
-													);
-												}
-												return null;
-											})()}
-											<span
-												className={`text-xs font-bold opacity-50 ${s.text} text-center w-full block mt-1`}
-											>
-												[ TOCAR PARA DETALHES ]
-											</span>
-										</div>
-									</div>
+										onShare={handleShareClick}
+										footer={footer}
+									/>
 								);
 							})}
 						</div>
@@ -965,7 +918,7 @@ export default function MobileView({
 					<div className="flex-1 relative w-full h-full flex items-center justify-center overflow-hidden bg-black py-4">
 						<div
 							ref={subGalleryRef}
-							className="w-full flex gap-4 overflow-x-auto snap-x snap-mandatory px-[10vw] items-center h-full pb-8"
+							className="w-full flex gap-4 overflow-x-auto snap-x snap-mandatory py-4 items-center h-full pb-8 scroll-smooth before:content-[''] before:shrink-0 before:w-[10vw] sm:before:w-[calc(50vw-160px)] after:content-[''] after:shrink-0 after:w-[10vw] sm:after:w-[calc(50vw-160px)]"
 							style={{
 								scrollbarWidth: "none",
 								msOverflowStyle: "none",
@@ -973,78 +926,15 @@ export default function MobileView({
 							}}
 						>
 							{subGalleryNodes.map((node: any) => {
-								const score = Number(node.data?.score_letalidade || 0);
-								const s = getCardStyles(node.type, score);
 								return (
-									<div
+									<MobileResultCard
 										key={`sub-${node.id}`}
-										className={`flex-none w-[78vw] max-w-75 snap-center border ${s.border} ${s.bg} p-4 flex flex-col justify-between active:scale-[0.97] transition-transform duration-200 uppercase font-mono min-h-[46vh] max-h-[55vh]`}
-										onClick={() => {
+										node={node}
+										onSelect={() => {
 											setSelectedCard(node);
-											setDrawerOpen(true);
 										}}
-									>
-										<div>
-											<div className="flex justify-between items-start mb-3">
-												{s.icon}
-												<Badge
-													variant={s.variant}
-													className="rounded-none text-xs uppercase font-bold border-inherit bg-transparent"
-												>
-													{node.type === "EMENDA_RESUMO" ? "EMENDA" : node.type}
-												</Badge>
-											</div>
-											<h3
-												className={`text-base font-bold leading-tight line-clamp-3 mb-2 ${s.text}`}
-											>
-												{node.data?.label || "Sem título"}
-											</h3>
-
-											{node.data?.valor !== undefined && (
-												<div className="mt-2 border-l-2 border-inherit pl-3">
-													<span className="text-xs block opacity-60 font-bold uppercase">
-														VALOR (R$):
-													</span>
-													<span
-														className={`text-xl font-bold tracking-widest ${s.text}`}
-													>
-														{Number(node.data.valor).toLocaleString("pt-BR", {
-															minimumFractionDigits: 2,
-														})}
-													</span>
-												</div>
-											)}
-
-											{node.data?.numeroControlePNCP && (
-												<div className="mt-2 border-l-2 border-inherit pl-3">
-													<span className="text-xs block opacity-60 font-bold uppercase text-yellow-600">
-														PNCP REF:
-													</span>
-													<span
-														className={`text-[10px] font-bold tracking-widest text-yellow-400 break-all`}
-													>
-														{node.data?.numeroControlePNCP}
-													</span>
-												</div>
-											)}
-
-											{node.data?.motivo_ia && (
-												<div className="mt-3">
-													<AIProgressBar
-														score={score}
-														motivo={node.data.motivo_ia}
-													/>
-												</div>
-											)}
-										</div>
-										<div className="mt-auto pt-3 border-t border-inherit/30">
-											<span
-												className={`text-xs font-bold opacity-50 ${s.text} text-center w-full block mt-1`}
-											>
-												[ TOCAR PARA DETALHES ]
-											</span>
-										</div>
-									</div>
+										onShare={handleShareClick}
+									/>
 								);
 							})}
 						</div>

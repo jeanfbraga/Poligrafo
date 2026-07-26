@@ -86,3 +86,38 @@ export function getPortalTransparenciaFallback(casa?: string, uri?: string) {
 			};
 	}
 }
+
+/**
+ * Formata qualquer string de data para formato legível (DD/MM/YYYY) descartando horários/timestamps (ex: "2025-12-16T00:00:00" -> "16/12/2025").
+ */
+export function formatDateOnly(dateStr?: string | null): string {
+	if (!dateStr) return "DATA INDISPONÍVEL";
+	const str = String(dateStr).trim();
+	if (!str) return "DATA INDISPONÍVEL";
+
+	// Se contiver intervalo (ex: "01/01/2024 a 31/12/2024")
+	if (str.includes(" a ")) return str;
+
+	// Separa e descarta a parte do horário ('T00:00:00' ou ' 00:00:00')
+	const datePart = str.includes("T") ? str.split("T")[0] : str.split(" ")[0];
+
+	// Se for ISO YYYY-MM-DD
+	if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+		const [y, m, d] = datePart.split("-");
+		return `${d}/${m}/${y}`;
+	}
+
+	// Se já for DD/MM/YYYY
+	if (/^\d{2}\/\d{2}\/\d{4}$/.test(datePart)) {
+		return datePart;
+	}
+
+	// Fallback via Date
+	const parsed = new Date(datePart.includes("-") ? datePart : str);
+	if (!isNaN(parsed.getTime())) {
+		const formatted = parsed.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+		if (formatted !== "Invalid Date") return formatted;
+	}
+
+	return datePart;
+}
