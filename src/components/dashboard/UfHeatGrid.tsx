@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { HybridTooltip } from "@/components/ui/hybrid-tooltip";
 import { formatName } from "@/lib/utils";
 import { BarRanking } from "./BarRanking";
@@ -20,6 +20,10 @@ import { BarRanking } from "./BarRanking";
 // os deputados da UF na janela da view). Antes o componente somava apenas os
 // 5 deputados do detalhe, o que quebrava o ranking e exibia valores iguais
 // arredondados para UFs diferentes (ex.: RS, RR e AC em "4,4 mi").
+//
+// v2.3: celebração do 1º lugar — hover/toque no pódio dispara o troféu
+// rodopiando 1x com leve salto + fogos pixelados saindo por trás (CSS puro,
+// ~1s, rearmado por estado; respeita prefers-reduced-motion).
 // ==========================================================================
 
 interface CeapEstadoData {
@@ -120,6 +124,52 @@ function PixelTrophy({ className = "" }: { className?: string }) {
 	);
 }
 
+// Celebração do 1º lugar: coreografia fixa de ~1s em CSS puro (GSAP seria
+// overkill para um spin+salto sem física). Partículas determinísticas em
+// leque para cima (-165° → -15°), para o burst não mudar a cada render.
+const FIREWORK_COLORS = ["#fbbf24", "#f59e0b", "#fde68a", "#4ade80", "#22c55e"];
+
+const FIREWORK_PARTICLES = Array.from({ length: 14 }, (_, i) => {
+	const angle = ((-165 + (150 * i) / 13) * Math.PI) / 180;
+	const dist = 34 + ((i * 17) % 26);
+	return {
+		x: Math.cos(angle) * dist,
+		y: Math.sin(angle) * dist * 1.15, // sobe um pouco mais do que abre
+		size: 3 + ((i * 7) % 3), // quadrados de 3–5px (pixelado)
+		color: FIREWORK_COLORS[i % FIREWORK_COLORS.length],
+		delay: (i % 5) * 30,
+		dur: 620 + ((i * 13) % 4) * 60,
+	};
+});
+
+// Cobre a partícula mais longa (120ms de delay + 800ms de duração)
+const CELEBRATION_MS = 950;
+
+const CELEBRATION_CSS = `
+@keyframes trophy-spin-jump {
+  0%   { transform: translateY(0) rotate(0deg); }
+  20%  { transform: translateY(-10px) rotate(80deg); }
+  45%  { transform: translateY(-15px) rotate(190deg); }
+  70%  { transform: translateY(-8px) rotate(305deg); }
+  85%  { transform: translateY(0) rotate(350deg); }
+  100% { transform: translateY(0) rotate(360deg); }
+}
+@keyframes pixel-burst {
+  0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  75%  { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.4); opacity: 0; }
+}
+.trophy-celebrate { animation: trophy-spin-jump 0.7s ease-in-out; }
+.pixel-particle {
+  position: absolute; left: 50%; top: 50%;
+  opacity: 0; pointer-events: none;
+  animation: pixel-burst var(--dur) var(--delay) ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trophy-celebrate, .pixel-particle { animation: none; }
+}
+`;
+
 export function UfHeatGrid({ data }: UfHeatGridProps) {
 	const ufStats = useMemo(() => {
 		if (!data) return [];
@@ -133,6 +183,26 @@ export function UfHeatGrid({ data }: UfHeatGridProps) {
 	}, [data]);
 
 	const [selectedUf, setSelectedUf] = useState<string | null>(null);
+
+	const [celebrating, setCelebrating] = useState(false);
+	const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	// Dispara a celebração do 1º lugar; ignora gatilhos enquanto já anima
+	const celebrate = () => {
+		if (celebrateTimer.current) return;
+		setCelebrating(true);
+		celebrateTimer.current = setTimeout(() => {
+			setCelebrating(false);
+			celebrateTimer.current = null;
+		}, CELEBRATION_MS);
+	};
+
+	useEffect(
+		() => () => {
+			if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+		},
+		[],
+	);
 
 	if (ufStats.length === 0) return null;
 
@@ -163,6 +233,7 @@ export function UfHeatGrid({ data }: UfHeatGridProps) {
 
 	return (
 		<div className="flex flex-col gap-4">
+			<style>{CELEBRATION_CSS}</style>
 			{/* Pódio pixel — Top 3 separado do grid */}
 			<div className="flex items-end justify-center gap-2 sm:gap-3">
 				{podiumSlots.map(({ stat, rank, pedestalH, tone }) => {
@@ -173,11 +244,38 @@ export function UfHeatGrid({ data }: UfHeatGridProps) {
 							content={`#${rank} ${ufLabel(stat.uf)} — ${fmtBRL(stat.total)}`}
 						>
 							<button
-								onClick={() => setSelectedUf(stat.uf)}
+								onClick={() => {
+									setSelectedUf(stat.uf);
+									if (rank === 1) celebrate();
+								}}
+								onMouseEnter={rank === 1 ? celebrate : undefined}
+								onFocus={rank === 1 ? celebrate : undefined}
 								className="flex flex-col items-center gap-1 group"
 							>
 								{rank === 1 ? (
-									<PixelTrophy className="h-6 w-6 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.5)] group-hover:scale-110 transition-transform" />
+									<span className="relative flex h-6 w-6 items-center justify-center">
+										{celebrating &&
+											FIREWORK_PARTICLES.map((p, i) => (
+												<span
+													key={i}
+													className="pixel-particle"
+													style={
+														{
+															width: p.size,
+															height: p.size,
+															backgroundColor: p.color,
+															"--dx": `${p.x.toFixed(1)}px`,
+															"--dy": `${p.y.toFixed(1)}px`,
+															"--delay": `${p.delay}ms`,
+															"--dur": `${p.dur}ms`,
+														} as CSSProperties
+													}
+												/>
+											))}
+										<PixelTrophy
+											className={`relative z-10 h-6 w-6 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.5)] group-hover:scale-110 transition-transform ${celebrating ? "trophy-celebrate" : ""}`}
+										/>
+									</span>
 								) : (
 									<span className="h-6 flex items-center text-[10px] font-bold text-green-600 tracking-widest">
 										{rank}º
