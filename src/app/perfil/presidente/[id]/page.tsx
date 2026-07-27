@@ -144,7 +144,7 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 						<div className="w-24 h-24 bg-green-900/30 border border-green-500 mb-4 flex items-center justify-center">
 							{tse?.idTse ? (
 								<img
-									src={`/api/proxy-image?url=${encodeURIComponent(`https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/img/${tse.idEleicao}/${tse.idTse}/${tse.idUe}`)}&raw=true`}
+									src={tse?.fotoUrl ? `/api/proxy-image?url=${encodeURIComponent(tse.fotoUrl)}&raw=true` : `/api/proxy-image?url=${encodeURIComponent(`https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/img/${tse.idEleicao}/${tse.idTse}/${tse.idUe}`)}&raw=true`}
 									alt={perfil.nome}
 									className="w-full h-full object-cover"
 									onError={(e) => (e.currentTarget.style.display = 'none')}

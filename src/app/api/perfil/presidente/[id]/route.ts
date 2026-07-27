@@ -177,7 +177,7 @@ export async function GET(
 			perfil: {
 				id: targetId,
 				nome: vipInfo.nome,
-				cargo: "Presidente da República",
+				cargo: targetId === "lula" ? "Presidente da República" : "Ex-Presidente da República",
 				mandato: `${vipInfo.mandatoInicio} - ${vipInfo.mandatoFim}`,
 			},
 			tse: tseData ? {
@@ -185,6 +185,7 @@ export async function GET(
 				idTse: tseData.idTse, // Inclui o SQ_CANDIDATO correto para a URL da foto
 				idEleicao: tseData.idEleicao,
 				idUe: tseData.idUe,
+				fotoUrl: tseData.fotoUrl,
 				patrimonio: tseData.patrimonioTotal || 0,
 				bens: tseData.bensDeclarados?.sort((a: any, b: any) => (b.valor || 0) - (a.valor || 0)).slice(0, 5) || [],
 				eleicao: tseData.anoEleicao,
