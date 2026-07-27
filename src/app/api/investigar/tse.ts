@@ -75,6 +75,7 @@ export async function buscarCpfNoTSE(
 			: [
 					{ ano: "2022", idEleicao: "2040602022" }, // Eleições Gerais 2022
 					{ ano: "2018", idEleicao: "2022802018" }, // Eleições Gerais 2018
+					{ ano: "2014", idEleicao: "680" }, // Eleições Gerais 2014
 				];
 
 		for (const eleicao of campanhas) {

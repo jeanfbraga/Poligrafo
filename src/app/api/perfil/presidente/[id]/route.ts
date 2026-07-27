@@ -63,7 +63,14 @@ export async function GET(
 
 	try {
 		// 1. TSE Patrimônio (Cargo: 1 = Presidente, UF: BR)
-		const tseDataPromise = buscarCpfNoTSE(vipInfo.nome, "BR", "1").catch(() => null);
+		let tseDataPromise = buscarCpfNoTSE(vipInfo.nome, "BR", "1").catch(() => null);
+		const initialTseData = await tseDataPromise;
+		if (!initialTseData) {
+			// Tenta buscar como Vice-Presidente (Cargo: 2 = Vice-Presidente) (ex: Michel Temer)
+			tseDataPromise = buscarCpfNoTSE(vipInfo.nome, "BR", "2").catch(() => null);
+		} else {
+			tseDataPromise = Promise.resolve(initialTseData);
+		}
 
 		// 2. CPGF (Cartão Corporativo) via Portal da Transparência (Órgão 20000 = Presidência)
 		const fetchCpgf = async () => {
