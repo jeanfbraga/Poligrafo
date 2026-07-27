@@ -455,14 +455,10 @@ export async function buscarCartaoCorporativo(
 			}
 		}
 
-		if (
-			(!data || data.length === 0) &&
-			(casaPolitico === "PRESIDENCIA_DA_REPUBLICA" ||
-				cpfLimpo === "76463456868" ||
-				pessoaId.includes("lula") ||
-				pessoaId.includes("bolsonaro") ||
-				pessoaId.includes("presidente"))
-		) {
+		if (casaPolitico === "PRESIDENCIA_DA_REPUBLICA") {
+			sendEvent("STATUS", {
+				msg: "Analisando faturas de Cartão de Pagamento do Governo Federal (CPGF)...",
+			});
 			const urlPresidencia = `https://api.portaldatransparencia.gov.br/api-de-dados/cartoes?codigoOrgao=20000&dataTransacaoInicio=${mesInicio}&dataTransacaoFim=${mesFim}&pagina=1`;
 			const resPresidencia = await fetchWithTimeout(urlPresidencia, {
 				headers: { "chave-api-dados": apiKey },

@@ -2,9 +2,45 @@
 
 import { Search, User } from "lucide-react";
 import { type KeyboardEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
+
+const EXTRA_VIP_INDEX = [
+	{
+		id: "lula",
+		nome: "Luiz Inácio Lula da Silva",
+		casa: "PRESIDENCIA_DA_REPUBLICA",
+		uf: "BR",
+		partido: "PT",
+		isPresidente: true,
+	},
+	{
+		id: "bolsonaro",
+		nome: "Jair Messias Bolsonaro",
+		casa: "PRESIDENCIA_DA_REPUBLICA",
+		uf: "BR",
+		partido: "PL",
+		isPresidente: true,
+	},
+	{
+		id: "dilma",
+		nome: "Dilma Vana Rousseff",
+		casa: "PRESIDENCIA_DA_REPUBLICA",
+		uf: "BR",
+		partido: "PT",
+		isPresidente: true,
+	},
+	{
+		id: "temer",
+		nome: "Michel Miguel Elias Temer Lulia",
+		casa: "PRESIDENCIA_DA_REPUBLICA",
+		uf: "BR",
+		partido: "MDB",
+		isPresidente: true,
+	}
+];
 
 export interface Alcada {
 	sigla: string;
@@ -60,11 +96,10 @@ export default function SearchBar({
 	isMobile = false,
 	alcadas,
 }: SearchBarProps) {
-	const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<
-		typeof congressoIndex
-	>([]);
+	const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<any[]>([]);
 	const [autocompleteIdx, setAutocompleteIdx] = useState(-1);
 	const [showAutocomplete, setShowAutocomplete] = useState(false);
+	const router = useRouter();
 
 	const handleSearchTermChange = (value: string) => {
 		setSearchTerm(value);
@@ -78,16 +113,18 @@ export default function SearchBar({
 			.toLowerCase()
 			.normalize("NFD")
 			.replace(/[\u0300-\u036f]/g, "");
-		const matches = congressoIndex.filter((p: any) => {
-			const nameMatch = p.nome
+		const searchTerms = termoNorm.split(/\s+/).filter(Boolean);
+		const matches = [...EXTRA_VIP_INDEX, ...congressoIndex].filter((p: any) => {
+			const nameNorm = p.nome
 				.toLowerCase()
 				.normalize("NFD")
-				.replace(/[\u0300-\u036f]/g, "")
-				.includes(termoNorm);
+				.replace(/[\u0300-\u036f]/g, "");
+			const nameMatch = searchTerms.every((term: string) => nameNorm.includes(term));
 			if (!nameMatch) return false;
 
 			// Filtro por Alçada se não for FEDERAL
 			if (selectedUf && selectedUf !== "FEDERAL") {
+				if (p.isPresidente) return false; // VIPs só aparecem no FEDERAL ou sem filtro
 				return p.uf === selectedUf;
 			}
 			return true;
@@ -119,7 +156,11 @@ export default function SearchBar({
 				setSearchTerm(selected.nome);
 				setShowAutocomplete(false);
 				setAutocompleteSuggestions([]);
-				onSearch(formatAutoRef(selected), selected.nome);
+				if (selected.isPresidente) {
+					router.push(`/perfil/presidente/${selected.id}`);
+				} else {
+					onSearch(formatAutoRef(selected), selected.nome);
+				}
 				return;
 			} else if (e.key === "Escape") {
 				setShowAutocomplete(false);
@@ -224,7 +265,11 @@ export default function SearchBar({
 										setSearchTerm(p.nome);
 										setShowAutocomplete(false);
 										setAutocompleteSuggestions([]);
-										onSearch(formatAutoRef(p), p.nome);
+										if (p.isPresidente) {
+											router.push(`/perfil/presidente/${p.id}`);
+										} else {
+											onSearch(formatAutoRef(p), p.nome);
+										}
 									}}
 								>
 									<span className="flex items-center gap-2">
@@ -383,7 +428,11 @@ export default function SearchBar({
 								setSearchTerm(p.nome);
 								setShowAutocomplete(false);
 								setAutocompleteSuggestions([]);
-								onSearch(formatAutoRef(p), p.nome);
+								if (p.isPresidente) {
+									router.push(`/perfil/presidente/${p.id}`);
+								} else {
+									onSearch(formatAutoRef(p), p.nome);
+								}
 							}}
 						>
 							<span className="flex items-center gap-2">

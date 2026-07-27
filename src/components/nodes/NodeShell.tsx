@@ -61,6 +61,16 @@ export const NodeShell = ({
 		risk === "ATENCAO" || risk === "CRITICO" || risk === "FANTASMA";
 	const showGlow =
 		risk !== "NORMAL" || theme.alwaysGlow || data.isSearching;
+	const isInteractive = !!onClick || [
+		"PESSOA",
+		"DESPESA",
+		"CONTRATO",
+		"EMENDA",
+		"EMENDA_RESUMO",
+		"EMPRESA",
+		"SOCIO",
+		"RESUMO_GASTOS",
+	].includes(type);
 
 	useGSAP(
 		() => {
@@ -78,7 +88,7 @@ export const NodeShell = ({
 
 	if (isMobile) {
 		return (
-			<div className={`w-full border ${colors.border} bg-black p-4 flex flex-col justify-between active:scale-[0.97] transition-transform duration-200 uppercase font-mono min-h-[42vh] max-h-[52vh] cursor-pointer`} onClick={data.mobileOnClick || onClick}>
+			<div className={`w-full border ${colors.border} bg-black p-4 flex flex-col justify-between active:scale-[0.97] transition-transform duration-200 uppercase font-mono min-h-[42vh] max-h-[52vh] ${isInteractive ? "cursor-pointer" : ""}`} onClick={data.mobileOnClick || onClick}>
 				<div>
 					<div className="flex justify-between items-center mb-3 gap-2">
 						<Badge variant={colors.badgeVariant as any} className="rounded-none text-[10px] sm:text-xs uppercase font-bold border-inherit bg-transparent truncate max-w-[55%]">
@@ -105,7 +115,9 @@ export const NodeShell = ({
 				</div>
 				<div className="mt-auto pt-3 border-t border-inherit/30 flex flex-col gap-2">
 					{data.mobileFooter || footer}
-					<span className={`text-xs font-bold opacity-50 ${colors.text} text-center w-full block mt-1`}>[ TOCAR PARA DETALHES ]</span>
+					{isInteractive && (
+						<span className={`text-xs font-bold opacity-50 ${colors.text} text-center w-full block mt-1`}>[ TOCAR PARA DETALHES ]</span>
+					)}
 				</div>
 			</div>
 		);
@@ -122,7 +134,7 @@ export const NodeShell = ({
 			/>
 			<Card
 				onClick={onClick}
-				className={`${width} bg-black ${colors.border} rounded-none font-mono ${colors.text} relative transition-transform duration-500 origin-center ${showGlow ? colors.glow : ""} ${suspicious ? "ring-2 ring-red-500 border-red-500!" : ""} ${onClick ? "cursor-pointer" : ""}`}
+				className={`${width} bg-black ${colors.border} rounded-none font-mono ${colors.text} relative transition-transform duration-500 origin-center ${showGlow ? colors.glow : ""} ${suspicious ? "ring-2 ring-red-500 border-red-500!" : ""} ${isInteractive ? "cursor-pointer" : ""}`}
 				style={{
 					transform: `scale(${scale})`,
 					zIndex: suspicious ? 10 : 1,

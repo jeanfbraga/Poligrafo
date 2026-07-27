@@ -81,34 +81,7 @@ export function parseInvestigarRequest(requestUrl: string) {
 			nomeCorreto: "marussa boldrin",
 			autoRef: "FEDERAL:CAMARA:220572",
 		},
-		lula: {
-			nomeCorreto: "luiz inácio lula da silva",
-			autoRef: "PRESIDENTE:BR:Lula",
-		},
-		"luiz inacio lula da silva": {
-			nomeCorreto: "luiz inácio lula da silva",
-			autoRef: "PRESIDENTE:BR:Lula",
-		},
-		"luis inacio lula da silva": {
-			nomeCorreto: "luiz inácio lula da silva",
-			autoRef: "PRESIDENTE:BR:Lula",
-		},
-		"luís inácio lula da silva": {
-			nomeCorreto: "luiz inácio lula da silva",
-			autoRef: "PRESIDENTE:BR:Lula",
-		},
-		"luiz inácio lula da silva": {
-			nomeCorreto: "luiz inácio lula da silva",
-			autoRef: "PRESIDENTE:BR:Lula",
-		},
-		bolsonaro: {
-			nomeCorreto: "jair messias bolsonaro",
-			autoRef: "PRESIDENTE:BR:Bolsonaro",
-		},
-		"jair messias bolsonaro": {
-			nomeCorreto: "jair messias bolsonaro",
-			autoRef: "PRESIDENTE:BR:Bolsonaro",
-		},
+
 	};
 	let forceRef: string | null = refParam;
 	if (correcoesNomes[nomeParaBusca]) {

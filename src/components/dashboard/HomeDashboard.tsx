@@ -15,6 +15,7 @@ import { CategoriasChart } from "@/components/dashboard/CategoriasChart";
 import { Widget } from "@/components/dashboard/Widget";
 import { Badge } from "@/components/ui/badge";
 import { HybridTooltip } from "@/components/ui/hybrid-tooltip";
+import { ScrambleText } from "@/components/ui/scramble-text";
 import { formatName } from "@/lib/utils";
 import { BarRanking, type BarRankingItem } from "./BarRanking";
 // Módulos do rascunho (layout v2)
@@ -96,8 +97,8 @@ export function HomeDashboard() {
 
 	// Mapeadores padronizados com formatName (Title Case / Caixa Normal)
 	const ceapTop10Items: BarRankingItem[] = (data?.ceapTop10 || []).map(
-		(item) => ({
-			label: formatName(item.nome),
+		(item, idx) => ({
+			label: <ScrambleText text={formatName(item.nome)} duration={800} delay={idx * 50} />,
 			value: item.total_gasto,
 			profile:
 				item.partido && item.partido !== "N/A"
@@ -114,8 +115,8 @@ export function HomeDashboard() {
 	);
 
 	const menosPresItem: BarRankingItem[] = (data?.menosPresentes || []).map(
-		(item) => ({
-			label: formatName(item.nome),
+		(item, idx) => ({
+			label: <ScrambleText text={formatName(item.nome)} duration={800} delay={idx * 50} />,
 			value: item.presencas,
 			valueTotal: data?.totalSessoes ?? undefined,
 			profile:
@@ -133,8 +134,8 @@ export function HomeDashboard() {
 	);
 
 	const emendasTop10Items: BarRankingItem[] = (data?.emendasTop10 || []).map(
-		(item) => ({
-			label: formatName(item.autor),
+		(item, idx) => ({
+			label: <ScrambleText text={formatName(item.autor)} duration={800} delay={idx * 50} />,
 			value: item.total_pix,
 			profile:
 				item.partido && item.partido !== "N/A"

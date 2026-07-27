@@ -46,6 +46,7 @@ export function useAutoLayout(nodes: Node[], edges: Edge[]) {
 
 		// Alimenta os nós no Dagre com os tamanhos reais medidos
 		nodes.forEach((n) => {
+			if (n.hidden) return; // Ignora nós ocultos para não ocuparem espaço fantasma
 			const w = n.measured?.width || n.width || 350;
 			const h = n.measured?.height || n.height || 150;
 
@@ -54,22 +55,49 @@ export function useAutoLayout(nodes: Node[], edges: Edge[]) {
 
 		// Alimenta as arestas
 		edges.forEach((e) => {
+			if (e.hidden) return; // Ignora arestas ocultas
+			// Previne crash caso a aresta aponte para um nó oculto/inexistente no Dagre
+			const sourceNode = nodes.find(n => n.id === e.source);
+			const targetNode = nodes.find(n => n.id === e.target);
+			if (sourceNode?.hidden || targetNode?.hidden) return;
+
 			dagreGraph.setEdge(e.source, e.target);
 		});
 
 		// Executa o cálculo matematicamente (é síncrono e instantâneo)
 		dagre.layout(dagreGraph);
 
+		// 1. Encontrar o nó âncora (PESSOA ou o primeiro nó) para evitar que o grafo "fuja" da tela
+		const anchorNode = nodes.find(n => n.type === 'PESSOA' && !n.hidden) || nodes.find(n => !n.hidden) || nodes[0];
+		let offsetX = 0;
+		let offsetY = 0;
+
+		if (anchorNode) {
+			const anchorDagrePos = dagreGraph.node(anchorNode.id);
+			if (anchorDagrePos) {
+				const w = anchorNode.measured?.width || anchorNode.width || 350;
+				const h = anchorNode.measured?.height || anchorNode.height || 150;
+				const newAnchorX = anchorDagrePos.x - w / 2;
+				const newAnchorY = anchorDagrePos.y - h / 2;
+				
+				offsetX = anchorNode.position.x - newAnchorX;
+				offsetY = anchorNode.position.y - newAnchorY;
+			}
+		}
+
 		// Pega as novas posições. O Dagre retorna coordenadas de Top-Left + Offset interno.
 		const layoutedNodes = nodes.map((n) => {
+			if (n.hidden) return n; // Mantém a posição original de nós ocultos
+
 			const nodeWithPosition = dagreGraph.node(n.id);
+			if (!nodeWithPosition) return n; // Prevenção de falha
 
 			const w = n.measured?.width || n.width || 350;
 			const h = n.measured?.height || n.height || 150;
 
-			// Transforma o centro do Dagre para o top-left do React Flow
-			const targetX = nodeWithPosition.x - w / 2;
-			const targetY = nodeWithPosition.y - h / 2;
+			// Transforma o centro do Dagre para o top-left do React Flow e aplica o offset
+			const targetX = (nodeWithPosition.x - w / 2) + offsetX;
+			const targetY = (nodeWithPosition.y - h / 2) + offsetY;
 
 			return {
 				...n,
@@ -83,9 +111,8 @@ export function useAutoLayout(nodes: Node[], edges: Edge[]) {
 		// Atualiza a tela de uma vez só!
 		setNodes(layoutedNodes);
 
-		// Dá um pequeno respiro pro React renderizar e centraliza a câmera
+		// Dá um pequeno respiro pro React renderizar (removido fitView automático para não roubar a câmera)
 		setTimeout(() => {
-			fitView({ padding: 0.3, duration: 800 });
 			isLayoutRunning.current = false;
 		}, 50);
 	}, [

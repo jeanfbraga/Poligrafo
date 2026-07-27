@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import Clarity from "@/components/analytics/Clarity";
 import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 import { Toaster } from "@/components/ui/sonner";
+import { CrtFlicker } from "@/components/ui/crt-flicker";
 
 const plexMono = IBM_Plex_Mono({
 	weight: ["400", "500", "600", "700"],
@@ -73,12 +74,13 @@ export default function RootLayout({
 
 	return (
 		<html lang="pt-BR" className={plexMono.variable} suppressHydrationWarning>
-			<body className="font-mono subpixel-antialiased" suppressHydrationWarning>
+			<body className="font-mono subpixel-antialiased crt-monitor" suppressHydrationWarning>
 				{children}
 				{gaId && <GoogleAnalytics gaId={gaId} />}
 				{clarityId && <Clarity projectId={clarityId} />}
 				<Analytics />
 				<Toaster />
+				<CrtFlicker />
 			</body>
 		</html>
 	);

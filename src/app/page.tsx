@@ -24,6 +24,8 @@ import React, {
 	useRef,
 	useState,
 } from "react";
+import { CrtTurnOn } from "@/components/ui/crt-turn-on";
+import { ScrambleText } from "@/components/ui/scramble-text";
 import { HomeDashboard } from "@/components/dashboard/HomeDashboard";
 import MobileView from "@/components/layout/MobileView";
 import SearchBar from "@/components/search/SearchBar";
@@ -1856,6 +1858,15 @@ function DashboardArea() {
 
 	return (
 		<div className="h-screen w-screen flex flex-col bg-black text-green-500 font-mono overflow-hidden">
+			{/* SCRIPT SINCRONO (BLOCKING) PARA EVITAR FLASH DO SITE ANTES DA ANIMAÇÃO GSAP */}
+			<script dangerouslySetInnerHTML={{ __html: `
+				if (!sessionStorage.getItem("crt_played")) {
+					document.documentElement.classList.add("crt-pending");
+				}
+			`}} />
+			
+			<CrtTurnOn />
+			<div className="site-content flex flex-col flex-1 overflow-hidden origin-center h-full w-full opacity-100 in-[.crt-pending]:opacity-0 in-[.crt-pending]:scale-y-0">
 			{/* HEADER — só desktop, ou mobile no estado de busca inicial (sem dados/loading) */}
 			<header
 				className={`h-auto md:h-14 py-2 md:py-0 border-b border-green-500 bg-black flex-col md:flex-row items-center justify-between px-4 md:px-6 shrink-0 z-50 relative gap-2 md:gap-4 ${isMobile ? "hidden" : "flex"}`}
@@ -1868,8 +1879,12 @@ function DashboardArea() {
 						>
 							<Terminal className="text-green-500 shrink-0" size={20} />
 							<h1 className="text-xl font-bold tracking-widest text-green-500 flex items-center gap-2">
-								<span className="bytesized-regular uppercase hidden lg:inline">POLÍGRAFO</span>
-								<span className="bytesized-regular uppercase lg:hidden">POL.</span>
+								<span className="bytesized-regular uppercase hidden lg:inline">
+									<ScrambleText text="POLÍGRAFO" duration={1200} />
+								</span>
+								<span className="bytesized-regular uppercase lg:hidden">
+									<ScrambleText text="POL." duration={800} />
+								</span>
 								<span className="text-xs bg-green-900/50 text-green-400 px-2 py-0.5 rounded-none border border-green-500/50 shrink-0">
 									IA
 								</span>
@@ -3177,6 +3192,7 @@ function DashboardArea() {
 				data={shareData}
 				isMobile={false}
 			/>
+			</div>
 		</div>
 	);
 }
