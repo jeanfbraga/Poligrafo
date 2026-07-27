@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { buscarCpfNoTSE } from "@/app/api/investigar/tse";
 
 import presidentesTse from "@/services/integrations/data/presidentes.json";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const maxDuration = 60; // Next.js Vercel limit for Serverless (or 300 in pro)
 
@@ -71,103 +72,51 @@ export async function GET(
 			idTse: cachedTse.idTse,
 			idEleicao: cachedTse.idEleicao,
 			idUe: "BR",
+			fotoUrl: cachedTse.fotoUrl,
 			patrimonioTotal: cachedTse.patrimonioTotal,
 			bensDeclarados: cachedTse.bensDeclarados,
 			anoEleicao: cachedTse.anoEleicao
 		} : null);
 
-		// 2. CPGF (Cartão Corporativo) via Portal da Transparência (Órgão 20000 = Presidência)
+		// 2. CPGF (Cartão Corporativo) via Supabase
 		const fetchCpgf = async () => {
-			if (!TRANSPARENCIA_API_KEY) return { totalValor: 0, totalSigiloso: 0, countTotal: 0, countSigiloso: 0, topDespesas: [] };
+			const { data, error } = await supabaseAdmin
+				.from("cpgf_despesas_cache")
+				.select("*")
+				.eq("id_presidente", targetId)
+				.order("data_transacao", { ascending: false });
 
-			// Vamos realizar buscas em paralelo para aumentar o alcance da amostragem sem tomar timeout da serverless function
+			if (error || !data || data.length === 0) {
+				return { totalValor: 0, totalSigiloso: 0, countTotal: 0, countSigiloso: 0, topDespesas: [] };
+			}
+
 			let totalValor = 0;
 			let totalSigiloso = 0;
-			let countTotal = 0;
 			let countSigiloso = 0;
-			const topDespesas: any[] = [];
 
-			try {
-				// Faz disparos massivos em lotes de 50 páginas para varrer todo o mandato sem timeout
-				const BATCH_SIZE = 50;
-				const MAX_PAGES = 500; // Limite de segurança (~7500 registros)
-				const allRecords: any[] = [];
-
-				for (let batchStart = 1; batchStart <= MAX_PAGES; batchStart += BATCH_SIZE) {
-					const pagesToFetch = Array.from(
-						{ length: Math.min(BATCH_SIZE, MAX_PAGES - batchStart + 1) }, 
-						(_, i) => batchStart + i
-					);
-					
-					const fetchPage = async (page: number) => {
-						const url = `https://api.portaldatransparencia.gov.br/api-de-dados/cartoes?codigoOrgao=20101&dataTransacaoInicio=${vipInfo.mandatoInicio}&dataTransacaoFim=${vipInfo.mandatoFim}&pagina=${page}`;
-						try {
-							const res = await fetchWithTimeout(url, { headers: { "chave-api-dados": TRANSPARENCIA_API_KEY } }, 8000);
-							if (!res.ok) return [];
-							return await res.json();
-						} catch (e) {
-							return []; // Falhas isoladas de rede não derrubam o lote
-						}
-					};
-
-					const batchResults = await Promise.all(pagesToFetch.map(fetchPage));
-					allRecords.push(...batchResults.flat());
-					
-					// Se alguma página do lote voltou vazia, chegamos ao final dos dados do mandato
-					const hasEmptyPage = batchResults.some(arr => arr.length === 0);
-					if (hasEmptyPage) break;
+			for (const row of data) {
+				const valor = Number(row.valor_transacao) || 0;
+				totalValor += valor;
+				if (row.nome_fornecedor === "SIGILOSO") {
+					totalSigiloso += valor;
+					countSigiloso++;
 				}
-				
-				allRecords.forEach((item: any) => {
-					if (!item) return;
-					const isSigiloso = item.estabelecimento?.id === -1 || item.estabelecimento?.nome === "SEM INFORMACAO" || item.estabelecimento?.cnpjFormatado === "SIGILOSO" || !item.estabelecimento?.cnpjFormatado;
-					const valorStr = item.valorTransacao ? String(item.valorTransacao).replace(/\./g, "").replace(",", ".") : "0";
-					const valor = Number(valorStr) || 0;
-
-					totalValor += valor;
-					countTotal++;
-
-					if (isSigiloso) {
-						totalSigiloso += valor;
-						countSigiloso++;
-					}
-
-					// O usuário pediu para que os SIGILOSOS também entrem na lista renderizada
-					topDespesas.push({
-						nomeFornecedor: isSigiloso ? "SIGILOSO" : (item.estabelecimento?.nome || item.estabelecimento?.razaoSocialReceita || "Desconhecido"),
-						cnpj: isSigiloso ? "SIGILOSO" : (item.estabelecimento?.cnpjFormatado || "Não Informado"),
-						data: item.dataTransacao,
-						valor: valor,
-						tipoCartao: item.tipoCartao?.descricao || "CPGF",
-					});
-				});
-
-				// Ordena as despesas por data mais recente
-				topDespesas.sort((a, b) => {
-					if (!a.data || !b.data) return 0;
-					const [diaA, mesA, anoA] = a.data.split("/");
-					const [diaB, mesB, anoB] = b.data.split("/");
-					const dateA = new Date(`${anoA}-${mesA}-${diaA}`).getTime();
-					const dateB = new Date(`${anoB}-${mesB}-${diaB}`).getTime();
-					
-					// Se as datas forem iguais, desempata pelo maior valor
-					if (dateA === dateB) {
-						return b.valor - a.valor;
-					}
-					
-					return dateB - dateA;
-				});
-
-			} catch (e) {
-				console.error("[PERFIL] Erro CPGF", e);
 			}
+
+			const topDespesas = data.map(row => ({
+				data: row.data_transacao,
+				fornecedor: row.nome_fornecedor,
+				cnpj: row.cnpj_fornecedor,
+				valor: Number(row.valor_transacao) || 0,
+				tipoCartao: row.tipo_cartao
+			}));
 
 			return {
 				totalValor,
 				totalSigiloso,
-				countTotal,
+				countTotal: data.length,
 				countSigiloso,
-				topDespesas: topDespesas, // Envia todos para paginação no frontend
+				topDespesas,
 			};
 		};
 

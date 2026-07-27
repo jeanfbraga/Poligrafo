@@ -116,6 +116,34 @@ DO $$ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- 1.3.1 cpgf_despesas_cache — Cartão de Pagamento do Governo Federal (CPGF)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.cpgf_despesas_cache (
+    id                  BIGSERIAL PRIMARY KEY,
+    id_presidente       TEXT NOT NULL,
+    nome_fornecedor     TEXT,
+    cnpj_fornecedor     TEXT,
+    data_transacao      TEXT,
+    valor_transacao     NUMERIC(14,2) NOT NULL DEFAULT 0,
+    tipo_cartao         TEXT,
+    created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cpgf_id_presidente ON public.cpgf_despesas_cache (id_presidente);
+CREATE INDEX IF NOT EXISTS idx_cpgf_data ON public.cpgf_despesas_cache (data_transacao);
+
+ALTER TABLE public.cpgf_despesas_cache ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'cpgf_select' AND tablename = 'cpgf_despesas_cache') THEN
+        CREATE POLICY cpgf_select ON public.cpgf_despesas_cache FOR SELECT TO anon, authenticated USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'cpgf_service' AND tablename = 'cpgf_despesas_cache') THEN
+        CREATE POLICY cpgf_service ON public.cpgf_despesas_cache FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- 1.4 tse_bens_historico — Bens declarados ao TSE (resolução de CPF)
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.tse_bens_historico (
