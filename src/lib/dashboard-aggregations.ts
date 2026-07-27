@@ -123,3 +123,48 @@ export function agregarEmendasPorUf(
 		.map(([uf_destino, total_pix]) => ({ uf_destino, total_pix }))
 		.sort((a, b) => b.total_pix - a.total_pix);
 }
+
+// --------------------------------------------------------------------------
+
+export interface RowPesquisa {
+	termo: string;
+	quantidade: number;
+	id_deputado?: number | string | null;
+	[key: string]: any;
+}
+
+/**
+ * Agrupa pesquisas idênticas (mesmo id_deputado ou mesmo termo normalizado).
+ * Evita repetições de um mesmo político no ranking de "Mais Investigados"
+ * quando há múltiplas entradas por causa de "ref" diferentes ou case.
+ */
+export function agruparPesquisas<T extends RowPesquisa>(rows: T[]): T[] {
+	const agrupados = new Map<string, T>();
+
+	for (const row of rows ?? []) {
+		const hasId =
+			row.id_deputado !== undefined &&
+			row.id_deputado !== null &&
+			String(row.id_deputado).trim() !== "";
+
+		const chave = hasId
+			? `id_${row.id_deputado}`
+			: `termo_${removerAcentos(row.termo ?? "").toLowerCase().trim()}`;
+
+		const existente = agrupados.get(chave);
+
+		if (existente) {
+			agrupados.set(chave, {
+				...existente,
+				quantidade:
+					(Number(existente.quantidade) || 0) + (Number(row.quantidade) || 0),
+			});
+		} else {
+			agrupados.set(chave, { ...row });
+		}
+	}
+
+	return Array.from(agrupados.values()).sort(
+		(a, b) => (Number(b.quantidade) || 0) - (Number(a.quantidade) || 0),
+	);
+}

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
 	agregarEmendasPorUf,
 	agruparCeapPorUf,
+	agruparPesquisas,
 } from "@/lib/dashboard-aggregations";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
 
@@ -194,7 +195,7 @@ export async function GET() {
 			emendasUF: err7 ? null : agregarEmendasPorUf(emendasUF || []),
 			pesquisas: err8
 				? null
-				: enriquecerPesquisas(pesquisas || []).slice(0, 10),
+				: agruparPesquisas(enriquecerPesquisas(pesquisas || [])).slice(0, 10),
 			ceapEstados,
 		});
 	} catch (error: any) {

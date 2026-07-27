@@ -3,7 +3,8 @@ import {
 	agregarEmendasPorUf,
 	agruparCeapPorUf,
 	normalizarUfDestino,
-} from "@/lib/dashboard-aggregations";
+	agruparPesquisas,
+} from "../../src/lib/dashboard-aggregations";
 
 describe("agruparCeapPorUf", () => {
 	const dep = (uf: string, total_gasto: number, nome = "X") => ({
@@ -101,8 +102,8 @@ describe("agregarEmendasPorUf", () => {
 			{ uf_destino: "BAHIA (UF)", total_pix: 84_168_266.81 },
 		]);
 		expect(out).toHaveLength(2);
-		const sp = out.find((r) => r.uf_destino === "SP");
-		const ba = out.find((r) => r.uf_destino === "BA");
+		const sp = out.find((r: any) => r.uf_destino === "SP");
+		const ba = out.find((r: any) => r.uf_destino === "BA");
 		expect(sp?.total_pix).toBeCloseTo(71_414_439.25, 2);
 		expect(ba?.total_pix).toBeCloseTo(106_947_237.8, 2);
 	});
@@ -113,7 +114,52 @@ describe("agregarEmendasPorUf", () => {
 			{ uf_destino: "MÚLTIPLO", total_pix: 1000 },
 			{ uf_destino: "ACRE (UF)", total_pix: 5 },
 		]);
-		expect(out.map((r) => r.uf_destino)).toEqual(["MÚLTIPLO", "AC"]);
+		expect(out.map((r: any) => r.uf_destino)).toEqual(["MÚLTIPLO", "AC"]);
 		expect(out[1].total_pix).toBe(15);
+	});
+});
+
+describe("agruparPesquisas", () => {
+	it("agrupa pesquisas com o mesmo id_deputado", () => {
+		const out = agruparPesquisas([
+			{ termo: "Davi Alcolumbre", quantidade: 2, id_deputado: 123 },
+			{ termo: "Davi Alcolumbre", quantidade: 1, id_deputado: 123 },
+			{ termo: "Outro Político", quantidade: 5, id_deputado: 456 },
+		]);
+		expect(out).toHaveLength(2);
+		expect(out.find((r: any) => r.id_deputado === 123)?.quantidade).toBe(3);
+		expect(out.find((r: any) => r.id_deputado === 456)?.quantidade).toBe(5);
+	});
+
+	it("agrupa pesquisas pelo termo normalizado se não houver id_deputado", () => {
+		const out = agruparPesquisas([
+			{ termo: "Davi Alcolumbre", quantidade: 2 },
+			{ termo: "davi alcolumbre", quantidade: 1 },
+			{ termo: " DAVÍ ALCOLUMBRÉ ", quantidade: 3 },
+			{ termo: "Fulano", quantidade: 5 },
+		]);
+		expect(out).toHaveLength(2);
+		expect(out.find((r: any) => r.termo.toLowerCase().includes("davi"))?.quantidade).toBe(6);
+	});
+
+	it("ordena do maior para o menor", () => {
+		const out = agruparPesquisas([
+			{ termo: "A", quantidade: 2 },
+			{ termo: "B", quantidade: 5 },
+			{ termo: "C", quantidade: 3 },
+			{ termo: "A", quantidade: 1 }, // A vai para 3
+		]);
+		expect(out.map((r: any) => r.termo)).toEqual(["B", "A", "C"]);
+		expect(out.map((r: any) => r.quantidade)).toEqual([5, 3, 3]); // Se houver empate, a ordem é mantida como inserido
+	});
+
+	it("não mistura registros com o mesmo nome mas id_deputado diferentes (caso improvável)", () => {
+		const out = agruparPesquisas([
+			{ termo: "João Silva", quantidade: 2, id_deputado: 1 },
+			{ termo: "João Silva", quantidade: 3, id_deputado: 2 },
+		]);
+		expect(out).toHaveLength(2);
+		expect(out.find((r: any) => r.id_deputado === 1)?.quantidade).toBe(2);
+		expect(out.find((r: any) => r.id_deputado === 2)?.quantidade).toBe(3);
 	});
 });
