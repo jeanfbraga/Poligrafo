@@ -29,7 +29,7 @@ describe('Presidente API Route', () => {
         const data = await res.json();
         expect(data.perfil.id).toBe('lula');
         expect(data.perfil.mandato).toContain('01/01/2023 - 31/12/2026');
-        expect(data.tse.cpf).toBe('12345678900');
+        expect(data.tse.cpf).toBe('07068093868');
     });
 
     it('Deve retornar sucesso para bolsonaro e injetar mandato correto (2019-2022)', async () => {

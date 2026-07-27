@@ -1,0 +1,58 @@
+{
+  "lula": {
+    "cpf": "07068093868",
+    "idTse": 280001607829,
+    "anoEleicao": 2022,
+    "idEleicao": "2040602022",
+    "patrimonioTotal": 7423725.78,
+    "bensDeclarados": [
+      { "descricao": "VGBL", "valor": 5570798.99 },
+      { "descricao": "Terreno", "valor": 265000 },
+      { "descricao": "Devolução de valores bloqueados por determinação judicial", "valor": 250722.03 },
+      { "descricao": "Casa em construção", "valor": 246918.82 },
+      { "descricao": "Crédito decorrente de empréstimo pessoal", "valor": 200000 }
+    ]
+  },
+  "bolsonaro": {
+    "cpf": "45317828791",
+    "idTse": 280001618036,
+    "anoEleicao": 2022,
+    "idEleicao": "2040602022",
+    "patrimonioTotal": 2317554.73,
+    "bensDeclarados": [
+      { "descricao": "Avenida Lucio Costa, Barra da Tijuca, RJ", "valor": 603803.54 },
+      { "descricao": "Banco do Brasil", "valor": 591047.58 },
+      { "descricao": "Avenida Lucio Costa, Barra da Tijuca, RJ", "valor": 400000 },
+      { "descricao": "Banco do Brasil", "valor": 315884.71 },
+      { "descricao": "SQSW 102, Sudoeste, Brasília", "valor": 240930 }
+    ]
+  },
+  "dilma": {
+    "cpf": "13326724691",
+    "idTse": 280000000083,
+    "anoEleicao": 2014,
+    "idEleicao": "680",
+    "patrimonioTotal": 1750695.64,
+    "bensDeclarados": [
+      { "descricao": "LOTE 85 DO CONDOMINIO ALPHAVILLE PORTO ALEGRE NORTE - PORTO ALEGRE - RS", "valor": 337983 },
+      { "descricao": "SITO A AV COPACABANA, 1205/503 - PORTO ALEGRE - RS", "valor": 290302.29 },
+      { "descricao": "RUA COUTO DE MAGALHÃES, 1155/502 - PORTO ALEGRE - RS", "valor": 250520 },
+      { "descricao": "LOTE 84 DO CONDOMINIO ALPHAVILLE PORTO ALEGRE NORTE - PORTO ALEGRE - RS", "valor": 247962.36 },
+      { "descricao": "DINHEIRO EM ESPÉCIE", "valor": 152000 }
+    ]
+  },
+  "temer": {
+    "cpf": "06931987887",
+    "idTse": 280000000084,
+    "anoEleicao": 2014,
+    "idEleicao": "680",
+    "patrimonioTotal": 7521799.27,
+    "bensDeclarados": [
+      { "descricao": "CDB SANTANDER S/A", "valor": 2279236.75 },
+      { "descricao": "9.900 QUOTAS DA EMPRESA TABAPUA INVESTIMENTOS E PARTICIPAÇÕES LTDA", "valor": 2209900 },
+      { "descricao": "PREDIO C/370 M2 DE AREA CONSTRUIDA E RESPEC. TERRENO C/546 M2 A. R. BENETT E PCA CONDE BARCELOS, 377, SÃO PAULO - SP", "valor": 722977.41 },
+      { "descricao": "BANCO DO BRASIL BB RF LP", "valor": 464554.43 },
+      { "descricao": "BANCO SANTANDER BRASIL S/A", "valor": 338879.84 }
+    ]
+  }
+}

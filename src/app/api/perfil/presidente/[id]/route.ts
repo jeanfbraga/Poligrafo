@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { buscarCpfNoTSE } from "@/app/api/investigar/tse";
 
+import presidentesTse from "@/services/integrations/data/presidentes.json";
+
 export const maxDuration = 60; // Next.js Vercel limit for Serverless (or 300 in pro)
 
 const VIP_MAP: Record<string, { nome: string; id: string; mandatoInicio: string; mandatoFim: string }> = {
@@ -62,15 +64,17 @@ export async function GET(
 	}
 
 	try {
-		// 1. TSE Patrimônio (Cargo: 1 = Presidente, UF: BR)
-		let tseDataPromise = buscarCpfNoTSE(vipInfo.nome, "BR", "1").catch(() => null);
-		const initialTseData = await tseDataPromise;
-		if (!initialTseData) {
-			// Tenta buscar como Vice-Presidente (Cargo: 2 = Vice-Presidente) (ex: Michel Temer)
-			tseDataPromise = buscarCpfNoTSE(vipInfo.nome, "BR", "2").catch(() => null);
-		} else {
-			tseDataPromise = Promise.resolve(initialTseData);
-		}
+		// Usa o cache local ("back end") ao invés de buscar ao vivo no TSE
+		const cachedTse = (presidentesTse as any)[targetId];
+		const tseDataPromise = Promise.resolve(cachedTse ? {
+			cpf: cachedTse.cpf,
+			idTse: cachedTse.idTse,
+			idEleicao: cachedTse.idEleicao,
+			idUe: "BR",
+			patrimonioTotal: cachedTse.patrimonioTotal,
+			bensDeclarados: cachedTse.bensDeclarados,
+			anoEleicao: cachedTse.anoEleicao
+		} : null);
 
 		// 2. CPGF (Cartão Corporativo) via Portal da Transparência (Órgão 20000 = Presidência)
 		const fetchCpgf = async () => {
