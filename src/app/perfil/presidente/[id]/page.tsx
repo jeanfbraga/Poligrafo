@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef, use } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
-import { ArrowLeft, Lock, Unlock, AlertTriangle, User, Landmark, CreditCard, ChevronRight, ChevronDown, ChevronUp, Calendar } from "lucide-react";
+import { ArrowLeft, Lock, Unlock, AlertTriangle, User, Landmark, CreditCard, ChevronRight, ChevronDown, ChevronUp, Calendar, ArrowDown, ArrowRight, ExternalLink, Activity, Info, AlertCircle, FileWarning } from "lucide-react";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { useRouter } from "next/navigation";
@@ -123,18 +124,25 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 
 	// Componente adaptativo
 	return (
-		<div className="min-h-screen bg-black text-green-500 font-mono p-4 md:p-8 overflow-x-hidden relative">
+		<div className="min-h-screen flex flex-col bg-black text-green-500 font-mono overflow-x-hidden relative">
 			
-			{/* Top Bar */}
-			<div className="max-w-6xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-				<Button variant="cyber" onClick={() => router.push("/")}>
-					<ArrowLeft className="mr-2 h-4 w-4" /> Nova Investigação
-				</Button>
-				<div className="text-right">
-					<p className="text-xs text-green-700 uppercase tracking-widest">Nível de Acesso: CONFIDENCIAL</p>
-					<p className="text-xs text-green-600 uppercase">Origem: PORTAL_TRANSPARENCIA + TSE</p>
+			{/* Top Bar padronizada com botão voltar */}
+			<SiteHeader />
+
+			<div className="p-4 md:p-8">
+				<div className="max-w-6xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+					<Button 
+						variant="ghost" 
+						className="text-green-500 hover:text-green-400 hover:bg-green-950 px-3 uppercase tracking-widest text-xs"
+						onClick={() => router.push("/")}
+					>
+						<ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+					</Button>
+					<div className="text-right">
+						<p className="text-xs text-green-700 uppercase tracking-widest">Nível de Acesso: CONFIDENCIAL</p>
+						<p className="text-xs text-green-600 uppercase">Origem: PORTAL_TRANSPARENCIA + TSE</p>
+					</div>
 				</div>
-			</div>
 
 			<div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
 				{/* Coluna Esquerda: Info do Presidente */}
@@ -426,6 +434,7 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 					</DrawerFooter>
 				</DrawerContent>
 			</Drawer>
+			</div>
 		</div>
 	);
 }

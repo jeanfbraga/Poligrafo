@@ -9,6 +9,7 @@ function isAllowedDomain(hostname: string): boolean {
 		"gov.br",
 		"jus.br",
 		"githubusercontent.com",
+		"supabase.co",
 	];
 	return allowedSuffixes.some(
 		(suffix) => hostLower === suffix || hostLower.endsWith(`.${suffix}`),
