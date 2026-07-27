@@ -201,22 +201,22 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 							<h2 className="text-base md:text-lg uppercase font-bold tracking-wider text-green-500 leading-tight">Extrato Cartão Corporativo (CPGF)</h2>
 						</div>
 
-						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
 							<div className="border border-green-900/50 p-3">
 								<p className="text-[10px] text-green-600 uppercase mb-1">Gasto Total da Amostra</p>
-								<p className="text-sm sm:text-base lg:text-lg font-bold break-words">{formatMoney(cpgf.totalValor)}</p>
+								<p className="text-xl md:text-2xl font-bold whitespace-nowrap">{formatMoney(cpgf.totalValor)}</p>
 							</div>
 							<div className="border border-red-900/50 bg-red-950/10 p-3">
 								<p className="text-[10px] text-red-500 uppercase mb-1 flex items-center gap-1"><Lock className="w-3 h-3 shrink-0" /> Valor Sigiloso</p>
-								<p className="text-sm sm:text-base lg:text-lg font-bold text-red-500 break-words">{formatMoney(cpgf.totalSigiloso)}</p>
+								<p className="text-xl md:text-2xl font-bold text-red-500 whitespace-nowrap">{formatMoney(cpgf.totalSigiloso)}</p>
 							</div>
 							<div className="border border-green-900/50 p-3">
 								<p className="text-[10px] text-green-600 uppercase mb-1">Total Lançamentos</p>
-								<p className="text-base md:text-lg font-bold">{cpgf.countTotal}</p>
+								<p className="text-xl md:text-2xl font-bold">{cpgf.countTotal}</p>
 							</div>
 							<div className="border border-red-900/50 p-3">
 								<p className="text-[10px] text-red-500 uppercase mb-1">% de Ocultação</p>
-								<p className="text-base md:text-lg font-bold text-red-500">{percentSigiloso}%</p>
+								<p className="text-xl md:text-2xl font-bold text-red-500">{percentSigiloso}%</p>
 							</div>
 						</div>
 
