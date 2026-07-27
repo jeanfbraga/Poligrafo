@@ -62,6 +62,20 @@ export const NodeShell = ({
 	const showGlow =
 		risk !== "NORMAL" || theme.alwaysGlow || data.isSearching;
 
+	useGSAP(
+		() => {
+			if (!isMobile && nodeRef.current) {
+				gsap.from(nodeRef.current, {
+					scale: 0.9,
+					opacity: 0,
+					duration: 0.5,
+					ease: "back.out(1.7)",
+				});
+			}
+		},
+		{ scope: nodeRef, dependencies: [isMobile] },
+	);
+
 	if (isMobile) {
 		return (
 			<div className={`w-full border ${colors.border} bg-black p-4 flex flex-col justify-between active:scale-[0.97] transition-transform duration-200 uppercase font-mono min-h-[42vh] max-h-[52vh] cursor-pointer`} onClick={data.mobileOnClick || onClick}>
@@ -85,7 +99,7 @@ export const NodeShell = ({
 					</div>
 					<div className="flex items-start gap-2 mb-2">
 						{titleIcon ?? <Icon className={`w-5 h-5 mt-0.5 ${colors.text} shrink-0`} />}
-						<h3 className={`text-base font-bold leading-tight line-clamp-3 ${colors.text}`}>{title ?? data.label ?? "Sem t�tulo"}</h3>
+						<h3 className={`text-base font-bold leading-tight line-clamp-3 ${colors.text}`}>{title ?? data.label ?? "Sem título"}</h3>
 					</div>
 					{children}
 				</div>
@@ -96,19 +110,6 @@ export const NodeShell = ({
 			</div>
 		);
 	}
-
-
-	useGSAP(
-		() => {
-			gsap.from(nodeRef.current, {
-				scale: 0.9,
-				opacity: 0,
-				duration: 0.5,
-				ease: "back.out(1.7)",
-			});
-		},
-		{ scope: nodeRef },
-	);
 
 	const corner = `absolute w-2 h-2 ${colors.border} opacity-50 pointer-events-none z-10`;
 

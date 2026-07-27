@@ -432,6 +432,40 @@ export default function MobileView({
 		}
 	}, [nodes.length]);
 
+	const renderSearchDrawer = () => (
+		<Drawer open={searchDrawerOpen} onOpenChange={setSearchDrawerOpen}>
+			<DrawerContent className="bg-black border-t-2 border-green-500 rounded-none px-5 pb-8 pt-4 z-100 max-h-[90vh]">
+				<div className="text-center mb-6 mt-6">
+					<CyberLabel>Sistema de Investigação Política</CyberLabel>
+					<DrawerTitle className="text-xl font-bold text-green-400 tracking-widest">
+						Nova busca
+					</DrawerTitle>
+				</div>
+				<div className="w-full">
+					<SearchBar
+						searchTerm={searchTerm}
+						setSearchTerm={setSearchTerm}
+						selectedUf={selectedUf}
+						setSelectedUf={setSelectedUf}
+						onSearch={(...args: any[]) => {
+							setSearchDrawerOpen(false);
+							// @ts-expect-error
+							onSearch(...args);
+						}}
+						isLoading={isLoading}
+						isMobile={true}
+						alcadas={alcadas}
+					/>
+				</div>
+				{statusMessage && !statusMessage.includes("Insira o nome") && (
+					<p className="text-xs font-bold font-mono text-yellow-400 tracking-wider leading-tight text-center mt-4">
+						{statusMessage}
+					</p>
+				)}
+			</DrawerContent>
+		</Drawer>
+	);
+
 	/* ================================================================
        TELA 0: BUSCA INICIAL (sem nodes, sem loading)
        ================================================================ */
@@ -449,37 +483,7 @@ export default function MobileView({
 					</Button>
 				</div>
 
-				<Drawer open={searchDrawerOpen} onOpenChange={setSearchDrawerOpen}>
-					<DrawerContent className="bg-black border-t-2 border-green-500 rounded-none px-5 pb-8 pt-4 z-70 max-h-[90vh]">
-						<div className="text-center mb-6 mt-6">
-							<CyberLabel>Sistema de Investigação Política</CyberLabel>
-							<DrawerTitle className="text-xl font-bold text-green-400 tracking-widest">
-								Nova busca
-							</DrawerTitle>
-						</div>
-						<div className="w-full">
-							<SearchBar
-								searchTerm={searchTerm}
-								setSearchTerm={setSearchTerm}
-								selectedUf={selectedUf}
-								setSelectedUf={setSelectedUf}
-								onSearch={(...args: any[]) => {
-									setSearchDrawerOpen(false);
-									// @ts-expect-error
-									onSearch(...args);
-								}}
-								isLoading={isLoading}
-								isMobile={true}
-								alcadas={alcadas}
-							/>
-						</div>
-						{statusMessage && !statusMessage.includes("Insira o nome") && (
-							<p className="text-xs font-bold font-mono text-yellow-400 tracking-wider leading-tight text-center mt-4">
-								{statusMessage}
-							</p>
-						)}
-					</DrawerContent>
-				</Drawer>
+				{renderSearchDrawer()}
 			</>
 		);
 	}
@@ -494,10 +498,12 @@ export default function MobileView({
 				style={dotBg}
 			>
 				<div className="absolute top-0 left-0 w-full h-12 border-b border-green-500/30 bg-black flex items-center px-4 gap-2 z-30">
-					<Terminal className="w-5 h-5 text-green-500" />
-					<span className="text-base font-bold tracking-widest text-green-500 uppercase">
-						POLÍGRAFO
-					</span>
+					<div className="flex items-center gap-2 cursor-pointer" onClick={onNovaBusca}>
+						<Terminal className="w-5 h-5 text-green-500" />
+						<span className="text-base font-bold tracking-widest text-green-500 uppercase">
+							POLÍGRAFO
+						</span>
+					</div>
 					<Badge variant="cyber-green" className="ml-1">
 						IA
 					</Badge>
@@ -695,7 +701,7 @@ export default function MobileView({
 		<div className="w-full h-full flex flex-col relative z-20" style={dotBg}>
 			{/* HEADER: h-12 min, touch-friendly */}
 			<div className="h-12 border-b border-green-500/50 bg-black backdrop-blur shrink-0 flex items-center justify-between px-4 z-30">
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-2 cursor-pointer" onClick={onNovaBusca}>
 					<Terminal className="w-5 h-5 text-green-500" />
 					<span className="text-base font-bold tracking-widest text-green-500 uppercase">
 						POLÍGRAFO
@@ -704,12 +710,13 @@ export default function MobileView({
 				<Button
 					variant="outline"
 					className="border-green-500 bg-black text-green-500 rounded-none font-bold uppercase text-xs h-9 px-4"
-					onClick={onNovaBusca}
+					onClick={() => setSearchDrawerOpen(true)}
 				>
 					<Search className="w-4 h-4 mr-1.5" />
 					NOVA BUSCA
 				</Button>
 			</div>
+			{renderSearchDrawer()}
 
 			{/* HERO: Político */}
 			{rootNode && (
