@@ -23,17 +23,26 @@ const ANO_ATUAL = new Date().getFullYear();
 const BATCH_SIZE = 1000;
 const TEMP_DIR = path.join(process.cwd(), '.tmp_ceap');
 
+// Mínimo de registros esperado por ano para considerar o CSV válido.
+// Se inserirmos menos que isso, algo deu errado e não atualizamos as views.
+const MIN_REGISTROS_POR_ANO: Record<number, number> = {
+    2024: 100_000,
+    2025: 50_000,
+};
+// Anos correntes têm menos dados — sem mínimo fixo além de > 0.
+const MIN_REGISTROS_ANO_CORRENTE = 1_000;
+
 async function downloadAndExtractForYear(ano: number): Promise<string | null> {
     if (!fs.existsSync(TEMP_DIR)) {
         fs.mkdirSync(TEMP_DIR, { recursive: true });
     }
     const zipPath = path.join(TEMP_DIR, `Ano-${ano}.csv.zip`);
     const csvPath = path.join(TEMP_DIR, `Ano-${ano}.csv`);
-    
+
     console.log(`[CEAP SYNC] Baixando despesas da Câmara para ${ano}...`);
     const url = `http://www.camara.leg.br/cotas/Ano-${ano}.csv.zip`;
     console.log(`URL: ${url}`);
-    
+
     try {
         execSync(`curl -f -L -o "${zipPath}" ${url}`, { stdio: 'inherit' });
     } catch (e) {
@@ -41,7 +50,14 @@ async function downloadAndExtractForYear(ano: number): Promise<string | null> {
         return null;
     }
 
-    console.log(`[CEAP SYNC] Extraindo arquivo ZIP...`);
+    // Valida que o ZIP tem tamanho razoável (> 10 KB) antes de prosseguir
+    const zipStat = fs.statSync(zipPath);
+    if (zipStat.size < 10_000) {
+        console.error(`[CEAP SYNC] ZIP para ${ano} suspeito: apenas ${zipStat.size} bytes. Abortando.`);
+        return null;
+    }
+
+    console.log(`[CEAP SYNC] Extraindo arquivo ZIP (${Math.round(zipStat.size / 1024)} KB)...`);
     try {
         execSync(`tar -xf "${zipPath}" -C "${TEMP_DIR}" Ano-${ano}.csv`, { stdio: 'inherit' });
     } catch (e) {
@@ -53,19 +69,27 @@ async function downloadAndExtractForYear(ano: number): Promise<string | null> {
             return null;
         }
     }
-    
+
     return fs.existsSync(csvPath) ? csvPath : null;
 }
 
-async function runForYear(ano: number): Promise<boolean> {
+async function runForYear(ano: number): Promise<{ success: boolean; count: number }> {
+    // ── Fase 1: Download e extração ────────────────────────────────────────
+    // O CSV deve estar disponível ANTES de qualquer deleção no banco.
     const csvPath = await downloadAndExtractForYear(ano);
-    if (!csvPath) return false;
+    if (!csvPath) return { success: false, count: 0 };
 
+    // ── Fase 2: Deleção dos dados antigos ──────────────────────────────────
+    // Só chegamos aqui se o arquivo foi baixado e extraído com sucesso.
+    await prepare(ano);
+
+    // ── Fase 3: Inserção ───────────────────────────────────────────────────
     console.log(`[CEAP SYNC] Parseando e inserindo CSV: ${csvPath}`);
 
     return new Promise(async (resolve, reject) => {
         let batch: any[] = [];
         let count = 0;
+        let insertErrors = 0;
 
         const parser = fs.createReadStream(csvPath, 'utf8').pipe(parse({
             columns: true,
@@ -80,8 +104,8 @@ async function runForYear(ano: number): Promise<boolean> {
                 const ideCadastro = record['txIdCadastro'] || record['ideCadastro'];
                 if (!ideCadastro) continue;
 
-                let valorLiquido = parseFloat((record['vlrLiquido'] || '0').replace(',', '.'));
-                
+                const valorLiquido = parseFloat((record['vlrLiquido'] || '0').replace(',', '.'));
+
                 batch.push({
                     id_deputado: parseInt(ideCadastro, 10),
                     ano: parseInt(record['numAno'], 10) || ano,
@@ -94,18 +118,42 @@ async function runForYear(ano: number): Promise<boolean> {
                 });
 
                 if (batch.length >= BATCH_SIZE) {
-                    await insertBatch(batch);
-                    count += batch.length;
+                    const ok = await insertBatch(batch);
+                    if (ok) {
+                        count += batch.length;
+                    } else {
+                        insertErrors++;
+                    }
                     batch = [];
                 }
             }
-            
+
             if (batch.length > 0) {
-                await insertBatch(batch);
-                count += batch.length;
+                const ok = await insertBatch(batch);
+                if (ok) {
+                    count += batch.length;
+                } else {
+                    insertErrors++;
+                }
             }
-            console.log(`[CEAP SYNC] Concluído! ${count} registros inseridos/atualizados para ${ano}.`);
-            resolve(true);
+
+            console.log(`[CEAP SYNC] Concluído! ${count} registros inseridos para ${ano} (${insertErrors} lotes com erro).`);
+
+            // ── Fase 4: Validação de integridade ──────────────────────────
+            const minEsperado = ano < ANO_ATUAL
+                ? (MIN_REGISTROS_POR_ANO[ano] ?? 10_000)
+                : MIN_REGISTROS_ANO_CORRENTE;
+
+            if (count < minEsperado) {
+                console.error(
+                    `[CEAP SYNC] ⚠️  Alerta de integridade para ${ano}: ${count} registros inseridos, ` +
+                    `esperado >= ${minEsperado}. Provavelmente houve falha de inserção em massa.`
+                );
+                resolve({ success: false, count });
+            } else {
+                resolve({ success: true, count });
+            }
+
         } catch (err: any) {
             console.error('[CEAP SYNC] Erro ao parsear CSV:', err.message);
             reject(err);
@@ -113,16 +161,19 @@ async function runForYear(ano: number): Promise<boolean> {
     });
 }
 
-async function insertBatch(batch: any[]) {
+// Retorna true se inseriu com sucesso, false em caso de erro.
+async function insertBatch(batch: any[]): Promise<boolean> {
     const { error } = await supabaseAdmin
         .from('ceap_despesas_cache')
         .insert(batch);
 
     if (error) {
         console.error("[CEAP SYNC] Erro ao inserir lote:", error.message);
-    } else {
-        console.log(`[CEAP SYNC] Lote de ${batch.length} registros inserido com sucesso.`);
+        return false;
     }
+
+    console.log(`[CEAP SYNC] Lote de ${batch.length} registros inserido com sucesso.`);
+    return true;
 }
 
 async function prepare(ano: number) {
@@ -134,15 +185,15 @@ async function prepare(ano: number) {
             .delete()
             .eq('ano', ano)
             .select('id');
-            
+
         if (error) {
             console.error("[CEAP SYNC] Erro ao deletar:", error);
             break;
         }
-        
+
         const batchDeleted = data ? data.length : 0;
         deletedCount += batchDeleted;
-        
+
         if (batchDeleted === 0) break;
     }
     console.log(`[CEAP SYNC] Total de registros apagados para ${ano}: ${deletedCount}`);
@@ -151,28 +202,43 @@ async function prepare(ano: number) {
 async function run() {
     let year = 2024;
     let anySuccess = false;
-    
+    const resultados: string[] = [];
+
     // Roda de 2024 até o ano atual
     while (year <= ANO_ATUAL) {
-        await prepare(year);
-        const success = await runForYear(year);
-        if (success) {
+        let result: { success: boolean; count: number };
+        try {
+            result = await runForYear(year);
+        } catch (err: any) {
+            console.error(`[CEAP SYNC] Exceção ao processar ${year}:`, err.message);
+            result = { success: false, count: 0 };
+        }
+
+        if (result.success) {
             anySuccess = true;
+            resultados.push(`${year}: ✅ ${result.count.toLocaleString('pt-BR')} registros`);
         } else {
-            console.log(`[CEAP SYNC] O ano ${year} não possui dados ou falhou.`);
+            resultados.push(`${year}: ❌ falhou (${result.count} registros inseridos)`);
+            console.log(`[CEAP SYNC] O ano ${year} não possui dados suficientes ou falhou.`);
         }
         year++;
     }
-    
+
+    console.log('\n[CEAP SYNC] ── Resumo ─────────────────────────────────');
+    resultados.forEach(r => console.log(`[CEAP SYNC]   ${r}`));
+    console.log('[CEAP SYNC] ──────────────────────────────────────────');
+
     if (!anySuccess) {
-        console.error("[CEAP SYNC] Falha total: Não foi possível baixar os dados de nenhum ano recente.");
+        console.error("[CEAP SYNC] ❌ Falha total: nenhum ano foi sincronizado com sucesso. Views materializadas NÃO serão atualizadas para preservar os dados antigos.");
+        process.exit(1); // sinaliza falha para o GitHub Actions
     } else {
         console.log("[CEAP SYNC] Atualizando views materializadas no banco de dados...");
         const { error: rpcError } = await supabaseAdmin.rpc('refresh_ceap_materialized_views');
         if (rpcError) {
             console.error("[CEAP SYNC] Erro ao atualizar views materializadas:", rpcError.message);
+            process.exit(1);
         } else {
-            console.log("[CEAP SYNC] Views materializadas atualizadas com sucesso.");
+            console.log("[CEAP SYNC] ✅ Views materializadas atualizadas com sucesso.");
         }
     }
 }

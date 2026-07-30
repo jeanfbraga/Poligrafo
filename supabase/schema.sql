@@ -582,6 +582,9 @@ CREATE OR REPLACE FUNCTION public.refresh_ceap_materialized_views()
 RETURNS VOID AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW public.dashboard_ceap_top10;
+    REFRESH MATERIALIZED VIEW public.dashboard_ceap_total;
+    REFRESH MATERIALIZED VIEW public.dashboard_ceap_categorias;
+    REFRESH MATERIALIZED VIEW public.dashboard_ceap_2025_deputados;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
