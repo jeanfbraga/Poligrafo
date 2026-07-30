@@ -113,12 +113,14 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
    npx tsx scripts/etl/tse-sync-real.ts         # Bens declarados ao TSE
    npm run sync:tse-doadores                    # Doadores de Campanha do TSE (Bypass de WAF)
    npx tsx scripts/etl/fotos-sync.ts            # Fotos dos parlamentares
-   npm run sync:spu                             # Imóveis da União (requer CSV local)
+   npx tsx scripts/etl/ibama-sync.ts            # Infrações Ambientais (IBAMA)
+   npx tsx scripts/etl/anac-sync.ts             # Aeronaves (ANAC RAB)
+   npm run sync:spu                             # Imóveis da União (Automático via Raio-X SEGES)
    npx tsx scripts/etl/sync-cmrj-servidores.ts  # Servidores CMRJ
    npx tsx scripts/etl/cmrj_cotas_etl.ts        # Cotas CMRJ (requer Playwright)
    ```
 
-   > O `npm run sync:spu` exige um CSV local — veja o formato esperado na seção **Scripts Utilitários** abaixo.
+   > Os ETLs do IBAMA, ANAC e SPU rodam automaticamente via GitHub Actions, mas podem ser forçados rodando seus respectivos scripts `scripts/etl/*.ts`.
 
 6. **Inicie o Servidor:**
    ```bash
@@ -127,7 +129,7 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
 
 ### 🛠️ Scripts Utilitários
 *   `npm run update:index`: Sincroniza/atualiza o índice de parlamentares federais.
-*   `npm run sync:spu`: Sincroniza dados de imóveis da União (SPU) com o Supabase. Requer um CSV local em `scripts/patrimonio-uniao.csv` (não versionado): baixe o dataset de imóveis/patrimônio da União no portal de dados abertos do SPU ([dados.gov.br](https://dados.gov.br/) / gov.br/spu). Formato esperado: separador `;`, cabeçalho com as colunas `UF`, `Municipio`, `Endereco`, `Tipo_Imovel`, `Area_m2`, `Valor_Imovel` (decimais com vírgula).
+*   `npm run sync:spu`: Sincroniza dados de imóveis da União (SPU) com o Supabase. Totalmente automatizado via download do portal de dados abertos do SEGES.
 *   `npm run test`: Roda os testes **unitários** (Vitest, em `__tests__/unit`) — não exige rede, Supabase nem servidor rodando.
 *   `npm run test:integration`: Roda a suíte de **integração** (`__tests__/integration`, `__tests__/estados` e testes colocalizados em `src/`). Pré-requisitos: servidor rodando em `localhost:3000` (`npm run dev`), Supabase real populado e acesso à rede (alguns testes usam Playwright e scraping ao vivo).
 *   `npm run test:all`: Lint + Type-check + Testes unitários.

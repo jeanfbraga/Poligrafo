@@ -30,9 +30,15 @@ O Polígrafo coleta dados de diversas casas legislativas e tribunais. Se você f
 *   Todo novo *fetch* externo deve usar a função de utilidade `fetchWithTimeout` para evitar travar as requisições *serverless* da Vercel.
 *   Mantenha a segurança e higienize os dados contra injestão maliciosa.
 
-### 3. Integração com Banco de Dados (Supabase)
-*   **Acesso Seguro:** Lembre-se que operações críticas (gravação de alertas, sincronização massiva) devem ser feitas usando a `SUPABASE_SERVICE_ROLE_KEY` exclusivamente do lado do servidor (Server Actions ou API Routes).
-*   Scripts de ETL e Sincronização em lote devem ser armazenados na pasta `scripts/etl/`.
+### 3. Integração com Banco de Dados (Supabase) e ETLs
+*   **Acesso Seguro:** Operações críticas (gravação de alertas, sincronização massiva) devem ser feitas usando a `SUPABASE_SERVICE_ROLE_KEY` exclusivamente do lado do servidor.
+*   **Scripts de ETL (Sincronização em Lote):**
+    O projeto possui *pipelines* para baixar bases governamentais gigantes e popular o banco de dados. Eles ficam na pasta `scripts/etl/` (ex: `ibama-sync.ts`, `anac-sync.ts`, `spu-sync.ts`).
+    *   **Como testar/rodar os ETLs localmente:**
+        1. Certifique-se de que o seu `.env.local` possui as variáveis `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`.
+        2. Execute o script via *tsx* (que compila TypeScript on-the-fly). Exemplo:
+           `npx tsx scripts/etl/ibama-sync.ts`
+        3. **Atenção à Memória:** Nossos ETLs utilizam bibliotecas como `csv-parse` e `fs.createReadStream` para não estourar a memória (arquivos >100MB). Se for criar um novo ETL, evite carregar tudo em memória de uma vez (não use `.split('\n')`). Utilize `streams` e processe o envio para o Supabase em lotes (*batches*) de 500 a 1000 registros com `upsert`.
 
 ### 4. Componentes e UI
 *   Siga as convenções modernas do App Router do Next.js.

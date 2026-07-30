@@ -348,13 +348,14 @@ async function sincronizarComSupabase(
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function limparTemp(files: string[]) {
-	// Debug: não apagar o ZIP temporariamente
-	// for (const f of files) {
-	// 	try {
-	// 		await unlink(f);
-	// 		logStep("CLEANUP", `Removido: ${f}`);
-	// 	} catch {}
-	// }
+	for (const f of files) {
+		try {
+			await unlink(f);
+			logStep("CLEANUP", `Removido: ${f}`);
+		} catch (err) {
+			logStep("CLEANUP-ERRO", `Falha ao remover ${f}: ${err}`);
+		}
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

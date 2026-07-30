@@ -1,0 +1,27 @@
+name: Sincronização ANAC RAB (Mensal)
+
+on:
+  schedule:
+    - cron: '0 4 20 * *' # Todo dia 20 às 04:00 UTC
+  workflow_dispatch:
+
+jobs:
+  sync-anac:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ETL Script
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/etl/anac-sync.ts

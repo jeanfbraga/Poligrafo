@@ -400,11 +400,9 @@ async function main() {
         process.exit(1);
     }
 
-    // Filtrar apenas os solicitados pelo usuário para rodar mais rápido
-    const nomesFiltro = ['Gigi Castilho', 'Dr. Marcos Paulo', 'Tainá de Paula', 'Carlo Caiado', 'William Siri', 'Monica Benicio'];
-    const vereadoresFiltrados = vereadores.filter(v => nomesFiltro.includes(v.nome_urna));
+    const vereadoresFiltrados = vereadores;
 
-    console.log(`✅ ${vereadoresFiltrados.length} vereadores carregados (FILTRADOS)`);
+    console.log(`✅ ${vereadoresFiltrados.length} vereadores carregados para processamento.`);
 
     const browser: Browser = await chromium.launch({
         headless: true,
