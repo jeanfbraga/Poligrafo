@@ -16,12 +16,14 @@ export interface DashboardListProfile {
 	id?: string | number;
 	cargo?: string;
 	casa?: string;
+	ref?: string;
 }
 
 export interface DashboardListItem {
 	label: React.ReactNode;
 	value: number;
 	profile?: DashboardListProfile | null;
+	ref?: string;
 }
 
 interface DashboardListProps {
@@ -125,6 +127,7 @@ export function DashboardList({
 															nome: item.profile?.nome,
 															id: item.profile?.id,
 															casa: item.profile?.casa,
+															ref: item.profile?.ref || item.ref,
 														},
 													});
 													window.dispatchEvent(event);

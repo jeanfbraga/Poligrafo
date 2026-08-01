@@ -142,12 +142,11 @@ function DashboardArea() {
 			const { nome, id, casa } = e.detail;
 			setSearchTerm(nome);
 			setSelectedUf("FEDERAL");
-			const refOverride =
-				id && casa
+			const refOverride = e.detail.ref
+				? e.detail.ref
+				: id && casa
 					? `FEDERAL:${casa}:${id}`
-					: id
-						? `FEDERAL:CAMARA:${id}`
-						: undefined;
+					: undefined;
 			if (handleSearchRef.current) {
 				handleSearchRef.current(refOverride, nome);
 				window.scrollTo({ top: 0, behavior: "smooth" });
