@@ -444,7 +444,7 @@ export async function executarMalhaOsint(params: OsintExecutorParams) {
 			const tceDespesas = await buscarDespesasMunicipalRS(
 				docTce,
 				deputadoBasico.nome,
-				deputadoBasico.uri,
+				deputadoBasico.casa === "CAMARA" || deputadoBasico.casa === "SENADO" ? undefined : deputadoBasico.uri,
 				deputadoBasico.casa,
 			);
 			if (tceDespesas && tceDespesas.length > 0) {
