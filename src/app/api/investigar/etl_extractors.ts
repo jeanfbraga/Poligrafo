@@ -90,12 +90,7 @@ export async function buscarDespesasCamara(
 			e.message,
 		);
 
-		if (sendEvent) {
-			sendEvent("API_WARNING", {
-				fonte: "Câmara dos Deputados",
-				mensagem: `Falha temporária ao extrair os gastos do deputado federal. A API de Dados Abertos falhou e não há dados em cache para este ID.`,
-			});
-		}
+		// Não emitimos warning pois pode ser apenas um político municipal ou falta de gastos
 		return [];
 	}
 }
@@ -197,12 +192,7 @@ export async function buscarDespesasSenado(
 		return despesasConvertidas.slice(0, 60);
 	} catch (e: any) {
 		console.error("[ETL] Erro buscarDespesasSenado", e);
-		if (sendEvent) {
-			sendEvent("API_WARNING", {
-				fonte: "Senado Federal",
-				mensagem: `O servidor do Senado não respondeu a tempo. Falha: ${e.message}. Tente novamente mais tarde.`,
-			});
-		}
+		// Não emitimos warning pois pode ser apenas um político de outra esfera ou sem gastos
 		return [];
 	}
 }
