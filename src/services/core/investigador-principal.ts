@@ -415,10 +415,12 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				: nomeParaBusca;
 			try {
 				if (!isDev) {
+					const limiteCache24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 					const { data: cacheData, error: cacheErr } = await supabaseAdmin
 						.from("pesquisas")
 						.select("grafo_dados")
 						.eq("termo_busca", chaveCacheDeLeitura)
+						.gte("atualizado_em", limiteCache24h)
 						.order("atualizado_em", {
 							ascending: false,
 						})
@@ -434,20 +436,23 @@ export async function executarInvestigacaoPrincipal(params: any) {
 						cacheData.grafo_dados.partial !== true
 					) {
 						sendEvent("STATUS", {
-							msg: "Restaurando perfil enquanto nova busca inicia...",
+							msg: "[CACHE] Restaurando investigação completa do banco de dados (Bypass de 24h)...",
 						});
 
-						// HOTFIX: Só replay o nó PESSOA (preview rápido do perfil).
-						// NÃO replay DESPESA/EMENDA do cache pois os IDs divergem da busca fresca
-						// (Date.now() no ID) e os scores ficam obsoletos, criando duplicação com scores errados.
 						const cachedNodes = cacheData.grafo_dados.nodes;
 						for (const node of cachedNodes) {
-							if (node.type === "PESSOA") {
-								sendEvent("NODE_NOVO", node);
+							sendEvent("NODE_NOVO", node);
+						}
+						
+						if (cacheData.grafo_dados.edges) {
+							for (const edge of cacheData.grafo_dados.edges) {
+								sendEvent("EDGE_NOVA", edge);
 							}
 						}
 
-						// NÃO encerramos mais aqui. Deixamos o fluxo continuar para uma busca fresca.
+						// Encerramos a investigação instantaneamente economizando APIs
+						safeClose();
+						return;
 					}
 				}
 			} catch (e) {
@@ -872,6 +877,46 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			}
 		}
 
+		// Frequência e Votações (Câmara dos Deputados)
+		if (deputadoBasico.casa === "CAMARA" && !isDev) {
+			try {
+				const anoAtual = new Date().getFullYear();
+				const { data: freqData } = await supabaseAdmin
+					.from("camara_frequencia")
+					.select("*")
+					.eq("id_deputado", Number(deputadoBasico.id))
+					.eq("ano", anoAtual)
+					.maybeSingle();
+
+				const { data: votData } = await supabaseAdmin
+					.from("camara_votacoes")
+					.select("*")
+					.eq("id_deputado", Number(deputadoBasico.id))
+					.eq("ano", anoAtual)
+					.maybeSingle();
+
+				if (freqData || votData) {
+					const payloadAtividade = {
+						id: `atividade-parlamentar-${pessoaId}`,
+						type: "RESUMO_GASTOS",
+						_origemId: pessoaId,
+						data: {
+							label: `Atividade Parlamentar (${anoAtual})`,
+							valor: 0,
+							ano: anoAtual.toString(),
+							nomeVereador: "Presenças e Votações",
+							score_letalidade: 10,
+							motivo_ia: `Presenças: ${freqData?.presencas || 0} | Ausências não justificadas: ${freqData?.ausencias_nao_justificadas || 0}. Votações registradas: ${votData?.votos_registrados || 0}.`
+						}
+					};
+					sendEvent("NODE_NOVO", payloadAtividade);
+					supabaseNodes.push(payloadAtividade);
+				}
+			} catch (err) {
+				console.error("[Atividade Parlamentar Error]", err);
+			}
+		}
+
 		// NOVO PASSO: Integração com Diários Oficiais para cargos 11 e 13
 		if (
 			deputadoBasico.casa === "PREFEITURA" ||
@@ -938,17 +983,46 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		});
 		let transfereGov: any[] = [];
 		try {
-			if (deputadoBasico.casa === "PREFEITURA") {
-				const nomeMunic =
-					deputadoBasico.uri && deputadoBasico.uri.length > 2
-						? deputadoBasico.uri.replace(/-/g, " ")
-						: deputadoBasico.nome;
-				sendEvent("STATUS", {
-					msg: `Rastreando Emendas PIX enviadas para o município de ${nomeMunic.toUpperCase()}...`,
-				});
-				transfereGov = await buscarTransfereGovPorMunicipio(nomeMunic);
-			} else {
-				transfereGov = await buscarTransfereGovPorAutor(deputadoBasico.nome);
+			let usedCache = false;
+			const nomeBuscaTg = deputadoBasico.casa === "PREFEITURA" ? (deputadoBasico.uri?.length > 2 ? deputadoBasico.uri.replace(/-/g, " ") : deputadoBasico.nome) : deputadoBasico.nome;
+			if (deputadoBasico.casa !== "PREFEITURA") {
+				// Busca primeiro na base de dados (cache-first)
+				try {
+					const { data: emendasPix, error: emendasPixErr } = await supabaseAdmin
+						.from("emendas_pix")
+						.select("*")
+						.eq("autor", deputadoBasico.nome);
+					
+					if (!emendasPixErr && emendasPix && emendasPix.length > 0) {
+						sendEvent("STATUS", {
+							msg: `[CACHE] Detalhamento de Emendas PIX recuperado instantaneamente do banco de dados.`,
+						});
+						transfereGov = emendasPix.map(e => ({
+							numeroEmenda: "PIX",
+							cnpjBeneficiario: "",
+							nomeBeneficiario: e.municipio_destino,
+							ufBeneficiario: e.uf_destino,
+							areaPoliticaPublica: "Transferência Especial (PIX)",
+							situacao: "Enviado",
+							valorCusteio: Number(e.valor_custeio || 0),
+							valorInvestimento: Number(e.valor_investimento || 0)
+						}));
+						usedCache = true;
+					}
+				} catch (err) {
+					console.warn("[CACHE MISS] emendas_pix:", err);
+				}
+			}
+
+			if (!usedCache) {
+				if (deputadoBasico.casa === "PREFEITURA") {
+					sendEvent("STATUS", {
+						msg: `Rastreando Emendas PIX enviadas para o município de ${nomeBuscaTg.toUpperCase()}...`,
+					});
+					transfereGov = await buscarTransfereGovPorMunicipio(nomeBuscaTg);
+				} else {
+					transfereGov = await buscarTransfereGovPorAutor(nomeBuscaTg);
+				}
 			}
 			if (transfereGov.length > 0) {
 				const tgId = `transferegov-${pessoaId}`;

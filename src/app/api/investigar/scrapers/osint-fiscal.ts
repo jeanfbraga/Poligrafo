@@ -5,6 +5,7 @@ import {
 	buscarInabilitadosTCU,
 } from "@/services/integrations/tcu/client";
 import { traduzirJuridiquesSancoes } from "../ai_helpers";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { fetchWithTimeout } from "../tse";
 import { buscarProcessosDataJud } from "./judiciario";
 
@@ -54,43 +55,80 @@ export async function investigarPolitico(
 
 		// 2. Busca Sanções/Ficha Suja na CGU
 		if (apiKey) {
-			const BASE_TRANSPARENCIA =
-				"https://api.portaldatransparencia.gov.br/api-de-dados";
-			const headers = { "chave-api-dados": apiKey };
+			let usedCache = false;
+			if (cpfLimpo && cpfLimpo !== "00000000000") {
+				try {
+					const { data: sancoesData } = await supabaseAdmin
+						.from("cgu_sancoes_cache")
+						.select("*")
+						.eq("cpf_cnpj", cpfLimpo);
+					
+					if (sancoesData && sancoesData.length > 0) {
+						usedCache = true;
+						sendEvent("STATUS", { msg: "[CACHE] Sanções CGU resgatadas do banco local." });
+						sancoesData.forEach(s => {
+							if (s.tipo_sancao === "PEP") {
+								alertasPessoais.push(`[PEP] Pessoa Politicamente Exposta: ${s.descricao} — ${s.orgao}`);
+								sendEvent("STATUS", { msg: `[PEP] Confirmado: Pessoa Politicamente Exposta registrada na base federal.` });
+							} else {
+								sancoesCgu = true;
+								alertasPessoais.push(`[ALERTA MÁXIMO] CPF consta na base ${s.tipo_sancao}. Orgao: ${s.orgao}`);
+								sendEvent("NODE_NOVO", {
+									id: `sancao-${s.tipo_sancao}-${cpfLimpo}`,
+									type: "PROCESSO_JUDICIAL",
+									_origemId: pessoaId,
+									data: {
+										label: `Sanção CGU: ${s.tipo_sancao}`,
+										tribunal: s.tipo_sancao,
+										assunto: "Sanção Administrativa",
+										score_letalidade: 95,
+										motivo_ia: `Registro na base ${s.tipo_sancao} da CGU. ${s.descricao || "Restrição de Direitos e impedimento de contratar com a Administração Pública."}`
+									}
+								});
+							}
+						});
+					}
+				} catch(e) {}
+			}
 
-			await transparenciaLimiter.acquire();
+			if (!usedCache) {
+				const BASE_TRANSPARENCIA =
+					"https://api.portaldatransparencia.gov.br/api-de-dados";
+				const headers = { "chave-api-dados": apiKey };
 
-			const pSancao =
-				cpfLimpo && cpfLimpo !== "00000000000" && cpfLimpo.length === 11
-					? `codigoSancionado=${cpfLimpo}`
-					: `nomeSancionado=${encodeURIComponent(nome)}`;
-			const pCeaf =
-				cpfLimpo && cpfLimpo !== "00000000000" && cpfLimpo.length === 11
-					? `cpfSancionado=${cpfLimpo}`
-					: `nomeSancionado=${encodeURIComponent(nome)}`;
+				await transparenciaLimiter.acquire();
 
-			const basesSancoes = [
-				{
-					key: "ceis",
-					url: `${BASE_TRANSPARENCIA}/ceis?${pSancao}&pagina=1`,
-					nome: "CEIS (Empresas Inidôneas e Suspensas)",
-				},
-				{
-					key: "cnep",
-					url: `${BASE_TRANSPARENCIA}/cnep?${pSancao}&pagina=1`,
-					nome: "CNEP (Empresas Punidas)",
-				},
-				{
-					key: "ceaf",
-					url: `${BASE_TRANSPARENCIA}/ceaf?${pCeaf}&pagina=1`,
-					nome: "CEAF (Expulsões da Adm. Federal)",
-				},
-			];
+				const pSancao =
+					cpfLimpo && cpfLimpo !== "00000000000" && cpfLimpo.length === 11
+						? `codigoSancionado=${cpfLimpo}`
+						: `nomeSancionado=${encodeURIComponent(nome)}`;
+				const pCeaf =
+					cpfLimpo && cpfLimpo !== "00000000000" && cpfLimpo.length === 11
+						? `cpfSancionado=${cpfLimpo}`
+						: `nomeSancionado=${encodeURIComponent(nome)}`;
 
-			const pPep =
-				cpfLimpo && cpfLimpo !== "00000000000" && cpfLimpo.length === 11
-					? `cpf=${cpfLimpo}`
-					: `nome=${encodeURIComponent(nome)}`;
+				const basesSancoes = [
+					{
+						key: "ceis",
+						url: `${BASE_TRANSPARENCIA}/ceis?${pSancao}&pagina=1`,
+						nome: "CEIS (Empresas Inidôneas e Suspensas)",
+					},
+					{
+						key: "cnep",
+						url: `${BASE_TRANSPARENCIA}/cnep?${pSancao}&pagina=1`,
+						nome: "CNEP (Empresas Punidas)",
+					},
+					{
+						key: "ceaf",
+						url: `${BASE_TRANSPARENCIA}/ceaf?${pCeaf}&pagina=1`,
+						nome: "CEAF (Expulsões da Adm. Federal)",
+					},
+				];
+
+				const pPep =
+					cpfLimpo && cpfLimpo !== "00000000000" && cpfLimpo.length === 11
+						? `cpf=${cpfLimpo}`
+						: `nome=${encodeURIComponent(nome)}`;
 
 			const consultasSancoesPEP = [
 				...basesSancoes.map((b) =>
@@ -186,6 +224,7 @@ export async function investigarPolitico(
 				}
 			}
 		}
+	}
 
 		// 3. Integração Oficial DATAJUD: Extrai Ações Judiciais (Classe 129)
 		sendEvent("STATUS", {
@@ -459,17 +498,44 @@ export async function buscarCartaoCorporativo(
 			sendEvent("STATUS", {
 				msg: "Analisando faturas de Cartão de Pagamento do Governo Federal (CPGF)...",
 			});
-			const urlPresidencia = `https://api.portaldatransparencia.gov.br/api-de-dados/cartoes?codigoOrgao=20000&dataTransacaoInicio=${mesInicio}&dataTransacaoFim=${mesFim}&pagina=1`;
-			const resPresidencia = await fetchWithTimeout(urlPresidencia, {
-				headers: { "chave-api-dados": apiKey },
-				timeout: 8000,
-			});
-			if (resPresidencia.ok) {
-				data = await resPresidencia.json();
-				if (Array.isArray(data) && data.length > 0) {
+			
+			// Tenta no cache do Supabase
+			try {
+				const { data: cpgfCache } = await supabaseAdmin
+					.from("cpgf_despesas_cache")
+					.select("*")
+					.eq("id_presidente", cpfLimpo);
+				if (cpgfCache && cpgfCache.length > 0) {
 					sendEvent("STATUS", {
-						msg: `[CPGF] Consultando as faturas governamentais do Órgão Presidência da República...`,
+						msg: `[CACHE] Extratos do Cartão Corporativo Presidencial resgatados da base local.`,
 					});
+					data = cpgfCache.map(d => ({
+						estabelecimento: {
+							cnpjFormatado: d.cnpj_fornecedor,
+							nomeRecebedor: d.nome_fornecedor
+						},
+						valorTransacao: Number(d.valor_transacao),
+						tipoCartao: { descricao: d.tipo_cartao },
+						dataTransacao: d.data_transacao,
+						unidadeGestora: { orgaoVinculado: { nomeOrgao: "Presidência da República" } },
+						portador: { nome: "SIGILOSO" }
+					}));
+				}
+			} catch(e) {}
+
+			if (!data || data.length === 0) {
+				const urlPresidencia = `https://api.portaldatransparencia.gov.br/api-de-dados/cartoes?codigoOrgao=20000&dataTransacaoInicio=${mesInicio}&dataTransacaoFim=${mesFim}&pagina=1`;
+				const resPresidencia = await fetchWithTimeout(urlPresidencia, {
+					headers: { "chave-api-dados": apiKey },
+					timeout: 8000,
+				});
+				if (resPresidencia.ok) {
+					data = await resPresidencia.json();
+					if (Array.isArray(data) && data.length > 0) {
+						sendEvent("STATUS", {
+							msg: `[CPGF] Consultando as faturas governamentais do Órgão Presidência da República...`,
+						});
+					}
 				}
 			}
 		}

@@ -44,7 +44,7 @@ O coração do sistema é uma **Pipeline de Inteligência Artificial em Cascata 
 
 ### 1. Pré-requisitos
 
-*   **Node.js ≥ 20** (Next.js 16 exige versão recente; rode `node -v` para verificar. Há um `.nvmrc` com a versão 22 para quem usa `nvm`).
+*   **Node.js ≥ 24** (CI usa Node 24; rode `node -v` para verificar. Há um `.nvmrc` com a versão 24 para quem usa `nvm`).
 *   **Conta no [Supabase](https://supabase.com/)** (plano gratuito funciona).
 *   **`curl`, `tar` e `unzip`** disponíveis no shell — usados pelos ETLs para baixar e extrair os dados públicos (já presentes no Windows 10+, Linux e macOS).
 *   **(Opcional) Playwright**: necessário apenas para os ETLs/scrapers que usam navegador headless (ex.: cotas da CMRJ). Após o `npm install`, rode:
@@ -106,7 +106,8 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
    Os ETLs extraem dados de fontes públicas e salvam no Supabase. Todos são independentes e podem ser executados em qualquer ordem:
 
    ```bash
-   npx tsx scripts/etl/ceap-sync.ts            # Despesas CEAP (Câmara Federal)
+   npx tsx scripts/etl/ceap-sync.ts             # Despesas CEAP (Câmara Federal)
+   npx tsx scripts/etl/ceap-senado-sync.ts      # Despesas CEAP (Senado Federal)
    npx tsx scripts/etl/frequencia-sync.ts       # Frequência em sessões
    npx tsx scripts/etl/votacoes-sync.ts         # Participação em votações
    npx tsx scripts/etl/emendas-pix-sync.ts      # Emendas PIX (requer TRANSPARENCIA_API_KEY)
@@ -116,11 +117,13 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
    npx tsx scripts/etl/ibama-sync.ts            # Infrações Ambientais (IBAMA)
    npx tsx scripts/etl/anac-sync.ts             # Aeronaves (ANAC RAB)
    npm run sync:spu                             # Imóveis da União (Automático via Raio-X SEGES)
+   npx tsx scripts/etl/cpgf-sync.ts             # Cartão Corporativo Presidencial (CPGF)
+   npx tsx scripts/etl/cgu-sancoes-sync.ts      # Sanções Administrativas e Ficha Limpa (CGU)
    npx tsx scripts/etl/sync-cmrj-servidores.ts  # Servidores CMRJ
    npx tsx scripts/etl/cmrj_cotas_etl.ts        # Cotas CMRJ (requer Playwright)
    ```
 
-   > Os ETLs do IBAMA, ANAC e SPU rodam automaticamente via GitHub Actions, mas podem ser forçados rodando seus respectivos scripts `scripts/etl/*.ts`.
+   > Os ETLs de IBAMA, ANAC, SPU, CPGF, TSE, CGU, CEAP e Senado rodam automaticamente via GitHub Actions, mas podem ser forçados localmente rodando seus respectivos scripts `scripts/etl/*.ts`.
 
 6. **Inicie o Servidor:**
    ```bash
@@ -142,12 +145,14 @@ O schema completo está em [`supabase/schema.sql`](supabase/schema.sql). O banco
 
 | Camada | Tabelas/Views | Propósito |
 |:---|:---|:---|
-| **Investigação** | `pesquisas`, `contagem_pesquisas` | Cache de grafos e telemetria de uso |
-| **CEAP** | `ceap_despesas_cache` + 4 views | Despesas parlamentares federais |
+| **Investigação** | `pesquisas`, `contagem_pesquisas` | Cache de grafos (Bypass de 24h TTL) e telemetria de uso |
+| **CEAP** | `ceap_despesas_cache` + 4 views | Despesas parlamentares federais (Câmara e Senado) |
 | **TSE** | `tse_bens_historico`, `tse_doadores_cache` | Patrimônio e doadores de campanha |
 | **Emendas** | `emendas_pix` + 2 views | Emendas PIX (Transferências Especiais) |
+| **Sanções (CGU)**| `cgu_sancoes_cache` | Sanções Administrativas e Pessoas Politicamente Expostas |
 | **CMRJ** | `cmrj_despesas`, `cmrj_vereador_gabinete`, `cmrj_servidores` | Câmara Municipal do Rio de Janeiro |
 | **Câmara Federal** | `camara_frequencia`, `camara_votacoes` | Presença e votações |
+| **CPGF** | `cpgf_despesas_cache` | Cartão Corporativo Presidencial (Lula, Bolsonaro, Dilma, Temer) |
 | **OSINT** | `ibama_infracoes`, `anac_rab`, `spu_imoveis` | Infrações ambientais, aeronaves, imóveis |
 | **Storage** | `fotos-politicos` (bucket) | Fotos oficiais dos parlamentares |
 
@@ -166,6 +171,7 @@ Toda contribuição da comunidade investigativa, de dados e desenvolvedores é e
 Antes de enviar PRs, leia nossos guias:
 *   [**Código de Conduta**](CODE_OF_CONDUCT.md): Diretrizes da comunidade.
 *   [**Guia de Contribuição**](CONTRIBUTING.md): Padrões de código e fluxo de PR.
+*   [**Guia para Agentes de IA**](AGENTS.md): Referência de arquitetura, convenções e protocolo de trabalho para agentes de código.
 *   [**Política de Segurança**](SECURITY.md): Para relatórios de vulnerabilidades.
 
 Temos templates pré-configurados em *Issues* para facilitar Bug Reports ou Feature Requests.

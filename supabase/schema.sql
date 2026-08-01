@@ -64,13 +64,13 @@ CREATE TRIGGER trg_pesquisas_atualizado
 -- 1.2 contagem_pesquisas — Telemetria "Mais Investigados" (Dashboard)
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.contagem_pesquisas (
-    id           BIGSERIAL PRIMARY KEY,
-    nome         TEXT NOT NULL,
-    id_politico  TEXT NOT NULL,
-    casa         TEXT NOT NULL DEFAULT 'GLOBAL',
-    ref          TEXT,
-    total        BIGINT NOT NULL DEFAULT 0,
-    updated_at   TIMESTAMPTZ DEFAULT NOW(),
+    id              BIGSERIAL PRIMARY KEY,
+    nome            TEXT NOT NULL,
+    id_politico     TEXT NOT NULL,
+    casa            TEXT NOT NULL DEFAULT 'GLOBAL',
+    ref             TEXT,
+    quantidade      BIGINT NOT NULL DEFAULT 0,
+    ultima_pesquisa TIMESTAMPTZ DEFAULT NOW(),
 
     CONSTRAINT uq_contagem_pesquisas UNIQUE (nome, id_politico)
 );
@@ -98,7 +98,9 @@ CREATE TABLE IF NOT EXISTS public.ceap_despesas_cache (
     tipo_despesa        TEXT,
     valor_documento     NUMERIC(14,2) NOT NULL DEFAULT 0,
     data_documento      TEXT,
-    url_documento       TEXT
+    url_documento       TEXT,
+    atualizado_em       TIMESTAMPTZ DEFAULT NOW(),
+    casa                TEXT DEFAULT 'CAMARA'
 );
 
 CREATE INDEX IF NOT EXISTS idx_ceap_id_deputado ON public.ceap_despesas_cache (id_deputado);
@@ -257,7 +259,9 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.cmrj_vereador_gabinete (
     id               BIGSERIAL PRIMARY KEY,
     nome_urna        TEXT NOT NULL UNIQUE,
-    gabinete_numero  TEXT NOT NULL
+    gabinete_numero  TEXT NOT NULL,
+    suplente         BOOLEAN DEFAULT FALSE,
+    substituiu       TEXT
 );
 
 ALTER TABLE public.cmrj_vereador_gabinete ENABLE ROW LEVEL SECURITY;
@@ -308,6 +312,7 @@ CREATE TABLE IF NOT EXISTS public.camara_frequencia (
     id_deputado                 INTEGER NOT NULL,
     presencas                   INTEGER NOT NULL DEFAULT 0,
     ausencias_nao_justificadas  INTEGER NOT NULL DEFAULT 0,
+    ausencias_justificadas      INTEGER NOT NULL DEFAULT 0,
     ano                         INTEGER NOT NULL,
 
     CONSTRAINT uq_frequencia UNIQUE (id_deputado, ano)
@@ -357,7 +362,8 @@ CREATE TABLE IF NOT EXISTS public.ibama_infracoes (
     nome_infrator  TEXT,
     valor_multa    NUMERIC(14,2) DEFAULT 0,
     tipo_infracao  TEXT,
-    data_auto      TEXT
+    data_auto      TEXT,
+    created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_ibama_cpf ON public.ibama_infracoes (cpf_cnpj);
@@ -383,7 +389,8 @@ CREATE TABLE IF NOT EXISTS public.anac_rab (
     proprietario_nome       TEXT,
     modelo                  TEXT,
     situacao                TEXT,
-    fabricante              TEXT
+    fabricante              TEXT,
+    created_at              TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_anac_proprietario ON public.anac_rab USING gin (proprietario_nome gin_trgm_ops);
@@ -423,6 +430,36 @@ DO $$ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'spu_service' AND tablename = 'spu_imoveis') THEN
         CREATE POLICY spu_service ON public.spu_imoveis FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 1.15 cgu_sancoes_cache — Sanções Administrativas e PEP (CGU)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.cgu_sancoes_cache (
+    id              BIGSERIAL PRIMARY KEY,
+    cpf_cnpj        TEXT NOT NULL,
+    nome            TEXT,
+    tipo_sancao     TEXT NOT NULL, -- CEIS, CNEP, CEAF, PEP
+    data_inicio     TEXT,
+    data_fim        TEXT,
+    orgao           TEXT,
+    descricao       TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cgu_sancoes_cpf ON public.cgu_sancoes_cache (cpf_cnpj);
+CREATE INDEX IF NOT EXISTS idx_cgu_sancoes_nome ON public.cgu_sancoes_cache USING gin (nome gin_trgm_ops);
+
+ALTER TABLE public.cgu_sancoes_cache ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'cgu_sancoes_select' AND tablename = 'cgu_sancoes_cache') THEN
+        CREATE POLICY cgu_sancoes_select ON public.cgu_sancoes_cache FOR SELECT TO anon, authenticated USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'cgu_sancoes_service' AND tablename = 'cgu_sancoes_cache') THEN
+        CREATE POLICY cgu_sancoes_service ON public.cgu_sancoes_cache FOR ALL TO service_role USING (true) WITH CHECK (true);
     END IF;
 END $$;
 

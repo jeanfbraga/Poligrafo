@@ -9,6 +9,35 @@ export async function buscarDespesasCamara(
 	idDeputado: number,
 	sendEvent?: any,
 ) {
+	try {
+		const { data, error } = await supabaseAdmin
+			.from("ceap_despesas_cache")
+			.select("*")
+			.eq("id_deputado", idDeputado)
+			.eq("casa", "CAMARA")
+			.order("valor_documento", { ascending: false })
+			.limit(60);
+
+		if (!error && data && data.length > 0) {
+			if (sendEvent) {
+				sendEvent("STATUS", {
+					msg: `[CACHE] Despesas da Câmara resgatadas instantaneamente do cache local (Offline-First).`,
+				});
+			}
+
+			return data.map((d: any) => ({
+				cnpjCpfFornecedor: d.cnpj_cpf_fornecedor || "00000000000000",
+				nomeFornecedor: d.nome_fornecedor || "FORNECEDOR NÃO IDENTIFICADO",
+				tipoDespesa: d.tipo_despesa,
+				valorDocumento: Number(d.valor_documento || 0),
+				dataDocumento: d.data_documento,
+				urlDocumento: d.url_documento,
+			}));
+		}
+	} catch (cacheErr: any) {
+		console.warn("[CACHE MISS] buscarDespesasCamara falhou, tentando API:", cacheErr.message);
+	}
+
 	const anoAtual = new Date().getFullYear();
 	let todasDespesasRaw: any[] = [];
 
@@ -57,46 +86,14 @@ export async function buscarDespesasCamara(
 		return despesasConvertidas.slice(0, 60);
 	} catch (e: any) {
 		console.error(
-			"[ETL] Erro buscarDespesasCamara (API oficial). Tentando fallback Supabase...",
+			"[ETL] Erro buscarDespesasCamara (API oficial).",
 			e.message,
 		);
-
-		try {
-			const { data, error } = await supabaseAdmin
-				.from("ceap_despesas_cache")
-				.select("*")
-				.eq("id_deputado", idDeputado)
-				.order("valor_documento", { ascending: false })
-				.limit(60);
-
-			if (!error && data && data.length > 0) {
-				if (sendEvent) {
-					sendEvent("API_WARNING", {
-						fonte: "Câmara dos Deputados",
-						mensagem: `API da Câmara offline. Dados de despesas recuperados do Cache do Polígrafo (Offline-First).`,
-					});
-				}
-
-				return data.map((d: any) => ({
-					cnpjCpfFornecedor: d.cnpj_cpf_fornecedor || "00000000000000",
-					nomeFornecedor: d.nome_fornecedor || "FORNECEDOR NÃO IDENTIFICADO",
-					tipoDespesa: d.tipo_despesa,
-					valorDocumento: Number(d.valor_documento || 0),
-					dataDocumento: d.data_documento,
-					urlDocumento: d.url_documento,
-				}));
-			}
-		} catch (cacheErr: any) {
-			console.error(
-				"[ETL] Falha também no fallback Supabase:",
-				cacheErr.message,
-			);
-		}
 
 		if (sendEvent) {
 			sendEvent("API_WARNING", {
 				fonte: "Câmara dos Deputados",
-				mensagem: `Falha temporária ao extrair os gastos do deputado federal. A API de Dados Abertos demorou muito a responder e o cache local não possui dados para este ID.`,
+				mensagem: `Falha temporária ao extrair os gastos do deputado federal. A API de Dados Abertos falhou e não há dados em cache para este ID.`,
 			});
 		}
 		return [];
@@ -112,6 +109,35 @@ export async function buscarDespesasSenado(
 	sendEvent?: any,
 ) {
 	try {
+		try {
+			const { data, error } = await supabaseAdmin
+				.from("ceap_despesas_cache")
+				.select("*")
+				.eq("id_deputado", Number(_idSenador))
+				.eq("casa", "SENADO")
+				.order("valor_documento", { ascending: false })
+				.limit(60);
+
+			if (!error && data && data.length > 0) {
+				if (sendEvent) {
+					sendEvent("STATUS", {
+						msg: `[CACHE] Despesas do Senado resgatadas instantaneamente do cache local (Offline-First).`,
+					});
+				}
+
+				return data.map((d: any) => ({
+					cnpjCpfFornecedor: d.cnpj_cpf_fornecedor || "00000000000000",
+					nomeFornecedor: d.nome_fornecedor || "FORNECEDOR NÃO IDENTIFICADO",
+					tipoDespesa: d.tipo_despesa,
+					valorDocumento: Number(d.valor_documento || 0),
+					dataDocumento: d.data_documento,
+					urlDocumento: d.url_documento,
+				}));
+			}
+		} catch (cacheErr: any) {
+			console.warn("[CACHE MISS] buscarDespesasSenado falhou, tentando API:", cacheErr.message);
+		}
+
 		const anoAtual = new Date().getFullYear();
 		const url = `https://adm.senado.gov.br/adm-dadosabertos/api/v1/senadores/despesas_ceaps/${anoAtual}/csv`;
 		const res = await fetchWithTimeout(url, { timeout: 15000 });
