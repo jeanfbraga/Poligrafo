@@ -13,37 +13,61 @@ const VIP_MAP: Record<string, { mandatoInicio: string, mandatoFim: string }> = {
 
 async function fetchCpgf(idPresidente: string, vipInfo: { mandatoInicio: string, mandatoFim: string }) {
 	const allRecords: any[] = [];
-	const BATCH_SIZE = 50;
 	const MAX_PAGES = 2000; // Aumentado para cobrir a Dilma folgado
 
 	for (let page = 1; page <= MAX_PAGES; page++) {
 		const url = `https://api.portaldatransparencia.gov.br/api-de-dados/cartoes?codigoOrgao=20101&dataTransacaoInicio=${vipInfo.mandatoInicio}&dataTransacaoFim=${vipInfo.mandatoFim}&pagina=${page}`;
 		
 		let success = false;
-		let retries = 3;
+		let retries = 4;
 		let data: any[] = [];
+		let endOfPages = false;
 		
 		while (!success && retries > 0) {
 			try {
 				const res = await fetch(url, { headers: { "chave-api-dados": TRANSPARENCIA_API_KEY } as HeadersInit });
+
+				// Rate limit — aguarda antes de retentar
 				if (res.status === 429) {
-					console.log(`[Rate Limit] Aguardando para a página ${page}...`);
-					await new Promise(r => setTimeout(r, 2000));
+					console.log(`[Rate Limit] Aguardando 5s para a página ${page}...`);
+					await new Promise(r => setTimeout(r, 5000));
 					retries--;
 					continue;
 				}
+
+				// 400 = página além do limite disponível — fim da paginação, comportamento normal
+				if (res.status === 400) {
+					console.log(`[Paginação] Status 400 na pág ${page} — fim dos dados para ${idPresidente}.`);
+					endOfPages = true;
+					success = true;
+					break;
+				}
+
+				// 5xx (504, 503, 502) = timeout/erro transitório do servidor — backoff exponencial
+				if (res.status >= 500) {
+					const attempt = 5 - retries; // 1, 2, 3, 4
+					const wait = Math.min(attempt * attempt * 2000, 30000); // 2s, 8s, 18s, 30s
+					console.log(`[Timeout] Status ${res.status} na pág ${page}. Tentativa ${attempt}/4, aguardando ${wait / 1000}s...`);
+					await new Promise(r => setTimeout(r, wait));
+					retries--;
+					continue;
+				}
+
 				if (!res.ok) throw new Error(`Status ${res.status}`);
 				data = await res.json();
 				success = true;
 			} catch (e) {
-				console.error(`Erro na pág ${page}:`, e);
+				const attempt = 5 - retries;
+				console.error(`Erro na pág ${page} (tentativa ${attempt}/4):`, e);
 				retries--;
-				await new Promise(r => setTimeout(r, 1000));
+				await new Promise(r => setTimeout(r, attempt * 1000));
 			}
 		}
 
+		if (endOfPages) break;
+
 		if (!success) {
-			console.error(`❌ Falha irreversível na página ${page}. Abortando extração para este presidente.`);
+			console.error(`❌ Falha irreversível na página ${page}. Abortando extração para ${idPresidente}.`);
 			break;
 		}
 
@@ -53,8 +77,11 @@ async function fetchCpgf(idPresidente: string, vipInfo: { mandatoInicio: string,
 		}
 
 		allRecords.push(...data);
+
+		// Pequeno delay entre páginas para não sobrecarregar a API
+		await new Promise(r => setTimeout(r, 350));
 	}
-	
+
 	const registrosFormatados = [];
 	
 	for (const item of allRecords) {
