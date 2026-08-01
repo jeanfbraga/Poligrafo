@@ -314,10 +314,6 @@ export async function identificarCandidatoPorRef(
 				idLegislatura: 57,
 				casa: "CAMARA",
 			};
-			sendEvent("API_WARNING", {
-				fonte: "Câmara dos Deputados",
-				mensagem: `A API da Câmara não respondeu a tempo. Usando dados do índice local${localMatch ? ` (${localMatch.nome} — ${localMatch.uf})` : ". Informações podem estar incompletas"}.`,
-			});
 		}
 	} else if (forceRef.startsWith("FEDERAL:SENADO:")) {
 		const idRef = forceRef.split(":")[2];
@@ -340,10 +336,6 @@ export async function identificarCandidatoPorRef(
 				idLegislatura: 57,
 				casa: "SENADO",
 			};
-			sendEvent("API_WARNING", {
-				fonte: "Senado Federal",
-				mensagem: `A API do Senado não respondeu a tempo. Usando dados do índice local${localMatchSenado ? ` (${localMatchSenado.nome} — ${localMatchSenado.uf})` : ". Informações podem estar incompletas"}.`,
-			});
 		}
 	} else if (forceRef.startsWith("SP:")) {
 		const partesSP = forceRef.split(":");
