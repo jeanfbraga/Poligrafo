@@ -82,6 +82,8 @@ export async function GET() {
 					partido: dep?.partido || "N/A",
 					uf: dep?.uf || "BR",
 					casa: dep?.casa || "CAMARA",
+					id: dep?.id || item.id_deputado,
+					ref: dep ? `FEDERAL:${dep.casa}:${dep.id}` : undefined,
 					foto: dep
 						? `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${dep.id}.jpg`
 						: null,
@@ -117,6 +119,9 @@ export async function GET() {
 					...item,
 					partido: dep?.partido || "CONGRESSO",
 					uf: dep?.uf || "BR",
+					casa: dep?.casa || undefined,
+					id: dep?.id || undefined,
+					ref: dep ? `FEDERAL:${dep.casa}:${dep.id}` : undefined,
 					foto: dep
 						? `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${dep.id}.jpg`
 						: null,
@@ -148,6 +153,9 @@ export async function GET() {
 					...item,
 					partido: dep?.partido || "N/A",
 					uf: dep?.uf || "BR",
+					casa: dep?.casa || item.casa || null,
+					id: dep?.id || idNum || undefined,
+					ref: dep ? `FEDERAL:${dep.casa}:${dep.id}` : undefined,
 					foto: dep
 						? `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${dep.id}.jpg`
 						: null,

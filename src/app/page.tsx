@@ -148,7 +148,7 @@ function DashboardArea() {
 					? `FEDERAL:${casa}:${id}`
 					: undefined;
 			if (handleSearchRef.current) {
-				handleSearchRef.current(refOverride, nome);
+				handleSearchRef.current(refOverride, nome, "FEDERAL");
 				window.scrollTo({ top: 0, behavior: "smooth" });
 			}
 		};
@@ -1108,16 +1108,20 @@ function DashboardArea() {
 	const handleSearch = async (
 		refOverride?: string | any,
 		nomeOverride?: string | any,
+		ufOverride?: string | any,
 	) => {
 		// Proteção contra eventos do React passados por bindings errados (ex: onClick={handleSearch})
 		if (typeof refOverride === "object") refOverride = undefined;
 		if (typeof nomeOverride === "object") nomeOverride = undefined;
+		if (typeof ufOverride === "object") ufOverride = undefined;
 
 		const termo = (nomeOverride || searchTerm).trim();
 		if (!termo) return;
 
+		const currentUf = ufOverride || selectedUf;
+
 		// Valida alçada: obrigatória se não é uma busca com ref direta (federal/autocomplete)
-		if (!refOverride && !selectedUf) {
+		if (!refOverride && !currentUf) {
 			setStatusMessage(
 				"> SELECIONE A ALÇADA (ESTADO) DO POLÍTICO ANTES DE BUSCAR.",
 			);
@@ -1132,10 +1136,10 @@ function DashboardArea() {
 		setErrorMsg("");
 		setApiWarnings([]);
 
-		// Tenta pré-popular cargo, UF e foto imediatamente a partir de refOverride, selectedUf ou congressoIndex
+		// Tenta pré-popular cargo, UF e foto imediatamente a partir de refOverride, currentUf ou congressoIndex
 		let initialCargo: string | undefined = undefined;
 		let initialUf: string | undefined =
-			selectedUf && selectedUf !== "FEDERAL" ? selectedUf : undefined;
+			currentUf && currentUf !== "FEDERAL" ? currentUf : undefined;
 		let initialFoto: string | undefined = undefined;
 		let initialFotoFallback: string | undefined = undefined;
 
@@ -1206,12 +1210,12 @@ function DashboardArea() {
 					label: termo.toUpperCase(),
 					cargo:
 						initialCargo ||
-						(selectedUf === "FEDERAL"
+						(currentUf === "FEDERAL"
 							? "GOVERNO FEDERAL"
-							: selectedUf
-								? `POLÍTICO (${selectedUf})`
+							: currentUf
+								? `POLÍTICO (${currentUf})`
 								: "POLÍTICO"),
-					uf: initialUf || selectedUf || undefined,
+					uf: initialUf || currentUf || undefined,
 					urlFoto: initialFoto,
 					urlFotoFallback: initialFotoFallback,
 					isSearching: true,
@@ -1240,8 +1244,8 @@ function DashboardArea() {
 				apiUrl += `&ref=${encodeURIComponent(refOverride)}`;
 			}
 			// Passa a UF selecionada (exceto FEDERAL que não filtra por estado)
-			if (selectedUf && selectedUf !== "FEDERAL") {
-				apiUrl += `&uf=${encodeURIComponent(selectedUf)}`;
+			if (currentUf && currentUf !== "FEDERAL") {
+				apiUrl += `&uf=${encodeURIComponent(currentUf)}`;
 			}
 			const response = await fetch(apiUrl, { signal: controller.signal });
 
