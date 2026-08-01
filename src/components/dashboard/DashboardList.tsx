@@ -13,6 +13,7 @@ export interface DashboardListProfile {
 	partido: string;
 	uf?: string;
 	foto?: string | null;
+	fotoFallback?: string | null;
 	id?: string | number;
 	cargo?: string;
 	casa?: string;
@@ -36,9 +37,10 @@ interface DashboardListProps {
 }
 
 const ProfileAvatar = ({ profile }: { profile: DashboardListProfile }) => {
+	const [useFallback, setUseFallback] = useState(false);
 	const [error, setError] = useState(false);
 
-	if (!profile.foto || error) {
+	if ((!profile.foto && !profile.fotoFallback) || error) {
 		return (
 			<div className="h-16 w-16 bg-green-950/30 border border-green-500 flex items-center justify-center shrink-0">
 				<User className="w-8 h-8 text-green-700" />
@@ -46,13 +48,21 @@ const ProfileAvatar = ({ profile }: { profile: DashboardListProfile }) => {
 		);
 	}
 
+	const imgSrc = useFallback && profile.fotoFallback ? profile.fotoFallback : profile.foto;
+
 	return (
 		<div className="h-16 w-16 overflow-hidden rounded-none border border-green-500 shrink-0 bg-green-950/30">
 			<img
-				src={profile.foto}
+				src={imgSrc || profile.fotoFallback || undefined}
 				alt={profile.nome}
 				className="object-cover w-full h-full"
-				onError={() => setError(true)}
+				onError={() => {
+					if (!useFallback && profile.fotoFallback) {
+						setUseFallback(true);
+					} else {
+						setError(true);
+					}
+				}}
 			/>
 		</div>
 	);

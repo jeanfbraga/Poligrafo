@@ -60,6 +60,34 @@ import { getPortalTransparenciaFallback } from "@/lib/utils";
    - Outros tipos: EMENDA=teal, EMPRESA=blue, SOCIO=purple, CONTRATO=yellow
    ================================================================ */
 
+const MobileAvatar = ({ rootNode, className = "h-10 w-10" }: { rootNode: any; className?: string }) => {
+	const [useFallback, setUseFallback] = useState(false);
+	const [error, setError] = useState(false);
+
+	const imgSrc = useFallback && rootNode.data?.urlFotoFallback ? rootNode.data.urlFotoFallback : rootNode.data?.urlFoto;
+
+	if ((!rootNode.data?.urlFoto && !rootNode.data?.urlFotoFallback) || error) {
+		return <User className={`${className} text-green-500 shrink-0`} />;
+	}
+
+	return (
+		<img
+			src={imgSrc || rootNode.data?.urlFotoFallback}
+			alt={rootNode.data?.label || "Avatar"}
+			className={`${className} object-cover rounded-sm border border-green-500 shrink-0 bg-green-950/30`}
+			onError={() => {
+				if (!useFallback && rootNode.data?.urlFotoFallback) {
+					setUseFallback(true);
+				} else {
+					setError(true);
+				}
+			}}
+		/>
+	);
+};
+
+
+
 function getCardStyles(type: string, score: number) {
 	if (type === "DESPESA") {
 		if (score >= 85)
@@ -526,15 +554,7 @@ export default function MobileView({
 								<Loader2 className="w-4 h-4 text-green-500 animate-spin" />
 							</div>
 							<div className="flex items-center gap-3 mb-4">
-								{rootNode.data.urlFoto ? (
-									<img
-										src={rootNode.data.urlFoto}
-										alt={rootNode.data.label}
-										className="h-10 w-10 object-cover rounded-sm border border-green-500 shrink-0"
-									/>
-								) : (
-									<User className="h-8 w-8 text-green-500 shrink-0" />
-								)}
+								<MobileAvatar rootNode={rootNode} className="h-10 w-10" />
 								<div>
 									<h2 className="text-base font-bold uppercase tracking-widest text-green-400">
 										{rootNode.data.label}
@@ -722,17 +742,7 @@ export default function MobileView({
 			{rootNode && (
 				<div className="shrink-0 border-b border-green-500/30 bg-black px-4 py-3">
 					<div className="flex items-center gap-3">
-						{rootNode.data.urlFoto ? (
-							<img
-								src={rootNode.data.urlFoto}
-								alt={rootNode.data.label}
-								className="w-10 h-10 object-cover border border-green-500 shrink-0"
-							/>
-						) : (
-							<div className="w-10 h-10 border border-green-500 flex items-center justify-center shrink-0 bg-green-500/10">
-								<User className="w-5 h-5 text-green-500" />
-							</div>
-						)}
+						<MobileAvatar rootNode={rootNode} className="h-10 w-10" />
 						<div className="flex-1 min-w-0">
 							<h2 className="text-xs font-bold uppercase tracking-widest text-green-400 truncate">
 								{rootNode.data.label}

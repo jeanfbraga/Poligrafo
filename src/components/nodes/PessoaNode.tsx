@@ -1,17 +1,35 @@
 "use client";
 
-import { DollarSign, ShieldAlert } from "lucide-react";
+import { useState } from "react";
+import { DollarSign, ShieldAlert, User } from "lucide-react";
 import { NodeShell } from "./NodeShell";
 
 export const PessoaNode = ({ data, isMobile }: { data: any, isMobile?: boolean }) => {
 	const badge = `${data.cargo} - ${data.uf}`;
-	const titleIcon = data.urlFoto ? (
-		<img
-			src={data.urlFoto}
-			alt={data.label}
-			className="h-8 w-8 object-cover rounded-sm border border-green-500 shrink-0"
-		/>
-	) : undefined;
+	const [useFallback, setUseFallback] = useState(false);
+	const [error, setError] = useState(false);
+
+	const imgSrc = useFallback && data.urlFotoFallback ? data.urlFotoFallback : data.urlFoto;
+
+	let titleIcon = undefined;
+	if ((!data.urlFoto && !data.urlFotoFallback) || error) {
+		titleIcon = <User className="h-6 w-6 text-green-500 shrink-0" />;
+	} else {
+		titleIcon = (
+			<img
+				src={imgSrc || data.urlFotoFallback}
+				alt={data.label}
+				className="h-8 w-8 object-cover rounded-sm border border-green-500 shrink-0 bg-green-950/30"
+				onError={() => {
+					if (!useFallback && data.urlFotoFallback) {
+						setUseFallback(true);
+					} else {
+						setError(true);
+					}
+				}}
+			/>
+		);
+	}
 
 	return (
 		<NodeShell type="PESSOA" data={data} isMobile={isMobile} badge={badge} titleIcon={titleIcon}>

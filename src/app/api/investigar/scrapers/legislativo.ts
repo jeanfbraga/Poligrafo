@@ -17,6 +17,7 @@ export interface ParlamentarBasico {
 		| `CAMARA_MUNICIPAL_${string}`;
 	afastamento?: { motivo: string; suplente: string | null };
 	urlFoto?: string;
+	urlFotoFallback?: string;
 }
 
 export interface DetalhesDeputado {
@@ -109,6 +110,8 @@ export async function buscarSenador(
 			};
 		}
 
+		const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://uvzynmgwfmdsdrwvgbsy.supabase.co";
+
 		return {
 			id: match.IdentificacaoParlamentar.CodigoParlamentar,
 			uri: match.IdentificacaoParlamentar.UrlPaginaParlamentar,
@@ -116,7 +119,8 @@ export async function buscarSenador(
 			uf: uf,
 			idLegislatura: 57,
 			casa: "SENADO",
-			urlFoto: match.IdentificacaoParlamentar.UrlFotoParlamentar,
+			urlFoto: `${SUPABASE_URL}/storage/v1/object/public/fotos-politicos/${match.IdentificacaoParlamentar.CodigoParlamentar}.jpg`,
+			urlFotoFallback: match.IdentificacaoParlamentar.UrlFotoParlamentar || `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${match.IdentificacaoParlamentar.CodigoParlamentar}.jpg`,
 			...(afastamentoDados && { afastamento: afastamentoDados }),
 		};
 	} catch (_e) {
@@ -156,6 +160,7 @@ export async function buscarPoliticosCamaraLista(
 			if (nomeB === termoNorm && nomeA !== termoNorm) return 1;
 			return 0;
 		});
+		const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://uvzynmgwfmdsdrwvgbsy.supabase.co";
 		return dadosOrdenados.slice(0, 5).map((dep: any) => ({
 			id: dep.id,
 			uri: dep.uri,
@@ -163,7 +168,8 @@ export async function buscarPoliticosCamaraLista(
 			uf: dep.siglaUf,
 			idLegislatura: dep.idLegislatura,
 			casa: "CAMARA" as const,
-			urlFoto: dep.urlFoto,
+			urlFoto: `${SUPABASE_URL}/storage/v1/object/public/fotos-politicos/${dep.id}.jpg`,
+			urlFotoFallback: dep.urlFoto || `https://www.camara.leg.br/internet/deputado/bandep/${dep.id}.jpg`,
 		}));
 	} catch (e) {
 		console.error(`[CÂMARA] Catch Error ao buscar ${nome}:`, e);
@@ -229,6 +235,7 @@ export async function buscarSenadoresLista(
 				};
 			}
 
+			const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://uvzynmgwfmdsdrwvgbsy.supabase.co";
 			return {
 				id: m.IdentificacaoParlamentar.CodigoParlamentar,
 				uri: m.IdentificacaoParlamentar.UrlPaginaParlamentar,
@@ -236,7 +243,8 @@ export async function buscarSenadoresLista(
 				uf: uf,
 				idLegislatura: 57,
 				casa: "SENADO" as const,
-				urlFoto: m.IdentificacaoParlamentar.UrlFotoParlamentar,
+				urlFoto: `${SUPABASE_URL}/storage/v1/object/public/fotos-politicos/${m.IdentificacaoParlamentar.CodigoParlamentar}.jpg`,
+				urlFotoFallback: m.IdentificacaoParlamentar.UrlFotoParlamentar || `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${m.IdentificacaoParlamentar.CodigoParlamentar}.jpg`,
 				...(afastamentoDados && { afastamento: afastamentoDados }),
 			};
 		});

@@ -1137,15 +1137,22 @@ function DashboardArea() {
 		let initialUf: string | undefined =
 			selectedUf && selectedUf !== "FEDERAL" ? selectedUf : undefined;
 		let initialFoto: string | undefined = undefined;
+		let initialFotoFallback: string | undefined = undefined;
+
+		const supabaseUrl =
+			process.env.NEXT_PUBLIC_SUPABASE_URL ||
+			"https://uvzynmgwfmdsdrwvgbsy.supabase.co";
 
 		if (refOverride && typeof refOverride === "string") {
 			const parts = refOverride.split(":");
 			if (parts[0] === "FEDERAL" && parts[1] === "CAMARA" && parts[2]) {
 				initialCargo = "DEPUTADO FEDERAL";
-				initialFoto = `https://www.camara.leg.br/internet/deputado/bandep/${parts[2]}.jpg`;
+				initialFoto = `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${parts[2]}.jpg`;
+				initialFotoFallback = `https://www.camara.leg.br/internet/deputado/bandep/${parts[2]}.jpg`;
 			} else if (parts[0] === "FEDERAL" && parts[1] === "SENADO" && parts[2]) {
 				initialCargo = "SENADOR";
-				initialFoto = `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador_${parts[2]}.jpg`;
+				initialFoto = `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${parts[2]}.jpg`;
+				initialFotoFallback = `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${parts[2]}.jpg`;
 			} else if (parts[0] === "GOVERNADOR") {
 				initialCargo = "GOVERNADOR";
 				initialUf = parts[1];
@@ -1179,9 +1186,11 @@ function DashboardArea() {
 			}
 			if (!initialFoto && matchedCandidate.id) {
 				if (matchedCandidate.casa === "CAMARA") {
-					initialFoto = `https://www.camara.leg.br/internet/deputado/bandep/${matchedCandidate.id}.jpg`;
+					initialFoto = `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${matchedCandidate.id}.jpg`;
+					initialFotoFallback = `https://www.camara.leg.br/internet/deputado/bandep/${matchedCandidate.id}.jpg`;
 				} else if (matchedCandidate.casa === "SENADO") {
-					initialFoto = `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador_${matchedCandidate.id}.jpg`;
+					initialFoto = `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${matchedCandidate.id}.jpg`;
+					initialFotoFallback = `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${matchedCandidate.id}.jpg`;
 				}
 			}
 		}
@@ -1204,6 +1213,7 @@ function DashboardArea() {
 								: "POLÍTICO"),
 					uf: initialUf || selectedUf || undefined,
 					urlFoto: initialFoto,
+					urlFotoFallback: initialFotoFallback,
 					isSearching: true,
 					currentStatus: "Iniciando conexão...",
 				},
