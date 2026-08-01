@@ -467,9 +467,9 @@ function DashboardArea() {
 									nds.map((n) =>
 										n.data?.isSearching
 											? {
-													...n,
-													data: { ...n.data, currentStatus: event.payload.msg },
-												}
+												...n,
+												data: { ...n.data, currentStatus: event.payload.msg },
+											}
 											: n,
 									),
 								);
@@ -576,7 +576,7 @@ function DashboardArea() {
 									});
 								}
 							}
-						} catch (_e) {}
+						} catch (_e) { }
 					}
 				}
 			}
@@ -589,13 +589,13 @@ function DashboardArea() {
 					nds.map((n) =>
 						n.id === origemId
 							? {
-									...n,
-									data: {
-										...n.data,
-										isSearching: false,
-										currentStatus: undefined,
-									},
-								}
+								...n,
+								data: {
+									...n.data,
+									isSearching: false,
+									currentStatus: undefined,
+								},
+							}
 							: n,
 					),
 				);
@@ -691,13 +691,13 @@ function DashboardArea() {
 										nds.map((n) =>
 											n.id === orgaoNodeId
 												? {
-														...n,
-														data: {
-															...n.data,
-															isSearching: false,
-															hasDeepDive: false,
-														},
-													}
+													...n,
+													data: {
+														...n.data,
+														isSearching: false,
+														hasDeepDive: false,
+													},
+												}
 												: n,
 										),
 									);
@@ -750,7 +750,7 @@ function DashboardArea() {
 									});
 								}
 							}
-						} catch (_e) {}
+						} catch (_e) { }
 					}
 				}
 			}
@@ -763,13 +763,13 @@ function DashboardArea() {
 					nds.map((n) =>
 						n.id === orgaoNodeId
 							? {
-									...n,
-									data: {
-										...n.data,
-										isSearching: false,
-										currentStatus: undefined,
-									},
-								}
+								...n,
+								data: {
+									...n.data,
+									isSearching: false,
+									currentStatus: undefined,
+								},
+							}
 							: n,
 					),
 				);
@@ -862,13 +862,13 @@ function DashboardArea() {
 										nds.map((n) =>
 											n.id === origemId
 												? {
-														...n,
-														data: {
-															...n.data,
-															isSearching: false,
-															currentStatus: undefined,
-														},
-													}
+													...n,
+													data: {
+														...n.data,
+														isSearching: false,
+														currentStatus: undefined,
+													},
+												}
 												: n,
 										),
 									);
@@ -951,7 +951,7 @@ function DashboardArea() {
 									});
 								}
 							}
-						} catch (_e) {}
+						} catch (_e) { }
 					}
 				}
 			}
@@ -964,13 +964,13 @@ function DashboardArea() {
 					nds.map((n) =>
 						n.id === origemId
 							? {
-									...n,
-									data: {
-										...n.data,
-										isSearching: false,
-										currentStatus: undefined,
-									},
-								}
+								...n,
+								data: {
+									...n.data,
+									isSearching: false,
+									currentStatus: undefined,
+								},
+							}
 							: n,
 					),
 				);
@@ -1096,9 +1096,9 @@ function DashboardArea() {
 				nds.map((n) =>
 					n.id === origemId
 						? {
-								...n,
-								data: { ...n.data, isSearching: false, currentStatus: null },
-							}
+							...n,
+							data: { ...n.data, isSearching: false, currentStatus: null },
+						}
 						: n,
 				),
 			);
@@ -1279,9 +1279,9 @@ function DashboardArea() {
 									nds.map((n) =>
 										n.data?.isSearching
 											? {
-													...n,
-													data: { ...n.data, currentStatus: event.payload.msg },
-												}
+												...n,
+												data: { ...n.data, currentStatus: event.payload.msg },
+											}
 											: n,
 									),
 								);
@@ -1329,7 +1329,7 @@ function DashboardArea() {
 								setStatusMessage(
 									event.payload?.msg
 										? `> ${event.payload.msg}`
-										: "> [PROCESSO FINALIZADO] Evidências extraídas para a Sandbox.",
+										: "> [PROCESSO FINALIZADO] Evidências extraídas para a Fila de Auditoria.",
 								);
 								setIsLoading(false);
 
@@ -1342,13 +1342,13 @@ function DashboardArea() {
 										nds.map((n) =>
 											n.type === "PESSOA"
 												? {
-														...n,
-														data: {
-															...n.data,
-															isSearching: false,
-															currentStatus: undefined,
-														},
-													}
+													...n,
+													data: {
+														...n.data,
+														isSearching: false,
+														currentStatus: undefined,
+													},
+												}
 												: n,
 										),
 									);
@@ -1574,13 +1574,13 @@ function DashboardArea() {
 					nds.map((n) =>
 						n.data?.isSearching
 							? {
-									...n,
-									data: {
-										...n.data,
-										isSearching: false,
-										currentStatus: undefined,
-									},
-								}
+								...n,
+								data: {
+									...n.data,
+									isSearching: false,
+									currentStatus: undefined,
+								},
+							}
 							: n,
 					),
 				);
@@ -1873,904 +1873,683 @@ function DashboardArea() {
 	return (
 		<div className="h-screen w-screen flex flex-col bg-black text-green-500 font-mono overflow-hidden">
 			{/* SCRIPT SINCRONO (BLOCKING) PARA EVITAR FLASH DO SITE ANTES DA ANIMAÇÃO GSAP */}
-			<script dangerouslySetInnerHTML={{ __html: `
+			<script dangerouslySetInnerHTML={{
+				__html: `
 				if (!sessionStorage.getItem("crt_played")) {
 					document.documentElement.classList.add("crt-pending");
 				}
 			`}} />
-			
+
 			<CrtTurnOn />
 			<div className="site-content flex flex-col flex-1 overflow-hidden origin-center h-full w-full opacity-100 in-[.crt-pending]:opacity-0 in-[.crt-pending]:scale-y-0">
-			{/* HEADER — só desktop, ou mobile no estado de busca inicial (sem dados/loading) */}
-			<SiteHeader
-				isMobile={isMobile}
-				isLoading={isLoading}
-				showClearButton={nodes.length > 0}
-				onClearAll={clearAll}
-				searchTerm={searchTerm}
-				setSearchTerm={setSearchTerm}
-				selectedUf={selectedUf}
-				setSelectedUf={setSelectedUf}
-				onSearch={handleSearch}
-				onCancel={() => abortController?.abort()}
-			/>
+				{/* HEADER — só desktop, ou mobile no estado de busca inicial (sem dados/loading) */}
+				<SiteHeader
+					isMobile={isMobile}
+					isLoading={isLoading}
+					showClearButton={nodes.length > 0}
+					onClearAll={clearAll}
+					searchTerm={searchTerm}
+					setSearchTerm={setSearchTerm}
+					selectedUf={selectedUf}
+					setSelectedUf={setSelectedUf}
+					onSearch={handleSearch}
+					onCancel={() => abortController?.abort()}
+				/>
 
-			<div className="flex flex-1 overflow-hidden relative">
-				{nodes.length > 0 && !isMobile && (
-					<aside className="w-80 bg-[#0a0f0a] border-r border-green-500/50 shrink-0 hidden md:flex flex-col pt-16 z-20 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
-						<div className="px-4 py-3 border-b border-green-900 flex justify-between items-center bg-black sticky top-0 shadow-md">
-							<h2 className="text-xs font-bold uppercase tracking-widest text-green-600 flex items-center gap-2">
-								&gt; IA_Sandbox_Queue
-							</h2>
-							<Badge
-								variant="outline"
-								className="bg-black text-green-600 border-green-900 rounded-none text-xs"
-							>
-								{evidencias.length} Itens
-							</Badge>
-						</div>
-
-						<div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-							{evidencias.length === 0 && !isLoading && (
-								<div className="text-center text-green-900 mt-10 text-xs italic">
-									Extrator/IA inativo.
-								</div>
-							)}
-
-							{evidenciasOrdenadas.map((item, idx) => {
-								const styles = getSidebarClasses(item);
-								return (
-									<div
-										key={item.id || idx}
-										draggable={true}
-										onDragStart={(e) => onDragStart(e, item)}
-										className={`relative p-3 border-l-2 cursor-grab active:cursor-grabbing hover:bg-opacity-[0.15] transition-colors overflow-hidden ${styles.cardBody}`}
-									>
-										{styles.scoreBadge}
-										<div className="flex justify-between items-start mb-1">
-											<span className="text-xs font-bold tracking-widest uppercase opacity-70">
-												[{item.type}]
-											</span>
-										</div>
-										<h3
-											className="text-xs font-bold truncate tracking-wide pr-8"
-											title={item.data.label}
-										>
-											{item.data.label || "Unknown"}
-										</h3>
-										{(item.data.valor || item.data.valor === 0) && (
-											<div className="mt-1">
-												<p className="text-sm font-bold opacity-90">
-													R${" "}
-													{Number(item.data.valor).toLocaleString("pt-BR", {
-														minimumFractionDigits: 2,
-													})}
-												</p>
-												<p className="text-xs mt-1 opacity-60 uppercase font-mono tracking-wider">
-													{formatDateOnly(item.data.dataDocumento)}
-												</p>
-											</div>
-										)}
-										{item.data.motivo_ia && (
-											<p className="text-xs mt-2 opacity-80 leading-tight line-clamp-2 border-t border-inherit/30 pt-1">
-												&gt; {item.data.motivo_ia}
-											</p>
-										)}
-									</div>
-								);
-							})}
-						</div>
-					</aside>
-				)}
-
-				<main className="flex-1 relative w-full h-full bg-[#050505]">
-					{/* DESKTOP e MOBILE: Estado vazio agora substituído pelo Dashboard */}
-					{nodes.length === 0 &&
-						!isLoading &&
-						!errorMsg &&
-						(!candidatosHomonimos || candidatosHomonimos.length === 0) && (
-							<HomeDashboard />
-						)}
-
-					{/* ERRO NO CANVAS */}
-					{errorMsg && !isLoading && (
-						<div className="absolute inset-0 flex items-center justify-center z-50 bg-black backdrop-blur-[2px] pointer-events-none">
-							<div className="border border-red-500/50 bg-black p-6 max-w-md text-center pointer-events-auto shadow-[0_0_40px_rgba(239,68,68,0.25)]">
-								<ShieldAlert className="w-8 h-8 text-red-500 mx-auto mb-3" />
-								<p className="text-sm text-red-500 mb-2 uppercase tracking-widest font-bold">
-									FALHA DE EXTRAÇÃO (OSINT)
-								</p>
-								<p className="text-xs text-red-500/80 leading-relaxed font-mono">
-									&gt; {errorMsg}
-								</p>
-								<button
-									onClick={() => setErrorMsg("")}
-									className="mt-6 w-full text-xs bg-red-950/20 text-red-500 hover:bg-red-900/50 hover:text-red-300 uppercase tracking-widest py-3 px-4 border border-red-900 transition-colors"
-								>
-									[ RECONHECER E FECHAR ]
-								</button>
-							</div>
-						</div>
-					)}
-
-					{/* ALERTAS DE API FORA DO AR */}
-					{apiWarnings.length > 0 && (
-						<div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 flex flex-col gap-2 w-full max-w-lg px-4">
-							{apiWarnings.map((w, i) => (
-								<div
-									key={w.fonte}
-									className="border border-yellow-500/60 bg-black backdrop-blur-sm p-4 shadow-[0_0_20px_rgba(234,179,8,0.15)] animate-[customFadeIn_0.3s_ease-out]"
-								>
-									<div className="flex items-start justify-between gap-3">
-										<div className="flex items-start gap-2">
-											<AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
-											<div>
-												<p className="text-xs text-yellow-500 uppercase tracking-widest font-bold mb-1">
-													{w.fonte} — FORA DO AR
-												</p>
-												<p className="text-xs text-yellow-400/80 font-mono leading-relaxed">
-													&gt; {w.mensagem}
-												</p>
-											</div>
-										</div>
-										<button
-											onClick={() =>
-												setApiWarnings((prev) =>
-													prev.filter((_, idx) => idx !== i),
-												)
-											}
-											className="text-yellow-500/60 hover:text-yellow-400 transition-colors shrink-0"
-										>
-											<X className="w-3.5 h-3.5" />
-										</button>
-									</div>
-								</div>
-							))}
-						</div>
-					)}
-
-					{/* PAINEL DE DESAMBIGUAÇÃO DE HOMÔNIMOS */}
-					{candidatosHomonimos && candidatosHomonimos.length > 0 && (
-						<div className="absolute inset-0 flex items-center justify-center z-30 bg-black backdrop-blur-sm">
-							<div className="border border-green-500 bg-black p-6 max-w-lg w-full mx-4 shadow-[0_0_30px_rgba(34,197,94,0.3)]">
-								<div className="flex items-center gap-2 mb-4 pb-3 border-b border-green-500">
-									<ShieldAlert className="text-yellow-500 w-5 h-5" />
-									<h2 className="text-sm font-bold tracking-widest uppercase text-yellow-500">
-										HOMÔNIMOS DETECTADOS
-									</h2>
-								</div>
-								<p className="text-xs text-green-600 mb-4">
-									&gt; A busca retornou {candidatosHomonimos.length} perfis.
-									Selecione o alvo correto para iniciar a investigação:
-								</p>
-								<div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
-									{candidatosHomonimos.map((c: any, i: number) => (
-										<button
-											key={`${c.ref}-${i}`}
-											onClick={() => {
-												setCandidatosHomonimos(null);
-												setSearchTerm(c.nome); // Atualiza o input com o nome completo
-												handleSearch(c.ref, c.nome);
-											}}
-											className="w-full text-left p-3 border border-green-900 hover:border-green-500 hover:bg-green-950/30 transition-all duration-200 group"
-										>
-											<div className="flex items-center justify-between">
-												<div className="flex items-center gap-2">
-													<User className="w-4 h-4 text-green-500 shrink-0" />
-													<span className="text-sm font-bold text-green-400 uppercase tracking-wider">
-														{c.nome}
-													</span>
-												</div>
-												<Badge
-													variant="outline"
-													className={`rounded-none text-xs uppercase ${
-														c.casa === "CAMARA"
-															? "border-green-600 text-green-500"
-															: c.casa === "SENADO"
-																? "border-blue-600 text-blue-400"
-																: "border-yellow-600 text-yellow-500"
-													}`}
-												>
-													{c.cargo}
-												</Badge>
-											</div>
-											<p className="text-xs text-green-600 mt-1 font-mono">
-												&gt; UF: {c.uf} | ID: {c.id} | REF: {c.ref}
-											</p>
-										</button>
-									))}
-								</div>
-								<button
-									onClick={() => setCandidatosHomonimos(null)}
-									className="mt-4 w-full text-center text-xs text-green-700 hover:text-green-500 uppercase tracking-widest py-2 border border-green-900 hover:border-green-500 transition-colors"
-								>
-									[ CANCELAR ]
-								</button>
-							</div>
-						</div>
-					)}
-
-					<div
-						className="w-full h-full relative"
-						onDragOver={onDragOver}
-						onDrop={onDrop}
-					>
-						{/* MOBILE: MobileView é dono de tudo (loading + resultados + export) */}
-						{mobileActive ? (
-							<MobileView
-								nodes={nodes}
-								edges={edges}
-								evidencias={evidenciasOrdenadas}
-								isLoading={isLoading}
-								displayedStatus={displayedStatus}
-								isTyping={isTyping}
-								handlePivotCNPJ={handlePivotCNPJ}
-								handleSocioSearch={handleSocioSearch}
-								handleInvestigarContratos={handleInvestigarContratos}
-								onNovaBusca={clearAll}
-								onExportDossie={handleExportDossie}
-								isExporting={isExporting}
-								selectedUf={selectedUf}
-								setSelectedUf={setSelectedUf}
-								alcadas={ALCADAS_BR}
-								onSearch={handleSearch}
-								searchTerm={searchTerm}
-								setSearchTerm={setSearchTerm}
-								statusMessage={statusMessage}
-							/>
-						) : !isMobile ? (
-							<ReactFlow
-								nodes={nodes}
-								edges={edges}
-								onNodesChange={onNodesChange}
-								onEdgesChange={onEdgesChange}
-								onConnect={onConnect}
-								onNodeClick={(_, node) => {
-									if (node.type === "RESUMO_GASTOS") {
-										handleOpenDashboard((node.data as any).nomeVereador || "");
-										return;
-									}
-									if (
-										[
-											"PESSOA",
-											"DESPESA",
-											"CONTRATO",
-											"EMENDA",
-											"EMENDA_RESUMO",
-											"EMPRESA",
-											"SOCIO",
-										].includes(node.type as string)
-									) {
-										setSelectedNode(node);
-									}
-								}}
-								nodeTypes={nodeTypes}
-								edgeTypes={edgeTypes}
-								defaultEdgeOptions={{
-									style: { strokeWidth: 2 },
-									labelBgStyle: {
-										fill: "#0f172a",
-										fillOpacity: 1,
-										stroke: "#334155",
-										strokeWidth: 1,
-										rx: 6,
-										ry: 6,
-									},
-									labelStyle: {
-										fill: "#f8fafc",
-										fontWeight: 600,
-										fontSize: 11,
-									},
-									labelBgPadding: [8, 4],
-									labelShowBg: true,
-								}}
-								fitView
-								minZoom={0.2}
-								maxZoom={2}
-								colorMode="dark"
-								className="bg-transparent"
-							>
-								<Background
-									color="#002200"
-									variant={BackgroundVariant.Dots}
-									gap={30}
-									size={1.5}
-								/>
-								<Controls
-									className="bg-black! border-green-500! fill-green-500! [&>button]:border-b-green-500! hover:[&>button]:bg-green-900! rounded-none!"
-									showInteractive={false}
-								/>
-								<MiniMap
-									className="bg-black! border-green-500! rounded-none! overflow-hidden"
-									maskColor="rgba(0, 0, 0, 0.8)"
-									nodeColor={(node) => {
-										if (node.type === "PESSOA") return "#22c55e";
-										if (node.type === "DESPESA") {
-											const s = Number(node.data?.score_letalidade || 50);
-											if (s >= 85) return "#ef4444";
-											if (s >= 60) return "#eab308";
-											return "#64748b";
-										}
-										if (node.type === "CONTRATO") return "#eab308";
-										if (node.type === "EMENDA") return "#14b8a6";
-										if (node.type === "EMENDA_RESUMO") return "#0d9488";
-										if (node.type === "RESUMO_GASTOS") return "#6366f1";
-										return "#000000";
-									}}
-								/>
-							</ReactFlow>
-						) : (
-							<div
-								className="absolute inset-0 w-full h-full bg-[#050505] flex items-center justify-center flex-col px-4"
-								style={{
-									backgroundImage:
-										"radial-gradient(circle, #002200 1px, transparent 1px)",
-									backgroundSize: "24px 24px",
-								}}
-							>
-								<p className="text-green-500 font-mono text-sm tracking-widest uppercase relative z-10 text-center max-w-lg">
-									{displayedStatus}
-									<span className="animate-pulse">_</span>
-								</p>
-							</div>
-						)}
-						{/* BOTÃO FLUTUANTE: EXPORTAR DOSSIÊ (apenas desktop) */}
-						{!isMobile && nodes.length > 0 && !isLoading && (
-							<Button
-								onClick={handleExportDossie}
-								disabled={isExporting}
-								className="absolute bottom-6 left-10 z-50 bg-green-600 hover:bg-green-500 text-black font-bold uppercase tracking-widest rounded-none border border-green-400 px-6 py-3 shadow-[0_0_20px_rgba(34,197,94,0.3)] font-mono text-xs"
-							>
-								{isExporting ? (
-									<>
-										<Loader2 className="w-4 h-4 mr-2 animate-spin" /> GERANDO
-										DOSSIÊ...
-									</>
-								) : (
-									<>
-										<Download className="w-4 h-4 mr-2" /> EXPORTAR DOSSIÊ
-									</>
-								)}
-							</Button>
-						)}
-					</div>
-				</main>
-			</div>
-
-			<Sheet
-				open={!!selectedNode}
-				onOpenChange={(open: boolean) => !open && setSelectedNode(null)}
-			>
-				<SheetContent className="bg-black border-l-2 border-green-500 font-mono text-green-500 overflow-y-auto w-100 sm:w-135 pt-12 pr-6">
-					{selectedNode && selectedNode.type === "PESSOA" && (
-						<>
-							<SheetHeader className="pb-4 mb-4 border-b border-green-900 border-dashed relative">
-								<VisuallyHidden>
-									<SheetTitle>
-										Detalhes do Alvo {selectedNode.data.label}
-									</SheetTitle>
-									<SheetDescription>
-										Informações detalhadas sobre o político selecionado.
-									</SheetDescription>
-								</VisuallyHidden>
+				<div className="flex flex-1 overflow-hidden relative">
+					{nodes.length > 0 && !isMobile && (
+						<aside className="w-80 bg-[#0a0f0a] border-r border-green-500/50 shrink-0 hidden md:flex flex-col pt-16 z-20 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+							<div className="px-4 py-3 border-b border-green-900 flex justify-between items-center bg-black sticky top-0 shadow-md">
+								<h2 className="text-xs font-bold uppercase tracking-widest text-green-600 flex items-center gap-2">
+									&gt; DESPESAS
+								</h2>
 								<Badge
 									variant="outline"
-									className="w-fit mb-2 text-xs uppercase rounded-none border bg-green-900/30 text-green-500 border-green-500 pr-4"
+									className="bg-black text-green-600 border-green-900 rounded-none text-xs"
 								>
-									{selectedNode.data.cargo} • {selectedNode.data.uf}
+									{evidencias.length} Itens
 								</Badge>
-								<div className="text-lg font-bold uppercase tracking-wider text-green-500">
-									{selectedNode.data.label}
-								</div>
-								{selectedNode.data.cpf &&
-								selectedNode.data.cpf !== "000.000.000-00" &&
-								selectedNode.data.cpf !== "00000000000" ? (
-									<div className="text-xs text-green-400/70 font-mono mt-1 mb-1 border-l-2 border-green-900/50 pl-2">
-										CPF: {selectedNode.data.cpf}
-									</div>
-								) : (
-									<div className="text-xs text-green-400/50 mt-1 mb-1 italic border-l-2 border-green-900/30 pl-2">
-										CPF não disponibilizado publicamente pela casa legislativa.
+							</div>
+
+							<div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+								{evidencias.length === 0 && !isLoading && (
+									<div className="text-center text-green-900 mt-10 text-xs italic">
+										Extrator/IA inativo.
 									</div>
 								)}
-							</SheetHeader>
 
-							<div className="space-y-6">
-								{/* NOVO: Exibição do Patrimônio Declarado (TSE) */}
-								{selectedNode.data.patrimonio !== undefined && (
-									<div>
-										<h3 className="text-xs uppercase font-bold text-yellow-600 mb-2 border-b border-yellow-900/50 pb-1 flex items-center gap-2">
-											<DollarSign className="w-4 h-4" /> PATRIMÔNIO DECLARADO
-											(TSE)
-										</h3>
-										<div className="p-3 border bg-yellow-950/10 border-yellow-900/30 text-yellow-500 text-center">
-											{selectedNode.data.patrimonio > 0 ? (
-												<p className="text-2xl font-bold tracking-widest">
-													R${" "}
-													{selectedNode.data.patrimonio.toLocaleString(
-														"pt-BR",
-														{ minimumFractionDigits: 2 },
-													)}
-												</p>
-											) : (
-												<p className="text-xs font-bold uppercase tracking-wider text-yellow-700/70">
-													Não Encontrado / R$ 0,00
+								{evidenciasOrdenadas.map((item, idx) => {
+									const styles = getSidebarClasses(item);
+									return (
+										<div
+											key={item.id || idx}
+											draggable={true}
+											onDragStart={(e) => onDragStart(e, item)}
+											className={`relative p-3 border-l-2 cursor-grab active:cursor-grabbing hover:bg-opacity-[0.15] transition-colors overflow-hidden ${styles.cardBody}`}
+										>
+											{styles.scoreBadge}
+											<div className="flex justify-between items-start mb-1">
+												<span className="text-xs font-bold tracking-widest uppercase opacity-70">
+													[{item.type}]
+												</span>
+											</div>
+											<h3
+												className="text-xs font-bold truncate tracking-wide pr-8"
+												title={item.data.label}
+											>
+												{item.data.label || "Unknown"}
+											</h3>
+											{(item.data.valor || item.data.valor === 0) && (
+												<div className="mt-1">
+													<p className="text-sm font-bold opacity-90">
+														R${" "}
+														{Number(item.data.valor).toLocaleString("pt-BR", {
+															minimumFractionDigits: 2,
+														})}
+													</p>
+													<p className="text-xs mt-1 opacity-60 uppercase font-mono tracking-wider">
+														{formatDateOnly(item.data.dataDocumento)}
+													</p>
+												</div>
+											)}
+											{item.data.motivo_ia && (
+												<p className="text-xs mt-2 opacity-80 leading-tight line-clamp-2 border-t border-inherit/30 pt-1">
+													&gt; {item.data.motivo_ia}
 												</p>
 											)}
 										</div>
-									</div>
-								)}
+									);
+								})}
+							</div>
+						</aside>
+					)}
 
-								{/* NOVO: Exibição da Ficha Suja / Alertas da CGU */}
-								{selectedNode.data.alertasPessoais !== undefined && (
-									<div>
-										<h3 className="text-xs uppercase font-bold text-red-600 mb-2 border-b border-red-900/50 pb-1 flex items-center gap-2">
-											<ShieldAlert className="w-4 h-4" /> CADASTRO DE INIDÔNEOS
-											(CGU/TSE)
-										</h3>
+					<main className="flex-1 relative w-full h-full bg-[#050505]">
+						{/* DESKTOP e MOBILE: Estado vazio agora substituído pelo Dashboard */}
+						{nodes.length === 0 &&
+							!isLoading &&
+							!errorMsg &&
+							(!candidatosHomonimos || candidatosHomonimos.length === 0) && (
+								<HomeDashboard />
+							)}
+
+						{/* ERRO NO CANVAS */}
+						{errorMsg && !isLoading && (
+							<div className="absolute inset-0 flex items-center justify-center z-50 bg-black backdrop-blur-[2px] pointer-events-none">
+								<div className="border border-red-500/50 bg-black p-6 max-w-md text-center pointer-events-auto shadow-[0_0_40px_rgba(239,68,68,0.25)]">
+									<ShieldAlert className="w-8 h-8 text-red-500 mx-auto mb-3" />
+									<p className="text-sm text-red-500 mb-2 uppercase tracking-widest font-bold">
+										FALHA DE EXTRAÇÃO (OSINT)
+									</p>
+									<p className="text-xs text-red-500/80 leading-relaxed font-mono">
+										&gt; {errorMsg}
+									</p>
+									<button
+										onClick={() => setErrorMsg("")}
+										className="mt-6 w-full text-xs bg-red-950/20 text-red-500 hover:bg-red-900/50 hover:text-red-300 uppercase tracking-widest py-3 px-4 border border-red-900 transition-colors"
+									>
+										[ RECONHECER E FECHAR ]
+									</button>
+								</div>
+							</div>
+						)}
+
+						{/* ALERTAS DE API FORA DO AR */}
+						{apiWarnings.length > 0 && (
+							<div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 flex flex-col gap-2 w-full max-w-lg px-4">
+								{apiWarnings.map((w, i) => (
+									<div
+										key={w.fonte}
+										className="border border-yellow-500/60 bg-black backdrop-blur-sm p-4 shadow-[0_0_20px_rgba(234,179,8,0.15)] animate-[customFadeIn_0.3s_ease-out]"
+									>
+										<div className="flex items-start justify-between gap-3">
+											<div className="flex items-start gap-2">
+												<AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
+												<div>
+													<p className="text-xs text-yellow-500 uppercase tracking-widest font-bold mb-1">
+														{w.fonte} — FORA DO AR
+													</p>
+													<p className="text-xs text-yellow-400/80 font-mono leading-relaxed">
+														&gt; {w.mensagem}
+													</p>
+												</div>
+											</div>
+											<button
+												onClick={() =>
+													setApiWarnings((prev) =>
+														prev.filter((_, idx) => idx !== i),
+													)
+												}
+												className="text-yellow-500/60 hover:text-yellow-400 transition-colors shrink-0"
+											>
+												<X className="w-3.5 h-3.5" />
+											</button>
+										</div>
+									</div>
+								))}
+							</div>
+						)}
+
+						{/* PAINEL DE DESAMBIGUAÇÃO DE HOMÔNIMOS */}
+						{candidatosHomonimos && candidatosHomonimos.length > 0 && (
+							<div className="absolute inset-0 flex items-center justify-center z-30 bg-black backdrop-blur-sm">
+								<div className="border border-green-500 bg-black p-6 max-w-lg w-full mx-4 shadow-[0_0_30px_rgba(34,197,94,0.3)]">
+									<div className="flex items-center gap-2 mb-4 pb-3 border-b border-green-500">
+										<ShieldAlert className="text-yellow-500 w-5 h-5" />
+										<h2 className="text-sm font-bold tracking-widest uppercase text-yellow-500">
+											HOMÔNIMOS DETECTADOS
+										</h2>
+									</div>
+									<p className="text-xs text-green-600 mb-4">
+										&gt; A busca retornou {candidatosHomonimos.length} perfis.
+										Selecione o alvo correto para iniciar a investigação:
+									</p>
+									<div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
+										{candidatosHomonimos.map((c: any, i: number) => (
+											<button
+												key={`${c.ref}-${i}`}
+												onClick={() => {
+													setCandidatosHomonimos(null);
+													setSearchTerm(c.nome); // Atualiza o input com o nome completo
+													handleSearch(c.ref, c.nome);
+												}}
+												className="w-full text-left p-3 border border-green-900 hover:border-green-500 hover:bg-green-950/30 transition-all duration-200 group"
+											>
+												<div className="flex items-center justify-between">
+													<div className="flex items-center gap-2">
+														<User className="w-4 h-4 text-green-500 shrink-0" />
+														<span className="text-sm font-bold text-green-400 uppercase tracking-wider">
+															{c.nome}
+														</span>
+													</div>
+													<Badge
+														variant="outline"
+														className={`rounded-none text-xs uppercase ${c.casa === "CAMARA"
+																? "border-green-600 text-green-500"
+																: c.casa === "SENADO"
+																	? "border-blue-600 text-blue-400"
+																	: "border-yellow-600 text-yellow-500"
+															}`}
+													>
+														{c.cargo}
+													</Badge>
+												</div>
+												<p className="text-xs text-green-600 mt-1 font-mono">
+													&gt; UF: {c.uf} | ID: {c.id} | REF: {c.ref}
+												</p>
+											</button>
+										))}
+									</div>
+									<button
+										onClick={() => setCandidatosHomonimos(null)}
+										className="mt-4 w-full text-center text-xs text-green-700 hover:text-green-500 uppercase tracking-widest py-2 border border-green-900 hover:border-green-500 transition-colors"
+									>
+										[ CANCELAR ]
+									</button>
+								</div>
+							</div>
+						)}
+
+						<div
+							className="w-full h-full relative"
+							onDragOver={onDragOver}
+							onDrop={onDrop}
+						>
+							{/* MOBILE: MobileView é dono de tudo (loading + resultados + export) */}
+							{mobileActive ? (
+								<MobileView
+									nodes={nodes}
+									edges={edges}
+									evidencias={evidenciasOrdenadas}
+									isLoading={isLoading}
+									displayedStatus={displayedStatus}
+									isTyping={isTyping}
+									handlePivotCNPJ={handlePivotCNPJ}
+									handleSocioSearch={handleSocioSearch}
+									handleInvestigarContratos={handleInvestigarContratos}
+									onNovaBusca={clearAll}
+									onExportDossie={handleExportDossie}
+									isExporting={isExporting}
+									selectedUf={selectedUf}
+									setSelectedUf={setSelectedUf}
+									alcadas={ALCADAS_BR}
+									onSearch={handleSearch}
+									searchTerm={searchTerm}
+									setSearchTerm={setSearchTerm}
+									statusMessage={statusMessage}
+								/>
+							) : !isMobile ? (
+								<ReactFlow
+									nodes={nodes}
+									edges={edges}
+									onNodesChange={onNodesChange}
+									onEdgesChange={onEdgesChange}
+									onConnect={onConnect}
+									onNodeClick={(_, node) => {
+										if (node.type === "RESUMO_GASTOS") {
+											handleOpenDashboard((node.data as any).nomeVereador || "");
+											return;
+										}
+										if (
+											[
+												"PESSOA",
+												"DESPESA",
+												"CONTRATO",
+												"EMENDA",
+												"EMENDA_RESUMO",
+												"EMPRESA",
+												"SOCIO",
+											].includes(node.type as string)
+										) {
+											setSelectedNode(node);
+										}
+									}}
+									nodeTypes={nodeTypes}
+									edgeTypes={edgeTypes}
+									defaultEdgeOptions={{
+										style: { strokeWidth: 2 },
+										labelBgStyle: {
+											fill: "#0f172a",
+											fillOpacity: 1,
+											stroke: "#334155",
+											strokeWidth: 1,
+											rx: 6,
+											ry: 6,
+										},
+										labelStyle: {
+											fill: "#f8fafc",
+											fontWeight: 600,
+											fontSize: 11,
+										},
+										labelBgPadding: [8, 4],
+										labelShowBg: true,
+									}}
+									fitView
+									minZoom={0.2}
+									maxZoom={2}
+									colorMode="dark"
+									className="bg-transparent"
+								>
+									<Background
+										color="#002200"
+										variant={BackgroundVariant.Dots}
+										gap={30}
+										size={1.5}
+									/>
+									<Controls
+										className="bg-black! border-green-500! fill-green-500! [&>button]:border-b-green-500! hover:[&>button]:bg-green-900! rounded-none!"
+										showInteractive={false}
+									/>
+									<MiniMap
+										className="bg-black! border-green-500! rounded-none! overflow-hidden"
+										maskColor="rgba(0, 0, 0, 0.8)"
+										nodeColor={(node) => {
+											if (node.type === "PESSOA") return "#22c55e";
+											if (node.type === "DESPESA") {
+												const s = Number(node.data?.score_letalidade || 50);
+												if (s >= 85) return "#ef4444";
+												if (s >= 60) return "#eab308";
+												return "#64748b";
+											}
+											if (node.type === "CONTRATO") return "#eab308";
+											if (node.type === "EMENDA") return "#14b8a6";
+											if (node.type === "EMENDA_RESUMO") return "#0d9488";
+											if (node.type === "RESUMO_GASTOS") return "#6366f1";
+											return "#000000";
+										}}
+									/>
+								</ReactFlow>
+							) : (
+								<div
+									className="absolute inset-0 w-full h-full bg-[#050505] flex items-center justify-center flex-col px-4"
+									style={{
+										backgroundImage:
+											"radial-gradient(circle, #002200 1px, transparent 1px)",
+										backgroundSize: "24px 24px",
+									}}
+								>
+									<p className="text-green-500 font-mono text-sm tracking-widest uppercase relative z-10 text-center max-w-lg">
+										{displayedStatus}
+										<span className="animate-pulse">_</span>
+									</p>
+								</div>
+							)}
+							{/* BOTÃO FLUTUANTE: EXPORTAR DOSSIÊ (apenas desktop) */}
+							{!isMobile && nodes.length > 0 && !isLoading && (
+								<Button
+									onClick={handleExportDossie}
+									disabled={isExporting}
+									className="absolute bottom-6 left-10 z-50 bg-green-600 hover:bg-green-500 text-black font-bold uppercase tracking-widest rounded-none border border-green-400 px-6 py-3 shadow-[0_0_20px_rgba(34,197,94,0.3)] font-mono text-xs"
+								>
+									{isExporting ? (
+										<>
+											<Loader2 className="w-4 h-4 mr-2 animate-spin" /> GERANDO
+											DOSSIÊ...
+										</>
+									) : (
+										<>
+											<Download className="w-4 h-4 mr-2" /> EXPORTAR DOSSIÊ
+										</>
+									)}
+								</Button>
+							)}
+						</div>
+					</main>
+				</div>
+
+				<Sheet
+					open={!!selectedNode}
+					onOpenChange={(open: boolean) => !open && setSelectedNode(null)}
+				>
+					<SheetContent className="bg-black border-l-2 border-green-500 font-mono text-green-500 overflow-y-auto w-100 sm:w-135 pt-12 pr-6">
+						{selectedNode && selectedNode.type === "PESSOA" && (
+							<>
+								<SheetHeader className="pb-4 mb-4 border-b border-green-900 border-dashed relative">
+									<VisuallyHidden>
+										<SheetTitle>
+											Detalhes do Alvo {selectedNode.data.label}
+										</SheetTitle>
+										<SheetDescription>
+											Informações detalhadas sobre o político selecionado.
+										</SheetDescription>
+									</VisuallyHidden>
+									<Badge
+										variant="outline"
+										className="w-fit mb-2 text-xs uppercase rounded-none border bg-green-900/30 text-green-500 border-green-500 pr-4"
+									>
+										{selectedNode.data.cargo} • {selectedNode.data.uf}
+									</Badge>
+									<div className="text-lg font-bold uppercase tracking-wider text-green-500">
+										{selectedNode.data.label}
+									</div>
+									{selectedNode.data.cpf &&
+										selectedNode.data.cpf !== "000.000.000-00" &&
+										selectedNode.data.cpf !== "00000000000" ? (
+										<div className="text-xs text-green-400/70 font-mono mt-1 mb-1 border-l-2 border-green-900/50 pl-2">
+											CPF: {selectedNode.data.cpf}
+										</div>
+									) : (
+										<div className="text-xs text-green-400/50 mt-1 mb-1 italic border-l-2 border-green-900/30 pl-2">
+											CPF não disponibilizado publicamente pela casa legislativa.
+										</div>
+									)}
+								</SheetHeader>
+
+								<div className="space-y-6">
+									{/* NOVO: Exibição do Patrimônio Declarado (TSE) */}
+									{selectedNode.data.patrimonio !== undefined && (
+										<div>
+											<h3 className="text-xs uppercase font-bold text-yellow-600 mb-2 border-b border-yellow-900/50 pb-1 flex items-center gap-2">
+												<DollarSign className="w-4 h-4" /> PATRIMÔNIO DECLARADO
+												(TSE)
+											</h3>
+											<div className="p-3 border bg-yellow-950/10 border-yellow-900/30 text-yellow-500 text-center">
+												{selectedNode.data.patrimonio > 0 ? (
+													<p className="text-2xl font-bold tracking-widest">
+														R${" "}
+														{selectedNode.data.patrimonio.toLocaleString(
+															"pt-BR",
+															{ minimumFractionDigits: 2 },
+														)}
+													</p>
+												) : (
+													<p className="text-xs font-bold uppercase tracking-wider text-yellow-700/70">
+														Não Encontrado / R$ 0,00
+													</p>
+												)}
+											</div>
+										</div>
+									)}
+
+									{/* NOVO: Exibição da Ficha Suja / Alertas da CGU */}
+									{selectedNode.data.alertasPessoais !== undefined && (
+										<div>
+											<h3 className="text-xs uppercase font-bold text-red-600 mb-2 border-b border-red-900/50 pb-1 flex items-center gap-2">
+												<ShieldAlert className="w-4 h-4" /> CADASTRO DE INIDÔNEOS
+												(CGU/TSE)
+											</h3>
+											<div
+												className={`p-3 border ${selectedNode.data.alertasPessoais.length > 0 ? "bg-red-950/10 border-red-900/30 text-red-400" : "bg-slate-900/10 border-slate-800 text-slate-500"}`}
+											>
+												{selectedNode.data.alertasPessoais.length > 0 ? (
+													<ul className="space-y-3">
+														{selectedNode.data.alertasPessoais.map(
+															(alerta: string, index: number) => (
+																<li
+																	key={index}
+																	className="flex gap-2 text-xs wrap-break-word w-full"
+																>
+																	<ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500 animate-pulse" />
+																	<span className="leading-tight uppercase tracking-wide">
+																		{alerta}
+																	</span>
+																</li>
+															),
+														)}
+													</ul>
+												) : (
+													<p className="text-xs uppercase tracking-wider text-center">
+														Nenhum Registro de Inidoneidade na Consulta Rápida
+													</p>
+												)}
+											</div>
+										</div>
+									)}
+								</div>
+							</>
+						)}
+
+						{selectedNode && selectedNode.type === "DESPESA" && (
+							<>
+								<SheetHeader
+									className={`pb-4 mb-4 border-b border-dashed relative ${selectedNode.data.score_letalidade >= 85 ? "border-red-900" : selectedNode.data.score_letalidade >= 60 ? "border-yellow-900" : "border-slate-800"}`}
+								>
+									<VisuallyHidden>
+										<SheetTitle>Detalhes da Despesa</SheetTitle>
+										<SheetDescription>
+											Informações detalhadas sobre o gasto parlamentar.
+										</SheetDescription>
+									</VisuallyHidden>
+									<Badge
+										variant="outline"
+										className={`w-fit mb-2 text-xs uppercase rounded-none border pr-4 ${selectedNode.data.score_letalidade >= 85 ? "bg-red-900/30 text-red-500 border-red-500" : selectedNode.data.score_letalidade >= 60 ? "bg-yellow-900/30 text-yellow-500 border-yellow-500" : "bg-slate-900/50 text-slate-400 border-slate-700"}`}
+									>
+										{selectedNode.data.tipo || "Despesa CEAP"}
+									</Badge>
+									<div
+										className={`text-lg font-bold pr-6 uppercase tracking-wider ${selectedNode.data.score_letalidade >= 85 ? "text-red-500" : selectedNode.data.score_letalidade >= 60 ? "text-yellow-500" : "text-slate-400"}`}
+									>
+										R${" "}
+										{Number(selectedNode.data.valor).toLocaleString("pt-BR", {
+											minimumFractionDigits: 2,
+										})}
+									</div>
+									<div
+										className={`text-xs mt-1 mb-1 ${selectedNode.data.score_letalidade >= 85 ? "text-red-400/70" : selectedNode.data.score_letalidade >= 60 ? "text-yellow-400/70" : "text-slate-500"}`}
+									>
+										Fornecedor: {selectedNode.data.label}
+									</div>
+									<div
+										className={`text-xs font-mono ${selectedNode.data.score_letalidade >= 85 ? "text-red-400/70" : selectedNode.data.score_letalidade >= 60 ? "text-yellow-400/70" : "text-slate-500"}`}
+									>
+										CNPJ: {selectedNode.data.documento}
+									</div>
+									{selectedNode.data.dataDocumento && (
 										<div
-											className={`p-3 border ${selectedNode.data.alertasPessoais.length > 0 ? "bg-red-950/10 border-red-900/30 text-red-400" : "bg-slate-900/10 border-slate-800 text-slate-500"}`}
+											className={`text-xs font-mono mt-1 ${selectedNode.data.score_letalidade >= 85 ? "text-red-400/70" : selectedNode.data.score_letalidade >= 60 ? "text-yellow-400/70" : "text-slate-500"}`}
 										>
-											{selectedNode.data.alertasPessoais.length > 0 ? (
-												<ul className="space-y-3">
-													{selectedNode.data.alertasPessoais.map(
-														(alerta: string, index: number) => (
+											Data: {formatDateOnly(selectedNode.data.dataDocumento)}
+										</div>
+									)}
+								</SheetHeader>
+
+								<div className="space-y-6">
+									{/* Lógica do Botão da Nota Fiscal (Câmara vs Senado) */}
+									<div>
+										<h3 className="text-xs uppercase font-bold text-slate-400 mb-2 border-b border-slate-800 pb-1">
+											Comprovação Fiscal
+										</h3>
+										{selectedNode.data.urlDocumento ? (
+											<a
+												href={selectedNode.data.urlDocumento}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="flex w-full items-center justify-center p-3 mt-2 border bg-blue-950/20 border-blue-900 text-blue-400 hover:bg-blue-900/40 hover:text-blue-300 transition-colors text-xs font-bold uppercase tracking-widest rounded-sm"
+											>
+												Ver Nota Digitalizada
+											</a>
+										) : (
+											<div className="space-y-2 mt-2">
+												{(() => {
+													const pessoaNode = nodes.find(
+														(n: any) => n.type === "PESSOA",
+													);
+													const fallback = getPortalTransparenciaFallback(
+														pessoaNode?.data?.casa as string | undefined,
+														pessoaNode?.data?.uri as string | undefined,
+													);
+
+													return (
+														<>
+															<p className="text-xs text-slate-500 leading-relaxed">
+																{fallback.mensagem}
+															</p>
+															{fallback.link !== "#" && (
+																<a
+																	href={fallback.link}
+																	target="_blank"
+																	rel="noopener noreferrer"
+																	className="flex w-full items-center justify-center p-3 border bg-slate-900/50 border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors text-xs font-bold uppercase tracking-widest rounded-sm"
+																>
+																	{fallback.textoLink}
+																</a>
+															)}
+														</>
+													);
+												})()}
+											</div>
+										)}
+									</div>
+
+									{/* Inteligência Artificial Score */}
+									{selectedNode.data.motivo_ia && (
+										<div className="mb-6">
+											<AIProgressBar
+												score={selectedNode.data.score_letalidade}
+												motivo={selectedNode.data.motivo_ia}
+											/>
+										</div>
+									)}
+
+									{/* O Risco do The Full OSINT vai aqui se existir */}
+									{selectedNode.data.risco?.alertas &&
+										selectedNode.data.risco.alertas.length > 0 && (
+											<div>
+												<h3 className="text-xs uppercase font-bold text-red-600 mb-2 border-b border-red-900 pb-1">
+													&gt; CRUZAMENTO DE DADOS OFICIAIS (CGU/TCU/RECEITA)
+												</h3>
+												<ul className="space-y-2">
+													{selectedNode.data.risco.alertas.map(
+														(alerta: string, idx: number) => (
 															<li
-																key={index}
-																className="flex gap-2 text-xs wrap-break-word w-full"
+																key={idx}
+																className="flex gap-2 text-xs text-red-400 wrap-break-word w-full"
 															>
-																<ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500 animate-pulse" />
-																<span className="leading-tight uppercase tracking-wide">
-																	{alerta}
-																</span>
+																<ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
+																<span className="leading-tight">{alerta}</span>
 															</li>
 														),
 													)}
 												</ul>
-											) : (
-												<p className="text-xs uppercase tracking-wider text-center">
-													Nenhum Registro de Inidoneidade na Consulta Rápida
-												</p>
-											)}
-										</div>
-									</div>
-								)}
-							</div>
-						</>
-					)}
-
-					{selectedNode && selectedNode.type === "DESPESA" && (
-						<>
-							<SheetHeader
-								className={`pb-4 mb-4 border-b border-dashed relative ${selectedNode.data.score_letalidade >= 85 ? "border-red-900" : selectedNode.data.score_letalidade >= 60 ? "border-yellow-900" : "border-slate-800"}`}
-							>
-								<VisuallyHidden>
-									<SheetTitle>Detalhes da Despesa</SheetTitle>
-									<SheetDescription>
-										Informações detalhadas sobre o gasto parlamentar.
-									</SheetDescription>
-								</VisuallyHidden>
-								<Badge
-									variant="outline"
-									className={`w-fit mb-2 text-xs uppercase rounded-none border pr-4 ${selectedNode.data.score_letalidade >= 85 ? "bg-red-900/30 text-red-500 border-red-500" : selectedNode.data.score_letalidade >= 60 ? "bg-yellow-900/30 text-yellow-500 border-yellow-500" : "bg-slate-900/50 text-slate-400 border-slate-700"}`}
-								>
-									{selectedNode.data.tipo || "Despesa CEAP"}
-								</Badge>
-								<div
-									className={`text-lg font-bold pr-6 uppercase tracking-wider ${selectedNode.data.score_letalidade >= 85 ? "text-red-500" : selectedNode.data.score_letalidade >= 60 ? "text-yellow-500" : "text-slate-400"}`}
-								>
-									R${" "}
-									{Number(selectedNode.data.valor).toLocaleString("pt-BR", {
-										minimumFractionDigits: 2,
-									})}
-								</div>
-								<div
-									className={`text-xs mt-1 mb-1 ${selectedNode.data.score_letalidade >= 85 ? "text-red-400/70" : selectedNode.data.score_letalidade >= 60 ? "text-yellow-400/70" : "text-slate-500"}`}
-								>
-									Fornecedor: {selectedNode.data.label}
-								</div>
-								<div
-									className={`text-xs font-mono ${selectedNode.data.score_letalidade >= 85 ? "text-red-400/70" : selectedNode.data.score_letalidade >= 60 ? "text-yellow-400/70" : "text-slate-500"}`}
-								>
-									CNPJ: {selectedNode.data.documento}
-								</div>
-								{selectedNode.data.dataDocumento && (
-									<div
-										className={`text-xs font-mono mt-1 ${selectedNode.data.score_letalidade >= 85 ? "text-red-400/70" : selectedNode.data.score_letalidade >= 60 ? "text-yellow-400/70" : "text-slate-500"}`}
-									>
-										Data: {formatDateOnly(selectedNode.data.dataDocumento)}
-									</div>
-								)}
-							</SheetHeader>
-
-							<div className="space-y-6">
-								{/* Lógica do Botão da Nota Fiscal (Câmara vs Senado) */}
-								<div>
-									<h3 className="text-xs uppercase font-bold text-slate-400 mb-2 border-b border-slate-800 pb-1">
-										Comprovação Fiscal
-									</h3>
-									{selectedNode.data.urlDocumento ? (
-										<a
-											href={selectedNode.data.urlDocumento}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="flex w-full items-center justify-center p-3 mt-2 border bg-blue-950/20 border-blue-900 text-blue-400 hover:bg-blue-900/40 hover:text-blue-300 transition-colors text-xs font-bold uppercase tracking-widest rounded-sm"
-										>
-											Ver Nota Digitalizada
-										</a>
-									) : (
-										<div className="space-y-2 mt-2">
-											{(() => {
-												const pessoaNode = nodes.find(
-													(n: any) => n.type === "PESSOA",
-												);
-												const fallback = getPortalTransparenciaFallback(
-													pessoaNode?.data?.casa as string | undefined,
-													pessoaNode?.data?.uri as string | undefined,
-												);
-
-												return (
-													<>
-														<p className="text-xs text-slate-500 leading-relaxed">
-															{fallback.mensagem}
-														</p>
-														{fallback.link !== "#" && (
-															<a
-																href={fallback.link}
-																target="_blank"
-																rel="noopener noreferrer"
-																className="flex w-full items-center justify-center p-3 border bg-slate-900/50 border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors text-xs font-bold uppercase tracking-widest rounded-sm"
-															>
-																{fallback.textoLink}
-															</a>
-														)}
-													</>
-												);
-											})()}
-										</div>
-									)}
-								</div>
-
-								{/* Inteligência Artificial Score */}
-								{selectedNode.data.motivo_ia && (
-									<div className="mb-6">
-										<AIProgressBar
-											score={selectedNode.data.score_letalidade}
-											motivo={selectedNode.data.motivo_ia}
-										/>
-									</div>
-								)}
-
-								{/* O Risco do The Full OSINT vai aqui se existir */}
-								{selectedNode.data.risco?.alertas &&
-									selectedNode.data.risco.alertas.length > 0 && (
-										<div>
-											<h3 className="text-xs uppercase font-bold text-red-600 mb-2 border-b border-red-900 pb-1">
-												&gt; CRUZAMENTO DE DADOS OFICIAIS (CGU/TCU/RECEITA)
-											</h3>
-											<ul className="space-y-2">
-												{selectedNode.data.risco.alertas.map(
-													(alerta: string, idx: number) => (
-														<li
-															key={idx}
-															className="flex gap-2 text-xs text-red-400 wrap-break-word w-full"
-														>
-															<ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
-															<span className="leading-tight">{alerta}</span>
-														</li>
-													),
-												)}
-											</ul>
-										</div>
-									)}
-
-								{/* Botão para Street View / Google Maps para checagem de Fachada */}
-								{(selectedNode.data.documento ||
-									selectedNode.data.cnpjCpfFornecedor) &&
-									String(
-										selectedNode.data.documento ||
-											selectedNode.data.cnpjCpfFornecedor,
-									).length > 11 &&
-									!(
-										selectedNode.data.label
-											?.toUpperCase()
-											.includes("ELEICAO") ||
-										selectedNode.data.label
-											?.toUpperCase()
-											.includes("CAMPANHA") ||
-										selectedNode.data.cnae?.toUpperCase().includes("CAMPANHA")
-									) && (
-										<div className="mt-6 pt-4 border-t border-slate-800">
-											<h3 className="text-xs uppercase font-bold text-blue-500 mb-2 border-b border-blue-900/50 pb-1 flex items-center gap-2">
-												<MapPin className="w-4 h-4" /> Inteligência Geográfica
-											</h3>
-											<p className="text-xs text-slate-500 mb-3 leading-relaxed">
-												Verificar possível empresa de fachada via Google Street
-												View pelo registro de CNPJ / Nome.
-											</p>
-											<a
-												href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-													[
-														selectedNode.data.label,
-														selectedNode.data.municipio,
-														selectedNode.data.uf,
-														`CNPJ ${selectedNode.data.documento || selectedNode.data.cnpjCpfFornecedor}`,
-														"Brasil",
-													]
-														.filter(Boolean)
-														.join(" "),
-												)}`}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="flex w-full items-center justify-center p-3 border bg-blue-950/20 text-blue-400 border-blue-900 hover:bg-blue-900 hover:text-blue-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300 group"
-											>
-												<MapIcon className="mr-2 h-4 w-4" /> Analisar Endereço
-											</a>
-										</div>
-									)}
-
-								{/* Botão para expandir malha societária (Pivot) */}
-								{selectedNode.data.documento &&
-									selectedNode.data.documento.length > 11 &&
-									!(
-										selectedNode.data.label
-											?.toUpperCase()
-											.includes("ELEICAO") ||
-										selectedNode.data.label
-											?.toUpperCase()
-											.includes("CAMPANHA") ||
-										selectedNode.data.cnae?.toUpperCase().includes("CAMPANHA")
-									) && (
-										<div className="mt-8 pt-6 border-t border-slate-800">
-											<h3 className="text-xs uppercase font-bold text-blue-500 mb-2 border-b border-blue-900/50 pb-1 flex items-center gap-2">
-												<Briefcase className="w-4 h-4" /> Dossiê Societário
-											</h3>
-											<p className="text-xs text-slate-500 mb-3 leading-relaxed">
-												Deseja extrair os vínculos empresariais, sócios (QSA) e
-												o histórico de contratos públicos deste fornecedor?
-											</p>
-											{!expandedNodes[selectedNode.id] ? (
-												<Button
-													variant="outline"
-													className="w-full bg-blue-950/20 text-blue-400 border-blue-900 hover:bg-blue-900 hover:text-blue-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300 group"
-													onClick={() => {
-														setExpandedNodes((prev) => ({
-															...prev,
-															[selectedNode.id]: true,
-														}));
-														handlePivotCNPJ(
-															selectedNode.data.documento,
-															selectedNode.id,
-														);
-													}}
-												>
-													<Search className="mr-2 h-4 w-4" /> Aprofundar
-													Investigação
-												</Button>
-											) : (
-												<div className="w-full text-center p-3 border border-green-900/50 bg-green-950/10 text-green-500/80 text-xs font-mono uppercase tracking-widest">
-													[ DRILLDOWN CONCLUÍDO NO CANVAS ]
-												</div>
-											)}
-										</div>
-									)}
-							</div>
-						</>
-					)}
-
-					{selectedNode &&
-						(selectedNode.type === "CONTRATO" ||
-							selectedNode.type === "EMENDA") && (
-							<>
-								<SheetHeader className="pb-4 mb-4 border-b border-yellow-900 border-dashed relative">
-									<VisuallyHidden>
-										<SheetTitle>Detalhes do Contrato/Emenda</SheetTitle>
-										<SheetDescription>Informações detalhadas.</SheetDescription>
-									</VisuallyHidden>
-									<Badge
-										variant="outline"
-										className="w-fit mb-2 text-xs uppercase rounded-none border bg-yellow-900/30 text-yellow-500 border-yellow-500 pr-4"
-									>
-										{selectedNode.data.label?.startsWith("EMENDA")
-											? "EMENDA PARLAMENTAR"
-											: "CONTRATO FEDERAL"}
-									</Badge>
-									<div className="text-lg font-bold uppercase tracking-wider text-yellow-500">
-										{selectedNode.data.label}
-									</div>
-									{selectedNode.data.codigo && (
-										<div className="text-xs font-mono mt-1 text-yellow-400/70 border-l-2 border-yellow-900/50 pl-2 mb-1">
-											Código/Ref: {selectedNode.data.codigo}
-										</div>
-									)}
-								</SheetHeader>
-								<div className="space-y-6">
-									<div>
-										<h3 className="text-xs uppercase font-bold text-yellow-600 mb-2 border-b border-yellow-900/50 pb-1 flex items-center gap-2">
-											<DollarSign className="w-4 h-4" /> Valor Associado
-										</h3>
-										<div className="p-3 border bg-yellow-950/10 border-yellow-900/30 text-yellow-500 text-center">
-											<p className="text-2xl font-bold tracking-widest">
-												R${" "}
-												{Number(selectedNode.data.valor).toLocaleString(
-													"pt-BR",
-													{ minimumFractionDigits: 2 },
-												)}
-											</p>
-											{selectedNode.data.label?.startsWith("EMENDA") &&
-												selectedNode.data.valorPago !== undefined && (
-													<p className="text-xs mt-2 opacity-80 uppercase tracking-widest pt-2 border-t border-yellow-900/30">
-														STATUS:{" "}
-														{selectedNode.data.valorPago > 0
-															? `Pagamento de R$ ${Number(selectedNode.data.valorPago).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-															: "Apenas Empenhado / Sem Pagamento"}
-													</p>
-												)}
-										</div>
-									</div>
-
-									{selectedNode.data.label?.startsWith("EMENDA") &&
-										selectedNode.data.tipo && (
-											<div>
-												<h3 className="text-xs uppercase font-bold text-yellow-600 mb-2 border-b border-yellow-900/50 pb-1 flex items-center gap-2">
-													<FileText className="w-4 h-4" /> Dados da Proposição
-												</h3>
-												<div className="p-3 border bg-yellow-950/10 border-yellow-900/30 text-yellow-400 text-xs leading-relaxed uppercase tracking-wide">
-													<span className="opacity-60">TIPO:</span>{" "}
-													{selectedNode.data.tipo}
-													<br />
-													<span className="opacity-60">ANO/EXERCÍCIO:</span>{" "}
-													{selectedNode.data.ano || "N/A"}
-													<br />
-													{selectedNode.data.programa && (
-														<>
-															<span className="opacity-60">PROGRAMA:</span>{" "}
-															{selectedNode.data.programa}
-														</>
-													)}
-												</div>
 											</div>
 										)}
 
-									<div>
-										<h3 className="text-xs uppercase font-bold text-yellow-600 mb-2 border-b border-yellow-900/50 pb-1 flex items-center gap-2">
-											<FileText className="w-4 h-4" />{" "}
-											{selectedNode.data.label?.startsWith("EMENDA")
-												? "Destinação / Função"
-												: "Objeto / Destinação"}
-										</h3>
-										<div className="p-3 border bg-yellow-950/10 border-yellow-900/30 text-yellow-400 text-xs leading-relaxed uppercase tracking-wide">
-											{selectedNode.data.objeto || "N/A"}
-											{selectedNode.data.subfuncao && (
-												<>
-													<br />
-													<span className="opacity-60">SUBFUNÇÃO:</span>{" "}
-													{selectedNode.data.subfuncao}
-												</>
-											)}
-										</div>
-									</div>
-
-									{selectedNode.type === "EMENDA" &&
-										selectedNode.data.beneficiario && (
-											<div className="mt-6 pt-6 border-t border-slate-800">
-												<h3 className="text-xs uppercase font-bold text-teal-500 mb-2 border-b border-teal-900/50 pb-1 flex items-center gap-2">
-													<Building2 className="w-4 h-4" /> Beneficiário
-													Recebedor
+									{/* Botão para Street View / Google Maps para checagem de Fachada */}
+									{(selectedNode.data.documento ||
+										selectedNode.data.cnpjCpfFornecedor) &&
+										String(
+											selectedNode.data.documento ||
+											selectedNode.data.cnpjCpfFornecedor,
+										).length > 11 &&
+										!(
+											selectedNode.data.label
+												?.toUpperCase()
+												.includes("ELEICAO") ||
+											selectedNode.data.label
+												?.toUpperCase()
+												.includes("CAMPANHA") ||
+											selectedNode.data.cnae?.toUpperCase().includes("CAMPANHA")
+										) && (
+											<div className="mt-6 pt-4 border-t border-slate-800">
+												<h3 className="text-xs uppercase font-bold text-blue-500 mb-2 border-b border-blue-900/50 pb-1 flex items-center gap-2">
+													<MapPin className="w-4 h-4" /> Inteligência Geográfica
 												</h3>
-												<div className="p-3 border bg-teal-950/10 border-teal-900/30 text-teal-400 text-xs leading-relaxed uppercase tracking-wide mb-3">
-													<span className="opacity-60">NOME:</span>{" "}
-													{selectedNode.data.beneficiario.nome}
-													<br />
-													<span className="opacity-60">CNPJ:</span>{" "}
-													{selectedNode.data.beneficiario.cnpj}
-													<br />
-													<span className="opacity-60">UF:</span>{" "}
-													{selectedNode.data.beneficiario.uf}
-													<br />
-													{selectedNode.data.beneficiario.area && (
-														<>
-															<span className="opacity-60">
-																POLÍTICA PÚBLICA:
-															</span>{" "}
-															{selectedNode.data.beneficiario.area}
-															<br />
-														</>
-													)}
-													{selectedNode.data.beneficiario.situacao && (
-														<>
-															<span className="opacity-60">SITUAÇÃO:</span>{" "}
-															{selectedNode.data.beneficiario.situacao}
-														</>
-													)}
-												</div>
+												<p className="text-xs text-slate-500 mb-3 leading-relaxed">
+													Verificar possível empresa de fachada via Google Street
+													View pelo registro de CNPJ / Nome.
+												</p>
+												<a
+													href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+														[
+															selectedNode.data.label,
+															selectedNode.data.municipio,
+															selectedNode.data.uf,
+															`CNPJ ${selectedNode.data.documento || selectedNode.data.cnpjCpfFornecedor}`,
+															"Brasil",
+														]
+															.filter(Boolean)
+															.join(" "),
+													)}`}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="flex w-full items-center justify-center p-3 border bg-blue-950/20 text-blue-400 border-blue-900 hover:bg-blue-900 hover:text-blue-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300 group"
+												>
+													<MapIcon className="mr-2 h-4 w-4" /> Analisar Endereço
+												</a>
+											</div>
+										)}
 
-												{beneficiaryContracts.length === 0 ? (
+									{/* Botão para expandir malha societária (Pivot) */}
+									{selectedNode.data.documento &&
+										selectedNode.data.documento.length > 11 &&
+										!(
+											selectedNode.data.label
+												?.toUpperCase()
+												.includes("ELEICAO") ||
+											selectedNode.data.label
+												?.toUpperCase()
+												.includes("CAMPANHA") ||
+											selectedNode.data.cnae?.toUpperCase().includes("CAMPANHA")
+										) && (
+											<div className="mt-8 pt-6 border-t border-slate-800">
+												<h3 className="text-xs uppercase font-bold text-blue-500 mb-2 border-b border-blue-900/50 pb-1 flex items-center gap-2">
+													<Briefcase className="w-4 h-4" /> Dossiê Societário
+												</h3>
+												<p className="text-xs text-slate-500 mb-3 leading-relaxed">
+													Deseja extrair os vínculos empresariais, sócios (QSA) e
+													o histórico de contratos públicos deste fornecedor?
+												</p>
+												{!expandedNodes[selectedNode.id] ? (
 													<Button
 														variant="outline"
-														disabled={loadingBeneficiaryContracts}
-														className="w-full bg-teal-950/20 text-teal-400 border border-teal-850 hover:bg-teal-900 hover:text-teal-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300"
-														onClick={async () => {
-															setLoadingBeneficiaryContracts(true);
-															try {
-																const res = await fetch(
-																	`/api/investigar/contratos-beneficiario?cnpj=${selectedNode.data.beneficiario.cnpj}`,
-																);
-																if (res.ok) {
-																	const json = await res.json();
-																	setBeneficiaryContracts(json.contracts || []);
-																	if (
-																		!json.contracts ||
-																		json.contracts.length === 0
-																	) {
-																		toast.info(
-																			"Nenhum contrato encontrado para este CNPJ no PNCP.",
-																		);
-																	}
-																} else {
-																	toast.error(
-																		"Erro ao buscar contratos do beneficiário.",
-																	);
-																}
-															} catch (_e) {
-																toast.error(
-																	"Falha de rede ao consultar contratos.",
-																);
-															} finally {
-																setLoadingBeneficiaryContracts(false);
-															}
+														className="w-full bg-blue-950/20 text-blue-400 border-blue-900 hover:bg-blue-900 hover:text-blue-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300 group"
+														onClick={() => {
+															setExpandedNodes((prev) => ({
+																...prev,
+																[selectedNode.id]: true,
+															}));
+															handlePivotCNPJ(
+																selectedNode.data.documento,
+																selectedNode.id,
+															);
 														}}
 													>
-														{loadingBeneficiaryContracts ? (
-															<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-														) : (
-															<Search className="mr-2 h-4 w-4" />
-														)}
-														Investigar Contratos do Recebedor (PNCP)
+														<Search className="mr-2 h-4 w-4" /> Aprofundar
+														Investigação
 													</Button>
 												) : (
-													<div className="space-y-3">
-														<h4 className="text-[11px] font-bold uppercase text-teal-500 flex items-center gap-1">
-															<Briefcase className="w-3.5 h-3.5" /> Últimos
-															Contratos PNCP ({beneficiaryContracts.length})
-														</h4>
-														<div className="space-y-2 max-h-55 overflow-y-auto pr-1">
-															{beneficiaryContracts.map(
-																(c: any, idx: number) => (
-																	<div
-																		key={idx}
-																		className="p-2 border border-slate-800 bg-slate-950/50 text-[11px] leading-relaxed font-mono"
-																	>
-																		<div className="flex justify-between items-start mb-1">
-																			<span className="font-bold text-teal-400 text-[9px] bg-teal-950/50 px-1 border border-teal-900">
-																				{c.tipo === "COMPRADOR"
-																					? "COMPRADOR/ÓRGÃO"
-																					: "FORNECEDOR"}
-																			</span>
-																			<span className="text-slate-500 text-[9px]">
-																				{c.data
-																					? new Date(c.data).toLocaleDateString(
-																							"pt-BR",
-																						)
-																					: ""}
-																			</span>
-																		</div>
-																		<p className="text-slate-300 font-bold uppercase tracking-wider line-clamp-1">
-																			{c.orgao}
-																		</p>
-																		<p className="text-slate-400 mt-1 uppercase text-[10px] line-clamp-2">
-																			{c.objeto}
-																		</p>
-																		<p className="text-right text-green-400 font-bold mt-1 text-[10px]">
-																			R${" "}
-																			{Number(c.valor).toLocaleString("pt-BR", {
-																				minimumFractionDigits: 2,
-																			})}
-																		</p>
-																	</div>
-																),
-															)}
-														</div>
+													<div className="w-full text-center p-3 border border-green-900/50 bg-green-950/10 text-green-500/80 text-xs font-mono uppercase tracking-widest">
+														[ DRILLDOWN CONCLUÍDO NO CANVAS ]
 													</div>
 												)}
 											</div>
@@ -2779,389 +2558,610 @@ function DashboardArea() {
 							</>
 						)}
 
-					{selectedNode && selectedNode.type === "EMENDA_RESUMO" && (
-						<>
-							<SheetHeader className="pb-4 mb-4 border-b border-teal-900 border-dashed relative">
-								<VisuallyHidden>
-									<SheetTitle>Resumo das Emendas</SheetTitle>
-									<SheetDescription>
-										Visão geral de todas as emendas.
-									</SheetDescription>
-								</VisuallyHidden>
-								<Badge
-									variant="outline"
-									className="w-fit mb-2 text-xs uppercase rounded-none border bg-teal-900/30 text-teal-500 border-teal-500 pr-4"
-								>
-									BALANÇO GERAL DE EMENDAS
-								</Badge>
-								<div className="text-lg font-bold uppercase tracking-wider text-teal-400">
-									{selectedNode.data.label}
-								</div>
-							</SheetHeader>
-							<div className="space-y-6">
-								<div className="pb-2 border-b border-teal-900/50">
-									<Button
-										onClick={() => {
-											handleToggleEmendas(selectedNode.id);
-											setSelectedNode((prev: any) => ({
-												...prev,
-												data: {
-													...prev.data,
-													isExpanded: !prev.data?.isExpanded,
-												},
-											}));
-										}}
-										className="w-full bg-teal-950/20 text-teal-400 border border-teal-800 hover:bg-teal-900 hover:text-teal-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300"
+						{selectedNode &&
+							(selectedNode.type === "CONTRATO" ||
+								selectedNode.type === "EMENDA") && (
+								<>
+									<SheetHeader className="pb-4 mb-4 border-b border-yellow-900 border-dashed relative">
+										<VisuallyHidden>
+											<SheetTitle>Detalhes do Contrato/Emenda</SheetTitle>
+											<SheetDescription>Informações detalhadas.</SheetDescription>
+										</VisuallyHidden>
+										<Badge
+											variant="outline"
+											className="w-fit mb-2 text-xs uppercase rounded-none border bg-yellow-900/30 text-yellow-500 border-yellow-500 pr-4"
+										>
+											{selectedNode.data.label?.startsWith("EMENDA")
+												? "EMENDA PARLAMENTAR"
+												: "CONTRATO FEDERAL"}
+										</Badge>
+										<div className="text-lg font-bold uppercase tracking-wider text-yellow-500">
+											{selectedNode.data.label}
+										</div>
+										{selectedNode.data.codigo && (
+											<div className="text-xs font-mono mt-1 text-yellow-400/70 border-l-2 border-yellow-900/50 pl-2 mb-1">
+												Código/Ref: {selectedNode.data.codigo}
+											</div>
+										)}
+									</SheetHeader>
+									<div className="space-y-6">
+										<div>
+											<h3 className="text-xs uppercase font-bold text-yellow-600 mb-2 border-b border-yellow-900/50 pb-1 flex items-center gap-2">
+												<DollarSign className="w-4 h-4" /> Valor Associado
+											</h3>
+											<div className="p-3 border bg-yellow-950/10 border-yellow-900/30 text-yellow-500 text-center">
+												<p className="text-2xl font-bold tracking-widest">
+													R${" "}
+													{Number(selectedNode.data.valor).toLocaleString(
+														"pt-BR",
+														{ minimumFractionDigits: 2 },
+													)}
+												</p>
+												{selectedNode.data.label?.startsWith("EMENDA") &&
+													selectedNode.data.valorPago !== undefined && (
+														<p className="text-xs mt-2 opacity-80 uppercase tracking-widest pt-2 border-t border-yellow-900/30">
+															STATUS:{" "}
+															{selectedNode.data.valorPago > 0
+																? `Pagamento de R$ ${Number(selectedNode.data.valorPago).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+																: "Apenas Empenhado / Sem Pagamento"}
+														</p>
+													)}
+											</div>
+										</div>
+
+										{selectedNode.data.label?.startsWith("EMENDA") &&
+											selectedNode.data.tipo && (
+												<div>
+													<h3 className="text-xs uppercase font-bold text-yellow-600 mb-2 border-b border-yellow-900/50 pb-1 flex items-center gap-2">
+														<FileText className="w-4 h-4" /> Dados da Proposição
+													</h3>
+													<div className="p-3 border bg-yellow-950/10 border-yellow-900/30 text-yellow-400 text-xs leading-relaxed uppercase tracking-wide">
+														<span className="opacity-60">TIPO:</span>{" "}
+														{selectedNode.data.tipo}
+														<br />
+														<span className="opacity-60">ANO/EXERCÍCIO:</span>{" "}
+														{selectedNode.data.ano || "N/A"}
+														<br />
+														{selectedNode.data.programa && (
+															<>
+																<span className="opacity-60">PROGRAMA:</span>{" "}
+																{selectedNode.data.programa}
+															</>
+														)}
+													</div>
+												</div>
+											)}
+
+										<div>
+											<h3 className="text-xs uppercase font-bold text-yellow-600 mb-2 border-b border-yellow-900/50 pb-1 flex items-center gap-2">
+												<FileText className="w-4 h-4" />{" "}
+												{selectedNode.data.label?.startsWith("EMENDA")
+													? "Destinação / Função"
+													: "Objeto / Destinação"}
+											</h3>
+											<div className="p-3 border bg-yellow-950/10 border-yellow-900/30 text-yellow-400 text-xs leading-relaxed uppercase tracking-wide">
+												{selectedNode.data.objeto || "N/A"}
+												{selectedNode.data.subfuncao && (
+													<>
+														<br />
+														<span className="opacity-60">SUBFUNÇÃO:</span>{" "}
+														{selectedNode.data.subfuncao}
+													</>
+												)}
+											</div>
+										</div>
+
+										{selectedNode.type === "EMENDA" &&
+											selectedNode.data.beneficiario && (
+												<div className="mt-6 pt-6 border-t border-slate-800">
+													<h3 className="text-xs uppercase font-bold text-teal-500 mb-2 border-b border-teal-900/50 pb-1 flex items-center gap-2">
+														<Building2 className="w-4 h-4" /> Beneficiário
+														Recebedor
+													</h3>
+													<div className="p-3 border bg-teal-950/10 border-teal-900/30 text-teal-400 text-xs leading-relaxed uppercase tracking-wide mb-3">
+														<span className="opacity-60">NOME:</span>{" "}
+														{selectedNode.data.beneficiario.nome}
+														<br />
+														<span className="opacity-60">CNPJ:</span>{" "}
+														{selectedNode.data.beneficiario.cnpj}
+														<br />
+														<span className="opacity-60">UF:</span>{" "}
+														{selectedNode.data.beneficiario.uf}
+														<br />
+														{selectedNode.data.beneficiario.area && (
+															<>
+																<span className="opacity-60">
+																	POLÍTICA PÚBLICA:
+																</span>{" "}
+																{selectedNode.data.beneficiario.area}
+																<br />
+															</>
+														)}
+														{selectedNode.data.beneficiario.situacao && (
+															<>
+																<span className="opacity-60">SITUAÇÃO:</span>{" "}
+																{selectedNode.data.beneficiario.situacao}
+															</>
+														)}
+													</div>
+
+													{beneficiaryContracts.length === 0 ? (
+														<Button
+															variant="outline"
+															disabled={loadingBeneficiaryContracts}
+															className="w-full bg-teal-950/20 text-teal-400 border border-teal-850 hover:bg-teal-900 hover:text-teal-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300"
+															onClick={async () => {
+																setLoadingBeneficiaryContracts(true);
+																try {
+																	const res = await fetch(
+																		`/api/investigar/contratos-beneficiario?cnpj=${selectedNode.data.beneficiario.cnpj}`,
+																	);
+																	if (res.ok) {
+																		const json = await res.json();
+																		setBeneficiaryContracts(json.contracts || []);
+																		if (
+																			!json.contracts ||
+																			json.contracts.length === 0
+																		) {
+																			toast.info(
+																				"Nenhum contrato encontrado para este CNPJ no PNCP.",
+																			);
+																		}
+																	} else {
+																		toast.error(
+																			"Erro ao buscar contratos do beneficiário.",
+																		);
+																	}
+																} catch (_e) {
+																	toast.error(
+																		"Falha de rede ao consultar contratos.",
+																	);
+																} finally {
+																	setLoadingBeneficiaryContracts(false);
+																}
+															}}
+														>
+															{loadingBeneficiaryContracts ? (
+																<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+															) : (
+																<Search className="mr-2 h-4 w-4" />
+															)}
+															Investigar Contratos do Recebedor (PNCP)
+														</Button>
+													) : (
+														<div className="space-y-3">
+															<h4 className="text-[11px] font-bold uppercase text-teal-500 flex items-center gap-1">
+																<Briefcase className="w-3.5 h-3.5" /> Últimos
+																Contratos PNCP ({beneficiaryContracts.length})
+															</h4>
+															<div className="space-y-2 max-h-55 overflow-y-auto pr-1">
+																{beneficiaryContracts.map(
+																	(c: any, idx: number) => (
+																		<div
+																			key={idx}
+																			className="p-2 border border-slate-800 bg-slate-950/50 text-[11px] leading-relaxed font-mono"
+																		>
+																			<div className="flex justify-between items-start mb-1">
+																				<span className="font-bold text-teal-400 text-[9px] bg-teal-950/50 px-1 border border-teal-900">
+																					{c.tipo === "COMPRADOR"
+																						? "COMPRADOR/ÓRGÃO"
+																						: "FORNECEDOR"}
+																				</span>
+																				<span className="text-slate-500 text-[9px]">
+																					{c.data
+																						? new Date(c.data).toLocaleDateString(
+																							"pt-BR",
+																						)
+																						: ""}
+																				</span>
+																			</div>
+																			<p className="text-slate-300 font-bold uppercase tracking-wider line-clamp-1">
+																				{c.orgao}
+																			</p>
+																			<p className="text-slate-400 mt-1 uppercase text-[10px] line-clamp-2">
+																				{c.objeto}
+																			</p>
+																			<p className="text-right text-green-400 font-bold mt-1 text-[10px]">
+																				R${" "}
+																				{Number(c.valor).toLocaleString("pt-BR", {
+																					minimumFractionDigits: 2,
+																				})}
+																			</p>
+																		</div>
+																	),
+																)}
+															</div>
+														</div>
+													)}
+												</div>
+											)}
+									</div>
+								</>
+							)}
+
+						{selectedNode && selectedNode.type === "EMENDA_RESUMO" && (
+							<>
+								<SheetHeader className="pb-4 mb-4 border-b border-teal-900 border-dashed relative">
+									<VisuallyHidden>
+										<SheetTitle>Resumo das Emendas</SheetTitle>
+										<SheetDescription>
+											Visão geral de todas as emendas.
+										</SheetDescription>
+									</VisuallyHidden>
+									<Badge
+										variant="outline"
+										className="w-fit mb-2 text-xs uppercase rounded-none border bg-teal-900/30 text-teal-500 border-teal-500 pr-4"
 									>
-										{selectedNode.data?.isExpanded
-											? "Recolher Emendas no Canvas"
-											: "Ver Todas as Emendas no Canvas"}
-									</Button>
-								</div>
-								<div>
-									<h3 className="text-xs uppercase font-bold text-teal-600 mb-2 border-b border-teal-900/50 pb-1 flex items-center gap-2">
-										<DollarSign className="w-4 h-4" /> Valores Consolidados
-									</h3>
-									<div className="p-3 border bg-teal-950/10 border-teal-900/30 text-teal-400">
-										<div className="flex justify-between items-end mb-2">
-											<span className="text-xs uppercase opacity-70">
-												Total Empenhado
-											</span>
-											<span className="text-lg font-bold tracking-widest">
-												R${" "}
-												{Number(
-													selectedNode.data.totalEmpenhado || 0,
-												).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-											</span>
-										</div>
-										<div className="flex justify-between items-end mb-3">
-											<span className="text-xs uppercase opacity-70">
-												Total Pago
-											</span>
-											<span className="text-md font-bold text-teal-300">
-												R${" "}
-												{Number(
-													selectedNode.data.totalPago || 0,
-												).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-											</span>
-										</div>
-
-										<div className="w-full bg-teal-950 h-2 mt-4 relative">
-											<div
-												className="absolute top-0 left-0 h-full bg-teal-500"
-												style={{
-													width: `${selectedNode.data.percentualExecucao || 0}%`,
-												}}
-											></div>
-										</div>
-										<p className="text-xs mt-2 uppercase tracking-widest text-right">
-											TAXA DE EXECUÇÃO:{" "}
-											{selectedNode.data.percentualExecucao || 0}%
-										</p>
+										BALANÇO GERAL DE EMENDAS
+									</Badge>
+									<div className="text-lg font-bold uppercase tracking-wider text-teal-400">
+										{selectedNode.data.label}
 									</div>
-								</div>
-
-								{(selectedNode.data.fantasmas > 0 ||
-									selectedNode.data.emendasPIX > 0) && (
+								</SheetHeader>
+								<div className="space-y-6">
+									<div className="pb-2 border-b border-teal-900/50">
+										<Button
+											onClick={() => {
+												handleToggleEmendas(selectedNode.id);
+												setSelectedNode((prev: any) => ({
+													...prev,
+													data: {
+														...prev.data,
+														isExpanded: !prev.data?.isExpanded,
+													},
+												}));
+											}}
+											className="w-full bg-teal-950/20 text-teal-400 border border-teal-800 hover:bg-teal-900 hover:text-teal-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300"
+										>
+											{selectedNode.data?.isExpanded
+												? "Recolher Emendas no Canvas"
+												: "Ver Todas as Emendas no Canvas"}
+										</Button>
+									</div>
 									<div>
-										<h3 className="text-xs uppercase font-bold text-orange-600 mb-2 border-b border-orange-900/50 pb-1 flex items-center gap-2">
-											<ShieldAlert className="w-4 h-4" /> Fatores de Risco
-											Detectados
+										<h3 className="text-xs uppercase font-bold text-teal-600 mb-2 border-b border-teal-900/50 pb-1 flex items-center gap-2">
+											<DollarSign className="w-4 h-4" /> Valores Consolidados
 										</h3>
-										<div className="p-3 border bg-orange-950/10 border-orange-900/30 text-orange-400 text-xs leading-relaxed uppercase tracking-wide">
-											{selectedNode.data.fantasmas > 0 && (
-												<span className="block mb-1">
-													{selectedNode.data.fantasmas} Emenda(s) Fantasma(s) -
-													Sem Pagamentos
+										<div className="p-3 border bg-teal-950/10 border-teal-900/30 text-teal-400">
+											<div className="flex justify-between items-end mb-2">
+												<span className="text-xs uppercase opacity-70">
+													Total Empenhado
 												</span>
-											)}
-											{selectedNode.data.emendasPIX > 0 && (
-												<span className="block text-red-400">
-													{selectedNode.data.emendasPIX} Emenda(s) PIX/Orçamento
-													Secreto
+												<span className="text-lg font-bold tracking-widest">
+													R${" "}
+													{Number(
+														selectedNode.data.totalEmpenhado || 0,
+													).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
 												</span>
-											)}
+											</div>
+											<div className="flex justify-between items-end mb-3">
+												<span className="text-xs uppercase opacity-70">
+													Total Pago
+												</span>
+												<span className="text-md font-bold text-teal-300">
+													R${" "}
+													{Number(
+														selectedNode.data.totalPago || 0,
+													).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+												</span>
+											</div>
+
+											<div className="w-full bg-teal-950 h-2 mt-4 relative">
+												<div
+													className="absolute top-0 left-0 h-full bg-teal-500"
+													style={{
+														width: `${selectedNode.data.percentualExecucao || 0}%`,
+													}}
+												></div>
+											</div>
+											<p className="text-xs mt-2 uppercase tracking-widest text-right">
+												TAXA DE EXECUÇÃO:{" "}
+												{selectedNode.data.percentualExecucao || 0}%
+											</p>
 										</div>
 									</div>
-								)}
 
-								{Object.keys(selectedNode.data.porTipo || {}).length > 0 && (
-									<div>
-										<h3 className="text-xs uppercase font-bold text-teal-600 mb-2 border-b border-teal-900/50 pb-1">
-											Distribuição por Tipo
-										</h3>
-										<ul className="text-xs space-y-1">
-											{Object.entries(selectedNode.data.porTipo).map(
-												([tipo, qtd]) => (
-													<li
-														key={tipo}
-														className="flex justify-between text-teal-400/80"
-													>
-														<span>{tipo.toUpperCase()}</span>
-														<span className="font-bold">{String(qtd)}x</span>
-													</li>
-												),
-											)}
-										</ul>
-									</div>
-								)}
+									{(selectedNode.data.fantasmas > 0 ||
+										selectedNode.data.emendasPIX > 0) && (
+											<div>
+												<h3 className="text-xs uppercase font-bold text-orange-600 mb-2 border-b border-orange-900/50 pb-1 flex items-center gap-2">
+													<ShieldAlert className="w-4 h-4" /> Fatores de Risco
+													Detectados
+												</h3>
+												<div className="p-3 border bg-orange-950/10 border-orange-900/30 text-orange-400 text-xs leading-relaxed uppercase tracking-wide">
+													{selectedNode.data.fantasmas > 0 && (
+														<span className="block mb-1">
+															{selectedNode.data.fantasmas} Emenda(s) Fantasma(s) -
+															Sem Pagamentos
+														</span>
+													)}
+													{selectedNode.data.emendasPIX > 0 && (
+														<span className="block text-red-400">
+															{selectedNode.data.emendasPIX} Emenda(s) PIX/Orçamento
+															Secreto
+														</span>
+													)}
+												</div>
+											</div>
+										)}
 
-								{selectedNode.data.topLocalidades &&
-									selectedNode.data.topLocalidades.length > 0 && (
+									{Object.keys(selectedNode.data.porTipo || {}).length > 0 && (
 										<div>
 											<h3 className="text-xs uppercase font-bold text-teal-600 mb-2 border-b border-teal-900/50 pb-1">
-												Principais Localidades (Valores)
+												Distribuição por Tipo
 											</h3>
-											<ul className="text-xs space-y-2">
-												{selectedNode.data.topLocalidades.map(
-													(loc: any, idx: number) => (
+											<ul className="text-xs space-y-1">
+												{Object.entries(selectedNode.data.porTipo).map(
+													([tipo, qtd]) => (
 														<li
-															key={idx}
-															className="flex flex-col text-teal-400/70 border-b border-teal-900/20 pb-1"
+															key={tipo}
+															className="flex justify-between text-teal-400/80"
 														>
-															<span className="font-bold">
-																{loc.localidade}
-															</span>
-															<span>
-																R${" "}
-																{Number(loc.valor || 0).toLocaleString("pt-BR")}
-															</span>
+															<span>{tipo.toUpperCase()}</span>
+															<span className="font-bold">{String(qtd)}x</span>
 														</li>
 													),
 												)}
 											</ul>
 										</div>
 									)}
-							</div>
-						</>
-					)}
 
-					{selectedNode && selectedNode.type === "EMPRESA" && (
-						<>
-							<SheetHeader className="pb-4 mb-4 border-b border-blue-900 border-dashed relative">
-								<VisuallyHidden>
-									<SheetTitle>Detalhes da Empresa</SheetTitle>
-									<SheetDescription>
-										Informações detalhadas sobre a pessoa jurídica.
-									</SheetDescription>
-								</VisuallyHidden>
-								<Badge
-									variant="outline"
-									className="w-fit mb-2 text-xs uppercase rounded-none border bg-blue-900/30 text-blue-500 border-blue-500 pr-4"
-								>
-									PESSOA JURÍDICA
-								</Badge>
-								<div className="text-lg font-bold uppercase tracking-wider text-blue-500">
-									{selectedNode.data.label}
+									{selectedNode.data.topLocalidades &&
+										selectedNode.data.topLocalidades.length > 0 && (
+											<div>
+												<h3 className="text-xs uppercase font-bold text-teal-600 mb-2 border-b border-teal-900/50 pb-1">
+													Principais Localidades (Valores)
+												</h3>
+												<ul className="text-xs space-y-2">
+													{selectedNode.data.topLocalidades.map(
+														(loc: any, idx: number) => (
+															<li
+																key={idx}
+																className="flex flex-col text-teal-400/70 border-b border-teal-900/20 pb-1"
+															>
+																<span className="font-bold">
+																	{loc.localidade}
+																</span>
+																<span>
+																	R${" "}
+																	{Number(loc.valor || 0).toLocaleString("pt-BR")}
+																</span>
+															</li>
+														),
+													)}
+												</ul>
+											</div>
+										)}
 								</div>
-								<div className="text-xs font-mono mt-1 text-blue-400/70">
-									CNPJ: {selectedNode.data.cnpj}
-								</div>
-								{selectedNode.data.situacao && (
-									<div className="text-xs font-mono text-blue-400/70">
-										Situação: {selectedNode.data.situacao}
+							</>
+						)}
+
+						{selectedNode && selectedNode.type === "EMPRESA" && (
+							<>
+								<SheetHeader className="pb-4 mb-4 border-b border-blue-900 border-dashed relative">
+									<VisuallyHidden>
+										<SheetTitle>Detalhes da Empresa</SheetTitle>
+										<SheetDescription>
+											Informações detalhadas sobre a pessoa jurídica.
+										</SheetDescription>
+									</VisuallyHidden>
+									<Badge
+										variant="outline"
+										className="w-fit mb-2 text-xs uppercase rounded-none border bg-blue-900/30 text-blue-500 border-blue-500 pr-4"
+									>
+										PESSOA JURÍDICA
+									</Badge>
+									<div className="text-lg font-bold uppercase tracking-wider text-blue-500">
+										{selectedNode.data.label}
 									</div>
-								)}
-							</SheetHeader>
-
-							<div className="space-y-6">
-								{selectedNode.data.cnae && (
-									<div>
-										<h3 className="text-xs uppercase font-bold text-slate-400 mb-2 border-b border-slate-800 pb-1">
-											CNAE Principal
-										</h3>
-										<p className="text-xs text-slate-300">
-											{selectedNode.data.cnae}
-										</p>
+									<div className="text-xs font-mono mt-1 text-blue-400/70">
+										CNPJ: {selectedNode.data.cnpj}
 									</div>
-								)}
-
-								{!(
-									selectedNode.data.label?.toUpperCase().includes("ELEICAO") ||
-									selectedNode.data.label?.toUpperCase().includes("CAMPANHA") ||
-									selectedNode.data.cnae?.toUpperCase().includes("CAMPANHA")
-								) && (
-									<>
-										<div className="mt-8 pt-6 border-t border-slate-800">
-											<h3 className="text-xs uppercase font-bold text-blue-500 mb-2 border-b border-blue-900/50 pb-1 flex items-center gap-2">
-												<MapPin className="w-4 h-4" /> Inteligência Geográfica
-											</h3>
-											<p className="text-xs text-slate-500 mb-3 leading-relaxed">
-												Verifique indícios de empresa de fachada através do
-												endereço de registro.
-											</p>
-											<a
-												href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-													[
-														selectedNode.data.label,
-														selectedNode.data.municipio,
-														selectedNode.data.uf,
-														selectedNode.data.cnpj
-															? `CNPJ ${selectedNode.data.cnpj}`
-															: null,
-														"Brasil",
-													]
-														.filter(Boolean)
-														.join(" "),
-												)}`}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="flex w-full items-center justify-center p-3 border bg-blue-950/20 text-blue-400 border-blue-900 hover:bg-blue-900 hover:text-blue-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300 group"
-											>
-												<MapIcon className="mr-2 h-4 w-4" /> Analisar Endereço
-												(Street View)
-											</a>
-										</div>
-
-										<div className="mt-8 pt-6 border-t border-slate-800">
-											<h3 className="text-xs uppercase font-bold text-blue-500 mb-2 border-b border-blue-900/50 pb-1 flex items-center gap-2">
-												<Briefcase className="w-4 h-4" /> Dossiê Societário
-											</h3>
-											<p className="text-xs text-slate-500 mb-3 leading-relaxed">
-												Extrair o Quadro de Sócios (QSA) e conexões desta
-												empresa.
-											</p>
-											{!expandedNodes[selectedNode.id] ? (
-												<Button
-													variant="outline"
-													className="w-full bg-blue-950/20 text-blue-400 border-blue-900 hover:bg-blue-900 hover:text-blue-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300 group"
-													onClick={() => {
-														setExpandedNodes((prev) => ({
-															...prev,
-															[selectedNode.id]: true,
-														}));
-														handlePivotCNPJ(
-															selectedNode.data.cnpj,
-															selectedNode.id,
-														);
-													}}
-												>
-													<Search className="mr-2 h-4 w-4" /> Expandir Teia
-													Societária
-												</Button>
-											) : (
-												<div className="w-full text-center p-3 border border-green-900/50 bg-green-950/10 text-green-500/80 text-xs font-mono uppercase tracking-widest">
-													[ DRILLDOWN CONCLUÍDO NO CANVAS ]
-												</div>
-											)}
-										</div>
-									</>
-								)}
-							</div>
-						</>
-					)}
-
-					{selectedNode && selectedNode.type === "SOCIO" && (
-						<>
-							<SheetHeader className="pb-4 mb-4 border-b border-purple-900 border-dashed relative">
-								<VisuallyHidden>
-									<SheetTitle>Detalhes do Sócio</SheetTitle>
-									<SheetDescription>
-										Informações detalhadas sobre a pessoa física listada no QSA.
-									</SheetDescription>
-								</VisuallyHidden>
-								<Badge
-									variant="outline"
-									className="w-fit mb-2 text-xs uppercase rounded-none border bg-purple-900/30 text-purple-400 border-purple-500 pr-4"
-								>
-									PESSOA FÍSICA (QSA)
-								</Badge>
-								<div className="text-lg font-bold uppercase tracking-wider text-purple-400">
-									{selectedNode.data.label}
-								</div>
-								{selectedNode.data.cargo && (
-									<div className="text-xs font-mono mt-1 text-purple-400/70 border-l-2 border-purple-900/50 pl-2 mb-1">
-										Qualificação: {selectedNode.data.cargo}
-									</div>
-								)}
-							</SheetHeader>
-
-							<div className="space-y-6">
-								<div className="mt-8 pt-6 border-t border-slate-800">
-									<h3 className="text-xs uppercase font-bold text-purple-500 mb-2 border-b border-purple-900/50 pb-1 flex items-center gap-2">
-										<Users className="w-4 h-4" /> Busca Reversa
-									</h3>
-									<p className="text-xs text-slate-500 mb-3 leading-relaxed">
-										Rodar script de busca para localizar outras empresas onde{" "}
-										{selectedNode.data.label} também é sócio(a).
-									</p>
-									{!expandedNodes[selectedNode.id] ? (
-										<Button
-											variant="outline"
-											className="w-full bg-purple-950/20 text-purple-400 border-purple-900 hover:bg-purple-900 hover:text-purple-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300 group"
-											onClick={() => {
-												setExpandedNodes((prev) => ({
-													...prev,
-													[selectedNode.id]: true,
-												}));
-												handleSocioSearch(
-													selectedNode.data.label,
-													selectedNode.id,
-												);
-											}}
-										>
-											<Search className="mr-2 h-4 w-4" /> Rodar Busca Reversa
-										</Button>
-									) : (
-										<div className="w-full text-center p-3 border border-purple-900/50 bg-purple-950/10 text-purple-500/80 text-xs font-mono uppercase tracking-widest">
-											[ BUSCA REVERSA EXECUTADA ]
+									{selectedNode.data.situacao && (
+										<div className="text-xs font-mono text-blue-400/70">
+											Situação: {selectedNode.data.situacao}
 										</div>
 									)}
-									<p className="text-xs text-purple-900/40 mt-2 text-center">
-										* Essa ação quebra sigilo através de cruzamentos com fontes
-										governamentais externas.
-									</p>
-								</div>
-							</div>
-						</>
-					)}
-				</SheetContent>
-			</Sheet>
+								</SheetHeader>
 
-			{/* ============================================= */}
-			{/* DASHBOARD DE GASTOS: Cota de Gabinete CMRJ  */}
-			{/* Desktop: Sheet lateral | Mobile: Drawer vaul */}
-			{/* ============================================= */}
-			{!isMobile ? (
-				<Sheet open={dashboardOpen} onOpenChange={setDashboardOpen}>
-					<SheetContent className="bg-black border-l-2 border-indigo-500 font-mono text-indigo-300 overflow-y-auto w-120 sm:w-140 pt-12 pr-6">
-						<VisuallyHidden>
-							<SheetTitle>Raio-X de Gastos</SheetTitle>
-							<SheetDescription>Dashboard de Cota de Gabinete</SheetDescription>
-						</VisuallyHidden>
-						<DashboardCotaConteudo
-							nome={dashboardNome}
-							data={dashboardData}
-							loading={dashboardLoading}
-						/>
+								<div className="space-y-6">
+									{selectedNode.data.cnae && (
+										<div>
+											<h3 className="text-xs uppercase font-bold text-slate-400 mb-2 border-b border-slate-800 pb-1">
+												CNAE Principal
+											</h3>
+											<p className="text-xs text-slate-300">
+												{selectedNode.data.cnae}
+											</p>
+										</div>
+									)}
+
+									{!(
+										selectedNode.data.label?.toUpperCase().includes("ELEICAO") ||
+										selectedNode.data.label?.toUpperCase().includes("CAMPANHA") ||
+										selectedNode.data.cnae?.toUpperCase().includes("CAMPANHA")
+									) && (
+											<>
+												<div className="mt-8 pt-6 border-t border-slate-800">
+													<h3 className="text-xs uppercase font-bold text-blue-500 mb-2 border-b border-blue-900/50 pb-1 flex items-center gap-2">
+														<MapPin className="w-4 h-4" /> Inteligência Geográfica
+													</h3>
+													<p className="text-xs text-slate-500 mb-3 leading-relaxed">
+														Verifique indícios de empresa de fachada através do
+														endereço de registro.
+													</p>
+													<a
+														href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+															[
+																selectedNode.data.label,
+																selectedNode.data.municipio,
+																selectedNode.data.uf,
+																selectedNode.data.cnpj
+																	? `CNPJ ${selectedNode.data.cnpj}`
+																	: null,
+																"Brasil",
+															]
+																.filter(Boolean)
+																.join(" "),
+														)}`}
+														target="_blank"
+														rel="noopener noreferrer"
+														className="flex w-full items-center justify-center p-3 border bg-blue-950/20 text-blue-400 border-blue-900 hover:bg-blue-900 hover:text-blue-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300 group"
+													>
+														<MapIcon className="mr-2 h-4 w-4" /> Analisar Endereço
+														(Street View)
+													</a>
+												</div>
+
+												<div className="mt-8 pt-6 border-t border-slate-800">
+													<h3 className="text-xs uppercase font-bold text-blue-500 mb-2 border-b border-blue-900/50 pb-1 flex items-center gap-2">
+														<Briefcase className="w-4 h-4" /> Dossiê Societário
+													</h3>
+													<p className="text-xs text-slate-500 mb-3 leading-relaxed">
+														Extrair o Quadro de Sócios (QSA) e conexões desta
+														empresa.
+													</p>
+													{!expandedNodes[selectedNode.id] ? (
+														<Button
+															variant="outline"
+															className="w-full bg-blue-950/20 text-blue-400 border-blue-900 hover:bg-blue-900 hover:text-blue-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300 group"
+															onClick={() => {
+																setExpandedNodes((prev) => ({
+																	...prev,
+																	[selectedNode.id]: true,
+																}));
+																handlePivotCNPJ(
+																	selectedNode.data.cnpj,
+																	selectedNode.id,
+																);
+															}}
+														>
+															<Search className="mr-2 h-4 w-4" /> Expandir Teia
+															Societária
+														</Button>
+													) : (
+														<div className="w-full text-center p-3 border border-green-900/50 bg-green-950/10 text-green-500/80 text-xs font-mono uppercase tracking-widest">
+															[ DRILLDOWN CONCLUÍDO NO CANVAS ]
+														</div>
+													)}
+												</div>
+											</>
+										)}
+								</div>
+							</>
+						)}
+
+						{selectedNode && selectedNode.type === "SOCIO" && (
+							<>
+								<SheetHeader className="pb-4 mb-4 border-b border-purple-900 border-dashed relative">
+									<VisuallyHidden>
+										<SheetTitle>Detalhes do Sócio</SheetTitle>
+										<SheetDescription>
+											Informações detalhadas sobre a pessoa física listada no QSA.
+										</SheetDescription>
+									</VisuallyHidden>
+									<Badge
+										variant="outline"
+										className="w-fit mb-2 text-xs uppercase rounded-none border bg-purple-900/30 text-purple-400 border-purple-500 pr-4"
+									>
+										PESSOA FÍSICA (QSA)
+									</Badge>
+									<div className="text-lg font-bold uppercase tracking-wider text-purple-400">
+										{selectedNode.data.label}
+									</div>
+									{selectedNode.data.cargo && (
+										<div className="text-xs font-mono mt-1 text-purple-400/70 border-l-2 border-purple-900/50 pl-2 mb-1">
+											Qualificação: {selectedNode.data.cargo}
+										</div>
+									)}
+								</SheetHeader>
+
+								<div className="space-y-6">
+									<div className="mt-8 pt-6 border-t border-slate-800">
+										<h3 className="text-xs uppercase font-bold text-purple-500 mb-2 border-b border-purple-900/50 pb-1 flex items-center gap-2">
+											<Users className="w-4 h-4" /> Busca Reversa
+										</h3>
+										<p className="text-xs text-slate-500 mb-3 leading-relaxed">
+											Rodar script de busca para localizar outras empresas onde{" "}
+											{selectedNode.data.label} também é sócio(a).
+										</p>
+										{!expandedNodes[selectedNode.id] ? (
+											<Button
+												variant="outline"
+												className="w-full bg-purple-950/20 text-purple-400 border-purple-900 hover:bg-purple-900 hover:text-purple-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300 group"
+												onClick={() => {
+													setExpandedNodes((prev) => ({
+														...prev,
+														[selectedNode.id]: true,
+													}));
+													handleSocioSearch(
+														selectedNode.data.label,
+														selectedNode.id,
+													);
+												}}
+											>
+												<Search className="mr-2 h-4 w-4" /> Rodar Busca Reversa
+											</Button>
+										) : (
+											<div className="w-full text-center p-3 border border-purple-900/50 bg-purple-950/10 text-purple-500/80 text-xs font-mono uppercase tracking-widest">
+												[ BUSCA REVERSA EXECUTADA ]
+											</div>
+										)}
+										<p className="text-xs text-purple-900/40 mt-2 text-center">
+											* Essa ação quebra sigilo através de cruzamentos com fontes
+											governamentais externas.
+										</p>
+									</div>
+								</div>
+							</>
+						)}
 					</SheetContent>
 				</Sheet>
-			) : (
-				<Drawer.Root open={dashboardOpen} onOpenChange={setDashboardOpen}>
-					<Drawer.Portal>
-						<Drawer.Overlay className="fixed inset-0 bg-black z-40" />
-						<Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-black border-t-2 border-indigo-500 font-mono text-indigo-300 max-h-[90vh] rounded-t-2xl">
-							<div className="flex justify-center py-3">
-								<div className="w-12 h-1 rounded-full bg-indigo-700" />
-							</div>
-							<div className="overflow-y-auto px-4 pb-8">
-								<DashboardCotaConteudo
-									nome={dashboardNome}
-									data={dashboardData}
-									loading={dashboardLoading}
-								/>
-							</div>
-						</Drawer.Content>
-					</Drawer.Portal>
-				</Drawer.Root>
-			)}
 
-			<ShareDialog
-				open={isShareOpen}
-				onOpenChange={setIsShareOpen}
-				data={shareData}
-				isMobile={false}
-			/>
+				{/* ============================================= */}
+				{/* DASHBOARD DE GASTOS: Cota de Gabinete CMRJ  */}
+				{/* Desktop: Sheet lateral | Mobile: Drawer vaul */}
+				{/* ============================================= */}
+				{!isMobile ? (
+					<Sheet open={dashboardOpen} onOpenChange={setDashboardOpen}>
+						<SheetContent className="bg-black border-l-2 border-indigo-500 font-mono text-indigo-300 overflow-y-auto w-120 sm:w-140 pt-12 pr-6">
+							<VisuallyHidden>
+								<SheetTitle>Raio-X de Gastos</SheetTitle>
+								<SheetDescription>Dashboard de Cota de Gabinete</SheetDescription>
+							</VisuallyHidden>
+							<DashboardCotaConteudo
+								nome={dashboardNome}
+								data={dashboardData}
+								loading={dashboardLoading}
+							/>
+						</SheetContent>
+					</Sheet>
+				) : (
+					<Drawer.Root open={dashboardOpen} onOpenChange={setDashboardOpen}>
+						<Drawer.Portal>
+							<Drawer.Overlay className="fixed inset-0 bg-black z-40" />
+							<Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-black border-t-2 border-indigo-500 font-mono text-indigo-300 max-h-[90vh] rounded-t-2xl">
+								<div className="flex justify-center py-3">
+									<div className="w-12 h-1 rounded-full bg-indigo-700" />
+								</div>
+								<div className="overflow-y-auto px-4 pb-8">
+									<DashboardCotaConteudo
+										nome={dashboardNome}
+										data={dashboardData}
+										loading={dashboardLoading}
+									/>
+								</div>
+							</Drawer.Content>
+						</Drawer.Portal>
+					</Drawer.Root>
+				)}
+
+				<ShareDialog
+					open={isShareOpen}
+					onOpenChange={setIsShareOpen}
+					data={shareData}
+					isMobile={false}
+				/>
 			</div>
 		</div>
 	);
