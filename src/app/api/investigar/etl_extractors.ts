@@ -234,7 +234,7 @@ export async function buscarEmendas(nomePolitico: string) {
 	try {
 		for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
 			const params = new URLSearchParams({
-				nomeAutor: nomePolitico,
+				nomeAutor: nomePolitico.toUpperCase(),
 				pagina: String(pagina),
 			});
 			const res = await fetchWithTimeout(
