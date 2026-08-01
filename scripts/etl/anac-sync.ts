@@ -30,7 +30,9 @@ async function downloadData() {
     console.log(`[ANAC] Baixando dados do RAB: ${URL_ANAC}`);
     try {
         // Usa curl nativo que suporta TLS e redirecionamentos
-        execSync(`curl.exe -f -s -L -o "${CSV_PATH}" "${URL_ANAC}"`, { stdio: 'inherit' });
+        // curl é disponível nativamente no Linux (CI) e Windows 10+
+        const curlCmd = process.platform === 'win32' ? 'curl.exe' : 'curl';
+        execSync(`${curlCmd} -f -s -L -o "${CSV_PATH}" "${URL_ANAC}"`, { stdio: 'inherit' });
         console.log(`[ANAC] Download concluído: ${CSV_PATH}`);
         return true;
     } catch (e) {

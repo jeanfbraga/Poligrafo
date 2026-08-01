@@ -31,13 +31,18 @@ async function downloadData() {
     
     console.log(`[IBAMA] Baixando dados de infrações (ZIP): ${URL_IBAMA}`);
     try {
-        execSync(`curl.exe -f -s -L -o "${ZIP_PATH}" "${URL_IBAMA}"`, { stdio: 'inherit' });
+        const curlCmd = process.platform === 'win32' ? 'curl.exe' : 'curl';
+        execSync(`${curlCmd} -f -s -L -o "${ZIP_PATH}" "${URL_IBAMA}"`, { stdio: 'inherit' });
         console.log(`[IBAMA] Download concluído. Extraindo arquivo...`);
         
         try {
             execSync(`tar -xf "${ZIP_PATH}" -C "${TEMP_DIR}"`, { stdio: 'inherit' });
         } catch (e) {
-            execSync(`powershell -command "Expand-Archive -Force '${ZIP_PATH}' '${TEMP_DIR}'"`, { stdio: 'inherit' });
+            if (process.platform === 'win32') {
+                execSync(`powershell -command "Expand-Archive -Force '${ZIP_PATH}' '${TEMP_DIR}'"`, { stdio: 'inherit' });
+            } else {
+                execSync(`unzip -o "${ZIP_PATH}" -d "${TEMP_DIR}"`, { stdio: 'inherit' });
+            }
         }
 
         const files = fs.readdirSync(TEMP_DIR);

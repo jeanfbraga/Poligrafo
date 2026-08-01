@@ -30,7 +30,9 @@ async function downloadData() {
     
     console.log(`[SPU] Baixando dados de Imóveis da União: ${URL_SPU}`);
     try {
-        execSync(`curl.exe -f -s -L -o "${CSV_PATH}" "${URL_SPU}"`, { stdio: 'inherit' });
+        // curl é disponível nativamente no Linux (CI) e Windows 10+
+        const curlCmd = process.platform === 'win32' ? 'curl.exe' : 'curl';
+        execSync(`${curlCmd} -f -s -L -o "${CSV_PATH}" "${URL_SPU}"`, { stdio: 'inherit' });
         console.log(`[SPU] Download concluído: ${CSV_PATH}`);
         return true;
     } catch (e) {
