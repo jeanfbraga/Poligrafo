@@ -378,10 +378,14 @@ export async function investigarPolitico(
 					}
 				}
 			} catch (err: any) {
-				console.warn(
-					"[TRANSPARÊNCIA] Erro ao buscar convênios por CPF:",
-					err.message,
-				);
+				if (err.name === "AbortError" || err.code === 20) {
+					console.warn("[TRANSPARÊNCIA] Timeout ao buscar convênios por CPF.");
+				} else {
+					console.warn(
+						"[TRANSPARÊNCIA] Erro ao buscar convênios por CPF:",
+						err.message,
+					);
+				}
 			}
 		}
 	} catch (e) {

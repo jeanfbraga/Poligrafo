@@ -124,10 +124,14 @@ export async function buscarCertidaoTCU(
 			temInfracao,
 		};
 	} catch (e: any) {
-		console.warn(
-			`[TCU] Erro ao buscar certidão para ${cnpjLimpo}:`,
-			e.message || e,
-		);
+		if (e.name === "AbortError" || e.code === 20) {
+			console.warn(`[TCU] Timeout ao buscar certidão para ${cnpjLimpo}.`);
+		} else {
+			console.warn(
+				`[TCU] Erro ao buscar certidão para ${cnpjLimpo}:`,
+				e.message || e,
+			);
+		}
 		return null;
 	}
 }

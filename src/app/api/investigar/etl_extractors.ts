@@ -241,7 +241,7 @@ export async function buscarEmendas(nomePolitico: string) {
 				`https://api.portaldatransparencia.gov.br/api-de-dados/emendas?${params.toString()}`,
 				{
 					headers: { "chave-api-dados": apiKey },
-					timeout: 10000,
+					timeout: 15000,
 				},
 			);
 			if (!res.ok) break;
@@ -251,8 +251,12 @@ export async function buscarEmendas(nomePolitico: string) {
 			todasEmendas = todasEmendas.concat(batch);
 			if (batch.length < 15) break;
 		}
-	} catch (e) {
-		console.error("[ETL Error] buscarEmendas pagination", e);
+	} catch (e: any) {
+		if (e.name === "AbortError" || e.code === 20) {
+			console.warn("[ETL] buscarEmendas excedeu o tempo limite da API (Timeout).");
+		} else {
+			console.error("[ETL Error] buscarEmendas pagination", e);
+		}
 	}
 
 	if (todasEmendas.length === 0) return { emendas: [], resumo: null };
