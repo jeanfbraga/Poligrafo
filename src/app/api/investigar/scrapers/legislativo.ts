@@ -47,8 +47,12 @@ export async function buscarPolitico(
 			casa: "CAMARA",
 			urlFoto: deputado.urlFoto,
 		};
-	} catch (e) {
-		console.error(`[CÂMARA] Tempo esgotado ou erro ao buscarPolitico:`, e);
+	} catch (e: any) {
+		if (e.name === "AbortError" || e.code === "UND_ERR_CONNECT_TIMEOUT" || e.message?.includes("timeout") || e.message?.includes("fetch failed")) {
+			console.warn(`[CÂMARA] Timeout ao buscarPolitico.`);
+		} else {
+			console.error(`[CÂMARA] Tempo esgotado ou erro ao buscarPolitico:`, e);
+		}
 		return null;
 	}
 }
