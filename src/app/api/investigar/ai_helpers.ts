@@ -459,6 +459,22 @@ function fallbackL4HeuristicaMatematica(
 				fund =
 					"O valor é atípico apenas em comparação com as demais locações do próprio parlamentar no período. Não existe teto legal específico para esta rubrica no regime aplicável; o alerta é estatístico, não normativo.";
 		}
+		// Inviabilidade Física de Combustível (Acúmulo > R$ 8.000 no mês por posto)
+		if (regexCombustivel.test(strBusca)) {
+			const mes = String(d.dataDocumento || "").slice(0, 7);
+			const chave = `${fornecedorDoc}|${mes}`;
+			const acumuladoMensal = combustivelMensal.get(chave) || 0;
+			if (acumuladoMensal > 8000) {
+				score = Math.max(score, 85);
+				classif = "DESVIO_DE_FINALIDADE";
+				enquadramento = "Inviabilidade Física — Acórdão TCU 3.048/2019";
+				motivos.push(
+					`Acumulado mensal de combustível neste posto (R$ ${acumuladoMensal.toLocaleString("pt-BR")}) excede o limite físico aceitável para um único veículo (aprox. R$ 8.000/mês). Forte indício de nota fria ou abastecimento de frota de terceiros.`,
+				);
+				fund =
+					"Gasto mensal acumulado em um único fornecedor incompatível com a capacidade de consumo de um veículo de mandato, sugerindo simulação de despesa, conforme tipologia do TCU.";
+			}
+		}
 
 		// Combustível atípico EM RELAÇÃO AO PRÓPRIO LOTE do mandato
 		if (

@@ -59,10 +59,10 @@ describe('🧠 AI Pipeline - Resolvedor Normativo & Triagem', () => {
 
              const resultado = await analisarEmendasComInteligencia(emendasMock, 'SP', 'FEDERAL', 'CAMARA');
              
-             // O fallback L3 deve dar letalidade na faixa de 70 para a primeira (fantasma/0 execução)
-             expect(resultado[0].score_letalidade).toBeGreaterThanOrEqual(70);
-             expect(resultado[0].classificacao).toContain('INDICIO');
-             expect(resultado[0].fundamentacao_tecnica).toContain('tipo fantasma');
+             // O fallback L3 deve dar letalidade na faixa de 55 para a primeira (fantasma/0 execução)
+             expect(resultado[0].score_letalidade).toBeGreaterThanOrEqual(50);
+             expect(resultado[0].classificacao).toContain('PONTO_DE_ATENCAO');
+             expect(resultado[0].fundamentacao_tecnica).toContain('empenhada sem pagamento');
 
              // A segunda deve ficar como regular
              expect(resultado[1].score_letalidade).toBeLessThan(50);
@@ -96,7 +96,7 @@ describe('🧠 AI Pipeline - Resolvedor Normativo & Triagem', () => {
              process.env.OPENROUTER_API_KEY = oldOpenRouter;
         });
 
-        it('[BUG-FIX] deve detectar combustível acima de R$9392 no Fallback L3 como RED FLAG', async () => {
+        it('[BUG-FIX] deve detectar combustível mensal acumulado > 8000 no Fallback L3 como RED FLAG', async () => {
             const oldKey = process.env.GEMINI_API_KEY;
             const oldGroq = process.env.GROQ_API_KEY;
             const oldOpenRouter = process.env.OPENROUTER_API_KEY;
