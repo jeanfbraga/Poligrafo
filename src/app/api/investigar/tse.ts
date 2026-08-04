@@ -60,6 +60,8 @@ export async function buscarCpfNoTSE(
 	idEleicao?: string;
 	patrimonioTotal?: number;
 	bensDeclarados?: any[];
+	partido?: string;
+	urlFoto?: string;
 } | null> {
 	console.log(
 		`[>> TSE ENTRY] buscarCpfNoTSE chamado: ${nomePolitico} UF:${uf} Cargo:${cargoCodigo}`,
@@ -405,6 +407,8 @@ async function extrairDetalhesDoTSE(
 			idEleicao: eleicao.idEleicao,
 			patrimonioTotal,
 			bensDeclarados,
+			partido: jsonCpf?.partido?.sigla || match.partido?.sigla,
+			urlFoto: jsonCpf?.fotoUrl || match.fotoUrl,
 		};
 	}
 	console.log(

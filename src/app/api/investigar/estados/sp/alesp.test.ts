@@ -15,6 +15,44 @@ vi.mock("../../tse", () => ({
 
 global.fetch = vi.fn();
 
+// Monta uma resposta fetch fake com body em streaming (getReader),
+// imitando o XML único do repositório de dados abertos da ALESP.
+function mockXmlStream(xml: string) {
+	const encoder = new TextEncoder();
+	const chunks = [encoder.encode(xml)];
+	return {
+		ok: true,
+		status: 200,
+		body: {
+			getReader: () => ({
+				read: vi
+					.fn()
+					.mockImplementation(() =>
+						Promise.resolve(
+							chunks.length
+								? { value: chunks.shift(), done: false }
+								: { value: undefined, done: true },
+						),
+					),
+				cancel: vi.fn().mockResolvedValue(undefined),
+				releaseLock: vi.fn(),
+			}),
+		},
+	};
+}
+
+function blocoDespesa(
+	ano: number,
+	deputado: string,
+	fornecedor: string,
+	valor: string,
+	cnpj = "12.345.678/0001-99",
+	tipo = "Locação de Veículos",
+	mes = 2,
+) {
+	return `<despesa><Ano>${ano}</Ano><Matricula>123</Matricula><Mes>${mes}</Mes><Valor>${valor}</Valor><CNPJ>${cnpj}</CNPJ><Deputado>${deputado}</Deputado><Tipo>${tipo}</Tipo><Fornecedor>${fornecedor}</Fornecedor></despesa>`;
+}
+
 describe("Módulo de Extração: ALESP", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -34,7 +72,9 @@ describe("Módulo de Extração: ALESP", () => {
 			const resultados = await buscarDeputadoEstadualSP("Eduardo");
 
 			expect(resultados).toHaveLength(1);
-			expect(resultados[0].ref).toBe("ALESP:DEPUTADO_ESTADUAL:99988877766");
+			expect(resultados[0].ref).toBe(
+				"ALESP:DEPUTADO_ESTADUAL:EDUARDO:99988877766",
+			);
 			expect(resultados[0].casa).toBe("ALESP");
 			expect(tseModule.buscarCpfNoTSE).toHaveBeenCalledWith(
 				"eduardo",
@@ -53,59 +93,77 @@ describe("Módulo de Extração: ALESP", () => {
 	});
 
 	describe("buscarDespesasDeputadoEstadualSP", () => {
-		it("deve extrair e formatar despesas corretamente a partir da API Aberta ALESP", async () => {
-			const mockJson = [
-				{
-					Ano: "2024",
-					Mes: "2",
-					Deputado: "Politico Teste",
-					CNPJ: "12.345.678/0001-99",
-					Fornecedor: "LOCADORA VEICULOS SP",
-					Tipo: "Locação de Veículos",
-					Valor: "8500.50",
-				},
-				{
-					Ano: "2024",
-					Mes: "2",
-					Deputado: "Politico Teste",
-					CNPJ: "98.765.432/0001-11",
-					Fornecedor: "GRAFICA PAULISTA",
-					Tipo: "Material Impresso",
-					Valor: "15000.00",
-				},
-				{
-					Ano: "2024",
-					Mes: "2",
-					Deputado: "Outro Deputado",
-					CNPJ: "00.000.000/0000-00",
-					Fornecedor: "FORNECEDOR ERRO",
-					Tipo: "NAO DEVE APARECER",
-					Valor: "15000.00",
-				},
-			];
+		it("deve extrair do XML streaming só as despesas do deputado, em anos recentes, ordenadas por valor", async () => {
+			const anoAtual = new Date().getFullYear();
+			const xml = `<?xml version="1.0" encoding="UTF-8"?><despesas>${
+				blocoDespesa(
+					anoAtual,
+					"POLITICO TESTE",
+					"LOCADORA VEICULOS SP",
+					"8500.50",
+				) +
+				blocoDespesa(
+					anoAtual - 1,
+					"POLITICO TESTE DE SOUZA", // variação com nome do meio extra
+					"GRAFICA PAULISTA",
+					"15000.00",
+					"98.765.432/0001-11",
+					"Material Impresso",
+				) +
+				blocoDespesa(
+					anoAtual,
+					"OUTRO DEPUTADO", // não pode aparecer
+					"FORNECEDOR ERRO",
+					"99999.00",
+				) +
+				blocoDespesa(
+					anoAtual - 5, // ano antigo demais — não pode aparecer
+					"POLITICO TESTE",
+					"FORNECEDOR ANTIGO",
+					"7777.00",
+				)
+			}</despesas>`;
 
-			(global.fetch as any).mockResolvedValue({
-				ok: true,
-				json: async () => mockJson,
-			});
+			(global.fetch as any).mockResolvedValue(mockXmlStream(xml));
 
-			// Simulando um ID de deputado
-			const identificador = "12345";
 			const despesas = await buscarDespesasDeputadoEstadualSP(
-				identificador,
+				"12345",
 				"Politico Teste",
 			);
 
-			expect(despesas.length).toBe(6);
+			expect(despesas).toHaveLength(2);
+			// Ordenado por valor desc: a gráfica (15000) vem primeiro
+			expect(despesas[0].nomeFornecedor).toBe("GRAFICA PAULISTA");
+			expect(despesas[0].cnpjCpfFornecedor).toBe("98765432000111");
+			expect(despesas[0].tipoDespesa).toBe("Material Impresso");
+			expect(despesas[0].valorDocumento).toBe(15000);
+			expect(despesas[0].dataDocumento).toBe(`${anoAtual - 1}-02-01`);
 
-			const primeiraDespesa = despesas[0];
-			expect(primeiraDespesa.cnpjCpfFornecedor).toBe("12345678000199");
-			expect(primeiraDespesa.nomeFornecedor).toBe("LOCADORA VEICULOS SP");
-			expect(primeiraDespesa.tipoDespesa).toBe("Locação de Veículos");
-			expect(primeiraDespesa.valorDocumento).toBe(8500.5);
+			expect(despesas[1].nomeFornecedor).toBe("LOCADORA VEICULOS SP");
+			expect(despesas[1].cnpjCpfFornecedor).toBe("12345678000199");
+			expect(despesas[1].valorDocumento).toBe(8500.5);
+			expect(despesas[1].dataDocumento).toBe(`${anoAtual}-02-01`);
+		});
 
+		it("deve avisar via sendEvent quando não encontra despesas do deputado", async () => {
 			const anoAtual = new Date().getFullYear();
-			expect(primeiraDespesa.dataDocumento).toBe(`${anoAtual}-02-01`);
+			const xml = `<despesas>${blocoDespesa(anoAtual, "OUTRO DEPUTADO", "X", "1.00")}</despesas>`;
+			(global.fetch as any).mockResolvedValue(mockXmlStream(xml));
+			const sendEvent = vi.fn();
+
+			const despesas = await buscarDespesasDeputadoEstadualSP(
+				"123",
+				"Nome Inexistente",
+				sendEvent,
+			);
+
+			expect(despesas).toEqual([]);
+			expect(sendEvent).toHaveBeenCalledWith(
+				"API_WARNING",
+				expect.objectContaining({
+					fonte: "Assembleia Legislativa de SP (ALESP)",
+				}),
+			);
 		});
 
 		it("deve retornar array vazio se a resposta for HTTP Error (não ok)", async () => {
@@ -117,7 +175,7 @@ describe("Módulo de Extração: ALESP", () => {
 			expect(despesas).toEqual([]);
 		});
 
-		it("deve retornar array vazio se ocorrer erro de rede ou cheerio estourar", async () => {
+		it("deve retornar array vazio se ocorrer erro de rede", async () => {
 			(global.fetch as any).mockRejectedValueOnce(
 				new Error("Network error Timeout"),
 			);

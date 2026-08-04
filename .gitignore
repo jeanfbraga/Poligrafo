@@ -33,6 +33,7 @@ skills-lock.json
 .tmp_ceap/
 .tmp_tse/
 mcp-brasil/
+.sandbox/
 
 # Dados de Teste Locais
 *.csv

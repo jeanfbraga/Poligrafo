@@ -18,6 +18,7 @@ export type {
 export { ContratoNode } from "./ContratoNode";
 export { DashboardCotaConteudo } from "./DashboardCotaConteudo";
 export { DespesaNode } from "./DespesaNode";
+export { DiarioOficialNode } from "./DiarioOficialNode";
 export { EmendaNode } from "./EmendaNode";
 export { EmendaResumoNode } from "./EmendaResumoNode";
 export { EmpresaNode } from "./EmpresaNode";

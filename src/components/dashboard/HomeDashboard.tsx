@@ -166,17 +166,14 @@ export function HomeDashboard() {
 		(item) => ({
 			label: formatName(item.termo),
 			value: item.quantidade,
-			profile:
-				item.partido && item.partido !== "N/A"
-					? {
-							nome: formatName(item.termo),
-							partido: item.partido,
-							uf: item.uf,
-							foto: item.foto,
-							id: item.id_deputado,
-							cargo: item.cargo,
-						}
-					: null,
+			profile: {
+				nome: formatName(item.termo),
+				partido: item.partido && item.partido !== "N/A" ? item.partido : "Desconhecido",
+				uf: item.uf || "BR",
+				foto: item.foto,
+				id: item.id_deputado,
+				cargo: item.cargo || "Político",
+			},
 		}),
 	);
 

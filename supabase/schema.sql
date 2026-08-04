@@ -71,6 +71,10 @@ CREATE TABLE IF NOT EXISTS public.contagem_pesquisas (
     ref             TEXT,
     quantidade      BIGINT NOT NULL DEFAULT 0,
     ultima_pesquisa TIMESTAMPTZ DEFAULT NOW(),
+    partido         TEXT,
+    uf              TEXT,
+    cargo           TEXT,
+    foto_url        TEXT,
 
     CONSTRAINT uq_contagem_pesquisas UNIQUE (nome, id_politico)
 );
@@ -563,7 +567,11 @@ SELECT
     id_politico AS id_deputado,
     casa,
     ref,
-    quantidade
+    quantidade,
+    partido,
+    uf,
+    cargo,
+    foto_url
 FROM public.contagem_pesquisas
 WHERE quantidade > 0
 ORDER BY quantidade DESC
@@ -588,7 +596,11 @@ CREATE FUNCTION public.incrementar_pesquisa(
     p_nome        TEXT,
     p_id_politico TEXT,
     p_casa        TEXT DEFAULT 'GLOBAL',
-    p_ref         TEXT DEFAULT NULL
+    p_ref         TEXT DEFAULT NULL,
+    p_partido     TEXT DEFAULT NULL,
+    p_uf          TEXT DEFAULT NULL,
+    p_cargo       TEXT DEFAULT NULL,
+    p_foto_url    TEXT DEFAULT NULL
 )
 RETURNS VOID
 LANGUAGE plpgsql
@@ -596,14 +608,18 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-    INSERT INTO public.contagem_pesquisas (nome, id_politico, casa, ref, quantidade, ultima_pesquisa)
-    VALUES (p_nome, p_id_politico, p_casa, p_ref, 1, now())
+    INSERT INTO public.contagem_pesquisas (nome, id_politico, casa, ref, quantidade, ultima_pesquisa, partido, uf, cargo, foto_url)
+    VALUES (p_nome, p_id_politico, p_casa, p_ref, 1, now(), p_partido, p_uf, p_cargo, p_foto_url)
     ON CONFLICT (nome, ref)
     DO UPDATE SET
         quantidade      = public.contagem_pesquisas.quantidade + 1,
         ultima_pesquisa = now(),
         id_politico     = COALESCE(EXCLUDED.id_politico, public.contagem_pesquisas.id_politico),
-        casa            = COALESCE(EXCLUDED.casa, public.contagem_pesquisas.casa);
+        casa            = COALESCE(EXCLUDED.casa, public.contagem_pesquisas.casa),
+        partido         = COALESCE(EXCLUDED.partido, public.contagem_pesquisas.partido),
+        uf              = COALESCE(EXCLUDED.uf, public.contagem_pesquisas.uf),
+        cargo           = COALESCE(EXCLUDED.cargo, public.contagem_pesquisas.cargo),
+        foto_url        = COALESCE(EXCLUDED.foto_url, public.contagem_pesquisas.foto_url);
 END;
 $$;
 
@@ -623,7 +639,7 @@ BEGIN
     REFRESH MATERIALIZED VIEW public.dashboard_ceap_categorias;
     REFRESH MATERIALIZED VIEW public.dashboard_ceap_2025_deputados;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' SET statement_timeout = '10min';
 
 REVOKE EXECUTE ON FUNCTION public.refresh_ceap_materialized_views() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.refresh_ceap_materialized_views() FROM anon, authenticated;

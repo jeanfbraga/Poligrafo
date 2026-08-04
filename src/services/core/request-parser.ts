@@ -59,15 +59,24 @@ export function parseInvestigarRequest(requestUrl: string) {
 		},
 		"tarcisio de freitas": {
 			nomeCorreto: "tarcísio de freitas",
-			autoRef: "GOVERNADOR:SP:Tarcísio",
+			autoRef: "GOVERNADOR:SP:Tarcísio de Freitas",
 		},
 		"tarcísio de freitas": {
 			nomeCorreto: "tarcísio de freitas",
-			autoRef: "GOVERNADOR:SP:Tarcísio",
+			autoRef: "GOVERNADOR:SP:Tarcísio de Freitas",
 		},
+		"tarcisio gomes de freitas": {
+			nomeCorreto: "tarcísio de freitas",
+			autoRef: "GOVERNADOR:SP:Tarcísio de Freitas",
+		},
+		"tarcísio gomes de freitas": {
+			nomeCorreto: "tarcísio de freitas",
+			autoRef: "GOVERNADOR:SP:Tarcísio de Freitas",
+		},
+
 		tarcisio: {
 			nomeCorreto: "tarcísio de freitas",
-			autoRef: "GOVERNADOR:SP:Tarcísio",
+			autoRef: "GOVERNADOR:SP:Tarcísio de Freitas",
 		},
 		"marussa boldrim": {
 			nomeCorreto: "marussa boldrin",

@@ -139,23 +139,45 @@ export async function buscarDespesasSenado(
 		}
 
 		const anoAtual = new Date().getFullYear();
-		const url = `https://adm.senado.gov.br/adm-dadosabertos/api/v1/senadores/despesas_ceaps/${anoAtual}/csv`;
-		const res = await fetchWithTimeout(url, { timeout: 15000 });
+		// A API do Senado é instável e os arquivos anuais nem sempre existem —
+		// tenta o ano corrente e os dois anteriores antes de desistir.
+		const anosTentativa = [anoAtual, anoAtual - 1, anoAtual - 2];
+		let csvText: string | null = null;
+		let anoUsado = anoAtual;
+		let ultimoStatus = 0;
+		for (const ano of anosTentativa) {
+			const url = `https://adm.senado.gov.br/adm-dadosabertos/api/v1/senadores/despesas_ceaps/${ano}/csv`;
+			try {
+				const res = await fetchWithTimeout(url, { timeout: 15000 });
+				if (res.ok) {
+					csvText = await res.text();
+					anoUsado = ano;
+					break;
+				}
+				ultimoStatus = res.status;
+				console.warn(
+					`[SENADO] Erro HTTP ${res.status} ao baixar CSV CEAPS ${ano}`,
+				);
+			} catch (e: any) {
+				console.warn(`[SENADO] Falha ao baixar CSV CEAPS ${ano}:`, e.message);
+			}
+		}
 
-		if (!res.ok) {
-			console.warn(
-				`[SENADO] Erro HTTP ${res.status} ao baixar CSV CEAPS ${anoAtual}`,
-			);
+		if (!csvText) {
 			if (sendEvent) {
 				sendEvent("API_WARNING", {
 					fonte: "Senado Federal",
-					mensagem: `O Portal de Dados Abertos do Senado retornou erro HTTP ${res.status}. Gastos de gabinete indisponíveis no momento. Tente novamente mais tarde.`,
+					mensagem: `O Portal de Dados Abertos do Senado está fora do ar (HTTP ${ultimoStatus || "sem resposta"}) para ${anosTentativa.join("/")}. Gastos de gabinete indisponíveis no momento.`,
 				});
 			}
 			return [];
 		}
 
-		const csvText = await res.text();
+		if (sendEvent && anoUsado !== anoAtual) {
+			sendEvent("STATUS", {
+				msg: `[SENADO] CEAPS ${anoAtual} indisponível. Usando exercício de ${anoUsado}.`,
+			});
+		}
 
 		const records = parse(csvText, {
 			columns: true,

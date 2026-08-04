@@ -7,6 +7,103 @@ import { buscarCpfNoTSE, fetchWithTimeout } from "../../tse";
 
 const API_BASE_PE = "https://sistemas.tce.pe.gov.br/DadosAbertos";
 const PARAMS_TIMEOUT = 12000;
+// O endpoint de Contratos devolve um dump JSON único (Recife/Esfera M ≈ 12 MB).
+// Lemos em streaming e extraímos as linhas (objetos flat) incrementalmente.
+const MAX_BYTES_STREAM = 20 * 1024 * 1024;
+
+// ATENÇÃO: os query params da API Audin/TCE-PE são case-sensitive
+// ("Municipio", "AnoReferencia", "Esfera"). Versões em MAIÚSCULAS são
+// silenciosamente ignoradas e a API devolve o dump completo (100k linhas).
+// O endpoint "DespesasMunicipais!json" está indisponível (conexão pendurada,
+// sem resposta mesmo após 25s) — por isso usamos apenas "Contratos".
+
+type LinhaContratoPE = {
+	RazaoSocial?: string;
+	CPF_CNPJ?: string;
+	NumeroDocumentoAjustado?: string;
+	Objeto?: string;
+	Valor?: string;
+	UnidadeGestora?: string;
+	AnoContrato?: string;
+	Vigencia?: string;
+	Situacao?: string;
+	Estagio?: string;
+	Esfera?: string;
+	Municipio?: string;
+	LinkArquivo?: string;
+};
+
+/** Lê o dump JSON da API em streaming e extrai linhas flat ({...}) uma a uma. */
+async function varrerContratosPE(
+	url: string,
+	aceitar: (row: LinhaContratoPE) => boolean,
+	limiteLinhas: number,
+): Promise<LinhaContratoPE[]> {
+	const res = await fetchWithTimeout(url, { timeout: 60000 });
+	if (!res.ok || !res.body) return [];
+
+	const reader = res.body.getReader();
+	const decoder = new TextDecoder("iso-8859-1");
+	const coletadas: LinhaContratoPE[] = [];
+	let buffer = "";
+	let bytesLidos = 0;
+
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			bytesLidos += value.length;
+			buffer += decoder.decode(value, { stream: true });
+
+			// As linhas de "conteudo" são objetos JSON flat (sem chaves aninhadas).
+			const re = /\{[^{}]*\}/g;
+			let m: RegExpExecArray | null;
+			let consumidoAte = 0;
+			while ((m = re.exec(buffer))) {
+				consumidoAte = re.lastIndex;
+				if (coletadas.length >= limiteLinhas) break;
+				try {
+					const row = JSON.parse(m[0]) as LinhaContratoPE;
+					if (row && (row.Objeto || row.RazaoSocial) && aceitar(row)) {
+						coletadas.push(row);
+					}
+				} catch {
+					// fragmento inválido — ignora
+				}
+			}
+			buffer = buffer.slice(consumidoAte);
+
+			if (coletadas.length >= limiteLinhas || bytesLidos >= MAX_BYTES_STREAM) {
+				await reader.cancel();
+				break;
+			}
+		}
+	} finally {
+		reader.releaseLock();
+	}
+
+	return coletadas;
+}
+
+function docLimpoDe(row: LinhaContratoPE): string {
+	const bruto = String(row.NumeroDocumentoAjustado || row.CPF_CNPJ || "");
+	// TCE-PE mascara CPFs ("***.***.274-68") — nesse caso não há documento
+	// aproveitável para correlação; devolver vazio em vez de dígitos parciais.
+	if (bruto.includes("*")) return "";
+	return bruto.replace(/\D/g, "");
+}
+
+function mapearContratoPE(c: LinhaContratoPE) {
+	const doc = docLimpoDe(c);
+	return {
+		cnpjCpfFornecedor: doc,
+		nomeFornecedor: (c.RazaoSocial || "").trim() || "Não Identificado",
+		tipoDespesa: `Contrato: ${c.Objeto || "N/I"} (UG: ${c.UnidadeGestora || "N/I"})`,
+		valorDocumento: Number(c.Valor || 0),
+		dataDocumento: `${c.AnoContrato || new Date().getFullYear()}-01-01`,
+		urlDocumento: c.LinkArquivo || "https://sistemas.tce.pe.gov.br/",
+	};
+}
 
 export async function buscarMunicipalPE(nomeBuscado: string): Promise<
 	{
@@ -70,104 +167,58 @@ export async function buscarDespesasMunicipalPE(
 	casa?: string,
 ): Promise<any[]> {
 	const docLimpo = String(identificador).replace(/\D/g, "");
-	const despesasApuradas: any[] = [];
 	const anoAtual = new Date().getFullYear();
 
 	try {
-		// Lógica Inteligente para Prefeitos: Busca as despesas e contratos do MUNICÍPIO
+		// Lógica Inteligente para Prefeitos: contratos do EXECUTIVO municipal
 		if (casa === "PREFEITURA" && municipioUri) {
-			const municipioAjustado = municipioUri.replace(/-/g, " ").toUpperCase();
+			const municipioAjustado = municipioUri.replace(/-/g, " ");
 			console.log(
-				`[TCE-PE] Alvo é PREFEITO. Buscando Despesas Municipais e Contratos para: ${municipioAjustado}...`,
+				`[TCE-PE] Alvo é PREFEITO. Buscando contratos da esfera municipal para: ${municipioAjustado.toUpperCase()}...`,
 			);
 
-			const urlDespesas = `${API_BASE_PE}/DespesasMunicipais!json?ANOREFERENCIA=${anoAtual}&MUNICIPIO=${encodeURIComponent(municipioAjustado)}`;
-			const urlContratos = `${API_BASE_PE}/Contratos!json?ANOREFERENCIA=${anoAtual}&MUNICIPIO=${encodeURIComponent(municipioAjustado)}`;
+			const urlContratos = `${API_BASE_PE}/Contratos!json?Municipio=${encodeURIComponent(municipioAjustado)}&AnoReferencia=${anoAtual}&Esfera=M`;
+			const linhas = await varrerContratosPE(
+				urlContratos,
+				(row) =>
+					(row.Esfera || "").trim().toUpperCase() === "M" &&
+					/prefeitura/i.test(row.UnidadeGestora || "") &&
+					Number(row.Valor || 0) > 0,
+				500,
+			);
 
-			const [resDespesas, resContratos] = await Promise.allSettled([
-				fetchWithTimeout(urlDespesas, { timeout: PARAMS_TIMEOUT }),
-				fetchWithTimeout(urlContratos, { timeout: PARAMS_TIMEOUT }),
-			]);
-
-			// Parse Despesas
-			if (resDespesas.status === "fulfilled" && resDespesas.value.ok) {
-				const buffer = await resDespesas.value.arrayBuffer();
-				const decoder = new TextDecoder("iso-8859-1");
-				const textResponse = decoder.decode(buffer);
-				const payload = JSON.parse(textResponse);
-
-				if (payload?.resposta?.status === "OK" && payload?.resposta?.conteudo) {
-					const despesas = payload.resposta.conteudo;
-					despesas.slice(0, 30).forEach((d: any) => {
-						despesasApuradas.push({
-							cnpjCpfFornecedor: d.CPF_CNPJ || docLimpo,
-							nomeFornecedor: d.FORNECEDOR || "Não Identificado",
-							tipoDespesa: `Despesa: ${d.HISTORICO || "N/I"} (UG: ${d.NOMEUNIDADEGESTORA})`,
-							valorDocumento: Number(d.VALORPAGO || d.VALOREMPENHADO || 0),
-							dataDocumento: `${d.ANOREFERENCIA}-${String(d.MESREFERENCIA || 1).padStart(2, "0")}-01`,
-							urlDocumento: `https://sistemas.tce.pe.gov.br/`,
-						});
-					});
-				}
-			}
-
-			// Parse Contratos
-			if (resContratos.status === "fulfilled" && resContratos.value.ok) {
-				const buffer = await resContratos.value.arrayBuffer();
-				const decoder = new TextDecoder("iso-8859-1");
-				const textResponse = decoder.decode(buffer);
-				const payload = JSON.parse(textResponse);
-
-				if (payload?.resposta?.status === "OK" && payload?.resposta?.conteudo) {
-					const contratos = payload.resposta.conteudo;
-					contratos.slice(0, 20).forEach((c: any) => {
-						despesasApuradas.push({
-							cnpjCpfFornecedor: c.CPFCNPJ || docLimpo,
-							nomeFornecedor: c.FORNECEDOR || "Não Identificado",
-							tipoDespesa: `Contrato: ${c.OBJETO || "N/I"} (UG: ${c.NOMEUNIDADEGESTORA})`,
-							valorDocumento: Number(c.VALORCONTRATO || 0),
-							dataDocumento: `${c.ANOREFERENCIA}-01-01`,
-							urlDocumento: `https://sistemas.tce.pe.gov.br/`,
-						});
-					});
-				}
-			}
-		} else {
-			// Lógica Padrão: Busca Contratos pelo CPF/CNPJ (ex: Empresas ou Vereadores)
-			const urlContratos = `${API_BASE_PE}/Contratos!json?ANOREFERENCIA=${anoAtual}&CPFCNPJ=${docLimpo}`;
-			console.log(`[TCE-PE] Buscando Contratos pelo CPF/CNPJ: ${docLimpo}...`);
-
-			const res = await fetchWithTimeout(urlContratos, {
-				timeout: PARAMS_TIMEOUT,
-			});
-			if (res.ok) {
-				const buffer = await res.arrayBuffer();
-				const decoder = new TextDecoder("iso-8859-1");
-				const textResponse = decoder.decode(buffer);
-
-				const payload = JSON.parse(textResponse);
-				if (payload?.resposta?.status === "OK" && payload?.resposta?.conteudo) {
-					const contratos = payload.resposta.conteudo;
-					contratos.slice(0, 30).forEach((c: any) => {
-						despesasApuradas.push({
-							cnpjCpfFornecedor: docLimpo,
-							nomeFornecedor:
-								c.FORNECEDOR || nomeParaBusca || "Não Identificado",
-							tipoDespesa: `Contrato: ${c.OBJETO || "N/I"} (UG: ${c.NOMEUNIDADEGESTORA})`,
-							valorDocumento: Number(c.VALORCONTRATO || 0),
-							dataDocumento: `${c.ANOREFERENCIA}-01-01`,
-							urlDocumento: `https://sistemas.tce.pe.gov.br/`,
-						});
-					});
-				}
-			}
+			return linhas
+				.sort((a, b) => Number(b.Valor || 0) - Number(a.Valor || 0))
+				.slice(0, 20)
+				.map((c) => mapearContratoPE(c));
 		}
+
+		// Lógica Padrão: contratos pelo CPF/CNPJ do alvo (empresas, vereadores).
+		// A API ignora filtro de documento no servidor, então filtramos localmente
+		// no dump da esfera municipal (CPFs vêm mascarados pelo TCE — nesse caso
+		// o resultado honesto é vazio; CNPJs casam normalmente).
+		const municipioFiltro = municipioUri
+			? `&Municipio=${encodeURIComponent(municipioUri.replace(/-/g, " "))}`
+			: "";
+		const urlContratos = `${API_BASE_PE}/Contratos!json?AnoReferencia=${anoAtual}&Esfera=M${municipioFiltro}`;
+		console.log(`[TCE-PE] Varrando contratos pelo CPF/CNPJ: ${docLimpo}...`);
+
+		const linhas = await varrerContratosPE(
+			urlContratos,
+			(row) => docLimpoDe(row) === docLimpo && Number(row.Valor || 0) > 0,
+			30,
+		);
+
+		return linhas.map((c) => ({
+			...mapearContratoPE(c),
+			nomeFornecedor:
+				(c.RazaoSocial || "").trim() || nomeParaBusca || "Não Identificado",
+		}));
 	} catch (e) {
 		console.warn(
 			`[TCE-PE] Falha ao varrer Extrator PE para o alvo ${municipioUri || docLimpo}.`,
 			e,
 		);
+		return [];
 	}
-
-	return despesasApuradas;
 }

@@ -26,6 +26,7 @@ O coração do sistema é uma **Pipeline de Inteligência Artificial em Cascata 
 *   **🔗 Malha Societária Dinâmica**: Pivotamento societário automático (QSA) com 1 clique para rastrear donos de empresas suspeitas.
 *   **🕷️ Grafo Investigativo Interativo (React Flow)**: Canvas visual *drag-and-drop* para mapeamento da rede de corrupção ou influência.
 *   **📄 Exportação de Dossiês**: Geração de relatórios consolidados em PDF, DOCX ou XLSX para uso jornalístico ou legal.
+*   **⚡ Arquitetura Cache-First**: O sistema salva e restaura grafos inteiros localmente (com bypass automático e TTL), aliviando rate-limits das APIs governamentais, e cruza dados com os ETLs locais executados em background via GitHub Actions (ex.: `ceap_despesas_cache`, `cgu_sancoes_cache`).
 
 ---
 

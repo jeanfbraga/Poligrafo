@@ -230,13 +230,20 @@ export async function investigarPolitico(
 		sendEvent("STATUS", {
 			msg: `Verificando processos de Improbidade (Classe 129) no DataJud/CNJ...`,
 		});
-		await buscarProcessosDataJud(
-			cpfLimpo,
-			uf,
-			pessoaId,
-			sendEvent,
-			alertasPessoais,
-		);
+		try {
+			await buscarProcessosDataJud(
+				cpfLimpo,
+				uf,
+				pessoaId,
+				sendEvent,
+				alertasPessoais,
+			);
+		} catch (e) {
+			console.error("[OSINT DATAJUD] Timeout ou Erro na API do CNJ:", e);
+			sendEvent("STATUS", {
+				msg: `[AVISO] Busca no DataJud temporariamente indisponível (Timeout). A investigação continuará.`,
+			});
+		}
 
 		// 4. Integração DENASUS (Auditorias do SUS)
 		try {

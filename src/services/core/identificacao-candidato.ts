@@ -210,6 +210,8 @@ export async function buscarCandidatosEmCascata(params: IdentificacaoParams) {
 								ref: `ESTADUAL:${ufScope}:${tseData.documentoPrincipal || tseData.idTse}`,
 								cpfOuCnpj: tseData.documentoPrincipal,
 								isCnpj: tseData.isCnpj,
+								partido: tseData.partido,
+								urlFoto: tseData.urlFoto,
 							},
 						];
 					}
@@ -221,7 +223,15 @@ export async function buscarCandidatosEmCascata(params: IdentificacaoParams) {
 		const estaduaisRes = await Promise.allSettled(estaduaisPromises);
 		estaduaisRes.forEach((res) => {
 			if (res.status === "fulfilled" && res.value) {
-				candidatosGlobais.push(...res.value);
+				const items = Array.isArray(res.value) ? res.value : [res.value];
+				candidatosGlobais.push(...items.map((m: any) => ({
+					...m,
+					casa: m.casa,
+					cargo: m.cargo || "Deputado Estadual",
+					ref: `ESTADUAL:${m.uf}:${m.id || m.nome}`,
+					partido: m.partido,
+					urlFoto: m.urlFoto || m.foto,
+				})));
 			} else if (res.status === "rejected") {
 				hasApiError = true;
 			}
@@ -252,6 +262,8 @@ export async function buscarCandidatosEmCascata(params: IdentificacaoParams) {
 				casa: "GOVERNO_ESTADUAL",
 				cargo: "Governador de Estado",
 				ref: `GOVERNADOR:${ufGov}:${nomeGov}`,
+				partido: tseGov.partido,
+				urlFoto: tseGov.urlFoto,
 			});
 		}
 	}

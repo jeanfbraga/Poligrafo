@@ -29,7 +29,7 @@ jobs:
           cache: 'npm'
 
       - name: Instalar dependências
-        run: npm install
+        run: npm ci
 
       - name: Instalar Playwright + Chromium
         run: npx playwright install chromium --with-deps

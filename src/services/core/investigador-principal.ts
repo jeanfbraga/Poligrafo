@@ -121,11 +121,19 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				if (tseDados) {
 					const docTse = tseDados.documentoPrincipal || tseDados.cpf;
 					if (docTse) {
+						const ufEstado = ufScope || "BR";
+						const municipioSlug = tseDados.municipio || "";
+						// Ref no formato genérico consumido na seleção direta:
+						// GOVERNADOR:{UF}:{nome} | {UF}:PREFEITO:{municipio}:{doc}
+						const refGerada =
+							cargoParam === "GOVERNADOR"
+								? `GOVERNADOR:${ufEstado}:${tseDados.nome || nomeParaBusca}`
+								: `${ufEstado}:PREFEITO:${municipioSlug}:${docTse.replace(/\D/g, "")}`;
 						candidatosGlobais.push({
 							id: docTse.replace(/\D/g, ""),
-							uri: "",
+							uri: municipioSlug,
 							nome: tseDados.nome || nomeParaBusca,
-							uf: tseDados.municipio || ufScope || "BR",
+							uf: ufEstado,
 							idLegislatura: tseDados.anoEleicao || 2024,
 							casa:
 								cargoParam === "GOVERNADOR" ? "GOVERNO_ESTADUAL" : "PREFEITURA",
@@ -133,7 +141,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 								cargoParam === "GOVERNADOR"
 									? "Governador de Estado"
 									: "Prefeito Municipal",
-							ref: `${cargoParam}:${tseDados.municipio || ufScope || "BR"}:${docTse.replace(/\D/g, "")}`,
+							ref: refGerada,
 						});
 					}
 				}
@@ -586,6 +594,10 @@ export async function executarInvestigacaoPrincipal(params: any) {
 							? "PREFEITURA"
 							: `CAMARA_MUNICIPAL_${ufGen}`,
 				};
+				// Município de atuação (slug) — usado por SICONFI/FNDE/TransfereGov
+				(deputadoBasico as any)._nomeMunicipio = municGen
+					? municGen.replace(/-/g, " ")
+					: undefined;
 			} else if (
 				forceRef &&
 				(forceRef.startsWith("GOVERNADOR:") ||
@@ -793,7 +805,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				patrimonio: fichaPolitico.patrimonioTotal,
 				alertasPessoais: fichaPolitico.alertasPessoais,
 				afastamento: deputadoBasico.afastamento,
-				urlFoto: deputadoBasico.urlFoto,
+				urlFoto: deputadoBasico.urlFoto || (deputadoBasico as any)._tseResult?.urlFoto,
+				partido: (deputadoBasico as any).partido || (deputadoBasico as any)._tseResult?.partido,
 			},
 		};
 		sendEvent("NODE_NOVO", pessoaNodePayload);
@@ -837,18 +850,20 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		// ==========================================
 		// CONTAGEM DE PESQUISAS (Dashboard "Mais Investigados")
 		// ==========================================
-		if (!isDev) {
-			try {
-				const nomeNormalizado = deputadoBasico.nome.toLowerCase().trim();
-				await supabaseAdmin.rpc("incrementar_pesquisa", {
-					p_nome: nomeNormalizado,
-					p_id_politico: String(deputadoBasico.id || ""),
-					p_casa: deputadoBasico.casa || "GLOBAL",
-					p_ref: refParam || null,
-				});
-			} catch (_e) {
-				// Silencioso — contagem é telemetria, não deve travar investigação
-			}
+		try {
+			const nomeNormalizado = deputadoBasico.nome.toLowerCase().trim();
+			await supabaseAdmin.rpc("incrementar_pesquisa", {
+				p_nome: nomeNormalizado,
+				p_id_politico: String(deputadoBasico.id || ""),
+				p_casa: deputadoBasico.casa || "GLOBAL",
+				p_ref: refParam || null,
+				p_partido: (deputadoBasico as any).partido || tseData?.partido || null,
+				p_uf: deputadoBasico.uf || tseData?.uf || null,
+				p_cargo: cargoDisplay || null,
+				p_foto_url: (deputadoBasico as any).urlFoto || deputadoBasico.urlFoto || tseData?.urlFoto || null,
+			});
+		} catch (_e) {
+			// Silencioso — contagem é telemetria, não deve travar investigação
 		}
 
 		// Pré-Passo CGU/BrasilAPI: SKIP para executivos (Deep OSINT já faz essas chamadas adiante)
@@ -1283,7 +1298,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 					cnae: "Campanha Eleitoral",
 				},
 			};
-			sendEvent("NODE_NOVO", cnpjPayload);
+			// Emissão única: vai só para o buffer (a triagem da malha emite o NODE_NOVO)
 			malhaOsintBuffer.push(cnpjPayload);
 			supabaseNodes.push(cnpjPayload);
 		}
@@ -1328,7 +1343,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				});
 				const servidoresCMRJ = await buscarServidoresCMRJ(deputadoBasico.nome);
 
-				// Transforma os servidores da CMRJ em Nodes diretamente:
+				// Transforma os servidores da CMRJ em Nodes (emissão única via buffer):
 				servidoresCMRJ.forEach((serv: any, i: number) => {
 					const servPayload = {
 						id: `servidor-cmrj-${Date.now()}-${i}`,
@@ -1343,7 +1358,6 @@ export async function executarInvestigacaoPrincipal(params: any) {
 							motivo_ia: `Servidor do gabinete do vereador na CMRJ.`,
 						},
 					};
-					sendEvent("NODE_NOVO", servPayload);
 					malhaOsintBuffer.push(servPayload);
 					supabaseNodes.push(servPayload);
 				});
@@ -1366,7 +1380,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 					cotaDespesas.forEach((d: any) => (totalCota += Number(d.valor) || 0));
 				}
 
-				// Injeta APENAS o Nó Gatilho do Dashboard de Gastos
+				// Injeta APENAS o Nó Gatilho do Dashboard de Gastos (emissão única via buffer)
 				const dashPayload = {
 					id: `dashboard-cota-cmrj-${Date.now()}`,
 					type: "RESUMO_GASTOS",
@@ -1380,7 +1394,6 @@ export async function executarInvestigacaoPrincipal(params: any) {
 						score_letalidade: 0, // Nó neutro
 					},
 				};
-				sendEvent("NODE_NOVO", dashPayload);
 				malhaOsintBuffer.push(dashPayload);
 				supabaseNodes.push(dashPayload);
 			}
@@ -1574,34 +1587,83 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			);
 			const empresasPorNome = await buscarEmpresasDoSocio(deputadoBasico.nome);
 			if (empresasPorNome && empresasPorNome.length > 0) {
-				sendEvent("STATUS", {
-					msg: `[OSINT] ${empresasPorNome.length} empresa(s) vinculada(s) ao nome do político encontrada(s)!`,
-				});
+				// ANTI-FALSO-POSITIVO: a busca reversa por nome é fraca (homônimos).
+				// Cada empresa candidata só entra na malha se o QSA (BrasilAPI) tiver
+				// um sócio cujo nome bata EXATAMENTE com o nome civil/urna do político.
+				const nomesDeReferencia = [
+					detalhes?.nomeCivil,
+					(deputadoBasico as any)._tseResult?.nome,
+					(deputadoBasico as any)._tseResult?.nomeUrna,
+					deputadoBasico.nome,
+				]
+					.filter(Boolean)
+					.map((n: string) => normalizeString(n).trim())
+					.filter((n: string) => n.length > 5);
+				const nomesEquivalentes = (nomeSocio: string) => {
+					const ns = normalizeString(nomeSocio || "").trim();
+					return nomesDeReferencia.some((ref: string) => ns === ref);
+				};
+				let confirmadas = 0;
 				for (const emp of empresasPorNome) {
 					const cnpjEmp = (emp.cnpj || "").replace(/\D/g, "");
-					if (cnpjEmp && !empresasRelacionadasCNPJs.includes(cnpjEmp)) {
-						empresasRelacionadasCNPJs.push(cnpjEmp);
-						const devEmpresaRev = {
-							id: `empresa-rev-${cnpjEmp}-${Date.now()}`,
-							type: "EMPRESA",
-							_origemId: pessoaId,
-							data: {
-								label: emp.razao_social || "Empresa Localizada",
-								cnpj: cnpjEmp,
-								situacao: emp.situacao || "N/I",
-								cnae: emp.cnae || "N/I",
-							},
-						};
-						malhaOsintBuffer.push(devEmpresaRev);
-						supabaseNodes.push({
-							id: `empresa-rev-${cnpjEmp}`,
-							type: "EMPRESA",
-							data: {
-								cnpj: cnpjEmp,
-								label: emp.razao_social,
-							},
-						});
+					if (!cnpjEmp || empresasRelacionadasCNPJs.includes(cnpjEmp))
+						continue;
+
+					let verificada = false;
+					try {
+						const resQsa = await fetchWithTimeout(
+							`https://brasilapi.com.br/api/cnpj/v1/${cnpjEmp}`,
+							{ timeout: 5000 },
+						);
+						if (resQsa.ok) {
+							const empData = await resQsa.json();
+							const qsa = empData.qsa || [];
+							verificada = qsa.some((s: any) =>
+								nomesEquivalentes(s.nome_socio || ""),
+							);
+
+							// MEI e Empresa Individual geralmente não possuem quadro societário no BrasilAPI
+							if (!verificada && qsa.length === 0) {
+								const razaoNormalizada = normalizeString(empData.razao_social || "");
+								verificada = nomesDeReferencia.some((ref: string) =>
+									razaoNormalizada.includes(ref)
+								);
+							}
+						}
+					} catch (_e) {
+						// Sem verificação possível — trata como não verificada
 					}
+
+					if (!verificada) {
+						sendEvent("STATUS", {
+							msg: `[OSINT] "${emp.razao_social || cnpjEmp}" descartada: nome no QSA não confere com o político (proteção anti-homônimo).`,
+						});
+						continue;
+					}
+
+					confirmadas++;
+					empresasRelacionadasCNPJs.push(cnpjEmp);
+					const devEmpresaRev = {
+						id: `empresa-rev-${cnpjEmp}`,
+						type: "EMPRESA",
+						_origemId: pessoaId,
+						data: {
+							label: emp.razao_social || "Empresa Localizada",
+							cnpj: cnpjEmp,
+							situacao: emp.situacao || "N/I",
+							cnae: emp.cnae || "N/I",
+							motivo_ia:
+								"Vínculo societário confirmado via QSA (nome do sócio idêntico ao nome civil/urna do político).",
+						},
+					};
+					// Mesmo objeto completo no buffer de stream e no cache persistido
+					malhaOsintBuffer.push(devEmpresaRev);
+					supabaseNodes.push(devEmpresaRev);
+				}
+				if (confirmadas > 0) {
+					sendEvent("STATUS", {
+						msg: `[OSINT] ${confirmadas} empresa(s) com vínculo societário CONFIRMADO via QSA.`,
+					});
 				}
 			}
 		} catch (e) {
@@ -2237,6 +2299,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			}
 
 			// PASSO 5: Roteamento Baseado em Risco
+			const frotaAnacCache = new Map<string, any[]>();
+			const frotaAnacEmitida = new Set<string>();
 			for (let i = 0; i < despesasAvaliadas.length; i++) {
 				const d = despesasAvaliadas[i];
 				let finalScore = d.score_letalidade || 50;
@@ -2349,13 +2413,22 @@ export async function executarInvestigacaoPrincipal(params: any) {
 					if (isFretamento) {
 						const cnpjForn = (d.cnpjCpfFornecedor || "").replace(/\D/g, "");
 						if (cnpjForn.length === 14) {
-							sendEvent("STATUS", {
-								msg: `[ANAC DEEP] Rastreando frota do fornecedor de táxi aéreo (CNPJ: ${cnpjForn})...`,
-							});
 							try {
-								const frotaFornecedor =
-									await buscarAeronavesProprietario(cnpjForn);
-								if (frotaFornecedor.length > 0) {
+								if (!frotaAnacCache.has(cnpjForn)) {
+									sendEvent("STATUS", {
+										msg: `[ANAC DEEP] Rastreando frota do fornecedor de táxi aéreo (CNPJ: ${cnpjForn})...`,
+									});
+									frotaAnacCache.set(
+										cnpjForn,
+										await buscarAeronavesProprietario(cnpjForn),
+									);
+								}
+								const frotaFornecedor = frotaAnacCache.get(cnpjForn)!;
+								if (
+									frotaFornecedor.length > 0 &&
+									!frotaAnacEmitida.has(cnpjForn)
+								) {
+									frotaAnacEmitida.add(cnpjForn);
 									sendEvent("STATUS", {
 										msg: `[ANAC] ${frotaFornecedor.length} aeronave(s) registrada(s) no CNPJ do fornecedor de fretamento!`,
 									});

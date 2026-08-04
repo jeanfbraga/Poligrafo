@@ -61,6 +61,7 @@ import {
 	ContratoNode,
 	DashboardCotaConteudo,
 	DespesaNode,
+	DiarioOficialNode,
 	EmendaNode,
 	EmendaResumoNode,
 	EmpresaNode,
@@ -403,6 +404,14 @@ function DashboardArea() {
 					data={{ ...props.data, onOpenDashboard: handleOpenDashboard }}
 				/>
 			),
+			DESPESA_PUBLICA: (props: any) => (
+				<DespesaNode
+					{...props}
+					data={{ ...props.data, onShare: handleShareClick }}
+				/>
+			),
+			DIARIO_OFICIAL_NODE: DiarioOficialNode,
+			SERVIDOR: SocioNode,
 		}),
 		[handleShareClick, handleOpenDashboard],
 	);
@@ -1368,6 +1377,7 @@ function DashboardArea() {
 									"PROCESSO_JUDICIAL",
 									"CONTRATO",
 									"RESUMO_GASTOS",
+									"DIARIO_OFICIAL_NODE",
 								];
 								if (STRUCTURAL_TYPES.includes(nodeParams.type)) {
 									if (nodeParams.type === "PESSOA") {
@@ -1555,6 +1565,51 @@ function DashboardArea() {
 										return n;
 									}),
 								);
+							} else if (event.tipo === "GRAPH_ANALYSIS_SCORES") {
+								// Matemática de grafos (PageRank/Betweenness): injeta as
+								// métricas em data.metrics — NodeShell já renderiza ring
+								// vermelho + escala para nós com metrics.suspicious.
+								const scores = event.payload || {};
+								const totalSuspeitos = Object.values(scores).filter(
+									(m: any) => m?.suspicious,
+								).length;
+								setNodes((nds) =>
+									nds.map((n) =>
+										scores[n.id]
+											? { ...n, data: { ...n.data, metrics: scores[n.id] } }
+											: n,
+									),
+								);
+								setEvidencias((prev: any) =>
+									prev.map((e: any) =>
+										scores[e.id]
+											? {
+													...e,
+													data: { ...e.data, metrics: scores[e.id] },
+												}
+											: e,
+									),
+								);
+								if (totalSuspeitos > 0) {
+									setStatusMessage(
+										`> [ANÁLISE DE GRAFO] ${totalSuspeitos} nó(s) com centralidade suspeita destacados no Canvas.`,
+									);
+									toast.warning(
+										`> [MATEMÁTICA DE REDE] ${totalSuspeitos} nó(s) apontados como pontes discretas (betweenness/pagerank).`,
+									);
+								} else {
+									setStatusMessage(
+										"> [ANÁLISE DE GRAFO] Malha sem centralidades suspeitas.",
+									);
+								}
+							} else if (event.tipo === "EDGE_NOVA") {
+								// Replay de arestas vindas do cache Supabase
+								const edge = event.payload;
+								if (edge?.id && edge?.source && edge?.target) {
+									setEdges((eds) =>
+										eds.some((e) => e.id === edge.id) ? eds : [...eds, edge],
+									);
+								}
 							}
 						} catch (e) {
 							console.error("Erro ao parsear chunk dinâmico:", e);
@@ -1871,7 +1926,7 @@ function DashboardArea() {
 	}, [evidencias]);
 
 	return (
-		<div className="h-screen w-screen flex flex-col bg-black text-green-500 font-mono overflow-hidden">
+		<div className="h-[100dvh] w-screen flex flex-col bg-black text-green-500 font-mono overflow-hidden">
 			{/* SCRIPT SINCRONO (BLOCKING) PARA EVITAR FLASH DO SITE ANTES DA ANIMAÇÃO GSAP */}
 			<script dangerouslySetInnerHTML={{
 				__html: `

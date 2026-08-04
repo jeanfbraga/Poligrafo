@@ -151,25 +151,25 @@ export async function GET() {
 
 				return {
 					...item,
-					partido: dep?.partido || "N/A",
-					uf: dep?.uf || "BR",
-					casa: dep?.casa || item.casa || null,
+					partido: item.partido || dep?.partido || "N/A",
+					uf: item.uf || dep?.uf || "BR",
+					casa: item.casa || dep?.casa || null,
 					id: dep?.id || idNum || undefined,
-					ref: dep ? `FEDERAL:${dep.casa}:${dep.id}` : undefined,
-					foto: dep
+					ref: item.ref || (dep ? `FEDERAL:${dep.casa}:${dep.id}` : undefined),
+					foto: item.foto_url || (dep
 						? `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${dep.id}.jpg`
-						: null,
+						: null),
 					fotoFallback: dep
 						? dep.casa === "SENADO"
 							? `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${dep.id}.jpg`
 							: `https://www.camara.leg.br/internet/deputado/bandep/${dep.id}.jpg`
 						: null,
 					id_deputado: idNum || undefined,
-					cargo: dep
+					cargo: item.cargo || (dep
 						? dep.casa === "SENADO"
 							? "SENADOR(A)"
 							: "DEPUTADO FEDERAL"
-						: item.casa || null,
+						: item.casa || null),
 				};
 			});
 		};

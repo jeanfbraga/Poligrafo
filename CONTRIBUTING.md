@@ -67,9 +67,13 @@ Ao criar novas integrações que alimentam a investigação, siga o padrão **ca
 
 ### 6. GitHub Actions e Automações
 O projeto conta com 8 workflows automatizados (CEAP, CPGF, CMRJ, TSE Doadores, IBAMA, ANAC, SPU, CI). Todos usam Node 24 e podem ser disparados manualmente via `workflow_dispatch`. Ao criar novos workflows:
-*   Use `actions/setup-node@v4` com `node-version: '24'`.
+*   Use `actions/setup-node@v4` com `node-version: '24'` e **`cache: 'npm'`**.
+*   **Sempre** utilize `npm ci` ao invés de `npm install` para garantir execuções consistentes e aderentes ao `package-lock.json`.
 *   Nunca commite secrets — use `gh secret set` e referencie via `${{ secrets.NOME }}`.
 *   Teste localmente com `npx tsx` antes de configurar o cron.
+
+### 7. Arquivos Temporários e Sandbox
+Se precisar fazer testes locais, salvar resultados brutos de APIs ou analisar *payloads* em arquivos soltos (`.json`, `.csv`, etc.), **utilize a pasta `.sandbox/` na raiz do projeto**. Ela já está no `.gitignore` para evitar poluição do repositório e *commits* indesejados de dados de teste.
 
 ## Testes e Gate de Qualidade
 

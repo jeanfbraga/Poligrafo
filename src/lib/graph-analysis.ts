@@ -37,11 +37,15 @@ export function analyzeGraphNetwork(nodesInput: any[]): GraphAnalysisResult {
 	const getRealSource = (node: any): string | null => {
 		let current = node;
 		let depth = 0;
-		while (current?.origemId && depth < 5) {
-			if (!bypassNodes.has(current.origemId)) {
-				return current.origemId;
+		// O pipeline emite a origem como `_origemId` (prefixo underscore);
+		// aceita também `origemId` para compatibilidade com caches antigos.
+		while (current && depth < 5) {
+			const origem: string | undefined = current._origemId ?? current.origemId;
+			if (!origem) return null;
+			if (!bypassNodes.has(origem)) {
+				return origem;
 			}
-			current = nodeMap.get(current.origemId);
+			current = nodeMap.get(origem);
 			depth++;
 		}
 		return null;

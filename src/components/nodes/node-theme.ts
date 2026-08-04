@@ -6,6 +6,7 @@ import {
 	FileText,
 	Landmark,
 	type LucideIcon,
+	Newspaper,
 	Scale,
 	User,
 	Users,
@@ -308,6 +309,20 @@ export const ENTITY_THEME: Record<string, EntityTheme> = {
 		loadingLabel: "Processando...",
 		alwaysGlow: true,
 		accent: indigo,
+	},
+	DIARIO_OFICIAL_NODE: {
+		icon: Newspaper,
+		typeLabel: "[DIÁRIO_OFICIAL]",
+		loadingLabel: "Extraindo Ato Oficial...",
+		accent: emerald,
+		canShare: true,
+	},
+	DESPESA_PUBLICA: {
+		icon: DollarSign,
+		typeLabel: "[DESPESA]",
+		loadingLabel: "Pivoteando...",
+		accent: slate,
+		canShare: true,
 	},
 };
 

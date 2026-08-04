@@ -51,7 +51,7 @@ export function CrtTurnOn() {
 		// Assim não fica bruto a troca de tela preta pro site.
 		tl.fromTo(".site-content", 
 			{ scaleY: 0.01, scaleX: 0.8, opacity: 0 },
-			{ scaleY: 1, scaleX: 1, opacity: 1, duration: 0.25, ease: "power2.out" },
+			{ scaleY: 1, scaleX: 1, opacity: 1, duration: 0.25, ease: "power2.out", clearProps: "all" },
 			"<" // Exatamente no mesmo momento que as metades pretas abrem
 		);
 

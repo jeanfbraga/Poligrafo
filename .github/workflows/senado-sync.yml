@@ -1,4 +1,4 @@
-﻿name: Sync CEAP Senado
+name: Sync CEAP Senado
 on:
   schedule:
     - cron: '0 3 */2 * *' # A cada 2 dias as 03:00
@@ -13,8 +13,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: 'npm'
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Run Senado Sync
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
