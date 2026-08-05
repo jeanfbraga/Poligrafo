@@ -567,7 +567,7 @@ GRANT SELECT ON public.dashboard_pesquisas_top10 TO anon, authenticated, service
 -- Estrutura real do banco: colunas quantidade/ultima_pesquisa, UNIQUE (nome, ref)
 -- SET search_path fixo evita search_path hijacking (função é SECURITY DEFINER)
 -- ─────────────────────────────────────────────────────────────────────────────
-DROP FUNCTION IF EXISTS public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
 CREATE FUNCTION public.incrementar_pesquisa(
     p_nome        TEXT,
     p_id_politico TEXT,
@@ -599,9 +599,9 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT) FROM anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.incrementar_pesquisa(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO service_role;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 3.2 refresh_ceap_materialized_views — Atualiza views materializadas CEAP
