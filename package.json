@@ -14,7 +14,11 @@
     "test:all": "npm run lint && npx tsc --noEmit && npm run test",
     "update:index": "tsx scripts/update-congresso-index.ts",
     "sync:spu": "tsx scripts/etl/spu-sync.ts",
-    "sync:tse-doadores": "tsx scripts/etl/tse-doadores-sync.ts"
+    "sync:tse-doadores": "tsx scripts/etl/tse-doadores-sync.ts",
+    "sync:perfil": "tsx scripts/etl/perfil-politico-sync.ts",
+    "sync:votos": "tsx scripts/etl/votos-detalhados-sync.ts",
+    "sync:producao": "tsx scripts/etl/producao-legislativa-sync.ts",
+    "sync:cleanup": "tsx scripts/etl/cleanup-sync.ts"
   },
   "keywords": [
     "osint",
@@ -75,6 +79,7 @@
     "graphology": "^0.26.0",
     "graphology-layout-forceatlas2": "^0.10.1",
     "graphology-metrics": "^2.4.0",
+    "groq-sdk": "^1.5.0",
     "gsap": "^3.15.0",
     "html-to-image": "^1.11.13",
     "lucide-react": "^0.575.0",
