@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
 
 export async function GET(
   request: Request,
@@ -12,7 +12,7 @@ export async function GET(
     return NextResponse.json({ error: "ID do deputado é obrigatório" }, { status: 400 });
   }
 
-  const supabase = supabaseAdmin;
+  const supabase = supabasePerfilAdmin;
   if (!supabase) {
     return NextResponse.json({ error: "Supabase não configurado" }, { status: 500 });
   }
