@@ -687,14 +687,14 @@ CREATE TABLE IF NOT EXISTS public.camara_perfil_politico_cache (
     data_atualizacao TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 ALTER TABLE public.camara_perfil_politico_cache ENABLE ROW LEVEL SECURITY;
-DO $ BEGIN
+DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'perfil_select' AND tablename = 'camara_perfil_politico_cache') THEN
         CREATE POLICY perfil_select ON public.camara_perfil_politico_cache FOR SELECT TO anon, authenticated USING (true);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'perfil_service' AND tablename = 'camara_perfil_politico_cache') THEN
         CREATE POLICY perfil_service ON public.camara_perfil_politico_cache FOR ALL TO service_role USING (true) WITH CHECK (true);
     END IF;
-END $;
+END $$;
 
 -- ----------------------------------------------------------------------------------------------------
 -- 1.16 camara_votos_detalhados
@@ -710,14 +710,14 @@ CREATE TABLE IF NOT EXISTS public.camara_votos_detalhados (
     CONSTRAINT uq_votos_deputado UNIQUE (id_deputado, id_votacao)
 );
 ALTER TABLE public.camara_votos_detalhados ENABLE ROW LEVEL SECURITY;
-DO $ BEGIN
+DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'votos_select' AND tablename = 'camara_votos_detalhados') THEN
         CREATE POLICY votos_select ON public.camara_votos_detalhados FOR SELECT TO anon, authenticated USING (true);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'votos_service' AND tablename = 'camara_votos_detalhados') THEN
         CREATE POLICY votos_service ON public.camara_votos_detalhados FOR ALL TO service_role USING (true) WITH CHECK (true);
     END IF;
-END $;
+END $$;
 
 -- ----------------------------------------------------------------------------------------------------
 -- 1.17 camara_producao_legislativa
@@ -736,11 +736,11 @@ CREATE TABLE IF NOT EXISTS public.camara_producao_legislativa (
     CONSTRAINT uq_producao_deputado UNIQUE (id_deputado, id_proposicao)
 );
 ALTER TABLE public.camara_producao_legislativa ENABLE ROW LEVEL SECURITY;
-DO $ BEGIN
+DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'producao_select' AND tablename = 'camara_producao_legislativa') THEN
         CREATE POLICY producao_select ON public.camara_producao_legislativa FOR SELECT TO anon, authenticated USING (true);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'producao_service' AND tablename = 'camara_producao_legislativa') THEN
         CREATE POLICY producao_service ON public.camara_producao_legislativa FOR ALL TO service_role USING (true) WITH CHECK (true);
     END IF;
-END $;
+END $$;
