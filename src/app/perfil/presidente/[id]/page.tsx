@@ -149,17 +149,27 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 				<div className="md:col-span-1 space-y-6">
 					<div className="border border-green-500 bg-green-950/10 p-4 md:p-6 relative">
 						<div className="absolute top-0 right-0 p-2 text-xs text-green-700">ID: {perfil.id.toUpperCase()}</div>
-						<div className="w-24 h-24 bg-green-900/30 border border-green-500 mb-4 flex items-center justify-center">
+						<div className="w-32 h-40 border-2 border-green-500/50 p-1 relative bg-black/80 mb-4 group overflow-hidden">
+							{/* Scanline effect */}
+							<div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(34,197,94,0.05)_50%)] bg-size-[100%_4px] pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity z-10"></div>
+							
 							{tse?.idTse ? (
 								<img
 									src={tse?.fotoUrl ? `/api/proxy-image?url=${encodeURIComponent(tse.fotoUrl)}&raw=true` : `/api/proxy-image?url=${encodeURIComponent(`https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/img/${tse.idEleicao}/${tse.idTse}/${tse.idUe}`)}&raw=true`}
 									alt={perfil.nome}
-									className="w-full h-full object-cover"
+									className="w-full h-full object-cover relative z-0"
 									onError={(e) => (e.currentTarget.style.display = 'none')}
 								/>
 							) : (
-								<User className="w-12 h-12 text-green-700" />
+								<div className="w-full h-full flex items-center justify-center relative z-0">
+									<User className="w-12 h-12 text-green-700" />
+								</div>
 							)}
+							{/* Corner accents */}
+							<div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-green-500 z-20"></div>
+							<div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-green-500 z-20"></div>
+							<div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-green-500 z-20"></div>
+							<div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-green-500 z-20"></div>
 						</div>
 						<h1 className="text-2xl font-bold uppercase mb-1">
 							<ScrambleText text={perfil.nome} duration={1200} />

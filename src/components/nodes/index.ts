@@ -26,4 +26,5 @@ export { OrgaoNode } from "./OrgaoNode";
 export { PessoaNode } from "./PessoaNode";
 export { ProcessoJudicialNode } from "./ProcessoJudicialNode";
 export { RaioXGastosNode } from "./RaioXGastosNode";
+export { AtividadeNode } from "./AtividadeNode";
 export { SocioNode } from "./SocioNode";

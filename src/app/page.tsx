@@ -69,6 +69,7 @@ import {
 	PessoaNode,
 	ProcessoJudicialNode,
 	RaioXGastosNode,
+	AtividadeNode,
 	SocioNode,
 } from "@/components/nodes";
 import { type ShareData, ShareDialog } from "@/components/shared/ShareDialog";
@@ -1926,7 +1927,7 @@ function DashboardArea() {
 	}, [evidencias]);
 
 	return (
-		<div className="h-[100dvh] w-screen flex flex-col bg-black text-green-500 font-mono overflow-hidden">
+		<div className="h-dvh w-screen flex flex-col bg-black text-green-500 font-mono overflow-hidden">
 			{/* SCRIPT SINCRONO (BLOCKING) PARA EVITAR FLASH DO SITE ANTES DA ANIMAÇÃO GSAP */}
 			<script dangerouslySetInnerHTML={{
 				__html: `

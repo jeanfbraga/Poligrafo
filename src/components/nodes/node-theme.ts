@@ -10,6 +10,7 @@ import {
 	Scale,
 	User,
 	Users,
+	CalendarCheck,
 } from "lucide-react";
 
 /* ================================================================
@@ -307,6 +308,13 @@ export const ENTITY_THEME: Record<string, EntityTheme> = {
 		icon: BarChart3,
 		typeLabel: "[COTA_DE_GABINETE]",
 		loadingLabel: "Processando...",
+		alwaysGlow: true,
+		accent: indigo,
+	},
+	ATIVIDADE_PARLAMENTAR: {
+		icon: CalendarCheck,
+		typeLabel: "[ATIVIDADE_PARLAMENTAR]",
+		loadingLabel: "Analisando presenças e votações...",
 		alwaysGlow: true,
 		accent: indigo,
 	},
