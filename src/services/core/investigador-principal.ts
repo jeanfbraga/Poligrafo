@@ -66,7 +66,7 @@ import {
 	consultarPNAE,
 	consultarPNATE,
 } from "../integrations/fnde/client";
-import { buscarInfracoesIbama } from "../integrations/ibama/client";
+
 import {
 	buscarEnteSiconfi,
 	consultarIndicadoresLRF,
@@ -884,45 +884,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			}
 		}
 
-		// Frequência e Votações (Câmara dos Deputados)
-		if (deputadoBasico.casa === "CAMARA" && !isDev) {
-			try {
-				const anoAtual = new Date().getFullYear();
-				const { data: freqData } = await supabaseAdmin
-					.from("camara_frequencia")
-					.select("*")
-					.eq("id_deputado", Number(deputadoBasico.id))
-					.eq("ano", anoAtual)
-					.maybeSingle();
 
-				const { data: votData } = await supabaseAdmin
-					.from("camara_votacoes")
-					.select("*")
-					.eq("id_deputado", Number(deputadoBasico.id))
-					.eq("ano", anoAtual)
-					.maybeSingle();
-
-				if (freqData || votData) {
-					const payloadAtividade = {
-						id: `atividade-parlamentar-${pessoaId}`,
-						type: "RESUMO_GASTOS",
-						_origemId: pessoaId,
-						data: {
-							label: `Atividade Parlamentar (${anoAtual})`,
-							valor: 0,
-							ano: anoAtual.toString(),
-							nomeVereador: "Presenças e Votações",
-							score_letalidade: 10,
-							motivo_ia: `Presenças: ${freqData?.presencas || 0} | Ausências não justificadas: ${freqData?.ausencias_nao_justificadas || 0}. Votações registradas: ${votData?.votos_registrados || 0}.`
-						}
-					};
-					sendEvent("NODE_NOVO", payloadAtividade);
-					supabaseNodes.push(payloadAtividade);
-				}
-			} catch (err) {
-				console.error("[Atividade Parlamentar Error]", err);
-			}
-		}
 
 		// NOVO PASSO: Integração com Diários Oficiais para cargos 11 e 13
 		if (
@@ -1800,45 +1762,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			}
 		}
 
-		// E4. IBAMA — Autuações e Infrações Ambientais para empresas vinculadas ao político
-		if (empresasRelacionadasCNPJs.length > 0) {
-			sendEvent("STATUS", {
-				msg: "Consultando bases do IBAMA no cache (Supabase) para infrações ambientais...",
-			});
-			for (const cnpj of empresasRelacionadasCNPJs) {
-				try {
-					const infracoes = await buscarInfracoesIbama(cnpj);
-					if (infracoes && infracoes.length > 0) {
-						const valorTotalMultas = infracoes.reduce(
-							(acc, inf) => acc + (inf.valor_multa || 0),
-							0,
-						);
-						const ibamaPayload = {
-							id: `ibama-${cnpj}-${Date.now()}`,
-							type: "PROCESSO_JUDICIAL" as const,
-							_origemId: `empresa-${cnpj}`,
-							data: {
-								label: `Infrações Ambientais IBAMA (${infracoes.length})`,
-								tribunal: "IBAMA",
-								assunto: infracoes
-									.slice(0, 3)
-									.map((i) => i.tipo_infracao)
-									.join(" | "),
-								score_letalidade: 85,
-								motivo_ia: `Empresa vinculada possui ${infracoes.length} infrações ambientais registradas no IBAMA totalizando R$ ${valorTotalMultas.toLocaleString("pt-BR")}.`,
-							},
-						};
-						malhaOsintBuffer.push(ibamaPayload);
-						supabaseNodes.push(ibamaPayload);
-					}
-				} catch (errIbama: any) {
-					console.warn(
-						"[IBAMA] Erro ao consultar autuações ambientais:",
-						errIbama.message || errIbama,
-					);
-				}
-			}
-		}
+
 
 		// E5. TCU — Certidões APF para empresas vinculadas
 		if (empresasRelacionadasCNPJs.length > 0) {

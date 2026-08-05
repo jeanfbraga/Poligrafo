@@ -19,7 +19,7 @@ import {
 	consultarPNAE,
 	consultarPNATE,
 } from "../integrations/fnde/client";
-import { buscarInfracoesIbama } from "../integrations/ibama/client";
+
 import {
 	buscarEnteSiconfi,
 	consultarIndicadoresLRF,
@@ -318,40 +318,7 @@ export async function executarMalhaOsint(params: OsintExecutorParams) {
 			);
 		}
 
-		sendEvent("STATUS", {
-			msg: "Consultando bases do IBAMA no cache (Supabase) para infrações ambientais...",
-		});
-		for (const cnpj of empresasRelacionadasCNPJs) {
-			try {
-				const infracoes = await buscarInfracoesIbama(cnpj);
-				if (infracoes && infracoes.length > 0) {
-					const valorTotalMultas = infracoes.reduce(
-						(acc, inf) => acc + (inf.valor_multa || 0),
-						0,
-					);
-					pushNode({
-						id: `ibama-${cnpj}-${Date.now()}`,
-						type: "PROCESSO_JUDICIAL" as const,
-						_origemId: `empresa-${cnpj}`,
-						data: {
-							label: `Infrações Ambientais IBAMA (${infracoes.length})`,
-							tribunal: "IBAMA",
-							assunto: infracoes
-								.slice(0, 3)
-								.map((i) => i.tipo_infracao)
-								.join(" | "),
-							score_letalidade: 85,
-							motivo_ia: `Empresa vinculada possui ${infracoes.length} infrações ambientais registradas no IBAMA totalizando R$ ${valorTotalMultas.toLocaleString("pt-BR")}.`,
-						},
-					});
-				}
-			} catch (errIbama: any) {
-				console.warn(
-					"[IBAMA] Erro ao consultar autuações ambientais:",
-					errIbama.message || errIbama,
-				);
-			}
-		}
+
 
 		sendEvent("STATUS", {
 			msg: "Consultando certidões unificadas no TCU para empresas...",
