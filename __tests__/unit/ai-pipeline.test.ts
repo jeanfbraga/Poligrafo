@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { 
-    resolverContextoNormativo, 
     analisarEmendasComInteligencia, 
     analisarLoteComInteligencia,
     analisarMalhaOsintComInteligencia
 } from '../../src/app/api/investigar/ai_helpers';
+import { resolverContextoNormativo } from '../../src/services/ai/prompt-builder';
 
 describe('🧠 AI Pipeline - Resolvedor Normativo & Triagem', () => {
 
