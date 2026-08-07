@@ -19,15 +19,15 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 const API_BASE = 'https://dadosabertos.camara.leg.br/api/v2';
 const BATCH_SIZE = 500;
 
-async function fetchJson(url: string, retries = 3) {
+async function fetchJson(url: string, retries = 5) {
     for (let i = 0; i < retries; i++) {
         try {
             const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
             if (!res.ok) {
                 if (res.status === 404) return null;
                 if (res.status >= 500 && i < retries - 1) {
-                    console.log(`  - HTTP ${res.status} em ${url}. Tentando novamente em 2s...`);
-                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    console.log(`  - HTTP ${res.status} em ${url}. Tentando novamente em 5s...`);
+                    await new Promise(resolve => setTimeout(resolve, 5000));
                     continue;
                 }
                 throw new Error(`HTTP ${res.status}`);
@@ -35,8 +35,8 @@ async function fetchJson(url: string, retries = 3) {
             return await res.json();
         } catch (e: any) {
             if (i === retries - 1) throw e;
-            console.log(`  - Erro de rede: ${e.message}. Tentando novamente em 2s...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            console.log(`  - Erro de rede: ${e.message}. Tentando novamente em 5s...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
         }
     }
 }

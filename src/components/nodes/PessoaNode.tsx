@@ -71,7 +71,7 @@ export const PessoaNode = ({ data, id, isMobile }: { data: any, id?: string, isM
 						<DollarSign className="w-3.5 h-3.5" /> PATRIMÔNIO DECLARADO
 					</p>
 					<p className="text-xs font-bold tracking-widest mt-1 text-yellow-500">
-						{data.patrimonio > 0
+						{data.patrimonio !== null && data.patrimonio !== undefined
 							? `R$ ${data.patrimonio.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
 							: "NÃO ENCONTRADO"}
 					</p>
@@ -105,7 +105,7 @@ export const PessoaNode = ({ data, id, isMobile }: { data: any, id?: string, isM
 						asChild
 					>
 						<Link
-							href={`/perfil/deputado/${id.split(":").pop()}?nome=${encodeURIComponent(data.label)}&partido=${encodeURIComponent(data.partido || "")}&uf=${encodeURIComponent(data.uf || "")}&foto=${encodeURIComponent(data.foto || "")}`}
+							href={`/perfil/deputado/${data.idPoliticoOriginal || id.split(":").pop()}?nome=${encodeURIComponent(data.label)}&partido=${encodeURIComponent(data.partido || "")}&uf=${encodeURIComponent(data.uf || "")}&foto=${encodeURIComponent(data.foto || "")}`}
 						>
 							IR PARA PERFIL COMPLETO
 						</Link>

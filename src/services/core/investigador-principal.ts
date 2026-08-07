@@ -760,8 +760,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			sendEvent,
 		);
 
-		// Prioriza o patrimônio que veio da busca estruturada do TSE se for maior que zero
-		if (tseData?.patrimonioTotal && tseData.patrimonioTotal > 0) {
+		// Prioriza o patrimônio que veio da busca estruturada do TSE se for maior que zero ou igual a zero (declarado 0)
+		if (tseData?.patrimonioTotal !== undefined) {
 			fichaPolitico.patrimonioTotal = tseData.patrimonioTotal;
 			const ptFmt = tseData.patrimonioTotal.toLocaleString("pt-BR");
 			if (
@@ -811,6 +811,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				afastamento: deputadoBasico.afastamento,
 				urlFoto: deputadoBasico.urlFoto || (deputadoBasico as any)._tseResult?.urlFoto,
 				partido: (deputadoBasico as any).partido || (deputadoBasico as any)._tseResult?.partido,
+				idPoliticoOriginal: deputadoBasico.id,
 			},
 		};
 		sendEvent("NODE_NOVO", pessoaNodePayload);
@@ -1479,7 +1480,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				});
 			}
 		}
-		if (fichaPolitico.patrimonioTotal > 0) {
+		if (fichaPolitico.patrimonioTotal !== undefined) {
 			const payloadBens = {
 				id: `bens-${Date.now()}`,
 				type: "CONTRATO",
