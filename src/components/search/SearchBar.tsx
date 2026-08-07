@@ -99,7 +99,12 @@ export default function SearchBar({
 	const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<any[]>([]);
 	const [autocompleteIdx, setAutocompleteIdx] = useState(-1);
 	const [showAutocomplete, setShowAutocomplete] = useState(false);
+	const [showAlcadaError, setShowAlcadaError] = useState(false);
 	const router = useRouter();
+
+	React.useEffect(() => {
+		if (selectedUf) setShowAlcadaError(false);
+	}, [selectedUf]);
 
 	const handleSearchTermChange = (value: string) => {
 		setSearchTerm(value);
@@ -168,6 +173,11 @@ export default function SearchBar({
 			}
 		}
 		if (e.key === "Enter") {
+			if (!selectedUf) {
+				setShowAlcadaError(true);
+				return;
+			}
+			setShowAlcadaError(false);
 			setShowAutocomplete(false);
 			onSearch();
 		}
@@ -183,7 +193,7 @@ export default function SearchBar({
 							value={selectedUf}
 							onChange={(e) => setSelectedUf(e.target.value)}
 							disabled={isLoading}
-							className="w-full h-12 bg-green-950/30 border border-green-500 text-green-400 font-mono text-sm rounded-none appearance-none px-4 pr-10 cursor-pointer focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50"
+							className={`w-full h-12 bg-green-950/30 border ${showAlcadaError ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'border-green-500'} text-green-400 font-mono text-sm rounded-none appearance-none px-4 pr-10 cursor-pointer focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50 transition-all duration-300`}
 							style={{ WebkitAppearance: "none" }}
 							aria-label="Selecione a alçada"
 						>
@@ -245,6 +255,7 @@ export default function SearchBar({
 						}}
 						disabled={isLoading}
 						autoComplete="off"
+						className={`transition-all duration-300 ${showAlcadaError ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : ''}`}
 					/>
 
 				{/* AUTOCOMPLETE DROPDOWN - mobile */}
@@ -297,6 +308,11 @@ export default function SearchBar({
 						<Button
 							variant="cyber"
 							onClick={() => {
+								if (!selectedUf) {
+									setShowAlcadaError(true);
+									return;
+								}
+								setShowAlcadaError(false);
 								setShowAutocomplete(false);
 								onSearch();
 							}}
@@ -315,7 +331,7 @@ export default function SearchBar({
 	// DESKTOP
 	return (
 		<div className="w-full relative z-20">
-			<div className="flex w-full items-center h-12 border-none">
+			<div className={`flex w-full h-12 items-center bg-black/80 border ${showAlcadaError ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'border-green-500/50'} relative overflow-visible z-50 transition-all duration-300`}>
 				{/* SELETOR DE ALÇADA DESKTOP */}
 				<div className="relative h-full flex items-center bg-black border border-r-0 border-green-500/50 hover:border-green-400 focus-within:border-green-500 transition-colors w-1/3 lg:w-auto max-w-55">
 					<select
@@ -400,6 +416,11 @@ export default function SearchBar({
 					<Button
 						variant="cyber"
 						onClick={() => {
+							if (!selectedUf) {
+								setShowAlcadaError(true);
+								return;
+							}
+							setShowAlcadaError(false);
 							setShowAutocomplete(false);
 							onSearch();
 						}}
