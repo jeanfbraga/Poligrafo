@@ -1138,6 +1138,7 @@ function DashboardArea() {
 			setStatusMessage(
 				"> SELECIONE A ALÇADA (ESTADO) DO POLÍTICO ANTES DE BUSCAR.",
 			);
+			toast.warning("Selecione a alçada (Estado) na barra superior antes de buscar.");
 			return;
 		}
 
