@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as tse from '../../src/app/api/investigar/tse';
+import { supabaseAdmin } from '../../src/lib/supabase-admin';
 import { 
     buscarDespesasCamara,
     buscarDespesasSenado,
@@ -8,6 +9,17 @@ import {
 
 // Mock do fetchWithTimeout para não lidar com global.fetch
 vi.spyOn(tse, 'fetchWithTimeout');
+
+// Mock do Supabase para forçar cache miss e testar a lógica da API
+vi.mock('../../src/lib/supabase-admin', () => ({
+    supabaseAdmin: {
+        from: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({ data: null, error: null })
+    }
+}));
 
 describe('🔍 Regras de Extração e Ordenação (ETL)', () => {
 
