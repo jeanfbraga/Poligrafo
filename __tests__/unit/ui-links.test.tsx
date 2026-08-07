@@ -5,6 +5,14 @@ import MobileView from '../../src/components/layout/MobileView';
 import '@testing-library/jest-dom';
 import React from 'react';
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // ResizeObserver and scrollTo mock needed for jsdom / components
 global.ResizeObserver = class ResizeObserver {
   observe() {}

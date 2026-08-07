@@ -6,6 +6,14 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import HomeDashboard from "@/components/dashboard/HomeDashboard";
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // Mock GSAP to avoid animation issues in tests
 vi.mock("gsap", () => ({
   default: {
