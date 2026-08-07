@@ -143,6 +143,7 @@ function DashboardArea() {
 
 	// Reference for handleSearch so we can use it inside the event listener without re-adding it
 	const handleSearchRef = useRef<Function | null>(null);
+	const isUrlSyncRef = useRef(false);
 
 	useEffect(() => {
 		const handlePoligrafoSearch = (e: any) => {
@@ -1282,7 +1283,12 @@ function DashboardArea() {
 
 			// Só faz o push se a URL for diferente da atual
 			if (url.toString() !== window.location.href) {
+				isUrlSyncRef.current = true;
 				window.history.pushState({}, "", url.toString());
+				// Fallback de segurança: se o Next.js não disparar o useEffect para limpar a flag, limpamos em 50ms
+				setTimeout(() => {
+					isUrlSyncRef.current = false;
+				}, 50);
 			}
 		}
 
@@ -1697,6 +1703,13 @@ function DashboardArea() {
 	// Verifica se há um alvo inicial na URL para auto-busca
 	useEffect(() => {
 		if (!searchParams) return;
+
+		// Se a URL mudou por causa da nossa própria busca programática, não faz nada
+		if (isUrlSyncRef.current) {
+			isUrlSyncRef.current = false;
+			return;
+		}
+
 		const alvo = searchParams.get("alvo") || searchParams.get("ref");
 		const nome = searchParams.get("nome") || searchParams.get("alvo");
 		const uf = searchParams.get("uf");
