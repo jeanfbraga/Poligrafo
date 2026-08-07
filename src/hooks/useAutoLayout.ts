@@ -59,13 +59,16 @@ export function useAutoLayout(nodes: Node[], edges: Edge[]) {
 			// Previne crash caso a aresta aponte para um nó oculto/inexistente no Dagre
 			const sourceNode = nodes.find(n => n.id === e.source);
 			const targetNode = nodes.find(n => n.id === e.target);
-			if (sourceNode?.hidden || targetNode?.hidden) return;
+			
+			// Se o nó não existir ou estiver oculto, não adiciona a aresta no Dagre
+			if (!sourceNode || !targetNode || sourceNode.hidden || targetNode.hidden) return;
 
 			dagreGraph.setEdge(e.source, e.target);
 		});
 
-		// Executa o cálculo matematicamente (é síncrono e instantâneo)
-		dagre.layout(dagreGraph);
+		try {
+			// Executa o cálculo matematicamente (é síncrono e instantâneo)
+			dagre.layout(dagreGraph);
 
 		// 1. Encontrar o nó âncora (PESSOA ou o primeiro nó) para evitar que o grafo "fuja" da tela
 		const anchorNode = nodes.find(n => n.type === 'PESSOA' && !n.hidden) || nodes.find(n => !n.hidden) || nodes[0];
@@ -108,13 +111,16 @@ export function useAutoLayout(nodes: Node[], edges: Edge[]) {
 			};
 		});
 
-		// Atualiza a tela de uma vez só!
-		setNodes(layoutedNodes);
-
-		// Dá um pequeno respiro pro React renderizar (removido fitView automático para não roubar a câmera)
-		setTimeout(() => {
-			isLayoutRunning.current = false;
-		}, 50);
+			// Atualiza a tela de uma vez só!
+			setNodes(layoutedNodes);
+		} catch (error) {
+			console.error("Erro ao rodar Dagre layout:", error);
+		} finally {
+			// Dá um pequeno respiro pro React renderizar (removido fitView automático para não roubar a câmera)
+			setTimeout(() => {
+				isLayoutRunning.current = false;
+			}, 50);
+		}
 	}, [
 		nodes,
 		edges,
