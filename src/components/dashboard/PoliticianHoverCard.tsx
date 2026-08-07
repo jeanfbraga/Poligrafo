@@ -180,7 +180,7 @@ export function PoliticianHoverCard({
 									className="w-full block text-center py-2 bg-green-950/50 hover:bg-green-900 text-green-400 border border-green-500/50 text-xs font-bold tracking-widest uppercase transition-colors"
 									onClick={(e) => e.stopPropagation()}
 								>
-									IR PARA PERFIL COMPLETO
+									IR PARA O PERFIL
 								</Link>
 							);
 						})()}

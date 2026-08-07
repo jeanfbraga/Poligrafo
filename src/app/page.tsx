@@ -23,7 +23,9 @@ import React, {
 	useMemo,
 	useRef,
 	useState,
+	Suspense,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import { CrtTurnOn } from "@/components/ui/crt-turn-on";
 import { ScrambleText } from "@/components/ui/scramble-text";
 import { HomeDashboard } from "@/components/dashboard/HomeDashboard";
@@ -96,6 +98,9 @@ import { getPortalTransparenciaFallback } from "@/lib/utils";
 
 function DashboardArea() {
 	const isMobile = useIsMobile();
+	const searchParams = useSearchParams();
+	const hasAlvoInitial = searchParams ? searchParams.has("alvo") : false;
+
 	// Estado do Grafo
 	const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
 	const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -129,7 +134,7 @@ function DashboardArea() {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedUf, setSelectedUf] = useState<string>(""); // Alçada selecionada ('FEDERAL' | sigla | '')
 
-	const [isLoading, setIsLoading] = useState(false);
+	const [isLoading, setIsLoading] = useState(hasAlvoInitial);
 	const [errorMsg, setErrorMsg] = useState("");
 	const [apiWarnings, setApiWarnings] = useState<
 		{ fonte: string; mensagem: string }[]
@@ -169,10 +174,6 @@ function DashboardArea() {
 	const [dashboardLoading, setDashboardLoading] = useState(false);
 	const [dashboardNome, setDashboardNome] = useState<string>("");
 
-	useEffect(() => {
-		handleSearchRef.current = handleSearch;
-	});
-
 	const handleOpenDashboard = React.useCallback(
 		async (nomeVereador: string) => {
 			setDashboardNome(nomeVereador);
@@ -209,7 +210,9 @@ function DashboardArea() {
 	const [abortController, setAbortController] =
 		useState<AbortController | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string>(
-		"Insira o nome de um político para começar a investigar.",
+		hasAlvoInitial 
+			? "Estabelecendo conexão segura com bases governamentais..." 
+			: "Insira o nome de um político para começar a investigar."
 	);
 	const [displayedStatus, setDisplayedStatus] = useState<string>(""); // Texto que realmente aparece na tela
 	const [isTyping, setIsTyping] = useState<boolean>(false); // Controle da animação
@@ -1652,7 +1655,65 @@ function DashboardArea() {
 		}
 	};
 
+	useEffect(() => {
+		handleSearchRef.current = handleSearch;
+	}, [handleSearch]);
+
+	// Verifica se há um alvo inicial na URL para auto-busca
+	useEffect(() => {
+		if (!searchParams) return;
+		const alvo = searchParams.get("alvo");
+		const ref = searchParams.get("ref") || undefined;
+		if (alvo) {
+			setSearchTerm(alvo);
+			// Pequeno delay para garantir que a UI e as refs hidrataram
+			setTimeout(() => {
+				if (handleSearchRef.current) {
+					handleSearchRef.current(ref, alvo, "");
+					window.history.replaceState({}, document.title, window.location.pathname);
+				}
+			}, 300);
+		} else {
+			// Tenta restaurar estado anterior se existir
+			try {
+				const savedState = sessionStorage.getItem("poligrafo_state");
+				if (savedState) {
+					const parsed = JSON.parse(savedState);
+					if (parsed.nodes && parsed.nodes.length > 0) {
+						setNodes(parsed.nodes);
+						setEdges(parsed.edges || []);
+						setEvidencias(parsed.evidencias || []);
+						setSearchTerm(parsed.searchTerm || "");
+						setSelectedUf(parsed.selectedUf || "");
+						if (parsed.statusMessage) setStatusMessage(parsed.statusMessage);
+					}
+				}
+			} catch (e) {
+				console.warn("Could not restore state from sessionStorage", e);
+			}
+		}
+	}, [searchParams, setNodes, setEdges]);
+
 	// handleKeyDown foi movido para o SearchBar
+
+	// SALVA O ESTADO DO GRAFO NO SESSION STORAGE
+	useEffect(() => {
+		if (nodes.length > 0 && !isLoading) {
+			try {
+				const state = {
+					nodes,
+					edges,
+					evidencias,
+					searchTerm,
+					selectedUf,
+					statusMessage,
+				};
+				sessionStorage.setItem("poligrafo_state", JSON.stringify(state));
+			} catch (e) {
+				console.warn("Could not save state to sessionStorage", e);
+			}
+		}
+	}, [nodes, edges, evidencias, searchTerm, selectedUf, statusMessage, isLoading]);
 
 	// EXPORTAR DOSSIÊ DOCX
 	const [isExporting, setIsExporting] = useState(false);
@@ -1928,14 +1989,6 @@ function DashboardArea() {
 
 	return (
 		<div className="h-dvh w-screen flex flex-col bg-black text-green-500 font-mono overflow-hidden">
-			{/* SCRIPT SINCRONO (BLOCKING) PARA EVITAR FLASH DO SITE ANTES DA ANIMAÇÃO GSAP */}
-			<script dangerouslySetInnerHTML={{
-				__html: `
-				if (!sessionStorage.getItem("crt_played")) {
-					document.documentElement.classList.add("crt-pending");
-				}
-			`}} />
-
 			<CrtTurnOn />
 			<div className="site-content flex flex-col flex-1 overflow-hidden origin-center h-full w-full opacity-100 in-[.crt-pending]:opacity-0 in-[.crt-pending]:scale-y-0">
 				{/* HEADER — só desktop, ou mobile no estado de busca inicial (sem dados/loading) */}
@@ -2175,8 +2228,9 @@ function DashboardArea() {
 									statusMessage={statusMessage}
 								/>
 							) : !isMobile ? (
-								<ReactFlow
-									nodes={nodes}
+								<div className="hidden md:block w-full h-full">
+									<ReactFlow
+										nodes={nodes}
 									edges={edges}
 									onNodesChange={onNodesChange}
 									onEdgesChange={onEdgesChange}
@@ -2255,6 +2309,7 @@ function DashboardArea() {
 										}}
 									/>
 								</ReactFlow>
+								</div>
 							) : (
 								<div
 									className="absolute inset-0 w-full h-full bg-[#050505] flex items-center justify-center flex-col px-4"
@@ -3226,7 +3281,13 @@ function DashboardArea() {
 export default function PoligrafoDashboardRoot() {
 	return (
 		<ReactFlowProvider>
-			<DashboardArea />
+			<Suspense fallback={
+				<div className="min-h-screen bg-black flex items-center justify-center font-mono text-green-500">
+					INICIANDO SISTEMA SECRETO...
+				</div>
+			}>
+				<DashboardArea />
+			</Suspense>
 		</ReactFlowProvider>
 	);
 }

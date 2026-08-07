@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
@@ -38,7 +39,7 @@ export const metadata: Metadata = {
 		siteName: "Polígrafo",
 		images: [
 			{
-				url: "/og-image.jpg",
+				url: "/transferir.png",
 				width: 1200,
 				height: 630,
 				alt: "Polígrafo OSINT",
@@ -52,7 +53,7 @@ export const metadata: Metadata = {
 		title: "Polígrafo - Auditoria Cidadã",
 		description:
 			"Cruze dados públicos de políticos para gerar dossiês e encontrar conexões suspeitas em tempo real.",
-		images: ["/og-image.jpg"],
+		images: ["/transferir.png"],
 	},
 };
 
@@ -72,11 +73,36 @@ export default function RootLayout({
 	const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 	const clarityId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
 
+	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poligrafo.app";
+
+	const jsonLd = {
+		"@context": "https://schema.org",
+		"@type": "WebSite",
+		"name": "Polígrafo",
+		"alternateName": "Polígrafo OSINT",
+		"url": baseUrl,
+		"description": "Plataforma de auditoria cidadã, inteligência artificial e OSINT para monitoramento do Congresso Nacional e agentes políticos brasileiros."
+	};
+
 	return (
 		<html lang="pt-BR" className={plexMono.variable} suppressHydrationWarning>
+			<head>
+				<script dangerouslySetInnerHTML={{
+					__html: `
+					if (!sessionStorage.getItem("crt_played")) {
+						document.documentElement.classList.add("crt-pending");
+					}
+				`}} />
+				<script
+					type="application/ld+json"
+					dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+				/>
+			</head>
 			<body className="font-mono subpixel-antialiased crt-monitor" suppressHydrationWarning>
 				{children}
-				{gaId && <GoogleAnalytics gaId={gaId} />}
+				<Suspense fallback={null}>
+					{gaId && <GoogleAnalytics gaId={gaId} />}
+				</Suspense>
 				{clarityId && <Clarity projectId={clarityId} />}
 				<Analytics />
 				<Toaster />

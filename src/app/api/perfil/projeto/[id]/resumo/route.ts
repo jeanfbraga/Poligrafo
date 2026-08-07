@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
 import Groq from "groq-sdk";
 
 export async function POST(
@@ -13,7 +13,7 @@ export async function POST(
     return NextResponse.json({ error: "ID do projeto é obrigatório" }, { status: 400 });
   }
 
-  const supabase = supabaseAdmin;
+  const supabase = supabasePerfilAdmin;
   const groqApiKey = process.env.GROQ_API_KEY;
 
   if (!supabase || !groqApiKey) {

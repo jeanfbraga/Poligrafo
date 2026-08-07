@@ -95,12 +95,24 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
 
 4. **Configure o Banco de Dados (Supabase):**
 
-   Abra o **SQL Editor** do seu projeto Supabase e execute o conteúdo do arquivo [`supabase/schema.sql`](supabase/schema.sql). Esse script cria todas as tabelas, views, funções RPC, políticas de segurança (RLS) e o storage bucket necessários.
+   Abra o **SQL Editor** do seu projeto Supabase e execute o conteúdo dos arquivos de schema. Esses scripts criam todas as tabelas, views, funções RPC, políticas de segurança (RLS) e o storage bucket necessários.
 
+   **Banco principal** (investigação, OSINT, dashboard):
    ```bash
-   # Ou, se preferir via CLI do Supabase:
+   # Via SQL Editor do Supabase:
+   # Cole e execute o conteúdo de supabase/schema.sql
+
+   # Ou via CLI:
    supabase db reset --db-url "postgresql://postgres:[SUA_SENHA]@db.[SEU_REF].supabase.co:5432/postgres" < supabase/schema.sql
    ```
+
+   **Módulo de Perfil de Deputados** (`/perfil/deputado/[id]`) — tabelas: `camara_perfil_politico_cache`, `camara_votos_detalhados`, `camara_producao_legislativa`, `camara_cota_resumo_cache`, `camara_gabinete_servidores`:
+
+   > **Contribuidores:** Crie essas tabelas **no mesmo banco** acima. Um único projeto Supabase é suficiente.
+   >
+   > **Nota do mantenedor:** A instância de produção usa um **segundo projeto Supabase** exclusivo para o módulo de Perfis — workaround pelo limite de 500 MB de armazenamento do plano gratuito. Para contribuidores com um banco limpo, essa separação é desnecessária.
+
+   O schema deste módulo está em [`supabase/schema-perfil.sql`](supabase/schema-perfil.sql) *(a criar — por enquanto, consulte a [documentação do projeto](Obsidian%20Poligrafo%20Docs/ADR%20%E2%80%94%20Schema%20do%20Banco%20Publicado.md) para o DDL completo)*.
 
 5. **(Opcional) Popule os dados com ETLs:**
 
@@ -142,7 +154,7 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
 
 ## 🗄️ Arquitetura do Banco de Dados
 
-O schema completo está em [`supabase/schema.sql`](supabase/schema.sql). O banco contém:
+O schema principal está em [`supabase/schema.sql`](supabase/schema.sql). O banco contém:
 
 | Camada | Tabelas/Views | Propósito |
 |:---|:---|:---|
@@ -156,6 +168,18 @@ O schema completo está em [`supabase/schema.sql`](supabase/schema.sql). O banco
 | **CPGF** | `cpgf_despesas_cache` | Cartão Corporativo Presidencial (Lula, Bolsonaro, Dilma, Temer) |
 | **OSINT** | `ibama_infracoes`, `anac_rab`, `spu_imoveis` | Infrações ambientais, aeronaves, imóveis |
 | **Storage** | `fotos-politicos` (bucket) | Fotos oficiais dos parlamentares |
+
+**Módulo de Perfil de Deputados** (tabelas adicionais — mesmo banco para contribuidores):
+
+| Tabela | Conteúdo |
+|:---|:---|
+| `camara_perfil_politico_cache` | Dados cadastrais: nome civil, partido, UF, foto, comissões, frentes, profissões |
+| `camara_votos_detalhados` | Histórico de votos por votação (sim, não, abstenção, obstrução) |
+| `camara_producao_legislativa` | Proposições autorais do parlamentar |
+| `camara_cota_resumo_cache` | Gasto CEAP mensal agregado (PK: `deputado_id, ano_referencia, mes_referencia`) |
+| `camara_gabinete_servidores` | Servidores de gabinete (nome, função, data de admissão) |
+
+> Essas tabelas são populadas pelo ETL `scripts/etl/perfil-politico-sync.ts` e servem a rota `/perfil/deputado/[id]`. A instância de produção as armazena em um segundo Supabase (workaround de storage), mas contribuidores podem usá-las no banco principal sem nenhuma alteração de configuração.
 
 ---
 

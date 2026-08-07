@@ -1,22 +1,20 @@
 "use client";
 
 import { MapPin, Briefcase, Users, Hash } from "lucide-react";
+import { TerminalWindow } from "@/components/ui/terminal";
 
 export default function ProfileHeader({ perfil, idDeputado }: { perfil: any; idDeputado: string }) {
   if (!perfil) {
     return (
-      <section className="p-6 border border-green-500/30 bg-black/50 rounded-none">
+      <TerminalWindow>
         <p className="text-yellow-500">&gt; ALERTA: Ficha base não encontrada na base local.</p>
-      </section>
+      </TerminalWindow>
     );
   }
 
   return (
-    <section className="relative p-6 md:p-8 border border-green-500/50 bg-black/60 rounded-none overflow-hidden group">
-      {/* Scanline effect */}
-      <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(34,197,94,0.05)_50%)] bg-size-[100%_4px] pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity"></div>
-      
-      <div className="flex flex-col md:flex-row gap-6 items-start relative z-10">
+    <TerminalWindow className="p-4 md:p-8 border-green-500/50">
+      <div className="flex flex-col md:flex-row gap-6 items-start">
         <div className="shrink-0">
           <div className="w-32 h-40 border-2 border-green-500/50 p-1 relative bg-black/80">
             <img 
@@ -33,28 +31,38 @@ export default function ProfileHeader({ perfil, idDeputado }: { perfil: any; idD
         </div>
 
         <div className="flex-1 space-y-4">
-          <div className="border-b border-green-500/20 pb-3 mb-3">
-            <h1 className="text-2xl font-bold uppercase text-green-400 tracking-wider">
-              {perfil.nome_eleitoral || perfil.nome_civil || "NOME NÃO INFORMADO"}
-            </h1>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="px-2 py-1 bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-bold uppercase">
-                {perfil.partido}
-              </span>
-              <span className="flex items-center gap-1 text-green-500/70 text-sm">
-                <MapPin className="w-4 h-4" /> {perfil.uf}
-              </span>
+          <div className="border-b border-green-500/20 pb-3 mb-3 flex flex-col md:flex-row md:items-start justify-between gap-4">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold uppercase text-green-400 tracking-wider">
+                {perfil.nome_eleitoral || perfil.nome_civil || "NOME NÃO INFORMADO"}
+              </h1>
+              <div className="flex items-center gap-3 mt-2">
+                <span className="px-2 py-1 bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-bold uppercase">
+                  {perfil.partido}
+                </span>
+                <span className="flex items-center gap-1 text-green-400 text-sm">
+                  <MapPin className="w-4 h-4" /> {perfil.uf}
+                </span>
+              </div>
             </div>
+
+            <a 
+              href={`/?alvo=${encodeURIComponent(perfil.nome_eleitoral || perfil.nome_civil || "")}&ref=${encodeURIComponent(`FEDERAL:CAMARA:${idDeputado}`)}`}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-500/10 hover:bg-green-500/20 border border-green-500/50 text-green-400 hover:text-green-300 text-sm font-bold uppercase tracking-wider transition-colors whitespace-nowrap"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              Investigar Político
+            </a>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            {perfil.profissoes && perfil.profissoes.length > 0 && (
+            {perfil.profissoes && perfil.profissoes.filter((p: any) => p && p.trim() !== "").length > 0 && (
               <div>
-                <h3 className="text-green-500/50 uppercase text-xs mb-1 flex items-center gap-1">
+                <h3 className="text-green-400/80 uppercase text-xs mb-1 flex items-center gap-1">
                   <Briefcase className="w-3 h-3" /> Formação / Profissão
                 </h3>
-                <ul className="list-disc list-inside text-green-400/90">
-                  {perfil.profissoes.map((p: string, i: number) => (
+                <ul className="list-disc list-inside text-green-400">
+                  {perfil.profissoes.filter((p: any) => p && p.trim() !== "").map((p: string, i: number) => (
                     <li key={i} title={p}>{p}</li>
                   ))}
                 </ul>
@@ -63,15 +71,15 @@ export default function ProfileHeader({ perfil, idDeputado }: { perfil: any; idD
 
             {perfil.comissoes && perfil.comissoes.length > 0 && (
               <div>
-                <h3 className="text-green-500/50 uppercase text-xs mb-1 flex items-center gap-1">
+                <h3 className="text-green-400/80 uppercase text-xs mb-1 flex items-center gap-1">
                   <Users className="w-3 h-3" /> Comissões
                 </h3>
-                <ul className="list-disc list-inside text-green-400/90">
+                <ul className="list-disc list-inside text-green-400">
                   {perfil.comissoes.slice(0, 3).map((c: string, i: number) => (
                     <li key={i} title={c}>{c}</li>
                   ))}
                   {perfil.comissoes.length > 3 && (
-                    <li className="text-green-500/50">+ {perfil.comissoes.length - 3} outras</li>
+                    <li className="text-green-400/80">+ {perfil.comissoes.length - 3} outras</li>
                   )}
                 </ul>
               </div>
@@ -80,17 +88,17 @@ export default function ProfileHeader({ perfil, idDeputado }: { perfil: any; idD
           
           {perfil.frentes && perfil.frentes.length > 0 && (
             <div className="pt-2 border-t border-green-500/20">
-              <h3 className="text-green-500/50 uppercase text-xs mb-2 flex items-center gap-1">
+              <h3 className="text-green-400/80 uppercase text-xs mb-2 flex items-center gap-1">
                 <Hash className="w-3 h-3" /> Frentes Parlamentares
               </h3>
               <div className="flex flex-wrap gap-2">
                 {perfil.frentes.slice(0, 5).map((f: string, i: number) => (
-                  <span key={i} className="px-2 py-1 bg-black border border-green-500/20 text-green-500/70 text-xs" title={f}>
+                  <span key={i} className="px-2 py-1 bg-black border border-green-500/20 text-green-400 text-xs" title={f}>
                     {f}
                   </span>
                 ))}
                  {perfil.frentes.length > 5 && (
-                  <span className="px-2 py-1 bg-black border border-green-500/20 text-green-500/50 text-xs">
+                  <span className="px-2 py-1 bg-black border border-green-500/20 text-green-400/80 text-xs">
                     +{perfil.frentes.length - 5}
                   </span>
                 )}
@@ -99,6 +107,6 @@ export default function ProfileHeader({ perfil, idDeputado }: { perfil: any; idD
           )}
         </div>
       </div>
-    </section>
+    </TerminalWindow>
   );
 }

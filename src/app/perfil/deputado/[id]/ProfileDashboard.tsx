@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import ProfileHeader from "@/components/perfil/ProfileHeader";
 import VotingHistory from "@/components/perfil/VotingHistory";
 import LegislativeProduction from "@/components/perfil/LegislativeProduction";
+import GabineteList from "@/components/perfil/GabineteList";
+import CotaChart from "@/components/perfil/CotaChart";
 import { Lock, AlertTriangle, ArrowLeft } from "lucide-react";
 import { ScrambleText } from "@/components/ui/scramble-text";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -48,6 +50,11 @@ export default function ProfileDashboard({
                 comissoes: [],
                 profissoes: []
             };
+        } else if (json.perfil && searchParams?.nome) {
+            if (!json.perfil.nome_civil && !json.perfil.nome_eleitoral) {
+                json.perfil.nome_civil = searchParams.nome;
+                json.perfil.nome_eleitoral = searchParams.nome;
+            }
         }
         
         setData(json);
@@ -79,7 +86,7 @@ export default function ProfileDashboard({
   if (error || !data) {
     return (
       <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col">
-        <SiteHeader />
+        <SiteHeader showOnMobile={true} />
         <div className="p-4 md:p-8 flex-1">
           <div className="max-w-6xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <Button 
@@ -104,14 +111,14 @@ export default function ProfileDashboard({
   return (
     <div className="min-h-screen flex flex-col bg-black text-green-500 font-mono overflow-x-hidden relative">
       {/* Top Bar padronizada */}
-      <SiteHeader />
+      <SiteHeader showSearch={false} showOnMobile={true} />
 
       <div className="p-4 md:p-8">
         <div className="max-w-6xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <Button 
             variant="ghost" 
             className="text-green-500 hover:text-green-400 hover:bg-green-950 px-3 uppercase tracking-widest text-xs"
-            onClick={() => router.push("/")}
+            onClick={() => router.back()}
           >
             <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
           </Button>
@@ -124,9 +131,14 @@ export default function ProfileDashboard({
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-700">
           {data.perfil && <ProfileHeader perfil={data.perfil} idDeputado={idDeputado} />}
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <VotingHistory votos={data.votos} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+            <VotingHistory votos={data.votos} idDeputado={idDeputado} />
             <LegislativeProduction producao={data.producao} idDeputado={idDeputado} />
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+            <CotaChart cota={data.cota} />
+            <GabineteList servidores={data.servidores} />
           </div>
         </div>
       </div>
