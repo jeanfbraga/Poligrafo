@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Check, X, MinusCircle, AlertCircle, ArrowRight, ExternalLink } from "lucide-react";
+import { Check, X, MinusCircle, AlertCircle, ArrowRight, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { TerminalWindow, TerminalCard, TerminalBadge } from "@/components/ui/terminal";
 
 export default function VotingHistory({ votos, idDeputado }: { votos: any[], idDeputado: string }) {
   const [filter, setFilter] = useState<"TODOS" | "SIM" | "NÃO">("TODOS");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   if (!votos || votos.length === 0) {
     return (
@@ -57,19 +59,19 @@ export default function VotingHistory({ votos, idDeputado }: { votos: any[], idD
     >
       <div className="flex flex-wrap items-center gap-2 mb-4 border-b border-green-500/20 pb-4">
         <button 
-          onClick={() => setFilter("TODOS")}
+          onClick={() => { setFilter("TODOS"); setCurrentPage(1); }}
           className={`px-3 py-1 text-xs font-bold uppercase border transition-colors ${filter === "TODOS" ? "bg-green-500 text-black border-green-500" : "bg-transparent text-green-400 border-green-500/30 hover:border-green-500"}`}
         >
           Todos
         </button>
         <button 
-          onClick={() => setFilter("SIM")}
+          onClick={() => { setFilter("SIM"); setCurrentPage(1); }}
           className={`px-3 py-1 text-xs font-bold uppercase border transition-colors ${filter === "SIM" ? "bg-green-500 text-black border-green-500" : "bg-transparent text-green-400 border-green-500/30 hover:border-green-500"}`}
         >
           Sim
         </button>
         <button 
-          onClick={() => setFilter("NÃO")}
+          onClick={() => { setFilter("NÃO"); setCurrentPage(1); }}
           className={`px-3 py-1 text-xs font-bold uppercase border transition-colors ${filter === "NÃO" ? "bg-red-500 text-black border-red-500" : "bg-transparent text-red-400 border-red-500/30 hover:border-red-500"}`}
         >
           Não
@@ -77,7 +79,7 @@ export default function VotingHistory({ votos, idDeputado }: { votos: any[], idD
       </div>
 
       <div className="overflow-y-auto pr-2 space-y-3 custom-scrollbar flex-1">
-        {filteredVotos.map((v: any) => {
+        {filteredVotos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((v: any) => {
           const content = (
             <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-3 sm:gap-4">
               <div className="flex-1 w-full">
@@ -130,6 +132,30 @@ export default function VotingHistory({ votos, idDeputado }: { votos: any[], idD
           <p className="text-green-400/80 text-xs text-center mt-4">Nenhum voto {filter.toLowerCase()} encontrado neste período.</p>
         )}
       </div>
+
+      {filteredVotos.length > itemsPerPage && (
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-green-500/20">
+          <p className="text-xs text-green-400/80 hidden sm:block">
+            Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredVotos.length)} de {filteredVotos.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-1 border border-green-500/30 text-green-500 hover:bg-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed rounded-none transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredVotos.length / itemsPerPage), p + 1))}
+              disabled={currentPage === Math.ceil(filteredVotos.length / itemsPerPage)}
+              className="p-1 border border-green-500/30 text-green-500 hover:bg-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed rounded-none transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </TerminalWindow>
   );
 }

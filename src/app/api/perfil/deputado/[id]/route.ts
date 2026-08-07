@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { fetchWithTimeout } from "@/app/api/investigar/tse";
+import congressoIndex from "@/services/integrations/data/congresso-index.json";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -32,18 +33,31 @@ export async function GET(
 
     // O banco de cache local agora possui nome_civil e nome_eleitoral inseridos pelo perfil-politico-sync.ts
     // Garantindo que NENHUMA requisição em tempo real (runtime) para a API da Câmara ocorra.
+    const info = congressoIndex.find((p: any) => p.id === idDeputado);
+
     if (!perfilData) {
       perfilData = {
         id_deputado: parseInt(idDeputado),
-        nome_civil: "Dados não sincronizados",
-        nome_eleitoral: "Dados não sincronizados",
-        partido: "N/A",
-        uf: "N/A",
+        nome_civil: info ? info.nome : "Dados não sincronizados",
+        nome_eleitoral: info ? info.nome : "Dados não sincronizados",
+        partido: info ? info.partido : "N/A",
+        uf: info ? info.uf : "N/A",
         frentes_parlamentares: [],
         comissoes: [],
         profissoes: []
       };
+    } else {
+      if (!perfilData.nome_civil || !perfilData.nome_eleitoral) {
+        if (info) {
+          perfilData.nome_civil = perfilData.nome_civil || info.nome;
+          perfilData.nome_eleitoral = perfilData.nome_eleitoral || info.nome;
+          perfilData.uf = perfilData.uf || info.uf;
+          perfilData.partido = perfilData.partido || info.partido;
+        }
+      }
     }
+
+
 
     // 2. Votos Detalhados
     const votosRaw = await (async () => {
@@ -54,27 +68,8 @@ export async function GET(
         .eq("id_deputado", idDeputado);
       if (!error && data && data.length > 0) return data;
 
-      // Fallback: API ao vivo da Câmara
-      console.warn(`[PERFIL API] Votos vazios no banco para deputado ${idDeputado}. Usando API ao vivo.`);
-      try {
-        const anoAtual = new Date().getFullYear();
-        const res = await fetchWithTimeout(
-          `https://dadosabertos.camara.leg.br/api/v2/deputados/${idDeputado}/votacoes?dataInicio=${anoAtual - 1}-01-01&ordem=DESC&ordenarPor=dataHoraVoto&itens=50`,
-          { timeout: 10000 }
-        );
-        if (!res.ok) return [];
-        const json = await res.json();
-        return (json.dados || []).map((v: any) => ({
-          id_votacao: v.id,
-          voto: v.voto,
-          camara_votacoes_master: {
-            id_proposicao: v.proposicao?.id || null,
-            projeto_nome: v.proposicao?.ementa || v.descricao || "Sem descrição",
-            projeto_tema: v.proposicao?.tema || "Não especificado",
-            data_votacao: v.dataHoraVoto || null,
-          }
-        }));
-      } catch { return []; }
+      // Fallback: API ao vivo da Câmara (Desativado pois o endpoint não existe mais na v2 para esse formato)
+      return [];
     })();
 
     const votosData = votosRaw?.map((v: any) => ({
@@ -99,26 +94,8 @@ export async function GET(
         .order("ano", { ascending: false });
       if (!error && data && data.length > 0) return data;
 
-      // Fallback: API ao vivo da Câmara
-      console.warn(`[PERFIL API] Produção legislativa vazia no banco para deputado ${idDeputado}. Usando API ao vivo.`);
-      try {
-        const anoAtual = new Date().getFullYear();
-        const res = await fetchWithTimeout(
-          `https://dadosabertos.camara.leg.br/api/v2/deputados/${idDeputado}/proposicoes?dataInicio=${anoAtual - 1}-01-01&ordem=DESC&ordenarPor=dataApresentacao&itens=30`,
-          { timeout: 10000 }
-        );
-        if (!res.ok) return [];
-        const json = await res.json();
-        return (json.dados || []).map((p: any) => ({
-          id_deputado: parseInt(idDeputado),
-          ano: new Date(p.dataApresentacao || Date.now()).getFullYear(),
-          tipo: p.siglaTipo || "PROP",
-          numero: p.numero || "",
-          ementa: p.ementa || "Sem descrição",
-          situacao: p.statusProposicao?.descricaoSituacao || "Em tramitação",
-          data_apresentacao: p.dataApresentacao || null,
-        }));
-      } catch { return []; }
+      // Fallback: API ao vivo da Câmara (Desativado pois endpoint retorna 405 Method Not Allowed)
+      return [];
     })();
 
     // 4. Servidores do Gabinete

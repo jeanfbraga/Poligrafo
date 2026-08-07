@@ -19,9 +19,9 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 async function run() {
     console.log("[GARBAGE COLLECTOR] Iniciando rotina de limpeza do banco de dados...");
     
-    // Calculamos a data limite de 30 dias atrás
+    // Calculamos a data limite de 90 dias atrás
     const dataLimite = new Date();
-    dataLimite.setDate(dataLimite.getDate() - 30);
+    dataLimite.setDate(dataLimite.getDate() - 90);
     const dataLimiteISO = dataLimite.toISOString();
 
     try {

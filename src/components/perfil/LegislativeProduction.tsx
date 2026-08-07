@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { FileText, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { TerminalWindow } from "@/components/ui/terminal";
 
 export default function LegislativeProduction({ producao, idDeputado }: { producao: any[]; idDeputado: string }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   if (!producao || producao.length === 0) {
     return (
       <TerminalWindow 
@@ -24,7 +28,7 @@ export default function LegislativeProduction({ producao, idDeputado }: { produc
       className="flex flex-col max-h-150"
     >
       <div className="overflow-y-auto pr-2 space-y-3 custom-scrollbar flex-1">
-        {producao.map((p: any) => (
+        {producao.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((p: any) => (
           <Link 
             href={`/perfil/deputado/${idDeputado}/projeto/${p.id_proposicao}`}
             key={p.id_proposicao} 
@@ -52,6 +56,30 @@ export default function LegislativeProduction({ producao, idDeputado }: { produc
           </Link>
         ))}
       </div>
+
+      {producao.length > itemsPerPage && (
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-green-500/20 px-2 pb-2">
+          <p className="text-xs text-green-400/80 hidden sm:block">
+            Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, producao.length)} de {producao.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-1 border border-green-500/30 text-green-500 hover:bg-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed rounded-none transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(Math.ceil(producao.length / itemsPerPage), p + 1))}
+              disabled={currentPage === Math.ceil(producao.length / itemsPerPage)}
+              className="p-1 border border-green-500/30 text-green-500 hover:bg-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed rounded-none transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </TerminalWindow>
   );
 }

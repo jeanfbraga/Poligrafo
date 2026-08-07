@@ -33,16 +33,40 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 async function run() {
     console.log("[VOTOS DETALHADOS SYNC] Iniciando sincronização do Ano Legislativo Atual...");
     
-    // Filtro pelo ano atual
-    const anoAtual = 2024; // Fixo em 2024 para garantir dados da API
-    const dataInicio = `${anoAtual}-05-01`;
-    const dataFim = `${anoAtual}-05-31`;
+    const hoje = new Date();
+    const anoAtual = hoje.getFullYear();
+    const mesAtual = String(hoje.getMonth() + 1).padStart(2, '0');
+    const diaAtual = String(hoje.getDate()).padStart(2, '0');
+    
+    // 57ª Legislatura começou em 2023-02-01
+    const urlsParaBuscar: string[] = [];
+    
+    // API da Câmara não permite diferença maior que 3 meses.
+    // Vamos quebrar de 2023-02-01 até hoje em blocos trimestrais
+    let dInicio = new Date('2023-02-01T00:00:00');
+    while (dInicio <= hoje) {
+        let dFim = new Date(dInicio);
+        dFim.setMonth(dFim.getMonth() + 2); 
+        dFim.setDate(new Date(dFim.getFullYear(), dFim.getMonth() + 1, 0).getDate()); // Ultimo dia do mes
+        
+        if (dFim > hoje) dFim = hoje;
+        
+        const iStr = dInicio.toISOString().split('T')[0];
+        const fStr = dFim.toISOString().split('T')[0];
+        
+        urlsParaBuscar.push(`${API_BASE}/votacoes?dataInicio=${iStr}&dataFim=${fStr}&itens=100&ordem=ASC&ordenarPor=dataHoraRegistro`);
+        
+        // avança pro proximo bloco
+        dInicio.setMonth(dInicio.getMonth() + 3);
+        dInicio.setDate(1);
+    }
 
     try {
-        let urlVotacoes = `${API_BASE}/votacoes?dataInicio=${dataInicio}&dataFim=${dataFim}&itens=100&ordem=ASC&ordenarPor=dataHoraRegistro`;
         let count = 0;
         
-        while (urlVotacoes) {
+        for (let urlVotacoes of urlsParaBuscar) {
+            console.log(`[VOTOS DETALHADOS SYNC] Buscando bloco trimestral...`);
+            while (urlVotacoes) {
             console.log(`[VOTOS DETALHADOS SYNC] Buscando votacoes: ${urlVotacoes}`);
             const data = await fetchJson(urlVotacoes);
             const votacoes = data.dados || [];
@@ -144,6 +168,7 @@ async function run() {
 
             const nextLink = data.links?.find((l: any) => l.rel === 'next');
             urlVotacoes = nextLink ? nextLink.href : null;
+            }
         }
 
         console.log("[VOTOS DETALHADOS SYNC] Finalizado com sucesso!");

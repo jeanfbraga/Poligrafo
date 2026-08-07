@@ -45,8 +45,12 @@ async function run() {
             count++;
             console.log(`[${count}/${deputados.length}] Buscando proposições do deputado ID ${dep.id} (${dep.nome})...`);
             
-            // Buscar apenas proposições recentes (ano atual e anterior) para não explodir a API
-            const urlProposicoes = `${API_BASE}/proposicoes?idDeputadoAutor=${dep.id}&ano=${anoAtual}&ano=${anoAtual - 1}&itens=50&ordem=DESC&ordenarPor=ano`;
+            // Buscar proposições de todo o mandato atual (57ª Legislatura - a partir de 2023)
+            let anosQuery = '';
+            for (let ano = 2023; ano <= anoAtual; ano++) {
+                anosQuery += `&ano=${ano}`;
+            }
+            const urlProposicoes = `${API_BASE}/proposicoes?idDeputadoAutor=${dep.id}${anosQuery}&itens=100&ordem=DESC&ordenarPor=ano`;
             
             try {
                 const data = await fetchJson(urlProposicoes);
