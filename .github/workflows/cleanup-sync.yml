@@ -1,0 +1,29 @@
+name: Garbage Collector Mensal (Cleanup Sync)
+
+on:
+  schedule:
+    # Roda dia 1 e 15 do mês, às 03:00 (UTC)
+    - cron: '0 3 1,15 * *'
+  workflow_dispatch: # Permite execução manual pelo Github Actions
+
+jobs:
+  cleanup_sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Garbage Collector
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run sync:cleanup

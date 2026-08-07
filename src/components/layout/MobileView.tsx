@@ -17,6 +17,7 @@ import {
 	User,
 	Users,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import { toast } from "sonner";
@@ -38,6 +39,7 @@ import {
 	SocioNode
 } from "@/components/nodes";
 import SearchBar from "@/components/search/SearchBar";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { type ShareData, ShareDialog } from "@/components/shared/ShareDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -262,6 +264,7 @@ interface MobileViewProps {
 	searchTerm: string;
 	setSearchTerm: (v: string) => void;
 	statusMessage: string;
+	targetData?: any;
 }
 
 const NODE_COMPONENTS: Record<string, any> = {
@@ -308,6 +311,7 @@ export default function MobileView({
 	searchTerm,
 	setSearchTerm,
 	statusMessage,
+	targetData,
 }: MobileViewProps) {
 	const [selectedCard, setSelectedCard] = useState<any | null>(null);
 	const [drawerOpen, setDrawerOpen] = useState(false);
@@ -525,19 +529,13 @@ export default function MobileView({
 				className="w-full h-full flex flex-col items-center justify-center relative z-20 px-6"
 				style={dotBg}
 			>
-				<div className="absolute top-0 left-0 w-full h-12 border-b border-green-500/30 bg-black flex items-center px-4 gap-2 z-30">
-					<div className="flex items-center gap-2 cursor-pointer" onClick={onNovaBusca}>
-						<Terminal className="w-5 h-5 text-green-500" />
-						<span className="text-base font-bold tracking-widest text-green-500 uppercase">
-							POLÍGRAFO
-						</span>
-					</div>
-					<Badge variant="cyber-green" className="ml-1">
-						IA
-					</Badge>
-					<div className="ml-auto">
-						<Loader2 className="w-5 h-5 text-green-500 animate-spin" />
-					</div>
+				<div className="absolute top-0 left-0 w-full h-12 z-30">
+					<SiteHeader
+						showOnMobile={true}
+						showSearch={false}
+						onClearAll={onNovaBusca}
+						isLoading={isLoading}
+					/>
 				</div>
 
 				{rootNode ? (
@@ -719,23 +717,22 @@ export default function MobileView({
 
 	return (
 		<div className="w-full h-full flex flex-col relative z-20" style={dotBg}>
-			{/* HEADER: h-12 min, touch-friendly */}
-			<div className="h-12 border-b border-green-500/50 bg-black backdrop-blur shrink-0 flex items-center justify-between px-4 z-30">
-				<div className="flex items-center gap-2 cursor-pointer" onClick={onNovaBusca}>
-					<Terminal className="w-5 h-5 text-green-500" />
-					<span className="text-base font-bold tracking-widest text-green-500 uppercase">
-						POLÍGRAFO
-					</span>
-				</div>
-				<Button
-					variant="outline"
-					className="border-green-500 bg-black text-green-500 rounded-none font-bold uppercase text-xs h-9 px-4"
-					onClick={() => setSearchDrawerOpen(true)}
-				>
-					<Search className="w-4 h-4 mr-1.5" />
-					NOVA BUSCA
-				</Button>
-			</div>
+			{/* HEADER: SiteHeader padronizado */}
+			<SiteHeader
+				showOnMobile={true}
+				showSearch={false}
+				onClearAll={onNovaBusca}
+				rightElement={
+					<Button
+						variant="outline"
+						className="border-green-500 bg-black text-green-500 rounded-none font-bold uppercase text-xs h-9 px-4"
+						onClick={() => setSearchDrawerOpen(true)}
+					>
+						<Search className="w-4 h-4 mr-1.5" />
+						NOVA BUSCA
+					</Button>
+				}
+			/>
 			{renderSearchDrawer()}
 
 			{/* HERO: Político */}
@@ -752,6 +749,40 @@ export default function MobileView({
 							</p>
 						</div>
 					</div>
+					{(() => {
+						const cargoUpper = rootNode.data.cargo?.toUpperCase() || "";
+						const casaUpper = rootNode.data.casa?.toUpperCase() || "";
+						const isDeputadoFederal = cargoUpper.includes("DEPUTADO FEDERAL") || casaUpper.includes("FEDERAL");
+						
+						let deputyId = null;
+						if (rootNode.data.ref) {
+							deputyId = rootNode.data.ref.split(":").pop();
+						} else if (rootNode.id?.includes(":")) {
+							deputyId = rootNode.id.split(":").pop();
+						} else {
+							// Fallback resiliente: extrair ID da Câmara a partir da URL da foto oficial
+							const fotoUrl = rootNode.data.urlFoto || rootNode.data.urlFotoFallback || rootNode.data.fotoFallback || "";
+							const match = fotoUrl.match(/bandep\/(\d+)\.jpg/i);
+							if (match) {
+								deputyId = match[1];
+							} else {
+								deputyId = rootNode.data.id || rootNode.id;
+							}
+						}
+						
+						if (!isDeputadoFederal || !deputyId) return null;
+						
+						return (
+							<div className="mt-3">
+								<Link
+									href={`/perfil/deputado/${deputyId}?nome=${encodeURIComponent(rootNode.data.label)}&partido=${encodeURIComponent(rootNode.data.partido || "")}&uf=${encodeURIComponent(rootNode.data.uf || "")}&foto=${encodeURIComponent(rootNode.data.foto || rootNode.data.fotoFallback || "")}`}
+									className="w-full block text-center py-2 bg-green-950/50 hover:bg-green-900 text-green-400 border border-green-500/50 text-xs font-bold tracking-widest uppercase transition-colors"
+								>
+									IR PARA O PERFIL
+								</Link>
+							</div>
+						);
+					})()}
 				</div>
 			)}
 

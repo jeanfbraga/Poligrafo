@@ -9,6 +9,7 @@ import {
 	HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { formatName } from "@/lib/utils";
+import Link from "next/link";
 
 // ==========================================================================
 // RASCUNHO (layout v2) — Wrapper do hover card do político.
@@ -154,7 +155,7 @@ export function PoliticianHoverCard({
 							</div>
 						</div>
 					</div>
-					<div className="mt-4 pt-4 border-t border-green-900/50">
+					<div className="mt-4 pt-4 border-t border-green-900/50 space-y-2">
 						<button
 							className="w-full py-2 bg-green-500 hover:bg-green-400 text-black text-xs font-bold tracking-widest uppercase transition-colors flex items-center justify-center gap-2"
 							onClick={(e) => {
@@ -169,6 +170,20 @@ export function PoliticianHoverCard({
 							<Search className="w-3 h-3" />
 							INICIAR VARREDURA
 						</button>
+						{(() => {
+							const isDeputadoFederal = profile.cargo?.toUpperCase() === "DEPUTADO FEDERAL" || profile.casa?.toUpperCase() === "FEDERAL";
+							const deputyId = profile.ref ? profile.ref.split(":").pop() : profile.id;
+							if (!isDeputadoFederal || !deputyId) return null;
+							return (
+								<Link
+									href={`/perfil/deputado/${deputyId}?nome=${encodeURIComponent(profile.nome)}&partido=${encodeURIComponent(profile.partido || "")}&uf=${encodeURIComponent(profile.uf || "")}&foto=${encodeURIComponent(profile.foto || profile.fotoFallback || "")}`}
+									className="w-full block text-center py-2 bg-green-950/50 hover:bg-green-900 text-green-400 border border-green-500/50 text-xs font-bold tracking-widest uppercase transition-colors"
+									onClick={(e) => e.stopPropagation()}
+								>
+									IR PARA O PERFIL
+								</Link>
+							);
+						})()}
 					</div>
 				</HoverCardContent>
 			</HoverCard>

@@ -42,6 +42,9 @@ interface SiteHeaderProps {
 	isMobile?: boolean;
 	isLoading?: boolean;
 	showClearButton?: boolean;
+	showSearch?: boolean;
+	showOnMobile?: boolean;
+	rightElement?: React.ReactNode;
 	onClearAll?: () => void;
 	searchTerm?: string;
 	setSearchTerm?: (val: string) => void;
@@ -55,6 +58,9 @@ export function SiteHeader({
 	isMobile = false,
 	isLoading = false,
 	showClearButton = false,
+	showSearch = true,
+	showOnMobile = false,
+	rightElement,
 	onClearAll,
 	searchTerm: propSearchTerm,
 	setSearchTerm: propSetSearchTerm,
@@ -95,48 +101,45 @@ export function SiteHeader({
 
 	return (
 		<header
-			className={`h-auto md:h-14 py-2 md:py-0 border-b border-green-500 bg-black flex-col md:flex-row items-center justify-between px-4 md:px-6 shrink-0 z-50 relative gap-2 md:gap-4 ${isMobile ? "hidden" : "flex"}`}
+			className={`h-12 md:h-14 border-b border-green-500/50 md:border-green-500 bg-black backdrop-blur flex flex-row items-center justify-between px-4 md:px-6 shrink-0 z-50 relative gap-2 md:gap-4 ${showOnMobile ? 'flex' : 'hidden md:flex'}`}
 		>
-			<div className="flex items-center shrink-0 w-full md:w-auto justify-between">
-				<div className="flex items-center gap-3">
-					<button
-						onClick={handleLogoClick}
-						className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity outline-none"
-					>
-						<Terminal className="text-green-500 shrink-0" size={20} />
-						<h1 className="text-xl font-bold tracking-widest text-green-500 flex items-center gap-2">
-							<span className="bytesized-regular uppercase hidden lg:inline">
-								<ScrambleText text="POLÍGRAFO" duration={1200} />
-							</span>
-							<span className="bytesized-regular uppercase lg:hidden">
-								<ScrambleText text="POL." duration={800} />
-							</span>
-							<span className="text-xs bg-green-900/50 text-green-400 px-2 py-0.5 rounded-none border border-green-500/50 shrink-0">
-								IA
-							</span>
-						</h1>
-					</button>
-					{isLoading && (
-						<div className="flex items-center ml-2 text-green-500 space-x-2">
-							<Loader2 className="w-4 h-4 animate-spin shrink-0" />
-						</div>
-					)}
-				</div>
+			<div className="flex items-center shrink-0 w-auto justify-start h-full">
+				<button
+					onClick={handleLogoClick}
+					className="flex items-center gap-2 md:gap-3 cursor-pointer hover:opacity-80 transition-opacity outline-none"
+				>
+					<Terminal className="text-green-500 shrink-0 w-5 h-5 md:w-6 md:h-6" />
+					<h1 className="text-base md:text-xl font-bold tracking-widest text-green-500 flex items-center gap-2 m-0 p-0">
+						<span className="uppercase">
+							<ScrambleText text="POLÍGRAFO" duration={1200} />
+						</span>
+						<span className="text-[10px] md:text-xs bg-green-900/50 text-green-400 px-1.5 md:px-2 py-0.5 rounded-none border border-green-500/50 shrink-0 font-sans tracking-normal">
+							IA
+						</span>
+					</h1>
+				</button>
+				{isLoading && (
+					<div className="flex items-center ml-2 text-green-500">
+						<Loader2 className="w-4 h-4 animate-spin shrink-0" />
+					</div>
+				)}
 			</div>
 
-			<div className="flex-1 w-full md:max-w-2xl lg:max-w-4xl flex items-center h-14 z-20">
-				<SearchBar
-					searchTerm={searchTerm}
-					setSearchTerm={setSearchTerm}
-					selectedUf={selectedUf}
-					setSelectedUf={setSelectedUf}
-					onSearch={handleSearch}
-					onCancel={onCancel}
-					isLoading={isLoading}
-					isMobile={false}
-					alcadas={ALCADAS_BR}
-				/>
-			</div>
+			{showSearch && (
+				<div className="flex-1 w-full md:max-w-2xl lg:max-w-4xl flex items-center h-14 z-20">
+					<SearchBar
+						searchTerm={searchTerm}
+						setSearchTerm={setSearchTerm}
+						selectedUf={selectedUf}
+						setSelectedUf={setSelectedUf}
+						onSearch={handleSearch}
+						onCancel={onCancel}
+						isLoading={isLoading}
+						isMobile={false}
+						alcadas={ALCADAS_BR}
+					/>
+				</div>
+			)}
 
 			<div className="flex items-center gap-4 shrink-0">
 				{showClearButton && onClearAll && (
@@ -148,6 +151,7 @@ export function SiteHeader({
 						Limpar tudo
 					</Button>
 				)}
+				{rightElement}
 			</div>
 		</header>
 	);

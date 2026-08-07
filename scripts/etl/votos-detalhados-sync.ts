@@ -4,8 +4,8 @@ import path from 'path';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_PERFIL_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_PERFIL_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
     console.error("ERRO: Faltando credenciais administrativas do Supabase.");
@@ -34,9 +34,9 @@ async function run() {
     console.log("[VOTOS DETALHADOS SYNC] Iniciando sincronização do Ano Legislativo Atual...");
     
     // Filtro pelo ano atual
-    const anoAtual = new Date().getFullYear();
-    const dataInicio = `${anoAtual}-02-01`;
-    const dataFim = `${anoAtual}-12-31`;
+    const anoAtual = 2024; // Fixo em 2024 para garantir dados da API
+    const dataInicio = `${anoAtual}-05-01`;
+    const dataFim = `${anoAtual}-05-31`;
 
     try {
         let urlVotacoes = `${API_BASE}/votacoes?dataInicio=${dataInicio}&dataFim=${dataFim}&itens=100&ordem=ASC&ordenarPor=dataHoraRegistro`;
@@ -47,20 +47,53 @@ async function run() {
             const data = await fetchJson(urlVotacoes);
             const votacoes = data.dados || [];
 
-            for (const votacao of votacoes) {
+            // 1. Verificar quais votações já existem no banco (Delta Sync)
+            const idsVotacoes = votacoes.map((v: any) => v.id);
+            const { data: votacoesExistentes, error: errExistentes } = await supabaseAdmin
+                .from('camara_votacoes_master')
+                .select('id_votacao')
+                .in('id_votacao', idsVotacoes);
+
+            if (errExistentes) {
+                console.error("Erro ao verificar votações existentes:", errExistentes);
+                continue;
+            }
+
+            const idsExistentes = new Set(votacoesExistentes?.map((v: any) => v.id_votacao) || []);
+            const votacoesNovas = votacoes.filter((v: any) => !idsExistentes.has(v.id));
+
+            console.log(`  - ${votacoes.length} votações na página, ${votacoesNovas.length} novas.`);
+
+            for (const votacao of votacoesNovas) {
                 count++;
-                console.log(`[${count}] Processando Votação ${votacao.id} - ${votacao.descricao}`);
+                console.log(`[${count}] Processando NOVA Votação ${votacao.id} - ${votacao.descricao}`);
                 
-                // Buscar detalhes da proposição se houver
                 let projeto_nome = votacao.descricao || "Votação sem nome";
                 let projeto_tema = "Não especificado";
+                let id_proposicao = null;
                 
-                // Em votacoes/{id} temos a proposicao (id, siglaTipo, numero, ano)
                 try {
                     const votDetalheReq = await fetchJson(`${API_BASE}/votacoes/${votacao.id}`);
-                    if (votDetalheReq && votDetalheReq.dados && votDetalheReq.dados.proposicao) {
-                        const prop = votDetalheReq.dados.proposicao;
-                        projeto_nome = `${prop.siglaTipo} ${prop.numero}/${prop.ano}`;
+                    if (votDetalheReq && votDetalheReq.dados) {
+                        const dados = votDetalheReq.dados;
+                        if (dados.proposicao) {
+                            const prop = dados.proposicao;
+                            projeto_nome = `${prop.siglaTipo} ${prop.numero}/${prop.ano}`;
+                            projeto_tema = prop.ementa || projeto_tema;
+                            id_proposicao = prop.id;
+                        } else if (dados.proposicoesAfetadas && dados.proposicoesAfetadas.length > 0) {
+                            const prop = dados.proposicoesAfetadas[0];
+                            const descCurta = votacao.descricao ? votacao.descricao.split(/\.\s*Sim:/i)[0] : "";
+                            projeto_nome = `${prop.siglaTipo} ${prop.numero}/${prop.ano} - ${descCurta}`;
+                            projeto_tema = prop.ementa || projeto_tema;
+                            id_proposicao = prop.id;
+                        } else if (dados.objetosPossiveis && dados.objetosPossiveis.length > 0) {
+                            const prop = dados.objetosPossiveis[0];
+                            const descCurta = votacao.descricao ? votacao.descricao.split(/\.\s*Sim:/i)[0] : "";
+                            projeto_nome = `${prop.siglaTipo} ${prop.numero}/${prop.ano} - ${descCurta}`;
+                            projeto_tema = prop.ementa || projeto_tema;
+                            id_proposicao = prop.id;
+                        }
                     }
                 } catch (e) {
                     console.log(`  - Falha ao buscar detalhes da votação ${votacao.id}`);
@@ -73,16 +106,27 @@ async function run() {
                 console.log(`  - Encontrados ${votosLista.length} votos nominais.`);
                 
                 if (votosLista.length > 0) {
+                    // 1. Salvar na Tabela Master
+                    const { error: errMaster } = await supabaseAdmin.from('camara_votacoes_master').upsert({
+                        id_votacao: votacao.id,
+                        id_proposicao,
+                        projeto_nome,
+                        projeto_tema,
+                        data_votacao: votacao.dataHoraRegistro
+                    });
+
+                    if (errMaster) {
+                        console.error(`  - Erro ao salvar na Master:`, errMaster.message);
+                        continue; // Não salva os votos se não salvou a votação
+                    }
+
+                    // 2. Salvar os Votos Enxutos
                     const payload = votosLista.map((v: any) => ({
                         id_deputado: v.deputado_.id,
                         id_votacao: votacao.id,
-                        projeto_nome,
-                        projeto_tema,
-                        voto: v.tipoVoto,
-                        data_votacao: votacao.dataHoraRegistro
+                        voto: v.tipoVoto
                     }));
 
-                    // Inserir em lotes usando UPSERT
                     for (let i = 0; i < payload.length; i += BATCH_SIZE) {
                         const batch = payload.slice(i, i + BATCH_SIZE);
                         const { error } = await supabaseAdmin.from('camara_votos_detalhados').upsert(

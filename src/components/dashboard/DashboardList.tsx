@@ -1,5 +1,6 @@
 import { Search, User } from "lucide-react";
 import type React from "react";
+import Link from "next/link";
 import { useState } from "react";
 import { AnimatedNumber } from "@/components/dashboard/AnimatedNumber";
 import {
@@ -143,9 +144,23 @@ export function DashboardList({
 													window.dispatchEvent(event);
 												}}
 											>
-												<Search className="w-3 h-3" />
+											<Search className="w-3 h-3" />
 												INICIAR VARREDURA
 											</button>
+											{(() => {
+												const isDeputadoFederal = item.profile?.cargo?.toUpperCase() === "DEPUTADO FEDERAL" || item.profile?.casa?.toUpperCase() === "FEDERAL";
+												const deputyId = item.profile?.ref ? item.profile.ref.split(":").pop() : item.profile?.id;
+												if (!isDeputadoFederal || !deputyId) return null;
+												return (
+													<Link
+														href={`/perfil/deputado/${deputyId}?nome=${encodeURIComponent(item.profile.nome)}&partido=${encodeURIComponent(item.profile.partido || "")}&uf=${encodeURIComponent(item.profile.uf || "")}&foto=${encodeURIComponent(item.profile.foto || item.profile.fotoFallback || "")}`}
+														className="w-full mt-2 block text-center py-2 bg-green-950/50 hover:bg-green-900 text-green-400 border border-green-500/50 text-xs font-bold tracking-widest uppercase transition-colors"
+														onClick={(e) => e.stopPropagation()}
+													>
+														IR PARA PERFIL COMPLETO
+													</Link>
+												);
+											})()}
 										</div>
 									</HoverCardContent>
 								</HoverCard>

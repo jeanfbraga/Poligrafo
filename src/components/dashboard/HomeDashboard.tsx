@@ -18,6 +18,7 @@ import { HybridTooltip } from "@/components/ui/hybrid-tooltip";
 import { ScrambleText } from "@/components/ui/scramble-text";
 import { formatName } from "@/lib/utils";
 import { BarRanking, type BarRankingItem } from "./BarRanking";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 // Módulos do rascunho (layout v2)
 import { KpiBand } from "./KpiBand";
 import { UfHeatGrid } from "./UfHeatGrid";
@@ -186,15 +187,9 @@ export function HomeDashboard() {
 				backgroundSize: "24px 24px",
 			}}
 		>
-			{/* Mobile-only Header */}
-			<div className="md:hidden sticky top-0 z-50 h-14 border-b border-green-500/50 bg-black/95 backdrop-blur-sm flex items-center px-4 gap-2">
-				<Terminal className="w-5 h-5 text-green-500" />
-				<span className="text-base font-bold tracking-widest text-green-500 uppercase">
-					POLÍGRAFO
-				</span>
-				<Badge variant="cyber-green" className="ml-1">
-					IA
-				</Badge>
+			{/* Mobile-only Header — usa o SiteHeader oficial para consistência */}
+			<div className="md:hidden">
+				<SiteHeader showOnMobile={true} showSearch={false} />
 			</div>
 
 			<div className="max-w-400 w-full mx-auto p-4 md:p-8 pt-6 md:pt-10 pb-28 flex flex-col gap-6">

@@ -168,14 +168,9 @@ const HoverCardContent = React.forwardRef<
 					<div className="anim-border border-b absolute bottom-0 right-0 w-full h-px bg-green-500 z-20"></div>
 					<div className="anim-border border-l absolute bottom-0 left-0 w-px h-full bg-green-500 z-20"></div>
 
-					{/* Background & Checkerboard */}
+					{/* Background */}
 					<div
 						className="anim-bg absolute inset-0 z-[-1] pointer-events-none opacity-0 bg-black/95 shadow-[0_0_20px_rgba(34,197,94,0.3)]"
-						style={{
-							backgroundImage:
-								"conic-gradient(rgba(34,197,94,0.1) 90deg, transparent 90deg 180deg, rgba(34,197,94,0.1) 180deg 270deg, transparent 270deg)",
-							backgroundSize: "8px 8px",
-						}}
 					></div>
 					<div className="anim-content relative z-10 w-full h-full opacity-0">
 						{children}
