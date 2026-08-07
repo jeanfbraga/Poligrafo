@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, User } from "lucide-react";
-import { type KeyboardEvent, useState } from "react";
+import { type KeyboardEvent, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,7 +102,7 @@ export default function SearchBar({
 	const [showAlcadaError, setShowAlcadaError] = useState(false);
 	const router = useRouter();
 
-	React.useEffect(() => {
+	useEffect(() => {
 		if (selectedUf) setShowAlcadaError(false);
 	}, [selectedUf]);
 
