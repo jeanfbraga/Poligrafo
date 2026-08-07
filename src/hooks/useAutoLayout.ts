@@ -14,8 +14,8 @@ export function useAutoLayout(nodes: Node[], edges: Edge[]) {
 	const nodesInitialized = useNodesInitialized();
 
 	useEffect(() => {
-		// Assinatura única do grafo atual (quais nós e arestas existem)
-		const currentSignature = `${nodes.map((n) => n.id).join(",")}|${edges.map((e) => e.id).join(",")}`;
+		// Assinatura única do grafo atual (quais nós e arestas existem + seus tamanhos)
+		const currentSignature = `${nodes.map((n) => `${n.id}:${n.measured?.width || 0}x${n.measured?.height || 0}`).join(",")}|${edges.map((e) => e.id).join(",")}`;
 
 		// Roda o layout apenas se houverem nós suficientes, não estiver rodando, e todos já estiverem desenhados/medidos
 		// E PRINCIPALMENTE: Apenas se a assinatura do grafo mudou (evita loop infinito)
@@ -116,13 +116,10 @@ export function useAutoLayout(nodes: Node[], edges: Edge[]) {
 			isLayoutRunning.current = false;
 		}, 50);
 	}, [
-		nodes.length,
+		nodes,
+		edges,
 		setNodes,
 		nodesInitialized,
-		fitView,
-		edges.map,
-		nodes.map, // Alimenta os nós no Dagre com os tamanhos reais medidos
-		nodes.forEach, // Alimenta as arestas
-		edges.forEach,
+		fitView
 	]);
 }
