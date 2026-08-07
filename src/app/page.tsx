@@ -1251,6 +1251,41 @@ function DashboardArea() {
 			"Estabelecendo conexão segura com bases governamentais...",
 		);
 
+		// Atualiza a URL sem recarregar a página para permitir compartilhamento do link
+		if (typeof window !== "undefined") {
+			const url = new URL(window.location.href);
+			
+			// Se for busca direta pela barra, o alvo vem em refOverride
+			// Se não houver refOverride explícito, podemos tentar inferir ou remover
+			if (refOverride) {
+				url.searchParams.set("alvo", refOverride);
+			} else {
+				// Para buscas nominais, tenta inferir a ref a partir do index (Federal) ou malha (Estadual)
+				let resolvedRef = undefined;
+				if (matchedCandidate) {
+					if (matchedCandidate.casa === "CAMARA") resolvedRef = `FEDERAL:CAMARA:${matchedCandidate.id}`;
+					else if (matchedCandidate.casa === "SENADO") resolvedRef = `FEDERAL:SENADO:${matchedCandidate.id}`;
+					else if (matchedCandidate.casa === "GOVERNO_ESTADUAL" || matchedCandidate.casa === "GOVERNADOR") resolvedRef = `GOVERNADOR:${matchedCandidate.uf || "BR"}:${matchedCandidate.id || matchedCandidate.nome}`;
+					else if (matchedCandidate.casa === "PREFEITO" || matchedCandidate.casa === "PREFEITURA") resolvedRef = `PREFEITO:${matchedCandidate.uf || "BR"}:${matchedCandidate.id || matchedCandidate.nome}`;
+				} else if (currentUf) {
+					resolvedRef = `ESTADUAL:${currentUf}`;
+				}
+
+				if (resolvedRef) url.searchParams.set("alvo", resolvedRef);
+				else url.searchParams.delete("alvo");
+			}
+
+			url.searchParams.set("nome", termo);
+
+			if (currentUf) url.searchParams.set("uf", currentUf);
+			else url.searchParams.delete("uf");
+
+			// Só faz o push se a URL for diferente da atual
+			if (url.toString() !== window.location.href) {
+				window.history.pushState({}, "", url.toString());
+			}
+		}
+
 		try {
 			let apiUrl = `/api/investigar?nome=${encodeURIComponent(termo)}`;
 			if (refOverride) {
@@ -1662,23 +1697,20 @@ function DashboardArea() {
 	// Verifica se há um alvo inicial na URL para auto-busca
 	useEffect(() => {
 		if (!searchParams) return;
-		const alvo = searchParams.get("alvo");
-		const ref = searchParams.get("ref") || undefined;
+		const alvo = searchParams.get("alvo") || searchParams.get("ref");
+		const nome = searchParams.get("nome") || searchParams.get("alvo");
+		const uf = searchParams.get("uf");
+
 		if (alvo) {
-			setSearchTerm(alvo);
-			// Pequeno delay para garantir que a UI e as refs hidrataram
-			setTimeout(() => {
-				if (handleSearchRef.current) {
-					handleSearchRef.current(ref, alvo, "");
-					window.history.replaceState({}, document.title, window.location.pathname);
-				}
-			}, 300);
-		} else {
-			// Tenta restaurar estado anterior se existir
+			setSearchTerm(nome || alvo || "");
+			
+			// Tenta restaurar estado anterior do mesmo alvo para preservar drilldowns
+			let restored = false;
 			try {
 				const savedState = sessionStorage.getItem("poligrafo_state");
 				if (savedState) {
 					const parsed = JSON.parse(savedState);
+					// Restaura apenas se houver nós
 					if (parsed.nodes && parsed.nodes.length > 0) {
 						setNodes(parsed.nodes);
 						setEdges(parsed.edges || []);
@@ -1686,11 +1718,27 @@ function DashboardArea() {
 						setSearchTerm(parsed.searchTerm || "");
 						setSelectedUf(parsed.selectedUf || "");
 						if (parsed.statusMessage) setStatusMessage(parsed.statusMessage);
+						restored = true;
 					}
 				}
 			} catch (e) {
 				console.warn("Could not restore state from sessionStorage", e);
 			}
+
+			// Se não tinha cache para restaurar, faz a busca na API
+			if (!restored) {
+				setTimeout(() => {
+					if (handleSearchRef.current) {
+						handleSearchRef.current(alvo, nome, uf || "");
+					}
+				}, 300);
+			}
+		} else {
+			// URL Limpa (Dashboard). Garante que a tela não ressuscite investigações antigas.
+			setNodes([]);
+			setEdges([]);
+			setEvidencias([]);
+			sessionStorage.removeItem("poligrafo_state");
 		}
 	}, [searchParams, setNodes, setEdges]);
 

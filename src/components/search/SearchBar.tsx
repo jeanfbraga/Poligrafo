@@ -258,6 +258,12 @@ export default function SearchBar({
 						className={`transition-all duration-300 ${showAlcadaError ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : ''}`}
 					/>
 
+					{showAlcadaError && (
+						<div className="text-xs text-red-500 font-mono -mt-1 px-1">
+							&gt; Selecione uma alçada (Estado)
+						</div>
+					)}
+
 				{/* AUTOCOMPLETE DROPDOWN - mobile */}
 				{showAutocomplete &&
 					autocompleteSuggestions.length > 0 &&
@@ -432,6 +438,12 @@ export default function SearchBar({
 					</Button>
 				)}
 			</div>
+
+			{showAlcadaError && (
+				<div className="absolute -bottom-6 left-2 text-xs text-red-500 font-mono z-50 animate-in fade-in slide-in-from-top-1">
+					&gt; Selecione uma alçada (Estado) para realizar a busca.
+				</div>
+			)}
 
 			{/* AUTOCOMPLETE DROPDOWN */}
 			{showAutocomplete && autocompleteSuggestions.length > 0 && !isLoading && (
