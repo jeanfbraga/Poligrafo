@@ -1742,7 +1742,7 @@ function DashboardArea() {
 			if (!restored) {
 				setTimeout(() => {
 					if (handleSearchRef.current) {
-						handleSearchRef.current(alvo, nome, uf || "");
+						handleSearchRef.current(searchParams.get("ref"), searchParams.get("alvo") || searchParams.get("nome"), uf || "");
 					}
 				}, 300);
 			}
