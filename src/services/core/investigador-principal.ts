@@ -458,6 +458,10 @@ export async function executarInvestigacaoPrincipal(params: any) {
 							}
 						}
 
+						sendEvent("DONE", {
+							msg: "Dossiê finalizado (restaurado do cache).",
+						});
+
 						// Encerramos a investigação instantaneamente economizando APIs
 						safeClose();
 						return;
