@@ -398,7 +398,7 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 				</div>
 			</div>
 
-			<Drawer open={!!selectedTransaction} onOpenChange={(open) => !open && setSelectedTransaction(null)}>
+			<Drawer open={!!selectedTransaction} onOpenChange={(open: boolean) => !open && setSelectedTransaction(null)}>
 				<DrawerContent className="bg-black border-green-500/50 max-h-[85vh]">
 					<DrawerHeader>
 						<DrawerTitle className="text-green-500 font-mono tracking-wider">Detalhes da Transação</DrawerTitle>
