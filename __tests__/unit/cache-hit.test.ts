@@ -36,7 +36,6 @@ describe('ETL Extractors Cache-First Behavior', () => {
         (supabaseAdmin.from as any).mockReturnValue({
             select: selectMock,
             eq: eqMock,
-            or: vi.fn().mockReturnThis(),
             order: orderMock,
             limit: limitMock
         });
@@ -63,7 +62,6 @@ describe('ETL Extractors Cache-First Behavior', () => {
         (supabaseAdmin.from as any).mockReturnValue({
             select: selectMock,
             eq: eqMock,
-            or: vi.fn().mockReturnThis(),
             order: orderMock,
             limit: limitMock
         });
@@ -90,7 +88,7 @@ describe('ETL Extractors Cache-First Behavior', () => {
 
         expect(supabaseAdmin.from).toHaveBeenCalledWith('ceap_despesas_cache');
         expect(global.fetch).toHaveBeenCalled(); // Chamou a API
-        expect(result).toHaveLength(1);
+        expect(result).toHaveLength(2);
         expect(result[0].nomeFornecedor).toBe("API Fornecedor");
     });
 });

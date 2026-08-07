@@ -17,7 +17,6 @@ export async function buscarDespesasCamara(
 			.from("ceap_despesas_cache")
 			.select("*")
 			.eq("id_deputado", idDeputado)
-			.or("casa.eq.CAMARA,casa.is.null")
 			.order("valor_documento", { ascending: false })
 			.limit(60);
 
@@ -46,21 +45,25 @@ export async function buscarDespesasCamara(
 	let todasDespesasRaw: any[] = [];
 
 	try {
-		// Tenta buscar 3 páginas de 100 itens (300 itens)
-		for (let pag = 1; pag <= 3; pag++) {
-			const url = `https://dadosabertos.camara.leg.br/api/v2/deputados/${idDeputado}/despesas?ano=${anoAtual}&ano=${anoAtual - 1}&itens=100&pagina=${pag}`;
-			const res = await fetchWithTimeout(url, { timeout: 15000 });
+		// Tenta buscar 3 páginas de 100 itens para o ano atual, e se necessário para o ano anterior
+		for (const ano of [anoAtual, anoAtual - 1]) {
+			for (let pag = 1; pag <= 2; pag++) {
+				const url = `https://dadosabertos.camara.leg.br/api/v2/deputados/${idDeputado}/despesas?ano=${ano}&itens=100&pagina=${pag}`;
+				const res = await fetchWithTimeout(url, { timeout: 15000 });
 
-			if (!res.ok) {
-				if (pag === 1) throw new Error(`Status HTTP: ${res.status}`);
-				break;
+				if (!res.ok) {
+					if (pag === 1 && ano === anoAtual) throw new Error(`Status HTTP: ${res.status}`);
+					break;
+				}
+
+				const json = await res.json();
+				const batch = Array.isArray(json) ? json : json.dados || [];
+				if (!batch || batch.length === 0) break;
+
+				todasDespesasRaw.push(...batch);
+				if (batch.length < 100) break; // Chegou ao fim das páginas
 			}
-
-			const json = await res.json();
-			const batch = Array.isArray(json) ? json : json.dados || [];
-			todasDespesasRaw = todasDespesasRaw.concat(batch);
-
-			if (batch.length < 100) break;
+			if (todasDespesasRaw.length >= 60) break; // Já temos suficientes
 		}
 
 		if (todasDespesasRaw.length === 0) {
