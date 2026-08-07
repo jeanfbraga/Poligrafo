@@ -149,6 +149,7 @@ async function run() {
         console.log("[VOTOS DETALHADOS SYNC] Finalizado com sucesso!");
     } catch (error) {
         console.error("[VOTOS DETALHADOS SYNC] Erro fatal:", error);
+        process.exit(1);
     }
 }
 

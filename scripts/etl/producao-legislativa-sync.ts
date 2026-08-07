@@ -111,6 +111,7 @@ async function run() {
         console.log("[PRODUCAO LEGISLATIVA SYNC] Finalizado com sucesso!");
     } catch (error) {
         console.error("[PRODUCAO LEGISLATIVA SYNC] Erro fatal:", error);
+        process.exit(1);
     }
 }
 

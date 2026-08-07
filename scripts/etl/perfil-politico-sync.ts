@@ -220,6 +220,7 @@ async function run() {
         console.log("[PERFIL SYNC] Finalizado com sucesso!");
     } catch (error) {
         console.error("[PERFIL SYNC] Erro fatal:", error);
+        process.exit(1);
     }
 }
 
