@@ -19,19 +19,41 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 const API_BASE = 'https://dadosabertos.camara.leg.br/api/v2';
 const BATCH_SIZE = 500;
 
-async function fetchJson(url: string) {
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!res.ok) {
-        if (res.status === 404) return null;
-        throw new Error(`HTTP ${res.status}`);
+async function fetchJson(url: string, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) {
+                if (res.status === 404) return null;
+                if (res.status >= 500 && i < retries - 1) {
+                    console.log(`  - HTTP ${res.status} em ${url}. Tentando novamente em 2s...`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    continue;
+                }
+                throw new Error(`HTTP ${res.status}`);
+            }
+            return await res.json();
+        } catch (e: any) {
+            if (i === retries - 1) throw e;
+            console.log(`  - Erro de rede: ${e.message}. Tentando novamente em 2s...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
     }
-    return res.json();
 }
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function run() {
     console.log("[VOTOS DETALHADOS SYNC] Iniciando sincronização do Ano Legislativo Atual...");
+    
+    // Buscar deputados válidos no banco para evitar erro de Foreign Key (suplentes etc que não estão no perfil)
+    const { data: cacheIds, error: cacheErr } = await supabaseAdmin.from('camara_perfil_politico_cache').select('id_deputado');
+    if (cacheErr) {
+        console.error("[VOTOS DETALHADOS SYNC] Erro fatal ao buscar cache de perfis:", cacheErr);
+        process.exit(1);
+    }
+    const validDeputados = new Set(cacheIds?.map(d => d.id_deputado) || []);
+    console.log(`[VOTOS DETALHADOS SYNC] ${validDeputados.size} deputados válidos carregados do cache.`);
     
     const hoje = new Date();
     const anoAtual = hoje.getFullYear();
@@ -145,11 +167,13 @@ async function run() {
                     }
 
                     // 2. Salvar os Votos Enxutos
-                    const payload = votosLista.map((v: any) => ({
-                        id_deputado: v.deputado_.id,
-                        id_votacao: votacao.id,
-                        voto: v.tipoVoto
-                    }));
+                    const payload = votosLista
+                        .filter((v: any) => validDeputados.has(v.deputado_.id))
+                        .map((v: any) => ({
+                            id_deputado: v.deputado_.id,
+                            id_votacao: votacao.id,
+                            voto: v.tipoVoto
+                        }));
 
                     for (let i = 0; i < payload.length; i += BATCH_SIZE) {
                         const batch = payload.slice(i, i + BATCH_SIZE);
