@@ -3,7 +3,7 @@ import { IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import Clarity from "@/components/analytics/Clarity";
-import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import { Toaster } from "@/components/ui/sonner";
 import { CrtFlicker } from "@/components/ui/crt-flicker";
 
@@ -70,7 +70,7 @@ export default function RootLayout({
 }) {
 	// Analytics só é ativado quando os IDs são configurados via env —
 	// forks/deploys devem usar seus próprios IDs, nunca os do autor.
-	const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+	const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "G-1VS9S268X2";
 	const clarityId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
 
 	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poligrafo.app";
@@ -100,9 +100,7 @@ export default function RootLayout({
 			</head>
 			<body className="font-mono subpixel-antialiased crt-monitor" suppressHydrationWarning>
 				{children}
-				<Suspense fallback={null}>
-					{gaId && <GoogleAnalytics gaId={gaId} />}
-				</Suspense>
+				{gaId && <GoogleAnalytics gaId={gaId} />}
 				{clarityId && <Clarity projectId={clarityId} />}
 				<Analytics />
 				<Toaster />

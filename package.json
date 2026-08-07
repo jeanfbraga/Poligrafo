@@ -59,6 +59,7 @@
   "dependencies": {
     "@gsap/react": "^2.1.2",
     "@microsoft/clarity": "^1.0.2",
+    "@next/third-parties": "^16.3.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-hover-card": "^1.1.17",
     "@radix-ui/react-separator": "^1.1.8",
