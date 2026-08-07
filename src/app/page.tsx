@@ -2030,6 +2030,9 @@ function DashboardArea() {
 	const mobileActive = isMobile;
 
 	const clearAll = () => {
+		if (abortController) abortController.abort();
+		setIsLoading(false);
+		
 		setNodes([]);
 		setEdges([]);
 		setEvidencias([]);
@@ -2038,6 +2041,25 @@ function DashboardArea() {
 		setSearchTerm("");
 		setSelectedUf("");
 		setStatusMessage("Insira o nome de um político para começar a investigar.");
+		
+		sessionStorage.removeItem("poligrafo_state");
+
+		if (typeof window !== "undefined") {
+			const url = new URL(window.location.href);
+			url.searchParams.delete("alvo");
+			url.searchParams.delete("nome");
+			url.searchParams.delete("uf");
+			url.searchParams.delete("ref");
+			
+			if (url.toString() !== window.location.href) {
+				isUrlSyncRef.current = true;
+				window.history.pushState({}, "", url.toString());
+				// Fallback de segurança 
+				setTimeout(() => {
+					isUrlSyncRef.current = false;
+				}, 50);
+			}
+		}
 	};
 
 	const evidenciasOrdenadas = React.useMemo(() => {
