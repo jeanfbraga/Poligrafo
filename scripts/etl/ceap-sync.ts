@@ -32,6 +32,11 @@ const MIN_REGISTROS_POR_ANO: Record<number, number> = {
 // Anos correntes têm menos dados — sem mínimo fixo além de > 0.
 const MIN_REGISTROS_ANO_CORRENTE = 1_000;
 
+// Timeout máximo por download: 2 min (evita travar 5 min no servidor instável da Câmara)
+const CURL_MAX_TIME = 120;
+const CURL_CONNECT_TIMEOUT = 30;
+const MAX_DOWNLOAD_RETRIES = 3;
+
 async function downloadAndExtractForYear(ano: number): Promise<string | null> {
     if (!fs.existsSync(TEMP_DIR)) {
         fs.mkdirSync(TEMP_DIR, { recursive: true });
@@ -39,16 +44,33 @@ async function downloadAndExtractForYear(ano: number): Promise<string | null> {
     const zipPath = path.join(TEMP_DIR, `Ano-${ano}.csv.zip`);
     const csvPath = path.join(TEMP_DIR, `Ano-${ano}.csv`);
 
+    // Usa HTTPS — o servidor HTTP (porta 80) da Câmara fica instável com frequência
+    const url = `https://www.camara.leg.br/cotas/Ano-${ano}.csv.zip`;
     console.log(`[CEAP SYNC] Baixando despesas da Câmara para ${ano}...`);
-    const url = `http://www.camara.leg.br/cotas/Ano-${ano}.csv.zip`;
     console.log(`URL: ${url}`);
 
-    try {
-        execSync(`curl -f -L -o "${zipPath}" ${url}`, { stdio: 'inherit' });
-    } catch (e) {
-        console.log(`[CEAP SYNC] Arquivo para o ano ${ano} não encontrado (404) ou erro no curl.`);
-        return null;
+    // Retry com backoff exponencial: até MAX_DOWNLOAD_RETRIES tentativas
+    let downloadOk = false;
+    for (let tentativa = 1; tentativa <= MAX_DOWNLOAD_RETRIES; tentativa++) {
+        try {
+            execSync(
+                `curl -f -L --max-time ${CURL_MAX_TIME} --connect-timeout ${CURL_CONNECT_TIMEOUT} -o "${zipPath}" "${url}"`,
+                { stdio: 'inherit' }
+            );
+            downloadOk = true;
+            break;
+        } catch (e) {
+            const delay = tentativa * tentativa * 2; // 2s, 8s, 18s
+            if (tentativa < MAX_DOWNLOAD_RETRIES) {
+                console.warn(`[CEAP SYNC] Tentativa ${tentativa}/${MAX_DOWNLOAD_RETRIES} falhou para ${ano}. Aguardando ${delay}s antes de tentar novamente...`);
+                await new Promise(r => setTimeout(r, delay * 1000));
+            } else {
+                console.error(`[CEAP SYNC] Todas as ${MAX_DOWNLOAD_RETRIES} tentativas falharam para o ano ${ano}. Abortando.`);
+            }
+        }
     }
+
+    if (!downloadOk) return null;
 
     // Valida que o ZIP tem tamanho razoável (> 10 KB) antes de prosseguir
     const zipStat = fs.statSync(zipPath);
@@ -58,16 +80,12 @@ async function downloadAndExtractForYear(ano: number): Promise<string | null> {
     }
 
     console.log(`[CEAP SYNC] Extraindo arquivo ZIP (${Math.round(zipStat.size / 1024)} KB)...`);
+    // Os arquivos da Câmara são ZIP puro — usar unzip diretamente (tar não suporta ZIP)
     try {
-        execSync(`tar -xf "${zipPath}" -C "${TEMP_DIR}" Ano-${ano}.csv`, { stdio: 'inherit' });
-    } catch (e) {
-        console.log(`[CEAP SYNC] Falha no tar, tentando unzip...`);
-        try {
-            execSync(`unzip -o "${zipPath}" Ano-${ano}.csv -d "${TEMP_DIR}"`, { stdio: 'inherit' });
-        } catch (unzipErr) {
-            console.error(`[CEAP SYNC] Erro ao extrair o ZIP para o ano ${ano}.`);
-            return null;
-        }
+        execSync(`unzip -o "${zipPath}" "Ano-${ano}.csv" -d "${TEMP_DIR}"`, { stdio: 'inherit' });
+    } catch (unzipErr) {
+        console.error(`[CEAP SYNC] Erro ao extrair o ZIP para o ano ${ano}.`);
+        return null;
     }
 
     return fs.existsSync(csvPath) ? csvPath : null;
