@@ -36,6 +36,7 @@ describe('ETL Extractors Cache-First Behavior', () => {
         (supabaseAdmin.from as any).mockReturnValue({
             select: selectMock,
             eq: eqMock,
+            or: vi.fn().mockReturnThis(),
             order: orderMock,
             limit: limitMock
         });
@@ -62,6 +63,7 @@ describe('ETL Extractors Cache-First Behavior', () => {
         (supabaseAdmin.from as any).mockReturnValue({
             select: selectMock,
             eq: eqMock,
+            or: vi.fn().mockReturnThis(),
             order: orderMock,
             limit: limitMock
         });
