@@ -126,6 +126,7 @@ async function runForYear(ano: number): Promise<{ success: boolean; count: numbe
 
                 batch.push({
                     id_deputado: parseInt(ideCadastro, 10),
+                    casa: 'CAMARA', // obrigatório para o filtro no pipeline de investigação funcionar
                     ano: parseInt(record['numAno'], 10) || ano,
                     cnpj_cpf_fornecedor: record['txtCNPJCPF'] ? record['txtCNPJCPF'].replace(/\D/g, '') : null,
                     nome_fornecedor: record['txtFornecedor'] || 'Desconhecido',

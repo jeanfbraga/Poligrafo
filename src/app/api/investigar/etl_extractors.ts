@@ -9,12 +9,15 @@ export async function buscarDespesasCamara(
 	idDeputado: number,
 	sendEvent?: any,
 ) {
+	// Cache-first: tenta o Supabase antes de qualquer chamada externa.
+	// Filtro aceita casa = 'CAMARA' (novos registros do ETL) e casa IS NULL
+	// (registros históricos inseridos antes do fix de 07/08/2026).
 	try {
 		const { data, error } = await supabaseAdmin
 			.from("ceap_despesas_cache")
 			.select("*")
 			.eq("id_deputado", idDeputado)
-			.eq("casa", "CAMARA")
+			.or("casa.eq.CAMARA,casa.is.null")
 			.order("valor_documento", { ascending: false })
 			.limit(60);
 
@@ -38,6 +41,7 @@ export async function buscarDespesasCamara(
 		console.warn("[CACHE MISS] buscarDespesasCamara falhou, tentando API:", cacheErr.message);
 	}
 
+	// Fallback: API ao vivo da Câmara quando o cache não tem dados para este ID.
 	const anoAtual = new Date().getFullYear();
 	let todasDespesasRaw: any[] = [];
 
@@ -99,6 +103,8 @@ export async function buscarDespesasCamara(
 		return [];
 	}
 }
+
+
 
 // ==========================================
 // SENADO FEDERAL
