@@ -1,14 +1,14 @@
-name: Sync Camara Perfil, Votos e Producao
+name: Sync Camara Perfil e Producao
 
 on:
   schedule:
-    - cron: '0 2 * * *' # Run every day at 2 AM
+    - cron: '0 2 * * *' # Run every day at 2 AM UTC
   workflow_dispatch: # Allow manual trigger
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -29,18 +29,16 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_PERFIL_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_PERFIL_URL }}
+          SUPABASE_PERFIL_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PERFIL_SERVICE_ROLE_KEY }}
         run: npm run sync:perfil
-
-      - name: Run Votos Sync
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npm run sync:votos
 
       - name: Run Producao Sync
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_PERFIL_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_PERFIL_URL }}
+          SUPABASE_PERFIL_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PERFIL_SERVICE_ROLE_KEY }}
         run: npm run sync:producao
         
       - name: Run Proposicoes Detalhes Sync

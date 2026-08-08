@@ -119,24 +119,25 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
    Os ETLs extraem dados de fontes públicas e salvam no Supabase. Todos são independentes e podem ser executados em qualquer ordem:
 
    ```bash
-   npx tsx scripts/etl/ceap-sync.ts             # Despesas CEAP (Câmara Federal)
-   npx tsx scripts/etl/ceap-senado-sync.ts      # Despesas CEAP (Senado Federal)
-   npx tsx scripts/etl/frequencia-sync.ts       # Frequência em sessões
-   npx tsx scripts/etl/votacoes-sync.ts         # Participação em votações
-   npx tsx scripts/etl/emendas-pix-sync.ts      # Emendas PIX (requer TRANSPARENCIA_API_KEY)
-   npx tsx scripts/etl/tse-sync-real.ts         # Bens declarados ao TSE
-   npm run sync:tse-doadores                    # Doadores de Campanha do TSE (Bypass de WAF)
-   npx tsx scripts/etl/fotos-sync.ts            # Fotos dos parlamentares
-   npx tsx scripts/etl/ibama-sync.ts            # Infrações Ambientais (IBAMA)
-   npx tsx scripts/etl/anac-sync.ts             # Aeronaves (ANAC RAB)
-   npm run sync:spu                             # Imóveis da União (Automático via Raio-X SEGES)
-   npx tsx scripts/etl/cpgf-sync.ts             # Cartão Corporativo Presidencial (CPGF)
-   npx tsx scripts/etl/cgu-sancoes-sync.ts      # Sanções Administrativas e Ficha Limpa (CGU)
-   npx tsx scripts/etl/sync-cmrj-servidores.ts  # Servidores CMRJ
-   npx tsx scripts/etl/cmrj_cotas_etl.ts        # Cotas CMRJ (requer Playwright)
-   ```
+    npx tsx scripts/etl/ceap-sync.ts             # Despesas CEAP (Câmara Federal)
+    npx tsx scripts/etl/ceap-senado-sync.ts      # Despesas CEAP (Senado Federal)
+    npm run sync:votos                           # Votos nominais e votações (Dumps CSV + Delta API)
+    npx tsx scripts/etl/frequencia-sync.ts       # Frequência em sessões
+    npx tsx scripts/etl/votacoes-sync.ts         # Participação em votações
+    npx tsx scripts/etl/emendas-pix-sync.ts      # Emendas PIX (requer TRANSPARENCIA_API_KEY)
+    npx tsx scripts/etl/tse-sync-real.ts         # Bens declarados ao TSE
+    npm run sync:tse-doadores                    # Doadores de Campanha do TSE (Bypass de WAF)
+    npx tsx scripts/etl/fotos-sync.ts            # Fotos dos parlamentares
+    npx tsx scripts/etl/ibama-sync.ts            # Infrações Ambientais (IBAMA)
+    npx tsx scripts/etl/anac-sync.ts             # Aeronaves (ANAC RAB)
+    npm run sync:spu                             # Imóveis da União (Automático via Raio-X SEGES)
+    npx tsx scripts/etl/cpgf-sync.ts             # Cartão Corporativo Presidencial (CPGF)
+    npx tsx scripts/etl/cgu-sancoes-sync.ts      # Sanções Administrativas e Ficha Limpa (CGU)
+    npx tsx scripts/etl/sync-cmrj-servidores.ts  # Servidores CMRJ
+    npx tsx scripts/etl/cmrj_cotas_etl.ts        # Cotas CMRJ (requer Playwright)
+    ```
 
-   > Os ETLs de IBAMA, ANAC, SPU, CPGF, TSE, CGU, CEAP e Senado rodam automaticamente via GitHub Actions, mas podem ser forçados localmente rodando seus respectivos scripts `scripts/etl/*.ts`.
+    > Os ETLs de IBAMA, ANAC, SPU, CPGF, TSE, CGU, CEAP, Votos e Senado rodam automaticamente via GitHub Actions (com workflows dedicados e timeouts otimizados), mas podem ser forçados localmente rodando seus respectivos scripts `scripts/etl/*.ts`. O sincronizador de votos (`npm run sync:votos`) aceita flags `--ano [ANO]` e `--todos` para processar a 57ª Legislatura completa via dumps colunares em streaming.
 
 6. **Inicie o Servidor:**
    ```bash
