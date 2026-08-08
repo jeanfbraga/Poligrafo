@@ -721,7 +721,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		(deputadoBasico as any)._tseResult = tseResult;
 
 		// NOVA LÓGICA: Fallback de CPF usando o cache Supabase
-		if (documentoIsCnpj) {
+		if (documentoIsCnpj || !cpfLimpo) {
 			try {
 				const { supabaseAdmin } = await import("@/lib/supabase-admin");
 				const { data, error } = await supabaseAdmin
