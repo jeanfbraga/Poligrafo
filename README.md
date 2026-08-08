@@ -200,7 +200,12 @@ Antes de enviar PRs, leia nossos guias:
 *   [**Guia para Agentes de IA**](AGENTS.md): Referência de arquitetura, convenções e protocolo de trabalho para agentes de código.
 *   [**Política de Segurança**](SECURITY.md): Para relatórios de vulnerabilidades.
 
-Temos templates pré-configurados em *Issues* para facilitar Bug Reports ou Feature Requests.
+## 💬 Comunidade e Suporte
+
+A comunidade é o coração do projeto. Se você encontrou um erro, tem uma ideia genial, ou quer discutir dados abertos cívicos:
+
+- 🐛 **Encontrou um erro ou quer sugerir algo?** [Abra uma Issue](https://github.com/jeanfbraga/Poligrafo/issues/new/choose) utilizando nossos templates estruturados.
+- ❓ **Dúvidas, Ajuda e Discussões em geral:** Acesse nosso fórum no [GitHub Discussions](https://github.com/jeanfbraga/Poligrafo/discussions).
 
 ---
 

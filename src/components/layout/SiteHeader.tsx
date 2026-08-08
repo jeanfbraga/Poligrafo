@@ -1,6 +1,6 @@
 "use client";
 
-import { Terminal, Loader2 } from "lucide-react";
+import { Terminal, Loader2, Bug } from "lucide-react";
 import SearchBar from "@/components/search/SearchBar";
 import { ScrambleText } from "@/components/ui/scramble-text";
 import { Button } from "@/components/ui/button";
@@ -142,6 +142,17 @@ export function SiteHeader({
 			)}
 
 			<div className="flex items-center gap-4 shrink-0">
+				<a
+					href="https://github.com/jeanfbraga/Poligrafo/issues/new/choose"
+					target="_blank"
+					rel="noopener noreferrer"
+					className="flex items-center gap-1.5 text-[10px] md:text-xs font-mono text-green-500/70 hover:text-green-400 transition-colors uppercase tracking-wider"
+					title="Reportar Bug ou Sugerir Ideia"
+				>
+					<Bug className="w-4 h-4 md:w-3.5 md:h-3.5 shrink-0" />
+					<span className="hidden md:inline">Reportar Bug / Ideia</span>
+					<span className="inline md:hidden">Bugs</span>
+				</a>
 				{showClearButton && onClearAll && (
 					<Button
 						variant="outline"

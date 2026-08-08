@@ -104,4 +104,4 @@ O projeto é 100% em **português (pt-BR)** — comentários, documentação, co
 3. Abra um **Pull Request (PR)**.
 4. Descreva claramente o que foi alterado e como os testes foram feitos.
 
-Se tiver dúvidas ou quiser discutir uma funcionalidade grande antes de começar, sinta-se livre para abrir uma **Issue** no GitHub.
+Se tiver dúvidas, precisar de ajuda ou quiser discutir uma funcionalidade grande antes de começar, sinta-se livre para usar o nosso [Fórum (Discussions)](https://github.com/jeanfbraga/Poligrafo/discussions). Para relatar bugs documentados ou sugerir alterações específicas, abra uma [Issue](https://github.com/jeanfbraga/Poligrafo/issues/new/choose).
