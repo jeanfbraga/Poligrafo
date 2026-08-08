@@ -32,6 +32,7 @@ interface DashboardData {
 		partido?: string;
 		uf?: string;
 		foto?: string | null;
+		fotoFallback?: string | null;
 		id_deputado?: number;
 		cargo?: string;
 	}[];
@@ -41,6 +42,7 @@ interface DashboardData {
 		partido?: string;
 		uf?: string;
 		foto?: string | null;
+		fotoFallback?: string | null;
 		id_deputado?: number;
 		cargo?: string;
 	}[];
@@ -60,6 +62,7 @@ interface DashboardData {
 		total_pix: number;
 		id_deputado?: number;
 		foto?: string | null;
+		fotoFallback?: string | null;
 		uf?: string;
 		partido?: string;
 		cargo?: string;
@@ -108,6 +111,7 @@ export function HomeDashboard() {
 							partido: item.partido,
 							uf: item.uf,
 							foto: item.foto,
+							fotoFallback: item.fotoFallback,
 							id: item.id_deputado,
 							cargo: item.cargo,
 						}
@@ -127,6 +131,7 @@ export function HomeDashboard() {
 							partido: item.partido,
 							uf: item.uf,
 							foto: item.foto,
+							fotoFallback: item.fotoFallback,
 							id: item.id_deputado,
 							cargo: item.cargo,
 						}
@@ -145,6 +150,7 @@ export function HomeDashboard() {
 							partido: item.partido,
 							uf: item.uf,
 							foto: item.foto,
+							fotoFallback: item.fotoFallback,
 							id: item.id_deputado,
 							cargo: item.cargo,
 						}
