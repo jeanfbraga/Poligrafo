@@ -110,8 +110,9 @@ export function BarRanking({
 	return (
 		<div ref={containerRef} className="flex flex-col gap-3">
 			{rows.list.map((item, i) => {
+				const itemMax = showFraction && item.valueTotal ? item.valueTotal : rows.max;
 				const pct =
-					rows.max > 0 ? Math.max((Number(item.value) / rows.max) * 100, 2) : 2;
+					itemMax > 0 ? Math.max((Number(item.value) / itemMax) * 100, 1.5) : 1.5;
 				const isTop = i === 0;
 
 				const nameEl = (
