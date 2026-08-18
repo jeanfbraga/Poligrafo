@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: '0 2 * * 0' # Todo domingo as 02:00
   workflow_dispatch:
+    inputs:
+      ano:
+        description: 'Ano eleitoral a sincronizar (ex: 2026, 2024, 2022, todos)'
+        required: false
+        default: '2026'
 
 jobs:
   sync:
@@ -20,5 +25,6 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/etl/tse-sync-real.ts
+        run: npx tsx scripts/etl/tse-sync-real.ts --ano=${{ github.event.inputs.ano || '2026' }}
+
 

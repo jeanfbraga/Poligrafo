@@ -41,13 +41,20 @@ export async function fetchWithTimeout(
 	}
 }
 
-// NOVA FUNÇÃO: Busca o CPF real do político no TSE caso a casa legislativa o censure
-// Exportada para uso nos módulos estaduais/municipais
-export async function buscarCpfNoTSE(
-	nomePolitico: string,
-	uf: string,
-	cargoCodigo: string = "5",
-): Promise<{
+export interface ItemHistoricoTse {
+	ano: number;
+	idEleicao: string;
+	cargo: string;
+	partido?: string;
+	patrimonioTotal: number;
+	bensDeclarados: any[];
+	idTse?: number;
+	nomeUrna?: string;
+	nomeCompleto?: string;
+	urlFoto?: string;
+}
+
+export interface TseCandidateResult {
 	cpf: string;
 	documentoPrincipal: string;
 	cnpjCampanha: string | null;
@@ -55,6 +62,7 @@ export async function buscarCpfNoTSE(
 	municipio: string;
 	idUe: string;
 	nome?: string;
+	nomeUrna?: string | null;
 	idTse?: number;
 	anoEleicao?: number;
 	idEleicao?: string;
@@ -62,23 +70,40 @@ export async function buscarCpfNoTSE(
 	bensDeclarados?: any[];
 	partido?: string;
 	urlFoto?: string;
-} | null> {
+	historicoPatrimonio?: ItemHistoricoTse[];
+	patrimonioAnterior?: number;
+	anoPatrimonioAnterior?: number;
+	variacaoPatrimonio?: number;
+	variacaoPatrimonioPercentual?: number;
+}
+
+export const CAMPANHAS_GERAIS = [
+	{ ano: "2026", idEleicao: "20322002026" }, // Eleições Gerais 2026
+	{ ano: "2022", idEleicao: "2040602022" }, // Eleições Gerais 2022
+	{ ano: "2018", idEleicao: "2022802018" }, // Eleições Gerais 2018
+	{ ano: "2014", idEleicao: "680" },        // Eleições Gerais 2014
+];
+
+export const CAMPANHAS_MUNICIPAIS = [
+	{ ano: "2024", idEleicao: "2045202024" }, // Eleições Municipais 2024
+	{ ano: "2020", idEleicao: "2030402020" }, // Eleições Municipais 2020
+	{ ano: "2016", idEleicao: "2" },          // Eleições Municipais 2016
+];
+
+// NOVA FUNÇÃO: Busca o CPF real do político no TSE caso a casa legislativa o censure
+// Exportada para uso nos módulos estaduais/municipais
+export async function buscarCpfNoTSE(
+	nomePolitico: string,
+	uf: string,
+	cargoCodigo: string = "5",
+): Promise<TseCandidateResult | null> {
 	console.log(
 		`[>> TSE ENTRY] buscarCpfNoTSE chamado: ${nomePolitico} UF:${uf} Cargo:${cargoCodigo}`,
 	);
 	try {
-		// Cargo 5 = Senador, 6 = Dep. Federal, 11 = Prefeito, 13 = Vereador
-		const isMunicipal = ["11", "13"].includes(cargoCodigo);
-		const campanhas = isMunicipal
-			? [
-					{ ano: "2024", idEleicao: "2045202024" }, // Eleições Municipais 2024
-					{ ano: "2020", idEleicao: "2030402020" }, // Eleições Municipais 2020
-				]
-			: [
-					{ ano: "2022", idEleicao: "2040602022" }, // Eleições Gerais 2022
-					{ ano: "2018", idEleicao: "2022802018" }, // Eleições Gerais 2018
-					{ ano: "2014", idEleicao: "680" }, // Eleições Gerais 2014
-				];
+		// Cargo 1 = Pres, 3 = Gov, 5 = Senador, 6 = Dep. Federal, 7 = Dep. Estadual, 11 = Prefeito, 13 = Vereador
+		const isMunicipal = ["11", "12", "13"].includes(cargoCodigo);
+		const campanhas = isMunicipal ? CAMPANHAS_MUNICIPAIS : CAMPANHAS_GERAIS;
 
 		for (const eleicao of campanhas) {
 			try {
@@ -329,13 +354,156 @@ export async function buscarCpfNoTSE(
 	}
 }
 
+async function buscarHistoricoPatrimonioTse(
+	nomePolitico: string,
+	uf: string,
+	isMunicipal: boolean,
+	registroAtual: ItemHistoricoTse,
+): Promise<{
+	historico: ItemHistoricoTse[];
+	patrimonioAnterior?: number;
+	anoPatrimonioAnterior?: number;
+	variacaoPatrimonio?: number;
+	variacaoPatrimonioPercentual?: number;
+}> {
+	const termoNorm = normalizeString(nomePolitico);
+	const parts = termoNorm
+		.split(/\s+/)
+		.filter((p: string) => !["de", "da", "do", "dos", "das"].includes(p));
+
+	const todasCampanhas = isMunicipal ? CAMPANHAS_MUNICIPAIS : CAMPANHAS_GERAIS;
+	const outrasCampanhas = todasCampanhas.filter((c) => Number(c.ano) !== registroAtual.ano);
+
+	const cargosGeraisParaBuscar = ["6", "5", "3", "7", "1"];
+	const cargosMunicipaisParaBuscar = ["11", "12", "13"];
+
+	const historico: ItemHistoricoTse[] = [registroAtual];
+
+	const promessas = outrasCampanhas.map(async (eleicao) => {
+		try {
+			if (!isMunicipal) {
+				for (const cargo of cargosGeraisParaBuscar) {
+					const urlListagem = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${eleicao.ano}/${uf}/${eleicao.idEleicao}/${cargo}/candidatos`;
+					const res = await fetchWithTimeout(urlListagem, { timeout: 3500 });
+					if (!res?.ok) continue;
+
+					let data;
+					try {
+						data = await res.json();
+					} catch (_e) {
+						continue;
+					}
+
+					const candidatos = data.candidatos || [];
+					let match = candidatos.find((c: any) => {
+						const cUrna = normalizeString(c.nomeUrna || "");
+						const cNome = normalizeString(c.nomeCompleto || "");
+						return cUrna === termoNorm || cNome === termoNorm;
+					});
+
+					if (!match) {
+						match = candidatos.find((c: any) => {
+							const cUrna = normalizeString(c.nomeUrna || "");
+							const cNome = normalizeString(c.nomeCompleto || "");
+							return parts.every(
+								(p: string) =>
+									matchPalavraInteira(cUrna, p) ||
+									matchPalavraInteira(cNome, p),
+							);
+						});
+					}
+
+					if (match?.id) {
+						const urlDet = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/${eleicao.ano}/${uf}/${eleicao.idEleicao}/candidato/${match.id}`;
+						const resDet = await fetchWithTimeout(urlDet, { timeout: 3500 });
+						if (resDet?.ok) {
+							let det;
+							try {
+								det = await resDet.json();
+							} catch (_e) {
+								continue;
+							}
+							let total = det.totalDeBens || 0;
+							let bens = det.bens || [];
+
+							if (total === 0) {
+								const urlBens = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/candidato/${eleicao.ano}/${uf}/${eleicao.idEleicao}/candidato/${match.id}/bens`;
+								const resBens = await fetchWithTimeout(urlBens, {
+									timeout: 3000,
+								});
+								if (resBens?.ok) {
+									try {
+										const dataBens = await resBens.json();
+										total = dataBens.totalDeBens || 0;
+										bens = dataBens.bens || [];
+									} catch (_e) {}
+								}
+							}
+
+							historico.push({
+								ano: Number(eleicao.ano),
+								idEleicao: eleicao.idEleicao,
+								cargo: det.cargo?.nome || match.cargo?.nome || `Cargo ${cargo}`,
+								partido: det.partido?.sigla || match.partido?.sigla,
+								patrimonioTotal: total,
+								bensDeclarados: bens,
+								idTse: match.id,
+								nomeUrna: match.nomeUrna,
+								nomeCompleto: det.nomeCompleto || match.nomeCompleto,
+								urlFoto: det.fotoUrl || match.fotoUrl,
+							});
+							break; // Encontrou neste ano
+						}
+					}
+				}
+			}
+		} catch (e) {
+			console.warn(`[TSE HISTORICO] Falha ao coletar ano ${eleicao.ano}:`, e);
+		}
+	});
+
+	await Promise.allSettled(promessas);
+	historico.sort((a, b) => b.ano - a.ano);
+
+	let patrimonioAnterior: number | undefined;
+	let anoPatrimonioAnterior: number | undefined;
+	let variacaoPatrimonio: number | undefined;
+	let variacaoPatrimonioPercentual: number | undefined;
+
+	if (historico.length >= 2) {
+		const maisRecente = historico[0];
+		const anterior = historico[1];
+		patrimonioAnterior = anterior.patrimonioTotal;
+		anoPatrimonioAnterior = anterior.ano;
+		variacaoPatrimonio = maisRecente.patrimonioTotal - anterior.patrimonioTotal;
+		if (anterior.patrimonioTotal > 0) {
+			variacaoPatrimonioPercentual =
+				((maisRecente.patrimonioTotal - anterior.patrimonioTotal) /
+					anterior.patrimonioTotal) *
+				100;
+		} else if (maisRecente.patrimonioTotal > 0) {
+			variacaoPatrimonioPercentual = 100;
+		} else {
+			variacaoPatrimonioPercentual = 0;
+		}
+	}
+
+	return {
+		historico,
+		patrimonioAnterior,
+		anoPatrimonioAnterior,
+		variacaoPatrimonio,
+		variacaoPatrimonioPercentual,
+	};
+}
+
 async function extrairDetalhesDoTSE(
 	eleicao: any,
 	localidade: string,
 	match: any,
 	uf: string,
 	nomePolitico: string,
-) {
+): Promise<TseCandidateResult | null> {
 	console.log(
 		`[TSE DEBUG] ID encontrado: ${match.id} (${match.nomeUrna}). Buscando detalhes em ${localidade}...`,
 	);
@@ -391,8 +559,31 @@ async function extrairDetalhesDoTSE(
 		}
 
 		console.log(
-			`[TSE DEBUG] SUCESSO! Documento Extraído. isCnpj=${isCnpj} Patrimônio: ${patrimonioTotal}`,
+			`[TSE DEBUG] SUCESSO! Documento Extraído. isCnpj=${isCnpj} Patrimônio (${eleicao.ano}): ${patrimonioTotal}`,
 		);
+
+		const isMunicipal = ["11", "12", "13"].includes(String(jsonCpf?.cargo?.codigo || ""));
+		const registroAtual: ItemHistoricoTse = {
+			ano: Number(eleicao.ano),
+			idEleicao: eleicao.idEleicao,
+			cargo: jsonCpf?.cargo?.nome || match.cargo?.nome || "Candidato",
+			partido: jsonCpf?.partido?.sigla || match.partido?.sigla,
+			patrimonioTotal,
+			bensDeclarados,
+			idTse: match.id,
+			nomeUrna: match.nomeUrna,
+			nomeCompleto: jsonCpf?.nomeCompleto || match.nomeCompleto,
+			urlFoto: jsonCpf?.fotoUrl || match.fotoUrl,
+		};
+
+		// Busca o histórico eleitoral e calcula a evolução patrimonial
+		const dadosHistorico = await buscarHistoricoPatrimonioTse(
+			jsonCpf?.nomeCompleto || match.nomeCompleto || nomePolitico,
+			uf,
+			isMunicipal,
+			registroAtual,
+		);
+
 		return {
 			cpf: documentoValido,
 			documentoPrincipal: documentoValido,
@@ -409,6 +600,11 @@ async function extrairDetalhesDoTSE(
 			bensDeclarados,
 			partido: jsonCpf?.partido?.sigla || match.partido?.sigla,
 			urlFoto: jsonCpf?.fotoUrl || match.fotoUrl,
+			historicoPatrimonio: dadosHistorico.historico,
+			patrimonioAnterior: dadosHistorico.patrimonioAnterior,
+			anoPatrimonioAnterior: dadosHistorico.anoPatrimonioAnterior,
+			variacaoPatrimonio: dadosHistorico.variacaoPatrimonio,
+			variacaoPatrimonioPercentual: dadosHistorico.variacaoPatrimonioPercentual,
 		};
 	}
 	console.log(
@@ -421,7 +617,7 @@ export async function buscarDoadoresTSE(
 	nomePolitico: string,
 	uf: string,
 	cargoCodigo: string = "6",
-	idEleicao: string = "2040602022",
+	idEleicao: string = "20322002026",
 ): Promise<string[]> {
 	try {
 		const { supabaseAdmin } = await import("@/lib/supabase-admin");
@@ -449,11 +645,13 @@ export async function buscarDoadoresTSE(
 
 		// 1. Busca o ID e Partido do candidato
 		const ano =
-			idEleicao === "2045202024"
-				? "2024"
-				: idEleicao === "2040602022"
-					? "2022"
-					: "2020";
+			idEleicao === "20322002026"
+				? "2026"
+				: idEleicao === "2045202024"
+					? "2024"
+					: idEleicao === "2040602022"
+						? "2022"
+						: "2020";
 		const urlBusca = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${ano}/${uf}/${idEleicao}/${cargoCodigo}/candidatos`;
 
 		const resBusca = await fetchWithTimeout(urlBusca, {

@@ -6,8 +6,21 @@ import {
 } from "@/services/integrations/tcu/client";
 import { traduzirJuridiquesSancoes } from "../ai_helpers";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { fetchWithTimeout } from "../tse";
+import { fetchWithTimeout, type ItemHistoricoTse } from "../tse";
 import { buscarProcessosDataJud } from "./judiciario";
+
+export interface ResultadoInvestigacaoPolitico {
+	patrimonioTotal: number;
+	sancoesCgu: boolean;
+	alertasPessoais: string[];
+	bensDeclarados: any[];
+	anoPatrimonio?: number;
+	historicoPatrimonio?: ItemHistoricoTse[];
+	patrimonioAnterior?: number;
+	anoPatrimonioAnterior?: number;
+	variacaoPatrimonio?: number;
+	variacaoPatrimonioPercentual?: number;
+}
 
 export async function investigarPolitico(
 	cpfLimpo: string,
@@ -15,7 +28,7 @@ export async function investigarPolitico(
 	uf: string,
 	pessoaId: string,
 	sendEvent: any,
-) {
+): Promise<ResultadoInvestigacaoPolitico> {
 	let patrimonioTotal = 0;
 	let sancoesCgu = false;
 	const alertasPessoais: string[] = [];
@@ -27,27 +40,28 @@ export async function investigarPolitico(
 	const apiKey = process.env.TRANSPARENCIA_API_KEY || "";
 
 	try {
-		// 1. Busca Patrimônio no TSE
-		const urlBusca = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/${uf}/2/2040602022/candidato`;
+		// 1. Busca Patrimônio no TSE (Eleição Geral 2026 com fallback 2022)
+		const urlBusca = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/2026/${uf}/20322002026/6/candidatos`;
 		const resBusca = await fetchWithTimeout(urlBusca, { timeout: 4000 });
 
 		if (resBusca.ok) {
 			const dataBusca = await resBusca.json();
 			const candidato = dataBusca.candidatos?.find(
 				(c: any) =>
-					c.nomeUrna.toLowerCase() === nome.toLowerCase() ||
-					c.nomeCompleto.toLowerCase() === nome.toLowerCase(),
+					c.nomeUrna?.toLowerCase() === nome.toLowerCase() ||
+					c.nomeCompleto?.toLowerCase() === nome.toLowerCase(),
 			);
 
 			if (candidato) {
-				const urlBens = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/candidato/2040602022/${uf}/6/${candidato.id}/bens`;
+				const urlBens = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/candidato/2026/${uf}/20322002026/candidato/${candidato.id}/bens`;
 				const resBens = await fetchWithTimeout(urlBens, { timeout: 4000 });
 				if (resBens.ok) {
 					const dataBens = await resBens.json();
 					patrimonioTotal = dataBens.totalDeBens || 0;
+					if (dataBens.bens) bensDeclarados.push(...dataBens.bens);
 					if (patrimonioTotal > 0)
 						alertasPessoais.push(
-							`[TSE] Patrimônio Declarado (2022): R$ ${patrimonioTotal.toLocaleString("pt-BR")}`,
+							`[TSE] Patrimônio Declarado (2026): R$ ${patrimonioTotal.toLocaleString("pt-BR")}`,
 						);
 				}
 			}

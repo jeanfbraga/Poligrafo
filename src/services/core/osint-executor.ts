@@ -109,21 +109,6 @@ export async function executarMalhaOsint(params: OsintExecutorParams) {
 		}
 	}
 
-	if (fichaPolitico.patrimonioTotal > 0) {
-		pushNode({
-			id: `bens-${Date.now()}`,
-			type: "CONTRATO",
-			_origemId: pessoaId,
-			data: {
-				label: "Patrimônio Declarado (TSE)",
-				objeto: "Total de Bens em 2022",
-				valor: fichaPolitico.patrimonioTotal,
-				codigo: "TSE-BENS",
-				ano: "2022",
-			},
-		});
-	}
-
 	if (fichaPolitico.sancoesCgu) {
 		sendEvent("STATUS", {
 			msg: "[ALERTA MÁXIMO] O CPF do político consta no Cadastro de Inidôneos/Sancionados da CGU!",

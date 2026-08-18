@@ -447,14 +447,35 @@ export async function executarInvestigacaoPrincipal(params: any) {
 							msg: "[CACHE] Restaurando investigação completa do banco de dados (Bypass de 24h)...",
 						});
 
-						const cachedNodes = cacheData.grafo_dados.nodes;
+						const nodesLegadosIgnorados = new Set<string>();
+						const cachedNodes = (cacheData.grafo_dados.nodes || []).filter((node: any) => {
+							const label = String(node.data?.label || "");
+							const codigo = String(node.data?.codigo || "");
+							const id = String(node.id || "");
+							const objeto = String(node.data?.objeto || "");
+							if (
+								label.startsWith("BEM DECLARADO:") ||
+								codigo === "TSE-BENS" ||
+								label === "Patrimônio Declarado (TSE)" ||
+								objeto.startsWith("Total de Bens") ||
+								id.startsWith("bens-") ||
+								id.startsWith("bem-")
+							) {
+								nodesLegadosIgnorados.add(node.id);
+								return false;
+							}
+							return true;
+						});
+
 						for (const node of cachedNodes) {
 							sendEvent("NODE_NOVO", node);
 						}
 						
 						if (cacheData.grafo_dados.edges) {
 							for (const edge of cacheData.grafo_dados.edges) {
-								sendEvent("EDGE_NOVA", edge);
+								if (!nodesLegadosIgnorados.has(edge.source) && !nodesLegadosIgnorados.has(edge.target)) {
+									sendEvent("EDGE_NOVA", edge);
+								}
 							}
 						}
 
@@ -763,15 +784,41 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		// Prioriza o patrimônio que veio da busca estruturada do TSE se for maior que zero ou igual a zero (declarado 0)
 		if (tseData?.patrimonioTotal !== undefined) {
 			fichaPolitico.patrimonioTotal = tseData.patrimonioTotal;
-			const ptFmt = tseData.patrimonioTotal.toLocaleString("pt-BR");
+			fichaPolitico.anoPatrimonio = tseData.anoEleicao || 2026;
+			fichaPolitico.bensDeclarados = tseData.bensDeclarados || fichaPolitico.bensDeclarados;
+			fichaPolitico.historicoPatrimonio = tseData.historicoPatrimonio || [];
+			fichaPolitico.patrimonioAnterior = tseData.patrimonioAnterior;
+			fichaPolitico.anoPatrimonioAnterior = tseData.anoPatrimonioAnterior;
+			fichaPolitico.variacaoPatrimonio = tseData.variacaoPatrimonio;
+			fichaPolitico.variacaoPatrimonioPercentual = tseData.variacaoPatrimonioPercentual;
+
+			const ptFmt = tseData.patrimonioTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
 			if (
-				!fichaPolitico.alertasPessoais.some((a) =>
+				!fichaPolitico.alertasPessoais.some((a: string) =>
 					a.includes("[TSE] Patrimônio"),
 				)
 			) {
 				fichaPolitico.alertasPessoais.push(
-					`[TSE] Patrimônio Declarado (${tseData.anoEleicao || "Eleição"}): R$ ${ptFmt}`,
+					`[TSE] Patrimônio Declarado (${tseData.anoEleicao || "2026"}): R$ ${ptFmt}`,
 				);
+			}
+
+			if (
+				tseData.variacaoPatrimonioPercentual !== undefined &&
+				tseData.anoPatrimonioAnterior !== undefined &&
+				tseData.patrimonioAnterior !== undefined
+			) {
+				const antFmt = tseData.patrimonioAnterior.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+				const pctSign = tseData.variacaoPatrimonioPercentual > 0 ? "+" : "";
+				const pctFmt = tseData.variacaoPatrimonioPercentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+				if (
+					Math.abs(tseData.variacaoPatrimonioPercentual) > 50 ||
+					Math.abs(tseData.variacaoPatrimonio || 0) >= 500000
+				) {
+					fichaPolitico.alertasPessoais.push(
+						`[TSE] Evolução Patrimonial: R$ ${antFmt} (${tseData.anoPatrimonioAnterior}) ➔ R$ ${ptFmt} (${tseData.anoEleicao || "2026"}) [${pctSign}${pctFmt}%]`,
+					);
+				}
 			}
 		}
 		if (documentoIsCnpj && fichaPolitico.patrimonioTotal === 0) {
@@ -807,6 +854,13 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				idLegislatura: deputadoBasico.idLegislatura,
 				casa: deputadoBasico.casa,
 				patrimonio: fichaPolitico.patrimonioTotal,
+				anoPatrimonio: tseData?.anoEleicao || fichaPolitico.anoPatrimonio || 2026,
+				patrimonioAnterior: tseData?.patrimonioAnterior || fichaPolitico.patrimonioAnterior,
+				anoPatrimonioAnterior: tseData?.anoPatrimonioAnterior || fichaPolitico.anoPatrimonioAnterior,
+				variacaoPatrimonio: tseData?.variacaoPatrimonio || fichaPolitico.variacaoPatrimonio,
+				variacaoPatrimonioPercentual: tseData?.variacaoPatrimonioPercentual || fichaPolitico.variacaoPatrimonioPercentual,
+				historicoPatrimonio: tseData?.historicoPatrimonio || fichaPolitico.historicoPatrimonio || [],
+				bensDeclarados: tseData?.bensDeclarados || fichaPolitico.bensDeclarados || [],
 				alertasPessoais: fichaPolitico.alertasPessoais,
 				afastamento: deputadoBasico.afastamento,
 				urlFoto: deputadoBasico.urlFoto || (deputadoBasico as any)._tseResult?.urlFoto,
@@ -1221,36 +1275,6 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 		}
 
-		// PASSO 2.5: Bens Declarados TSE (Patrimônio)
-		if (
-			fichaPolitico.bensDeclarados &&
-			fichaPolitico.bensDeclarados.length > 0
-		) {
-			sendEvent("STATUS", {
-				msg: `[OSINT] Mapeando ${fichaPolitico.bensDeclarados.length} Bens Declarados no TSE para o Grafo...`,
-			});
-			fichaPolitico.bensDeclarados.forEach((bem: any, i: number) => {
-				const bemId = `bem-${i}-${Date.now()}`;
-				const bemPayload = {
-					id: bemId,
-					type: "CONTRATO" as const,
-					// Visualizado como ativo
-					_origemId: pessoaId,
-					data: {
-						label: `BEM DECLARADO: ${bem.descricao || "Ativo Patrimonial"}`,
-						objeto:
-							bem.descricaoDeTalhada ||
-							bem.descricao ||
-							"Descrição detalhada não informada",
-						valor: bem.valor || 0,
-						codigo: "Registro TSE",
-					},
-				};
-				malhaOsintBuffer.push(bemPayload);
-				supabaseNodes.push(bemPayload);
-			});
-		}
-
 		// PASSO 2.6: CNPJ de Campanha TSE
 		if ((deputadoBasico as any)._tseResult?.cnpjCampanha) {
 			const cnpjCamp = (deputadoBasico as any)._tseResult.cnpjCampanha;
@@ -1479,22 +1503,6 @@ export async function executarInvestigacaoPrincipal(params: any) {
 					supabaseNodes.push(nodePayload);
 				});
 			}
-		}
-		if (fichaPolitico.patrimonioTotal !== undefined) {
-			const payloadBens = {
-				id: `bens-${Date.now()}`,
-				type: "CONTRATO",
-				_origemId: pessoaId,
-				data: {
-					label: "Patrimônio Declarado (TSE)",
-					objeto: "Total de Bens em 2022",
-					valor: fichaPolitico.patrimonioTotal,
-					codigo: "TSE-BENS",
-					ano: "2022",
-				},
-			};
-			malhaOsintBuffer.push(payloadBens);
-			supabaseNodes.push(payloadBens);
 		}
 		if (fichaPolitico.sancoesCgu) {
 			sendEvent("STATUS", {

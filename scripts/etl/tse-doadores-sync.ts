@@ -303,7 +303,7 @@ async function processarCSVReceitas(csvPath: string): Promise<Map<string, string
 // UPSERT NO SUPABASE — em batches
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 2000;
 
 async function sincronizarComSupabase(
 	dados: Map<string, string[]>,
@@ -332,7 +332,7 @@ async function sincronizarComSupabase(
 			sincronizados += batch.length;
 		}
 
-		if (sincronizados % 2000 === 0 && sincronizados > 0) {
+		if (sincronizados % 10000 === 0 && sincronizados > 0) {
 			logStep("SUPABASE", `${sincronizados}/${registros.length} candidatos sincronizados...`);
 		}
 	}

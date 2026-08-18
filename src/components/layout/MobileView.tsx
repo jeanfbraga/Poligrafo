@@ -7,13 +7,17 @@ import {
 	Download,
 	ExternalLink,
 	FileText,
+	History,
 	Landmark,
+	Layers,
 	Loader2,
 	Scale,
 	Search,
 	Share2,
 	ShieldAlert,
 	Terminal,
+	TrendingDown,
+	TrendingUp,
 	User,
 	Users,
 } from "lucide-react";
@@ -34,6 +38,7 @@ import {
 	EmpresaNode,
 	OrgaoNode,
 	PessoaNode,
+	PoliticoDetailsContent,
 	ProcessoJudicialNode,
 	RaioXGastosNode,
 	SocioNode
@@ -54,9 +59,11 @@ import {
 import { getPortalTransparenciaFallback } from "@/lib/utils";
 
 /* ================================================================
-   DESIGN SYSTEM — REGRAS GLOBAIS
-   - Font mínima: 12px (em uppercase ou bold)
-   - Escalas de font: 12 / 16 / 20 / 24px
+   DESIGN SYSTEM — REGRAS GLOBAIS DE TIPOGRAFIA E MOBILE
+   - Font padrão/mínima comum: 12px (text-xs)
+   - Font 10px (text-[10px]): permitida EXCLUSIVAMENTE em UPPERCASE + FONT-BOLD (ex: chips, badges, labels de telemetria)
+   - Fontes < 10px: PROIBIDAS (nunca usar 8px ou 9px)
+   - Escalas de font: 10px (upper/bold) | 12px (text-xs) | 14px (text-sm) | 16px (text-base) | 20px (text-xl) | 24px (text-2xl)
    - Touch target mínimo: 36px (idealmente 44px)
    - Cores: score>=85 RED | score>=60 YELLOW | score<60 SLATE
    - Outros tipos: EMENDA=teal, EMPRESA=blue, SOCIO=purple, CONTRATO=yellow
@@ -576,6 +583,16 @@ export default function MobileView({
 									</span>
 								</div>
 							)}
+							{rootNode.data.patrimonio !== undefined && rootNode.data.patrimonio > 0 && (
+								<div className="border-t border-green-900/50 pt-3">
+									<p className="text-xs uppercase font-bold text-yellow-500 mb-1 flex items-center gap-1">
+										<DollarSign className="w-3.5 h-3.5" /> PATRIMÔNIO DECLARADO ({rootNode.data.anoPatrimonio || 2026})
+									</p>
+									<span className="text-xs text-yellow-300 bg-yellow-950/40 border border-yellow-900/40 px-2 py-1 font-bold font-mono">
+										R$ {Number(rootNode.data.patrimonio).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+									</span>
+								</div>
+							)}
 							<div className="mt-5 pt-3 border-t border-green-900/50">
 								<div className="flex justify-between text-xs text-green-500 mb-1.5 uppercase font-bold">
 									<span>PROCESSANDO DOSSIÊ...</span>
@@ -738,51 +755,143 @@ export default function MobileView({
 			{/* HERO: Político */}
 			{rootNode && (
 				<div className="shrink-0 border-b border-green-500/30 bg-black px-4 py-3">
-					<div className="flex items-center gap-3">
+					<div
+						className="flex items-center gap-3 cursor-pointer"
+						onClick={() => {
+							setSelectedCard(rootNode);
+							setDrawerOpen(true);
+						}}
+					>
 						<MobileAvatar rootNode={rootNode} className="h-10 w-10" />
 						<div className="flex-1 min-w-0">
-							<h2 className="text-xs font-bold uppercase tracking-widest text-green-400 truncate">
-								{rootNode.data.label}
-							</h2>
-							<p className="text-xs text-green-600 uppercase font-bold">
+							<div className="flex items-center justify-between">
+								<h2 className="text-sm font-bold uppercase tracking-widest text-green-400 truncate">
+									{rootNode.data.label}
+								</h2>
+								{rootNode.data.partido && (
+									<span className="text-[10px] px-1.5 py-0.5 bg-green-950/60 border border-green-500/40 text-green-400 font-mono font-bold uppercase">
+										{rootNode.data.partido}
+									</span>
+								)}
+							</div>
+							<p className="text-xs text-green-600 uppercase font-bold mt-0.5">
 								{rootNode.data.cargo || "POLÍTICO"} — {rootNode.data.uf || "??"}
 							</p>
 						</div>
 					</div>
-					{(() => {
-						const cargoUpper = rootNode.data.cargo?.toUpperCase() || "";
-						const casaUpper = rootNode.data.casa?.toUpperCase() || "";
-						const isDeputadoFederal = cargoUpper.includes("DEPUTADO FEDERAL") || casaUpper.includes("FEDERAL");
-						
-						let deputyId = null;
-						if (rootNode.data.ref) {
-							deputyId = rootNode.data.ref.split(":").pop();
-						} else if (rootNode.id?.includes(":")) {
-							deputyId = rootNode.id.split(":").pop();
-						} else {
-							// Fallback resiliente: extrair ID da Câmara a partir da URL da foto oficial
-							const fotoUrl = rootNode.data.urlFoto || rootNode.data.urlFotoFallback || rootNode.data.fotoFallback || "";
-							const match = fotoUrl.match(/bandep\/(\d+)\.jpg/i);
-							if (match) {
-								deputyId = match[1];
+
+					{/* BLOCO DE PATRIMÔNIO DECLARADO & EVOLUÇÃO (DESIGN SYSTEM: COMPARATIVO ABAIXO DO VALOR BRUTO) */}
+					{rootNode.data.patrimonio !== undefined && (
+						<div
+							className="mt-3 p-3 bg-yellow-950/15 border border-yellow-900/40 cursor-pointer space-y-2"
+							onClick={() => {
+								setSelectedCard(rootNode);
+								setDrawerOpen(true);
+							}}
+						>
+							<div className="flex items-center justify-between">
+								<p className="text-[10px] uppercase font-bold text-yellow-500 flex items-center gap-1.5">
+									<DollarSign className="w-3.5 h-3.5 text-yellow-400" />
+									PATRIMÔNIO DECLARADO ({rootNode.data.anoPatrimonio || 2026})
+								</p>
+								{rootNode.data.partido && (
+									<span className="text-[10px] px-1.5 py-0.5 bg-yellow-950/40 border border-yellow-500/40 text-yellow-400 font-bold uppercase font-mono">
+										{rootNode.data.partido}
+									</span>
+								)}
+							</div>
+
+							<p className="text-xl font-bold tracking-widest text-yellow-400 font-mono">
+								{rootNode.data.patrimonio > 0
+									? `R$ ${Number(rootNode.data.patrimonio).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+									: "R$ 0,00"}
+							</p>
+
+							{/* VALOR COMPARATIVO ABAIXO DO VALOR BRUTO COM FONTE MAIOR */}
+							{rootNode.data.variacaoPatrimonioPercentual !== undefined &&
+								rootNode.data.anoPatrimonioAnterior !== undefined && (
+									<div className="pt-2 border-t border-yellow-900/40 flex items-center justify-between gap-2">
+										<span className="text-[10px] uppercase font-bold text-yellow-600 flex items-center gap-1">
+											<History className="w-3.5 h-3.5 text-yellow-400" />
+											vs {rootNode.data.anoPatrimonioAnterior} (R${" "}
+											{Number(rootNode.data.patrimonioAnterior || 0).toLocaleString("pt-BR", {
+												minimumFractionDigits: 2,
+											})}
+											)
+										</span>
+										<span
+											className={`px-2 py-0.5 font-bold uppercase tracking-wider text-xs border flex items-center gap-1 shrink-0 ${
+												rootNode.data.variacaoPatrimonioPercentual > 50
+													? "bg-amber-950/60 text-amber-300 border-amber-500/60"
+													: rootNode.data.variacaoPatrimonioPercentual >= 0
+														? "bg-yellow-950/40 text-yellow-300 border-yellow-500/40"
+														: "bg-emerald-950/40 text-emerald-300 border-emerald-500/40"
+											}`}
+										>
+											{rootNode.data.variacaoPatrimonioPercentual >= 0 ? (
+												<TrendingUp className="w-3 h-3" />
+											) : (
+												<TrendingDown className="w-3 h-3" />
+											)}
+											{rootNode.data.variacaoPatrimonioPercentual > 0 ? "+" : ""}
+											{rootNode.data.variacaoPatrimonioPercentual.toLocaleString("pt-BR", {
+												maximumFractionDigits: 1,
+											})}
+											%
+										</span>
+									</div>
+								)}
+						</div>
+					)}
+
+					<div className="mt-3 flex gap-2">
+						<button
+							onClick={() => {
+								setSelectedCard(rootNode);
+								setDrawerOpen(true);
+							}}
+							className="flex-1 py-2 bg-black hover:bg-green-950/40 text-green-400 border border-green-500/50 text-xs font-bold tracking-wider uppercase transition-colors"
+						>
+							VER BENS & DETALHES
+						</button>
+
+						{(() => {
+							const cargoUpper = rootNode.data.cargo?.toUpperCase() || "";
+							const casaUpper = rootNode.data.casa?.toUpperCase() || "";
+							const isDeputadoFederal =
+								cargoUpper.includes("DEPUTADO FEDERAL") || casaUpper.includes("FEDERAL");
+
+							let deputyId = null;
+							if (rootNode.data.ref) {
+								deputyId = rootNode.data.ref.split(":").pop();
+							} else if (rootNode.id?.includes(":")) {
+								deputyId = rootNode.id.split(":").pop();
 							} else {
-								deputyId = rootNode.data.id || rootNode.id;
+								const fotoUrl =
+									rootNode.data.urlFoto ||
+									rootNode.data.urlFotoFallback ||
+									rootNode.data.fotoFallback ||
+									"";
+								const match = fotoUrl.match(/bandep\/(\d+)\.jpg/i);
+								if (match) {
+									deputyId = match[1];
+								} else {
+									deputyId = rootNode.data.id || rootNode.id;
+								}
 							}
-						}
-						
-						if (!isDeputadoFederal || !deputyId) return null;
-						
-						return (
-							<div className="mt-3">
+
+							if (!isDeputadoFederal || !deputyId) return null;
+
+							return (
 								<Link
 									href={`/perfil/deputado/${deputyId}?nome=${encodeURIComponent(rootNode.data.label)}&partido=${encodeURIComponent(rootNode.data.partido || "")}&uf=${encodeURIComponent(rootNode.data.uf || "")}&foto=${encodeURIComponent(rootNode.data.foto || rootNode.data.fotoFallback || "")}`}
-									className="w-full block text-center py-2 bg-green-950/50 hover:bg-green-900 text-green-400 border border-green-500/50 text-xs font-bold tracking-widest uppercase transition-colors"
+									className="flex-1 block text-center py-2 bg-green-950/60 hover:bg-green-900 text-green-300 border border-green-500/60 text-xs font-bold tracking-wider uppercase transition-colors"
 								>
 									IR PARA O PERFIL
 								</Link>
-							</div>
-						);
-					})()}
+							);
+						})()}
+					</div>
 				</div>
 			)}
 
@@ -1033,8 +1142,17 @@ export default function MobileView({
 									</DrawerHeader>
 
 									<div className="space-y-5">
+										{/* ===== DETALHES DE PESSOA / POLÍTICO NO MOBILE ===== */}
+										{sc.type === "PESSOA" && (
+											<PoliticoDetailsContent
+												data={sc.data}
+												nodeId={sc.id}
+												isMobile={true}
+											/>
+										)}
+
 										{/* VALOR */}
-										{(sc.data?.valor || sc.data?.valor === 0) && (
+										{sc.type !== "PESSOA" && (sc.data?.valor || sc.data?.valor === 0) && (
 											<div
 												className={`p-3 border ${dc.valueBg} bg-black text-center`}
 											>
@@ -1313,15 +1431,15 @@ export default function MobileView({
 																(c: any, idx: number) => (
 																	<div
 																		key={idx}
-																		className="p-2 border border-slate-800 bg-slate-950/50 text-[10px] leading-relaxed font-mono"
+																		className="p-2 border border-slate-800 bg-slate-950/50 text-xs leading-relaxed font-mono"
 																	>
 																		<div className="flex justify-between items-start mb-1">
-																			<span className="font-bold text-teal-400 text-[8px] bg-teal-950/50 px-1 border border-teal-900">
+																			<span className="font-bold text-teal-400 text-[10px] bg-teal-950/50 px-1.5 py-0.5 border border-teal-900 uppercase">
 																				{c.tipo === "COMPRADOR"
 																					? "COMPRADOR"
 																					: "FORNECEDOR"}
 																			</span>
-																			<span className="text-slate-500 text-[8px]">
+																			<span className="text-slate-500 text-[10px] font-mono">
 																				{c.data
 																					? new Date(c.data).toLocaleDateString(
 																							"pt-BR",
@@ -1329,13 +1447,13 @@ export default function MobileView({
 																					: ""}
 																			</span>
 																		</div>
-																		<p className="text-slate-300 font-bold uppercase tracking-wider line-clamp-1">
+																		<p className="text-slate-300 font-bold uppercase tracking-wider line-clamp-1 text-xs">
 																			{c.orgao}
 																		</p>
-																		<p className="text-slate-400 mt-1 uppercase text-[9px] line-clamp-2">
+																		<p className="text-slate-400 mt-1 uppercase text-[10px] line-clamp-2 leading-tight">
 																			{c.objeto}
 																		</p>
-																		<p className="text-right text-green-400 font-bold mt-1 text-[9px]">
+																		<p className="text-right text-green-400 font-bold mt-1 text-xs font-mono">
 																			R${" "}
 																			{Number(c.valor).toLocaleString("pt-BR", {
 																				minimumFractionDigits: 2,

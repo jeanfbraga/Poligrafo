@@ -28,3 +28,4 @@ export { ProcessoJudicialNode } from "./ProcessoJudicialNode";
 export { RaioXGastosNode } from "./RaioXGastosNode";
 export { AtividadeNode } from "./AtividadeNode";
 export { SocioNode } from "./SocioNode";
+export { PoliticoDetailsContent } from "./PoliticoDetailsContent";

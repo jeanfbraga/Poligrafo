@@ -39,24 +39,29 @@ const BATCH_SIZE = 1000;
 const ANO_INICIO_LEGISLATURA = 2023; // 57ª Legislatura
 const ANO_ATUAL = new Date().getFullYear();
 
-async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
+async function fetchWithRetry(url: string, retries = 5): Promise<Response> {
     for (let i = 0; i < retries; i++) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 35000);
         try {
             const res = await fetch(url, {
-                headers: { 'Accept': 'application/json, text/csv, */*' }
+                headers: { 'Accept': 'application/json, text/csv, */*' },
+                signal: controller.signal
             });
+            clearTimeout(timeout);
             if (res.ok) return res;
             if (res.status === 404) return res;
             if (res.status >= 500 && i < retries - 1) {
-                const wait = (i + 1) * 2000;
+                const wait = (i + 1) * 3000;
                 console.warn(`  - HTTP ${res.status} em ${url}. Tentando novamente em ${wait / 1000}s...`);
                 await new Promise(r => setTimeout(r, wait));
                 continue;
             }
             throw new Error(`HTTP ${res.status}`);
         } catch (e: any) {
+            clearTimeout(timeout);
             if (i === retries - 1) throw e;
-            const wait = (i + 1) * 2000;
+            const wait = (i + 1) * 3000;
             console.warn(`  - Erro de rede (${e.message}). Tentativa ${i + 1}/${retries} em ${wait / 1000}s...`);
             await new Promise(r => setTimeout(r, wait));
         }

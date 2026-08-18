@@ -37,21 +37,29 @@ const COTA_POR_UF: Record<string, number> = {
     'SP': 43236.43, 'TO': 45437.81
 };
 
-async function fetchJson(url: string, retries = 3): Promise<any> {
+async function fetchJson(url: string, retries = 5, baseDelay = 3000): Promise<any> {
     for (let i = 0; i < retries; i++) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
         try {
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const res = await fetch(url, {
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal
+            });
+            clearTimeout(timeout);
             if (!res.ok) {
                 if (res.status === 404) return null;
                 throw new Error(`HTTP ${res.status}`);
             }
             return await res.json();
         } catch (error: any) {
-            console.error(`[PERFIL SYNC] Erro ao buscar ${url}: ${error.message}. Tentativa ${i + 1} de ${retries}...`);
-            if (i === retries - 1) throw error;
-            await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1))); // Exponential backoff
+            clearTimeout(timeout);
+            console.warn(`[PERFIL SYNC] Erro ao buscar ${url}: ${error.message}. Tentativa ${i + 1} de ${retries}...`);
+            if (i === retries - 1) return null;
+            await new Promise(resolve => setTimeout(resolve, baseDelay * (i + 1))); // Exponential backoff
         }
     }
+    return null;
 }
 
 async function scrapeGabinete(idDeputado: number) {

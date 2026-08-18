@@ -44,13 +44,17 @@ import {
 	DollarSign,
 	Download,
 	FileText,
+	History,
 	Landmark,
+	Layers,
 	Loader2,
 	Map as MapIcon,
 	MapPin,
 	Search,
 	ShieldAlert,
 	Terminal,
+	TrendingDown,
+	TrendingUp,
 	User,
 	Users,
 	X,
@@ -69,6 +73,7 @@ import {
 	EmpresaNode,
 	OrgaoNode,
 	PessoaNode,
+	PoliticoDetailsContent,
 	ProcessoJudicialNode,
 	RaioXGastosNode,
 	AtividadeNode,
@@ -1411,6 +1416,22 @@ function DashboardArea() {
 							} else if (event.tipo === "NODE_NOVO") {
 								const nodeParams = event.payload;
 
+								// Filtro de segurança: descarta nós legados de bens se vierem de cache antigo
+								const nLabel = String(nodeParams.data?.label || "");
+								const nCodigo = String(nodeParams.data?.codigo || "");
+								const nId = String(nodeParams.id || "");
+								const nObjeto = String(nodeParams.data?.objeto || "");
+								if (
+									nLabel.startsWith("BEM DECLARADO:") ||
+									nCodigo === "TSE-BENS" ||
+									nLabel === "Patrimônio Declarado (TSE)" ||
+									nObjeto.startsWith("Total de Bens") ||
+									nId.startsWith("bens-") ||
+									nId.startsWith("bem-")
+								) {
+									continue;
+								}
+
 								// GATES DE RENDERIZAÇÃO DO CANVAS
 								// Nós estruturais e de alta relevância SEMPRE vão para o Canvas
 								const STRUCTURAL_TYPES = [
@@ -2327,7 +2348,6 @@ function DashboardArea() {
 											[
 												"PESSOA",
 												"DESPESA",
-												"CONTRATO",
 												"EMENDA",
 												"EMENDA_RESUMO",
 												"EMPRESA",
@@ -2470,65 +2490,11 @@ function DashboardArea() {
 								</SheetHeader>
 
 								<div className="space-y-6">
-									{/* NOVO: Exibição do Patrimônio Declarado (TSE) */}
-									{selectedNode.data.patrimonio !== undefined && (
-										<div>
-											<h3 className="text-xs uppercase font-bold text-yellow-600 mb-2 border-b border-yellow-900/50 pb-1 flex items-center gap-2">
-												<DollarSign className="w-4 h-4" /> PATRIMÔNIO DECLARADO
-												(TSE)
-											</h3>
-											<div className="p-3 border bg-yellow-950/10 border-yellow-900/30 text-yellow-500 text-center">
-												{selectedNode.data.patrimonio > 0 ? (
-													<p className="text-2xl font-bold tracking-widest">
-														R${" "}
-														{selectedNode.data.patrimonio.toLocaleString(
-															"pt-BR",
-															{ minimumFractionDigits: 2 },
-														)}
-													</p>
-												) : (
-													<p className="text-xs font-bold uppercase tracking-wider text-yellow-700/70">
-														Não Encontrado / R$ 0,00
-													</p>
-												)}
-											</div>
-										</div>
-									)}
-
-									{/* NOVO: Exibição da Ficha Suja / Alertas da CGU */}
-									{selectedNode.data.alertasPessoais !== undefined && (
-										<div>
-											<h3 className="text-xs uppercase font-bold text-red-600 mb-2 border-b border-red-900/50 pb-1 flex items-center gap-2">
-												<ShieldAlert className="w-4 h-4" /> CADASTRO DE INIDÔNEOS
-												(CGU/TSE)
-											</h3>
-											<div
-												className={`p-3 border ${selectedNode.data.alertasPessoais.length > 0 ? "bg-red-950/10 border-red-900/30 text-red-400" : "bg-slate-900/10 border-slate-800 text-slate-500"}`}
-											>
-												{selectedNode.data.alertasPessoais.length > 0 ? (
-													<ul className="space-y-3">
-														{selectedNode.data.alertasPessoais.map(
-															(alerta: string, index: number) => (
-																<li
-																	key={index}
-																	className="flex gap-2 text-xs wrap-break-word w-full"
-																>
-																	<ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500 animate-pulse" />
-																	<span className="leading-tight uppercase tracking-wide">
-																		{alerta}
-																	</span>
-																</li>
-															),
-														)}
-													</ul>
-												) : (
-													<p className="text-xs uppercase tracking-wider text-center">
-														Nenhum Registro de Inidoneidade na Consulta Rápida
-													</p>
-												)}
-											</div>
-										</div>
-									)}
+									<PoliticoDetailsContent
+										data={selectedNode.data}
+										nodeId={selectedNode.id}
+										isMobile={false}
+									/>
 								</div>
 							</>
 						)}

@@ -68,13 +68,29 @@ export const PessoaNode = ({ data, id, isMobile }: { data: any, id?: string, isM
 			{data.patrimonio !== undefined && (
 				<div className="mt-2">
 					<p className="text-xs uppercase font-bold text-green-500 flex items-center gap-1">
-						<DollarSign className="w-3.5 h-3.5" /> PATRIMÔNIO DECLARADO
+						<DollarSign className="w-3.5 h-3.5" /> PATRIMÔNIO DECLARADO ({data.anoPatrimonio || 2026})
 					</p>
 					<p className="text-xs font-bold tracking-widest mt-1 text-yellow-500">
 						{data.patrimonio !== null && data.patrimonio !== undefined
 							? `R$ ${data.patrimonio.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
 							: "NÃO ENCONTRADO"}
 					</p>
+					{data.variacaoPatrimonioPercentual !== undefined && data.anoPatrimonioAnterior !== undefined && (
+						<div className="mt-1 flex items-center gap-1.5 text-[10px]">
+							<span
+								className={`px-1.5 py-0.5 font-bold uppercase tracking-wider rounded-xs border ${
+									data.variacaoPatrimonioPercentual > 50
+										? "bg-amber-950/40 text-amber-400 border-amber-500/40 animate-pulse"
+										: data.variacaoPatrimonioPercentual >= 0
+											? "bg-yellow-950/30 text-yellow-400 border-yellow-500/30"
+											: "bg-emerald-950/30 text-emerald-400 border-emerald-500/30"
+								}`}
+							>
+								{data.variacaoPatrimonioPercentual > 0 ? "▲ +" : data.variacaoPatrimonioPercentual < 0 ? "▼ " : "="}
+								{data.variacaoPatrimonioPercentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% vs {data.anoPatrimonioAnterior}
+							</span>
+						</div>
+					)}
 				</div>
 			)}
 
@@ -98,14 +114,20 @@ export const PessoaNode = ({ data, id, isMobile }: { data: any, id?: string, isM
 				</div>
 			)}
 			{data.cargo?.toUpperCase() === "DEPUTADO FEDERAL" && id && !data.isSearching && (
-				<div className="mt-4 border-t border-green-500/20 pt-3">
+				<div
+					className="mt-4 border-t border-green-500/20 pt-3 nodrag nopan"
+					onClick={(e) => e.stopPropagation()}
+					onPointerDown={(e) => e.stopPropagation()}
+				>
 					<Button
 						variant="outline"
-						className="w-full border-green-500 bg-black hover:bg-green-500 hover:text-black text-green-500 rounded-none font-bold uppercase tracking-wider text-xs h-9"
+						className="w-full border-green-500 bg-black hover:bg-green-500 hover:text-black text-green-500 rounded-none font-bold uppercase tracking-wider text-xs h-9 cursor-pointer pointer-events-auto"
 						asChild
 					>
 						<Link
 							href={`/perfil/deputado/${data.idPoliticoOriginal || id.split(":").pop()}?nome=${encodeURIComponent(data.label)}&partido=${encodeURIComponent(data.partido || "")}&uf=${encodeURIComponent(data.uf || "")}&foto=${encodeURIComponent(data.foto || "")}`}
+							onClick={(e) => e.stopPropagation()}
+							onPointerDown={(e) => e.stopPropagation()}
 						>
 							IR PARA PERFIL COMPLETO
 						</Link>
