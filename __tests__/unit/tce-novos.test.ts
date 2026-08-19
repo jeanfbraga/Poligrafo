@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { buscarDespesasMG, buscarContratosMG } from "@/app/api/investigar/estados/mg/tce";
 import { buscarDespesasBA, buscarContratosBA } from "@/app/api/investigar/estados/ba/tce";
 import { buscarDespesasPR, buscarContratosPR } from "@/app/api/investigar/estados/pr/tce";
+import { buscarDespesasSE, buscarContratosSE } from "@/app/api/investigar/estados/se/tce";
 import { buscarDespesasTcmSP, buscarContratosTcmSP } from "@/app/api/investigar/municipios/tcm-sp";
 import * as tseModule from "@/app/api/investigar/tse";
 
@@ -128,6 +129,47 @@ describe("Novos Conectores de Tribunais de Contas (Ponto 8)", () => {
 			const despesas = await buscarDespesasTcmSP("Limpeza");
 			expect(despesas.length).toBe(1);
 			expect(despesas[0].tipoDespesa).toContain("TCM-SP");
+		});
+	});
+
+	describe("TCE-SE & Transparência Sergipe (SE)", () => {
+		it("deve retornar despesas do Portal da Transparência SE formatadas", async () => {
+			vi.spyOn(tseModule, "fetchWithTimeout").mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: async () => ({
+					dados: [
+						{
+							objeto: "Aquisição de medicamentos para rede municipal",
+							fornecedor: "DISTRIBUIDORA SERGIPANA DE MEDICAMENTOS LTDA",
+							cnpj: "44555666000199",
+							valor: "320000.50",
+							data: "2024-05-10",
+							unidadeGestora: "Secretaria de Saúde de Aracaju",
+						},
+					],
+				}),
+			} as any);
+
+			const contratos = await buscarContratosSE("Aracaju");
+			expect(contratos.length).toBe(1);
+			expect(contratos[0].fornecedor).toBe("DISTRIBUIDORA SERGIPANA DE MEDICAMENTOS LTDA");
+			expect(contratos[0].valor).toBe(320000.5);
+
+			const despesas = await buscarDespesasSE("Aracaju");
+			expect(despesas.length).toBe(1);
+			expect(despesas[0].tipoDespesa).toContain("TCE-SE");
+			expect(despesas[0].descricao).toContain("Aracaju");
+		});
+
+		it("deve retornar array vazio graciosamente se a API falhar", async () => {
+			vi.spyOn(tseModule, "fetchWithTimeout").mockRejectedValue(new Error("Timeout de conexão"));
+
+			const contratos = await buscarContratosSE("Nossa Senhora do Socorro");
+			expect(contratos).toEqual([]);
+
+			const despesas = await buscarDespesasSE("Nossa Senhora do Socorro");
+			expect(despesas).toEqual([]);
 		});
 	});
 });

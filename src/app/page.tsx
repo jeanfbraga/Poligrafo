@@ -1683,10 +1683,47 @@ function DashboardArea() {
 					}
 				}
 			}
+
+			// Processa qualquer evento residual no buffer após o encerramento do stream
+			if (buffer.trim().length > 0) {
+				const lines = buffer.split("\n\n");
+				for (const line of lines) {
+					if (line.startsWith("data: ")) {
+						const dataStr = line.replace("data: ", "");
+						try {
+							const event = JSON.parse(dataStr);
+							if (event.tipo === "DONE") {
+								setStatusMessage(
+									event.payload?.msg
+										? `> ${event.payload.msg}`
+										: "> [PROCESSO FINALIZADO] Evidências extraídas para a Fila de Auditoria.",
+								);
+							}
+						} catch (e) {}
+					}
+				}
+			}
+
+			// Garante que o estado de loading e busca seja encerrado no término da transmissão
+			setIsLoading(false);
+			setNodes((nds) =>
+				nds.map((n) =>
+					n.data?.isSearching
+						? {
+							...n,
+							data: {
+								...n.data,
+								isSearching: false,
+								currentStatus: undefined,
+							},
+						}
+						: n,
+				),
+			);
 		} catch (err: any) {
 			if (err.name === "AbortError") {
 				setStatusMessage(
-					"> [OPERAÇÃO ABORTADA PELO USUÃRIO]. Nós preservados.",
+					"> [OPERAÇÃO ABORTADA PELO USUÁRIO]. Nós preservados.",
 				);
 				toast.warning("> Busca principal cancelada pelo operador.");
 				setIsLoading(false);
@@ -1712,8 +1749,7 @@ function DashboardArea() {
 			toast.error(`> [ERRO DE CONEXÃO] ${err.message}`);
 			setIsLoading(false);
 		} finally {
-			// Removido o setNodes síncrono que desligava o isSearching imediatamente, atropelando o setTimeout de 1.5s do DONE
-			// Removido também setIsLoading(false) daqui para ser setado no evento DONE.
+			setIsLoading(false);
 		}
 	};
 
