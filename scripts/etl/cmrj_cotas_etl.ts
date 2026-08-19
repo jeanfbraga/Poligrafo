@@ -52,7 +52,9 @@ interface Despesa {
     extraido_por: string;
 }
 
-// ─── L1: Groq Vision (llama-3.2-11b-vision-preview) ─────────────────────────
+import { VISION_MODELS } from '../../src/services/ai/ai-models-config';
+
+// ─── L1: Groq Vision ─────────────────────────────────────────────────────────
 async function ocrViaGroq(imageBase64: string, context: string): Promise<Despesa[] | null> {
     const key = process.env.GROQ_API_KEY;
     if (!key) return null;
@@ -72,7 +74,7 @@ Não inclua nenhum texto fora do JSON.`;
             method: 'POST',
             headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: 'llama-3.2-11b-vision-preview',
+                model: VISION_MODELS.groq,
                 messages: [{
                     role: 'user',
                     content: [
@@ -108,8 +110,7 @@ Retorne APENAS um JSON array:
 [{"vereador_nome": string, "fornecedor_nome": string, "fornecedor_cnpj_cpf": string|null, "valor": number, "data_despesa": string|null, "descricao": string|null}]
 Se não houver dados, retorne []. Nada fora do JSON.`;
 
-    const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
-    for (const model of models) {
+    for (const model of VISION_MODELS.gemini) {
         try {
             const res = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -152,13 +153,7 @@ Return ONLY a JSON array:
 [{"fornecedor_nome": string, "fornecedor_cnpj_cpf": string|null, "valor": number, "data_despesa": string|null, "descricao": string|null}]
 Return [] if no data. No text outside JSON.`;
 
-    const models = [
-        'qwen/qwen2.5-vl-72b-instruct:free',
-        'google/gemma-4-31b-it:free',
-        'meta-llama/llama-4-scout-17b-16e-instruct:free',
-    ];
-
-    for (const model of models) {
+    for (const model of VISION_MODELS.openrouter) {
         try {
             const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',

@@ -1,5 +1,7 @@
 import { analyzeGraphNetwork } from "@/lib/graph-analysis";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { checkNepotismoCamara } from "@/services/integrations/camara/nepotismo-client";
+import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
 import { checkNepotismoCMRJ } from "@/services/integrations/cmrj/nepotismo-client";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
 import {
@@ -2184,6 +2186,42 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 		}
 
+		// Cruzamento de Votos com Doadores de Campanha (Conflito de Interesse Legislativo)
+		if (deputadoBasico.casa === "CAMARA" && Array.isArray(doadores) && doadores.length > 0) {
+			const conflitosVotacoes = await analisarConflitoVotacoes(
+				Number(deputadoBasico.id),
+				doadores,
+			);
+			if (conflitosVotacoes.length > 0) {
+				sendEvent("STATUS", {
+					msg: `[CONFLITO LEGISLATIVO] Identificados ${conflitosVotacoes.length} voto(s) em matérias setoriais ligadas a financiadores de campanha!`,
+				});
+				malhaOsintBuffer.push({
+					_isContextOnly: true,
+					tipoContexto: "CONFLITOS_VOTACOES_DOADORES",
+					conflitos: conflitosVotacoes,
+				});
+				for (const conf of conflitosVotacoes) {
+					const conflitoNode = {
+						id: `conflito-voto-${conf.idVotacao}-${Date.now()}`,
+						type: "CONTRATO" as const,
+						_origemId: pessoaId,
+						data: {
+							label: `VOTO EM PAUTA SETORIAL: ${conf.projetoTema}`,
+							objeto: `${conf.motivoConflito} (Voto: ${conf.voto})`,
+							valor: 0,
+							codigo: conf.idVotacao,
+							ano: conf.dataVotacao ? conf.dataVotacao.substring(0, 4) : "Legislatura",
+							score_letalidade: 80,
+							motivo_ia: conf.motivoConflito,
+						},
+					};
+					supabaseNodes.push(conflitoNode);
+					sendEvent("NODE_NOVO", conflitoNode);
+				}
+			}
+		}
+
 		// =====================================
 		// DESPEJO DA MALHA OSINT NA INTELIGENCIA ARTIFICIAL
 		// =====================================
@@ -2311,6 +2349,54 @@ export async function executarInvestigacaoPrincipal(params: any) {
 												String(new Date().getFullYear()),
 											score_letalidade: 100,
 											motivo_ia: `O sócio '${nomeSocio}' da empresa fornecedora (${d.cnpjCpfFornecedor}) possui vínculo empregatício na Câmara Municipal do Rio de Janeiro. Lotação atual: ${lotacaoStr}.`,
+										},
+									};
+									malhaOsintBuffer.push(nepotismoNode);
+									supabaseNodes.push(nepotismoNode);
+									sendEvent("NODE_NOVO", nepotismoNode);
+								}
+							}
+						}
+					}
+
+					// Auditoria de Nepotismo Federal (Câmara dos Deputados)
+					if (
+						deputadoBasico.casa === "CAMARA" &&
+						hardData.socios &&
+						Array.isArray(hardData.socios)
+					) {
+						for (const socio of hardData.socios) {
+							const nomeSocio =
+								typeof socio === "string"
+									? socio
+									: (socio as any).nome || (socio as any).nome_socio;
+							if (nomeSocio) {
+								const nepotismoCamaraMatch = await checkNepotismoCamara(
+									nomeSocio,
+									Number(deputadoBasico.id) || undefined,
+								);
+								if (nepotismoCamaraMatch) {
+									const vinculoTexto =
+										nepotismoCamaraMatch.tipoVinculo === "GABINETE_DIRETO"
+											? "GABINETE DIRETO DO PARLAMENTAR"
+											: "CÂMARA DOS DEPUTADOS";
+
+									alertasFinais.unshift(
+										`🚨 [ALERTA DE NEPOTISMO FEDERAL]: O sócio '${nomeSocio}' atua como ${nepotismoCamaraMatch.cargo} (${vinculoTexto})!`,
+									);
+									finalScore = 100; // Letalidade Máxima
+
+									const nepotismoNode = {
+										id: `nepotismo-camara-${nomeSocio.replace(/\s+/g, "-")}-${Date.now()}`,
+										type: "EMPRESA" as const,
+										_origemId: pessoaId,
+										data: {
+											label: "ASSESSOR DE GABINETE / SÓCIO DE FORNECEDOR",
+											valor: 0,
+											tipo: "CONFLITO DE INTERESSE / NEPOTISMO FEDERAL",
+											dataDocumento: String(new Date().getFullYear()),
+											score_letalidade: 100,
+											motivo_ia: `O sócio '${nomeSocio}' da empresa fornecedora (${d.cnpjCpfFornecedor}) consta na folha de pagamento da Câmara dos Deputados como '${nepotismoCamaraMatch.cargo}' (${vinculoTexto}).`,
 										},
 									};
 									malhaOsintBuffer.push(nepotismoNode);

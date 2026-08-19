@@ -68,8 +68,9 @@ const FONTES: Record<string, { zipUrl: string; csvPattern: RegExp; descricao: st
 };
 
 // Cargos a incluir (numeração TSE)
-// 1=Presidente, 3=Governador, 5=Senador, 6=Dep.Federal, 7=Dep.Estadual, 11=Prefeito, 13=Vereador
-const CARGOS_INCLUIDOS = new Set(["1", "3", "5", "6", "7", "11", "13"]);
+// 1=Presidente, 3=Governador, 5=Senador, 6=Dep.Federal, 7=Dep.Estadual, 11=Prefeito
+// Nota: Cargo 13 (Vereadores municipais avulsos) foi removido do sync em massa para não estourar a cota do Supabase.
+const CARGOS_INCLUIDOS = new Set(["1", "3", "5", "6", "7", "11"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS

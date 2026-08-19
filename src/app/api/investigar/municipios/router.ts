@@ -1,8 +1,10 @@
+import { buscarDespesasBA } from "../estados/ba/tce";
 import {
 	buscarDespesasMunicipalCE,
 	buscarMunicipalCE,
 } from "../estados/ce/tce";
 import { buscarDespesasES } from "../estados/es/tce";
+import { buscarDespesasMG } from "../estados/mg/tce";
 import { buscarDespesasPA } from "../estados/pa/tce";
 import { buscarDespesasMunicipalPB } from "../estados/pb/tce";
 import {
@@ -10,6 +12,7 @@ import {
 	buscarMunicipalPE,
 } from "../estados/pe/tce";
 import { buscarDespesasPI } from "../estados/pi/tce";
+import { buscarDespesasPR } from "../estados/pr/tce";
 import { buscarDespesasVereadorRJ, buscarMunicipalRJ } from "../estados/rj/tce";
 import { buscarDespesasRN } from "../estados/rn/tce";
 import {
@@ -24,6 +27,7 @@ import { buscarDespesasVereadorSP, buscarMunicipalSP } from "../estados/sp/tce";
 import { buscarDespesasTO } from "../estados/to/tce";
 import { buscarProxyOsint } from "../proxy_osint";
 import { buscarCpfNoTSE } from "../tse";
+import { buscarDespesasTcmSP } from "./tcm-sp";
 
 /**
  * Orquestrador Geográfico: Decide para qual Tribunal de Contas (TCE)
@@ -48,6 +52,9 @@ export async function buscarMunicipalMestre(uf: string, nomeBuscado: string) {
 			return await buscarMunicipalRS(nomeBuscado);
 		case "SC":
 			return await buscarMunicipalSC(nomeBuscado);
+		case "MG":
+		case "BA":
+		case "PR":
 		case "PB":
 		case "PI":
 		case "PA":
@@ -121,7 +128,29 @@ export async function buscarDespesasMunicipalMestre(
 
 	switch (estado) {
 		case "SP":
+			if (municipioUri === "sao-paulo" || municipioUri === "sao_paulo") {
+				const tcmDespesas = await buscarDespesasTcmSP(nomeParaBusca);
+				if (tcmDespesas.length > 0) return tcmDespesas;
+			}
 			return await buscarDespesasVereadorSP(identificador, nomeParaBusca || "");
+		case "MG": {
+			if (municipioUri)
+				return await buscarDespesasMG(municipioUri, casa || "PREFEITURA");
+			const mgProxy = await buscarProxyOsint(identificador, nomeParaBusca);
+			return mgProxy.despesasFederais;
+		}
+		case "BA": {
+			if (municipioUri)
+				return await buscarDespesasBA(municipioUri, casa || "PREFEITURA");
+			const baProxy = await buscarProxyOsint(identificador, nomeParaBusca);
+			return baProxy.despesasFederais;
+		}
+		case "PR": {
+			if (municipioUri)
+				return await buscarDespesasPR(municipioUri, casa || "PREFEITURA");
+			const prProxy = await buscarProxyOsint(identificador, nomeParaBusca);
+			return prProxy.despesasFederais;
+		}
 		case "RJ":
 			return await buscarDespesasVereadorRJ(
 				identificador,

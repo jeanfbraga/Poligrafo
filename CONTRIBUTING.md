@@ -14,7 +14,7 @@ Obrigado por se interessar em contribuir para o Polígrafo! Como um projeto de c
 2. Crie uma branch para a sua modificação (`git checkout -b feature/minha-feature`).
 3. Instale as dependências com `npm install`.
 4. Copie `.env.example` para `.env.local` e configure as suas chaves de API necessárias para rodar o projeto localmente (ex: Supabase, Groq, OpenRouter, DataJud, CGU).
-5. Configure o banco — execute o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) no SQL Editor do seu projeto Supabase.
+5. Configure o banco — execute o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) no SQL Editor do seu projeto Supabase (um único projeto gratuito é suficiente).
 6. Inicie o ambiente de desenvolvimento (`npm run dev`).
 
 ## Arquitetura e Diretrizes de Código
@@ -23,14 +23,16 @@ Para uma referência completa da arquitetura, convenções, fluxo de investigaç
 
 Abaixo estão os pontos mais relevantes para contribuidores:
 
-### 1. Motor de Inteligência Artificial em Cascata (AI Fallbacks)
-Nosso sistema de IA de julgamento (Score de Letalidade) funciona em um esquema de cascata de 4 níveis para garantir resiliência e evitar custos abusivos:
-*   **L1 (Groq - Llama 3 70B)**: Usado para triagem de alta velocidade e custo zero.
-*   **L2 (OpenRouter)**: Fallback dinâmico caso a cota do Groq acabe.
-*   **L3 (Google Gemini)**: Fallback secundário (Flash Lite, Flash, Gemma).
-*   **L4 (Heurística Matemática)**: Classificação via RegEx se todas as APIs falharem.
+### 1. Motor de Inteligência Artificial em Cascata (AI Fallbacks & SSOT)
+Nosso sistema de IA de julgamento (Score de Letalidade) opera sob uma política de **Custo $0,00** e utiliza o arquivo **`src/services/ai/ai-models-config.ts`** como Fonte Única da Verdade (*Single Source of Truth*):
+*   **L1 (Groq Developer Free Tier)**: `groq/compound`, `openai/gpt-oss-120b`, `qwen/qwen3.6-27b` (200 RPM / 200k TPM).
+*   **L2 (OpenRouter Free Tier)**: Auto-roteador `openrouter/free` e modelos com sufixo `:free`.
+*   **L3 (Google Gemini & Gemma Free Tier)**: `gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-3.5-flash-lite`, `gemma-4-31b-it` (15 RPM / 1.500 RPD).
+*   **L4 (Heurística Matemática Local)**: Classificação pericial offline via RegEx e limites normativos se todas as APIs falharem ou se nenhuma chave for fornecida.
 
-> **Importante:** Se for alterar ou criar novos prompts de IA (arquivos em `src/app/api/investigar/ai_helpers.ts`), certifique-se de testar os prompts **em todos os níveis da cascata**. Modelos diferentes reagem de formas diferentes aos prompts de JSON estrito.
+> **💡 Dica para Contribuidores:** Se você quiser adicionar um novo modelo ou alterar um existente, modifique **apenas** o arquivo `src/services/ai/ai-models-config.ts`. Todo o sistema (investigações, resumos de projetos, PNCP e diários) herdará a alteração automaticamente.
+>
+> **Importante:** Se for alterar ou criar novos prompts de IA (em `src/services/ai/prompt-builder.ts` ou `ai_helpers.ts`), certifique-se de testar os prompts **em todos os níveis da cascata**. Modelos diferentes reagem de formas diferentes aos prompts de JSON estrito.
 
 ### 2. Adicionando Novos Scrapers (Motores OSINT)
 O Polígrafo coleta dados de diversas casas legislativas e tribunais. Se você for adicionar uma nova fonte de dados:
@@ -51,6 +53,7 @@ Ao criar novas integrações que alimentam a investigação, siga o padrão **ca
 
 ### 4. Integração com Banco de Dados (Supabase) e ETLs
 *   **Acesso Seguro:** Operações críticas (gravação de alertas, sincronização massiva) devem ser feitas usando a `SUPABASE_SERVICE_ROLE_KEY` exclusivamente do lado do servidor.
+*   **Schema Único e Completo:** O arquivo [`supabase/schema.sql`](supabase/schema.sql) é 100% auto-contido e idempotente, provisionando todas as tabelas (investigação, OSINT e perfis parlamentares) em um único projeto Supabase.
 *   **Scripts de ETL (Sincronização em Lote):**
     O projeto possui *pipelines* para baixar bases governamentais gigantes e popular o banco de dados. Eles ficam na pasta `scripts/etl/` (ex: `ibama-sync.ts`, `anac-sync.ts`, `cpgf-sync.ts`).
     *   **Como testar/rodar os ETLs localmente:**
@@ -60,19 +63,27 @@ Ao criar novas integrações que alimentam a investigação, siga o padrão **ca
         3. **Atenção à Memória:** Nossos ETLs utilizam bibliotecas como `csv-parse` e `fs.createReadStream` para não estourar a memória (arquivos >100MB). Se for criar um novo ETL, evite carregar tudo em memória de uma vez (não use `.split('\n')`). Utilize `streams` e processe o envio para o Supabase em lotes (*batches*) de 500 a 1000 registros com `upsert`.
     *   **Cross-platform:** Para download de arquivos, use detecção de plataforma (`process.platform === 'win32'` → `curl.exe`, senão → `curl`) para garantir compatibilidade com os runners Ubuntu do GitHub Actions.
 
-### 5. Componentes e UI
+### 5. Componentes, UI e Design System
 *   Siga as convenções modernas do App Router do Next.js.
-*   O Polígrafo usa um design focado em "Terminal/Hacker OSINT" (fundo escuro forçado, verde neon `green-500`, bordas retas, fonte mono). Mantenha esse padrão visual.
+*   O Polígrafo usa um design focado em "Terminal/Hacker OSINT" (fundo escuro forçado `#000000`, verde neon `green-500`, bordas retas `rounded-none`, fonte mono `font-mono`).
+*   **Tipografia do Design System:**
+    *   O tamanho mínimo de fonte é **10px** (`text-[10px]`), permitido **apenas** acompanhado de `uppercase font-bold tracking-wider`.
+    *   Textos regulares, mistos ou descritivos devem ter no mínimo **12px** (`text-xs`).
+    *   Nunca utilize classes manuais `< 10px` (ex.: `text-[8px]` ou `text-[9px]`).
 *   Componentes base em `src/components/ui/` seguem shadcn/ui — gere novos nesse padrão.
 
-### 6. GitHub Actions e Automações
+### 6. Complexidade Ciclomática e Clean Code
+*   O ESLint impõe a regra estrita `complexity: ["error", 10]`.
+*   Mantenha funções curtas, modulares e com responsabilidade única. Extraia sub-rotinas e helpers sempre que a lógica crescer.
+
+### 7. GitHub Actions e Automações
 O projeto conta com 8 workflows automatizados (CEAP, CPGF, CMRJ, TSE Doadores, IBAMA, ANAC, SPU, CI). Todos usam Node 24 e podem ser disparados manualmente via `workflow_dispatch`. Ao criar novos workflows:
 *   Use `actions/setup-node@v4` com `node-version: '24'` e **`cache: 'npm'`**.
 *   **Sempre** utilize `npm ci` ao invés de `npm install` para garantir execuções consistentes e aderentes ao `package-lock.json`.
 *   Nunca commite secrets — use `gh secret set` e referencie via `${{ secrets.NOME }}`.
 *   Teste localmente com `npx tsx` antes de configurar o cron.
 
-### 7. Arquivos Temporários e Sandbox
+### 8. Arquivos Temporários e Sandbox
 Se precisar fazer testes locais, salvar resultados brutos de APIs ou analisar *payloads* em arquivos soltos (`.json`, `.csv`, etc.), **utilize a pasta `.sandbox/` na raiz do projeto**. Ela já está no `.gitignore` para evitar poluição do repositório e *commits* indesejados de dados de teste.
 
 ## Testes e Gate de Qualidade

@@ -1,5 +1,6 @@
 import { buscarDiariosMunicipais } from "@/services/integrations/dou/queridodiario";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
+import { GROQ_MODELS } from "@/services/ai/ai-models-config";
 
 // Função auxiliar para analisar trechos com GROQ
 async function estruturarTrechoDiario(
@@ -21,28 +22,30 @@ Retorne APENAS um JSON com o seguinte formato:
 }
 Trecho: "${trecho.replace(/"/g, "'")}"`;
 
-	try {
-		const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${groqKey}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				model: "llama-3.3-70b-versatile",
-				messages: [{ role: "user", content: prompt }],
-				temperature: 0.1,
-				response_format: { type: "json_object" },
-			}),
-			signal: AbortSignal.timeout(10000),
-		});
+	for (const model of GROQ_MODELS) {
+		try {
+			const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${groqKey}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					model: model,
+					messages: [{ role: "user", content: prompt }],
+					temperature: 0.1,
+					response_format: { type: "json_object" },
+				}),
+				signal: AbortSignal.timeout(8000),
+			});
 
-		if (res.ok) {
-			const data = await res.json();
-			return JSON.parse(data.choices[0].message.content);
+			if (res.ok) {
+				const data = await res.json();
+				return JSON.parse(data.choices[0].message.content);
+			}
+		} catch (e) {
+			// Tenta próximo modelo
 		}
-	} catch (e) {
-		console.error("Erro na extração LLM do diário", e);
 	}
 	return null;
 }

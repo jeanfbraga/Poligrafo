@@ -90,6 +90,22 @@ export const CAMPANHAS_MUNICIPAIS = [
 	{ ano: "2016", idEleicao: "2" },          // Eleições Municipais 2016
 ];
 
+export function isCandidatoEleitoOuValido(c: any): boolean {
+	if (!c) return false;
+	const sit = (c.descricaoTotalizacao || c.situacao || c.descricaoSituacao || "").toUpperCase();
+	if (
+		sit.includes("NÃO ELEITO") ||
+		sit.includes("NAO ELEITO") ||
+		sit.includes("INDEFERIDO") ||
+		sit.includes("CANCELADO") ||
+		sit.includes("RENÚNCIA") ||
+		sit.includes("RENUNCIA")
+	) {
+		return false;
+	}
+	return true;
+}
+
 // NOVA FUNÇÃO: Busca o CPF real do político no TSE caso a casa legislativa o censure
 // Exportada para uso nos módulos estaduais/municipais
 export async function buscarCpfNoTSE(
@@ -130,7 +146,8 @@ export async function buscarCpfNoTSE(
 						continue;
 					}
 
-					const candidatos = dataListagem.candidatos || [];
+					const todosCandidatos = dataListagem.candidatos || [];
+					const candidatos = todosCandidatos.filter(isCandidatoEleitoOuValido);
 
 					if (candidatos.length > 0) {
 						const termoNorm = normalizeString(nomePolitico);
@@ -213,7 +230,8 @@ export async function buscarCpfNoTSE(
 								try {
 									dataListagemCap = await resListagemCap.json();
 								} catch (_e) {}
-								const candidatosCap = dataListagemCap?.candidatos || [];
+								const todosCap = dataListagemCap?.candidatos || [];
+								const candidatosCap = todosCap.filter(isCandidatoEleitoOuValido);
 								if (candidatosCap.length > 0) {
 									const termoNorm = normalizeString(nomePolitico);
 									let match = candidatosCap.find((c: any) => {
@@ -282,7 +300,8 @@ export async function buscarCpfNoTSE(
 									} catch (_e) {
 										return null;
 									}
-									const candidatos = dataListagem.candidatos || [];
+									const todosCandidatos = dataListagem.candidatos || [];
+									const candidatos = todosCandidatos.filter(isCandidatoEleitoOuValido);
 									if (candidatos.length > 0) {
 										const termoNorm = normalizeString(nomePolitico);
 										// ETAPA 1: Busca apenas correspondência EXATA

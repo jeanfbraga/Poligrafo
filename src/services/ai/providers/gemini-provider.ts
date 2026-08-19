@@ -1,19 +1,11 @@
 import { LlmProvider, ProviderResponse, LlmProviderError } from "../types";
 import { extractAndParseJson, handleFetchError } from "../utils";
+import { GEMINI_MODELS } from "../ai-models-config";
 
 export class GeminiProvider implements LlmProvider {
 	readonly name = "GEMINI";
 
-	private readonly models = [
-		"gemini-3.5-flash-lite",
-		"gemini-3.1-flash-lite",
-		"gemma-4-31b-it",
-		"gemini-3.6-flash",
-		"gemini-3.5-flash",
-		"gemini-3-flash",
-		"gemini-2.5-flash",
-		"gemini-2.5-flash-lite",
-	];
+	private readonly models = GEMINI_MODELS;
 
 	constructor(private readonly apiKey: string | undefined) {}
 

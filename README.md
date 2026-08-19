@@ -14,11 +14,11 @@ O coração do sistema é uma **Pipeline de Inteligência Artificial em Cascata 
 ## 🔥 Funcionalidades Principais
 
 *   **🔍 Busca Multi-Câmara e Regional**: Busca automatizada em diversas esferas legislativas (Câmara, Senado, ALERJ, CMRJ) e verificação cruzada com Tribunais de Contas (TCE-SP, TCE-SC).
-*   **⚖️ IA de Julgamento em Cascata (Score de Letalidade)**: Classificação automatizada de despesas através de um motor resiliente:
-    *   **L1 (Groq - Llama 3 70B)**: Engine principal ultra-rápida.
-    *   **L2 (OpenRouter)**: Fallback dinâmico (Gemma, DeepSeek).
-    *   **L3 (Google Gemini)**: Fallback secundário (Flash Lite, Flash, Gemma).
-    *   **L4 (Heurística Matemática)**: Classificação via RegEx e limites da Câmara, ativado caso as APIs falhem.
+*   **⚖️ IA de Julgamento em Cascata (Score de Letalidade / Custo $0,00)**: Classificação automatizada de despesas e emendas centralizada em `src/services/ai/ai-models-config.ts`:
+    *   **L1 (Groq Developer Free Tier)**: `groq/compound`, `openai/gpt-oss-120b`, `qwen/qwen3.6-27b` (200 RPM / 200k TPM).
+    *   **L2 (OpenRouter Free Tier)**: Roteador automático `openrouter/free` + modelos com sufixo `:free`.
+    *   **L3 (Google Gemini & Gemma)**: `gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-3.5-flash-lite`, `gemma-4-31b-it`.
+    *   **L4 (Heurística Matemática Local)**: Classificação pericial offline via RegEx e análise estatística, caso nenhuma chave de IA esteja configurada.
 *   **⚠️ Alertas Judiciais e Fiscais**:
     *   **DataJud (CNJ)**: Busca automática por **Ações Civis de Improbidade Administrativa** ligadas ao político.
     *   **CGU (Cadastro de Inidôneos)**: Alertas sobre empresas punidas (CEIS/CNEP).
@@ -62,9 +62,9 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase (Banco de Dados e Sync) | **Sim** |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`| Supabase Público | **Sim** |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Admin Role (cache, ETL, dashboard) | **Sim (backend)** |
-| `GROQ_API_KEY` | Groq (Llama-3 70B) - Motor IA Primário (L1) | **Recomendado** |
-| `OPENROUTER_API_KEY` | OpenRouter - Motor IA Secundário (L2) | Opcional |
-| `GEMINI_API_KEY` | Google Gemini - Fallback IA (L3) | Opcional |
+| `GROQ_API_KEY` | Groq Developer Free Tier (Compound / GPT-OSS 120B / Qwen) - Motor L1 | **Recomendado** |
+| `OPENROUTER_API_KEY` | OpenRouter (Auto-Router `openrouter/free` e modelos `:free`) - Motor L2 | Opcional |
+| `GEMINI_API_KEY` | Google AI Studio Free Tier (Gemini 2.5 / 2.0 / Gemma) - Motor L3 | Opcional |
 | `DATAJUD_API_KEY` | CNJ - Busca de Improbidade Administrativa. Suporta chave crua ou com prefixo `APIKey ` | Opcional |
 | `TRANSPARENCIA_API_KEY` | CGU - Alertas CEIS/CNEP e Emendas PIX | Opcional |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics 4 — **desligado por padrão** | Opcional |
@@ -95,24 +95,17 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
 
 4. **Configure o Banco de Dados (Supabase):**
 
-   Abra o **SQL Editor** do seu projeto Supabase e execute o conteúdo dos arquivos de schema. Esses scripts criam todas as tabelas, views, funções RPC, políticas de segurança (RLS) e o storage bucket necessários.
+   Abra o **SQL Editor** do seu projeto Supabase e execute o conteúdo de [`supabase/schema.sql`](supabase/schema.sql). Esse script é completo e idempotente, criando todas as tabelas (investigação, OSINT, perfil de parlamentares e votações), views, funções RPC, políticas de segurança (RLS) e o storage bucket necessários.
 
-   **Banco principal** (investigação, OSINT, dashboard):
    ```bash
    # Via SQL Editor do Supabase:
-   # Cole e execute o conteúdo de supabase/schema.sql
+   # Cole e execute o conteúdo completo de supabase/schema.sql
 
    # Ou via CLI:
    supabase db reset --db-url "postgresql://postgres:[SUA_SENHA]@db.[SEU_REF].supabase.co:5432/postgres" < supabase/schema.sql
    ```
 
-   **Módulo de Perfil de Deputados** (`/perfil/deputado/[id]`) — tabelas: `camara_perfil_politico_cache`, `camara_votos_detalhados`, `camara_producao_legislativa`, `camara_cota_resumo_cache`, `camara_gabinete_servidores`:
-
-   > **Contribuidores:** Crie essas tabelas **no mesmo banco** acima. Um único projeto Supabase é suficiente.
-   >
-   > **Nota do mantenedor:** A instância de produção usa um **segundo projeto Supabase** exclusivo para o módulo de Perfis — workaround pelo limite de 500 MB de armazenamento do plano gratuito. Para contribuidores com um banco limpo, essa separação é desnecessária.
-
-   O schema deste módulo está em [`supabase/schema-perfil.sql`](supabase/schema-perfil.sql) *(a criar — por enquanto, consulte a [documentação do projeto](Obsidian%20Poligrafo%20Docs/ADR%20%E2%80%94%20Schema%20do%20Banco%20Publicado.md) para o DDL completo)*.
+   > **💡 100% Plug & Play (Banco Único):** Um único projeto Supabase gratuito é tudo o que você precisa. O `schema.sql` já contém todas as tabelas necessárias para rodar a investigação e os perfis parlamentares.
 
 5. **(Opcional) Popule os dados com ETLs:**
 

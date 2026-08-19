@@ -1,19 +1,11 @@
 import { LlmProvider, ProviderResponse, LlmProviderError } from "../types";
 import { extractAndParseJson, handleFetchError } from "../utils";
+import { GROQ_MODELS } from "../ai-models-config";
 
 export class GroqProvider implements LlmProvider {
 	readonly name = "GROQ";
 
-	// Modelos em ordem de preferência/poder
-	private readonly models = [
-		"llama-3.3-70b-versatile",
-		"llama-3.1-8b-instant",
-		"openai/gpt-oss-120b",
-		"openai/gpt-oss-20b",
-		"qwen/qwen3.6-27b",
-		"groq/compound",
-		"groq/compound-mini",
-	];
+	private readonly models = GROQ_MODELS;
 
 	constructor(private readonly apiKey: string | undefined) {}
 

@@ -1,4 +1,7 @@
+import { buscarContratosBA } from "../../app/api/investigar/estados/ba/tce";
+import { buscarContratosMG } from "../../app/api/investigar/estados/mg/tce";
 import { buscarAcordaosTcePA } from "../../app/api/investigar/estados/pa/tce";
+import { buscarContratosPR } from "../../app/api/investigar/estados/pr/tce";
 import { buscarProcessosTceTo } from "../../app/api/investigar/estados/to/tce";
 import { buscarProjetosLeiCamara } from "../../app/api/investigar/scrapers/legislativo";
 import {
@@ -25,6 +28,7 @@ import {
 	consultarIndicadoresLRF,
 } from "../integrations/siconfi/client";
 import { buscarCertidaoTCU } from "../integrations/tcu/client";
+import { buscarConveniosEntidade } from "../integrations/transparencia/convenios-client";
 import { buscarEmendasPorCNPJ } from "../integrations/transferegov/client";
 
 export interface OsintExecutorParams {
@@ -103,6 +107,85 @@ export async function executarMalhaOsint(params: OsintExecutorParams) {
 						tribunal: "TCE-TO",
 						ano: proc.ano,
 						motivo_ia: `Processo de ${proc.assunto} referente ao ano de ${proc.ano}. Relator: ${proc.relator}.`,
+					},
+				});
+			});
+		}
+	}
+
+	if (deputadoBasico.uf === "MG") {
+		sendEvent("STATUS", {
+			msg: "Alvo de Minas Gerais detectado. Consultando dados abertos do TCE-MG...",
+		});
+		const contratosMG = await buscarContratosMG(deputadoBasico.municipio || deputadoBasico.nome, 10);
+		if (contratosMG.length > 0) {
+			sendEvent("STATUS", {
+				msg: `[TCE-MG] ${contratosMG.length} contratações municipais rastreadas em MG.`,
+			});
+			contratosMG.forEach((c, i) => {
+				pushNode({
+					id: `tce-mg-${Date.now()}-${i}`,
+					type: "CONTRATO" as const,
+					_origemId: pessoaId,
+					data: {
+						label: `Contrato TCE-MG: ${c.fornecedor}`,
+						objeto: c.objeto,
+						valor: c.valor,
+						codigo: c.cnpj || "TCE-MG",
+						ano: c.data ? c.data.substring(0, 4) : "Atual",
+						motivo_ia: `Contratação municipal no TCE-MG vinculada a ${c.municipio}.`,
+					},
+				});
+			});
+		}
+	}
+	if (deputadoBasico.uf === "BA") {
+		sendEvent("STATUS", {
+			msg: "Alvo da Bahia detectado. Consultando contratações no TCM-BA...",
+		});
+		const contratosBA = await buscarContratosBA(deputadoBasico.municipio || deputadoBasico.nome, 10);
+		if (contratosBA.length > 0) {
+			sendEvent("STATUS", {
+				msg: `[TCM-BA] ${contratosBA.length} contratações municipais rastreadas na Bahia.`,
+			});
+			contratosBA.forEach((c, i) => {
+				pushNode({
+					id: `tcm-ba-${Date.now()}-${i}`,
+					type: "CONTRATO" as const,
+					_origemId: pessoaId,
+					data: {
+						label: `Contrato TCM-BA: ${c.fornecedor}`,
+						objeto: c.objeto,
+						valor: c.valor,
+						codigo: c.cnpj || "TCM-BA",
+						ano: c.data ? c.data.substring(0, 4) : "Atual",
+						motivo_ia: `Contratação municipal no TCM-BA vinculada a ${c.municipio}.`,
+					},
+				});
+			});
+		}
+	}
+	if (deputadoBasico.uf === "PR") {
+		sendEvent("STATUS", {
+			msg: "Alvo do Paraná detectado. Consultando licitações e contratos no TCE-PR...",
+		});
+		const contratosPR = await buscarContratosPR(deputadoBasico.municipio || deputadoBasico.nome, 10);
+		if (contratosPR.length > 0) {
+			sendEvent("STATUS", {
+				msg: `[TCE-PR] ${contratosPR.length} contratações municipais rastreadas no Paraná.`,
+			});
+			contratosPR.forEach((c, i) => {
+				pushNode({
+					id: `tce-pr-${Date.now()}-${i}`,
+					type: "CONTRATO" as const,
+					_origemId: pessoaId,
+					data: {
+						label: `Contrato TCE-PR: ${c.fornecedor}`,
+						objeto: c.objeto,
+						valor: c.valor,
+						codigo: c.cnpj || "TCE-PR",
+						ano: c.data ? c.data.substring(0, 4) : "Atual",
+						motivo_ia: `Contratação municipal no TCE-PR vinculada a ${c.municipio}.`,
 					},
 				});
 			});
@@ -217,6 +300,28 @@ export async function executarMalhaOsint(params: OsintExecutorParams) {
 							ano: "Atual",
 						},
 					});
+				}
+
+				const conveniosCgu = await buscarConveniosEntidade(cnpjRastreado);
+				if (conveniosCgu && conveniosCgu.length > 0) {
+					sendEvent("STATUS", {
+						msg: `[CGU CONVÊNIOS] Entidade/Empresa (${cnpjRastreado}) possui ${conveniosCgu.length} convênio(s) com a União Federal.`,
+					});
+					for (const conv of conveniosCgu.slice(0, 3)) {
+						pushNode({
+							id: `cgu-conv-${conv.numeroConvenio}-${Date.now()}`,
+							type: "CONTRATO" as const,
+							_origemId: `empresa-${cnpjRastreado}`,
+							data: {
+								label: `Convênio Federal: ${conv.orgaoSuperior}`,
+								objeto: `${conv.objeto} (Entidade: ${conv.convenenteNome})`,
+								valor: conv.valorGlobal,
+								codigo: conv.numeroConvenio,
+								ano: conv.dataInicioVigencia ? conv.dataInicioVigencia.substring(0, 4) : "Atual",
+								motivo_ia: `Entidade vinculada firmou convênio com o Governo Federal (${conv.orgaoConcedente}). Valor liberado: R$ ${conv.valorLiberado.toLocaleString("pt-BR")}.`,
+							},
+						});
+					}
 				}
 			},
 		);

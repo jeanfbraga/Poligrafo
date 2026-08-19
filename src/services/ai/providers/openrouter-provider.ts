@@ -1,16 +1,11 @@
 import { LlmProvider, ProviderResponse, LlmProviderError } from "../types";
 import { extractAndParseJson, handleFetchError } from "../utils";
+import { OPENROUTER_MODELS } from "../ai-models-config";
 
 export class OpenRouterProvider implements LlmProvider {
 	readonly name = "OPENROUTER";
 
-	private readonly models = [
-		"google/gemma-4-31b-it:free",
-		"google/gemma-4-26b-a4b-it:free",
-		"nvidia/nemotron-3-super-120b-a12b:free",
-		"openai/gpt-oss-20b:free",
-		"nvidia/nemotron-nano-9b-v2:free",
-	];
+	private readonly models = OPENROUTER_MODELS;
 
 	constructor(private readonly apiKey: string | undefined) {}
 

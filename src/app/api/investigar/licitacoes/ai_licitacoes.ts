@@ -1,16 +1,5 @@
 import type { PNCPContract } from "@/services/integrations/pncp/client";
-
-const GROQ_MODEL = "llama-3.3-70b-versatile";
-const GEMINI_MODELS = [
-	"gemini-3.5-flash-lite",
-	"gemini-3.1-flash-lite",
-	"gemma-4-31b-it",
-	"gemini-3.6-flash",
-	"gemini-3.5-flash",
-	"gemini-3-flash",
-	"gemini-2.5-flash",
-	"gemini-2.5-flash-lite",
-];
+import { GROQ_MODELS, OPENROUTER_MODELS, GEMINI_MODELS } from "@/services/ai/ai-models-config";
 
 function construirPromptLicitacoes(
 	_cnpj: string,
@@ -71,60 +60,47 @@ export async function analisarComIAPNCP(
 	const isDev = process.env.NODE_ENV === "development";
 
 	if (groqKey && !isDev) {
-		try {
-			console.log(`[PNCP L1 GROQ] Iniciando motor inteligente...`);
-			const res = await fetch(
-				"https://api.groq.com/openai/v1/chat/completions",
-				{
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${groqKey}`,
-						"Content-Type": "application/json",
+		for (const model of GROQ_MODELS) {
+			try {
+				const res = await fetch(
+					"https://api.groq.com/openai/v1/chat/completions",
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${groqKey}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							model: model,
+							messages: [
+								{
+									role: "system",
+									content: "You MUST reply ONLY with a valid JSON OBJECT.",
+								},
+								{ role: "user", content: prompt },
+							],
+							temperature: 0.1,
+							response_format: { type: "json_object" },
+						}),
+						signal: AbortSignal.timeout(12000),
 					},
-					body: JSON.stringify({
-						model: GROQ_MODEL,
-						messages: [
-							{
-								role: "system",
-								content: "You MUST reply ONLY with a valid JSON OBJECT.",
-							},
-							{ role: "user", content: prompt },
-						],
-						temperature: 0.1,
-						response_format: { type: "json_object" },
-					}),
-					signal: AbortSignal.timeout(15000),
-				},
-			);
+				);
 
-			if (res.ok) {
-				const data = await res.json();
-				const payload = JSON.parse(data.choices[0].message.content);
-				// Valida retorno raso para evitar vazamentos null pointers
-				if (payload.contratos_avaliados) return payload;
+				if (res.ok) {
+					const data = await res.json();
+					const payload = JSON.parse(data.choices[0].message.content);
+					if (payload.contratos_avaliados) return payload;
+				}
+			} catch (e) {
+				// Tenta próximo modelo do Groq
 			}
-		} catch (e) {
-			console.error("[PNCP L1 GROQ] Falha na camada primária:", e);
 		}
 	}
 
-	// NÍVEL 2: OPENROUTER (Modelos Open Source - Kimi/Llama)
+	// NÍVEL 2: OPENROUTER (Modelos Gratuitos e openrouter/free)
 	const openRouterKey = process.env.OPENROUTER_API_KEY;
 	if (openRouterKey && !isDev) {
-		console.log(`[PNCP L2 OPENROUTER] Fallback acionado...`);
-		const openRouterModels = [
-			"meta-llama/llama-3.3-70b-instruct:free",
-			"meta-llama/llama-3.1-8b-instruct:free",
-			"google/gemini-2.0-flash-exp:free",
-			"deepseek/deepseek-r1:free",
-			"deepseek/deepseek-chat:free",
-			"inclusionai/ling-3.0-flash:free",
-			"poolside/laguna-s-2.1:free",
-			"qwen/qwen-2.5-coder-32b-instruct:free",
-			"mistralai/mistral-7b-instruct:free",
-		];
-
-		for (const model of openRouterModels) {
+		for (const model of OPENROUTER_MODELS) {
 			try {
 				const res = await fetch(
 					"https://openrouter.ai/api/v1/chat/completions",
@@ -147,7 +123,7 @@ export async function analisarComIAPNCP(
 							temperature: 0.1,
 							response_format: { type: "json_object" },
 						}),
-						signal: AbortSignal.timeout(15000),
+						signal: AbortSignal.timeout(10000),
 					},
 				);
 
@@ -165,9 +141,7 @@ export async function analisarComIAPNCP(
 					}
 				}
 			} catch (_e) {
-				console.warn(
-					`[PNCP L2 OPENROUTER] Falhou no modelo ${model}. Tentando o próximo.`,
-				);
+				// Tenta próximo modelo do OpenRouter
 			}
 		}
 	}

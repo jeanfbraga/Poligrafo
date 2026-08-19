@@ -17,35 +17,45 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 async function run() {
-    console.log("[GARBAGE COLLECTOR] Iniciando rotina de limpeza do banco de dados...");
-    
-    // Calculamos a data limite de 90 dias atrás
-    const dataLimite = new Date();
-    dataLimite.setDate(dataLimite.getDate() - 90);
-    const dataLimiteISO = dataLimite.toISOString();
+	console.log("[GARBAGE COLLECTOR] Iniciando rotina de limpeza e otimização do banco de dados...");
+	
+	// Calculamos a data limite de 30 dias atrás para grafos e pesquisas em cache
+	const dataLimite = new Date();
+	dataLimite.setDate(dataLimite.getDate() - 30);
+	const dataLimiteISO = dataLimite.toISOString();
 
-    try {
-        console.log(`[GARBAGE COLLECTOR] Excluindo pesquisas cacheadas antes de ${dataLimiteISO}...`);
-        // A tabela 'pesquisas' armazena o cache dos grafos das investigações antigas
-        const { error: erroPesquisas, count: countPesquisas } = await supabaseAdmin
-            .from('pesquisas')
-            .delete({ count: 'exact' })
-            .lt('atualizado_em', dataLimiteISO);
+	try {
+		// 1. Limpeza de grafos antigos cacheados (> 30 dias)
+		console.log(`[GARBAGE COLLECTOR] Excluindo pesquisas cacheadas antes de ${dataLimiteISO}...`);
+		const { error: erroPesquisas, count: countPesquisas } = await supabaseAdmin
+			.from('pesquisas')
+			.delete({ count: 'exact' })
+			.lt('atualizado_em', dataLimiteISO);
 
-        if (erroPesquisas) {
-            console.error("[GARBAGE COLLECTOR] Erro ao limpar pesquisas:", erroPesquisas.message);
-        } else {
-            console.log(`[GARBAGE COLLECTOR] Sucesso: ${countPesquisas || 0} pesquisas antigas deletadas.`);
-        }
+		if (erroPesquisas) {
+			console.error("[GARBAGE COLLECTOR] Erro ao limpar pesquisas:", erroPesquisas.message);
+		} else {
+			console.log(`[GARBAGE COLLECTOR] Sucesso: ${countPesquisas || 0} pesquisas antigas deletadas.`);
+		}
 
-        // Limpeza de tabelas temporárias adicionais ou de cache de automação (Ex: tse_doadores_cache)
-        // O TSE e CEAP podem crescer muito. Podemos limpar consultas pontuais que já caducaram,
-        // mas vamos iniciar mantendo as pesquisas (o grafo gigante) limpo.
+		// 2. Limpeza de registros vazios em tse_doadores_cache (arrays vazios)
+		console.log("[GARBAGE COLLECTOR] Verificando doadores com listas vazias no TSE...");
+		const { error: erroDoadores, count: countDoadores } = await supabaseAdmin
+			.from('tse_doadores_cache')
+			.delete({ count: 'exact' })
+			.eq('doadores', '{}');
 
-        console.log("[GARBAGE COLLECTOR] Rotina de limpeza finalizada com sucesso!");
-    } catch (error) {
-        console.error("[GARBAGE COLLECTOR] Erro fatal durante a limpeza:", error);
-    }
+		if (erroDoadores) {
+			console.warn("[GARBAGE COLLECTOR] Aviso ao limpar doadores vazios:", erroDoadores.message);
+		} else if (countDoadores && countDoadores > 0) {
+			console.log(`[GARBAGE COLLECTOR] Sucesso: ${countDoadores} registros vazios de doadores removidos.`);
+		}
+
+		console.log("[GARBAGE COLLECTOR] Rotina de limpeza finalizada com sucesso! (CEAP 2024-2026 100% preservada).");
+	} catch (error) {
+		console.error("[GARBAGE COLLECTOR] Erro fatal durante a limpeza:", error);
+	}
 }
 
 run();
+

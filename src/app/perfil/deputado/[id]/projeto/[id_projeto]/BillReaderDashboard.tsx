@@ -14,6 +14,7 @@ export default function BillReaderDashboard({ idDeputado, idProjeto }: { idDeput
   const [error, setError] = useState("");
   
   const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiMotor, setAiMotor] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -40,10 +41,21 @@ export default function BillReaderDashboard({ idDeputado, idProjeto }: { idDeput
     setAiLoading(true);
     setAiError("");
     try {
-      const res = await fetch(`/api/perfil/projeto/${idProjeto}/resumo`, { method: "POST" });
-      if (!res.ok) throw new Error("Falha na geração do resumo.");
+      const res = await fetch(`/api/perfil/projeto/${idProjeto}/resumo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          titulo: projeto?.titulo,
+          ementa: projeto?.ementa,
+        }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Falha na geração do resumo.");
+      }
       const json = await res.json();
       setAiSummary(json.resumo);
+      if (json.motor) setAiMotor(json.motor);
     } catch (err: any) {
       setAiError(err.message);
     } finally {
@@ -200,21 +212,28 @@ export default function BillReaderDashboard({ idDeputado, idProjeto }: { idDeput
           {aiSummary && (
             <div className="animate-in slide-in-from-bottom-4">
               <TerminalWindow 
-                title="Resumo Descomplicado"
+                title="Resumo"
                 icon={<Bot className="text-green-500 w-5 h-5 md:w-6 md:h-6" />}
                 className="p-4 md:p-8 bg-green-950/20"
                 scanline={false}
               >
-                <div className="absolute right-0 top-0 mt-4 mr-4 md:mt-8 md:mr-8 z-20">
+                <div className="flex items-center justify-between border-b border-green-900/50 pb-3 mb-4 gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    {aiMotor && (
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-green-400 bg-green-950 px-2 py-0.5 border border-green-800">
+                        ENGINE: {aiMotor}
+                      </span>
+                    )}
+                  </div>
                   <button 
                     onClick={handleCopy}
-                    className="p-2 border border-green-500/30 hover:bg-green-500/20 rounded-none text-green-500 transition-colors flex items-center gap-2 text-xs font-bold uppercase"
+                    className="px-3 py-1.5 border border-green-500/40 hover:bg-green-500/20 rounded-none text-green-400 hover:text-green-300 transition-colors flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider"
                   >
-                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {copied ? "Copiado" : "Copiar"}
+                    {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copied ? "Copiado" : "Copiar Resumo"}
                   </button>
                 </div>
-                <div className="prose prose-invert prose-p:text-green-300 prose-headings:text-green-400 prose-strong:text-green-400 prose-ul:text-green-300 max-w-none mt-4">
+                <div className="prose prose-invert prose-p:text-green-300 prose-headings:text-green-400 prose-strong:text-green-300 prose-ul:text-green-300 max-w-none">
                   <div dangerouslySetInnerHTML={{ __html: aiSummary }} />
                 </div>
               </TerminalWindow>
