@@ -40,10 +40,15 @@ describe('🔍 Regras de Extração e Ordenação (ETL)', () => {
             };
 
             // @ts-ignore
-            tse.fetchWithTimeout.mockResolvedValueOnce({
-                ok: true,
-                json: async () => mockApiResposta
-            });
+            tse.fetchWithTimeout
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => mockApiResposta
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => ({ dados: [] })
+                });
 
             const resultados = await buscarDespesasCamara(220560);
 
