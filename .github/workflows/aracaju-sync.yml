@@ -1,0 +1,39 @@
+name: ETL - Aracaju (CMA & Prefeitura)
+
+on:
+  schedule:
+    - cron: '0 22 * * 1-5' # 19h BRT (UTC-3) = 22h UTC, segunda a sexta
+  workflow_dispatch: # Permite disparo manual pelo GitHub Actions UI
+
+jobs:
+  etl-aracaju:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Rodar ETL Aracaju (CMA e Prefeitura)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NODE_TLS_REJECT_UNAUTHORIZED: '0'
+        run: npx tsx scripts/etl/aracaju-sync.ts
+
+      - name: Reportar resultado
+        if: always()
+        run: echo "ETL de Aracaju concluído em $(date '+%Y-%m-%d %H:%M:%S BRT')"

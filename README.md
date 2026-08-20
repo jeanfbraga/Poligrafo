@@ -13,20 +13,23 @@ O coração do sistema é uma **Pipeline de Inteligência Artificial em Cascata 
 
 ## 🔥 Funcionalidades Principais
 
-*   **🔍 Busca Multi-Câmara e Regional**: Busca automatizada em diversas esferas legislativas (Câmara, Senado, ALERJ, CMRJ) e verificação cruzada com Tribunais de Contas (TCE-SP, TCE-SC).
+*   **🔍 Busca Multi-Esfera e Autocomplete Integrado**: Busca com sugestões em tempo real para o Congresso Nacional (Câmara e Senado), Presidência, Governos Estaduais, Assembleias (ALERJ, ALESP) e Câmaras Municipais (ex: CMA / Aracaju, CMRJ / Rio de Janeiro, CMSP / São Paulo), com badges visuais de órgão e partido.
+*   **🏛️ Modelo de Dados Canônico Unificado**: Arquitetura escalável que unifica qualquer esfera pública em entidades normalizadas (`politicos`, `orgaos_publicos`, `mandatos`, `despesas_publicas`), permitindo cruzar fornecedores e empresas em qualquer município ou estado do Brasil.
 *   **⚖️ IA de Julgamento em Cascata (Score de Letalidade / Custo $0,00)**: Classificação automatizada de despesas e emendas centralizada em `src/services/ai/ai-models-config.ts`:
     *   **L1 (Groq Developer Free Tier)**: `groq/compound`, `openai/gpt-oss-120b`, `qwen/qwen3.6-27b` (200 RPM / 200k TPM).
     *   **L2 (OpenRouter Free Tier)**: Roteador automático `openrouter/free` + modelos com sufixo `:free`.
     *   **L3 (Google Gemini & Gemma)**: `gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-3.5-flash-lite`, `gemma-4-31b-it`.
     *   **L4 (Heurística Matemática Local)**: Classificação pericial offline via RegEx e análise estatística, caso nenhuma chave de IA esteja configurada.
-*   **⚠️ Alertas Judiciais e Fiscais**:
+*   **⚠️ Alertas Judiciais, Fiscais e Ambientais**:
     *   **DataJud (CNJ)**: Busca automática por **Ações Civis de Improbidade Administrativa** ligadas ao político.
     *   **CGU (Cadastro de Inidôneos)**: Alertas sobre empresas punidas (CEIS/CNEP).
+    *   **IBAMA & ANAC**: Infrações ambientais e aeronaves registradas (RAB).
+    *   **Tribunais de Contas (TCEs)**: Cruzamento de prestação de contas estaduais e municipais (TCE-SE, TCE-SP, TCE-SC, TCE-RJ...).
 *   **💸 Dossiê de Patrimônio**: Exibição centralizada dos bens declarados ao TSE e varredura de sócios.
 *   **🔗 Malha Societária Dinâmica**: Pivotamento societário automático (QSA) com 1 clique para rastrear donos de empresas suspeitas.
 *   **🕷️ Grafo Investigativo Interativo (React Flow)**: Canvas visual *drag-and-drop* para mapeamento da rede de corrupção ou influência.
 *   **📄 Exportação de Dossiês**: Geração de relatórios consolidados em PDF, DOCX ou XLSX para uso jornalístico ou legal.
-*   **⚡ Arquitetura Cache-First**: O sistema salva e restaura grafos inteiros localmente (com bypass automático e TTL), aliviando rate-limits das APIs governamentais, e cruza dados com os ETLs locais executados em background via GitHub Actions (ex.: `ceap_despesas_cache`, `cgu_sancoes_cache`).
+*   **⚡ Arquitetura Cache-First**: O sistema salva e restaura grafos inteiros localmente (com bypass automático e TTL), aliviando rate-limits das APIs governamentais, e cruza dados com os ETLs locais executados em background via GitHub Actions (ex.: `despesas_publicas`, `ceap_despesas_cache`, `cgu_sancoes_cache`).
 
 ---
 

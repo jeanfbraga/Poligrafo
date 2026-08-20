@@ -282,6 +282,7 @@ export async function buscarCandidatosEmCascata(params: IdentificacaoParams) {
 			municipaisPromises.push(buscarMunicipalMestre("PE", nomeParaBusca));
 			municipaisPromises.push(buscarMunicipalMestre("CE", nomeParaBusca));
 			municipaisPromises.push(buscarMunicipalMestre("PB", nomeParaBusca));
+			municipaisPromises.push(buscarMunicipalMestre("SE", nomeParaBusca));
 		}
 
 		const municipaisRes = await Promise.allSettled(municipaisPromises);

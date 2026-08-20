@@ -24,6 +24,10 @@ import {
 	buscarMunicipalSC,
 } from "../estados/sc/tce";
 import { buscarDespesasVereadorSP, buscarMunicipalSP } from "../estados/sp/tce";
+import {
+	buscarDespesasAracaju,
+	buscarMunicipalSE,
+} from "../estados/se/aracaju";
 import { buscarDespesasSE } from "../estados/se/tce";
 import { buscarDespesasTO } from "../estados/to/tce";
 import { buscarProxyOsint } from "../proxy_osint";
@@ -53,6 +57,8 @@ export async function buscarMunicipalMestre(uf: string, nomeBuscado: string) {
 			return await buscarMunicipalRS(nomeBuscado);
 		case "SC":
 			return await buscarMunicipalSC(nomeBuscado);
+		case "SE":
+			return await buscarMunicipalSE(nomeBuscado);
 		case "MG":
 		case "BA":
 		case "PR":
@@ -62,7 +68,6 @@ export async function buscarMunicipalMestre(uf: string, nomeBuscado: string) {
 		case "RN":
 		case "ES":
 		case "TO":
-		case "SE":
 			return await buscarMunicipalGenericoTSE(estado, nomeBuscado);
 		default:
 			console.warn(
@@ -248,13 +253,12 @@ export async function buscarDespesasMunicipalMestre(
 			return proxyResultTO.despesasFederais;
 		}
 		case "SE": {
-			if (municipioUri)
-				return await buscarDespesasSE(municipioUri, casa || "PREFEITURA");
-			console.log(
-				`[TCE-SE] Sem URI geográfica. Redirecionando para Proxy OSINT.`,
+			return await buscarDespesasAracaju(
+				identificador,
+				nomeParaBusca,
+				municipioUri,
+				casa,
 			);
-			const seProxy = await buscarProxyOsint(identificador, nomeParaBusca);
-			return seProxy.despesasFederais;
 		}
 		default:
 			console.warn(`[!] Motor de Despesas do TCE-${estado} não está mapeado.`);

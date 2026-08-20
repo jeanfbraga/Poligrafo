@@ -18,7 +18,9 @@
     "sync:perfil": "tsx scripts/etl/perfil-politico-sync.ts",
     "sync:votos": "tsx scripts/etl/votos-detalhados-sync.ts",
     "sync:producao": "tsx scripts/etl/producao-legislativa-sync.ts",
+    "sync:aracaju": "tsx scripts/etl/aracaju-sync.ts",
     "sync:cleanup": "tsx scripts/etl/cleanup-sync.ts",
+    "seed:canonical": "tsx scripts/etl/seed_canonical_tables.ts",
     "doctor": "tsx scripts/utils/doctor.ts"
   },
   "keywords": [

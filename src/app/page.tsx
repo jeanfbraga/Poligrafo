@@ -33,6 +33,7 @@ import MobileView from "@/components/layout/MobileView";
 import SearchBar from "@/components/search/SearchBar";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
+import municipaisIndex from "@/services/integrations/data/municipais-index.json";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatDateOnly } from "@/lib/utils";
 import "@xyflow/react/dist/style.css";
@@ -1182,6 +1183,9 @@ function DashboardArea() {
 			} else if (parts[0] === "PREFEITO") {
 				initialCargo = "PREFEITO";
 				initialUf = parts[1];
+			} else if (parts[1] === "VEREADOR" || parts[1] === "CAMARA_MUNICIPAL") {
+				initialCargo = "VEREADOR";
+				initialUf = parts[0];
 			}
 		}
 
@@ -1189,7 +1193,8 @@ function DashboardArea() {
 			.toLowerCase()
 			.normalize("NFD")
 			.replace(/[\u0300-\u036f]/g, "");
-		const matchedCandidate = congressoIndex.find(
+		const allIndexed = [...congressoIndex, ...municipaisIndex];
+		const matchedCandidate = allIndexed.find(
 			(p: any) =>
 				p.nome
 					.toLowerCase()
@@ -1205,7 +1210,9 @@ function DashboardArea() {
 						? "DEPUTADO FEDERAL"
 						: matchedCandidate.casa === "SENADO"
 							? "SENADOR"
-							: undefined;
+							: matchedCandidate.casa === "CAMARA_MUNICIPAL" || (matchedCandidate as any).cargo === "Vereador"
+								? "VEREADOR"
+								: (matchedCandidate as any).cargo || undefined;
 			}
 			if (!initialFoto && matchedCandidate.id) {
 				if (matchedCandidate.casa === "CAMARA") {

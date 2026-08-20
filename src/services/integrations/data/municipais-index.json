@@ -1,0 +1,259 @@
+[
+	{
+		"id": "elber-batalha-aracaju",
+		"nome": "Elber Batalha",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "PSB",
+		"orgao": "CMA"
+	},
+	{
+		"id": "ricardo-vasconcelos-aracaju",
+		"nome": "Ricardo Vasconcelos",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "PSD",
+		"orgao": "CMA"
+	},
+	{
+		"id": "nitinho-aracaju",
+		"nome": "Nitinho",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "PSD",
+		"orgao": "CMA"
+	},
+	{
+		"id": "sheyla-galba-aracaju",
+		"nome": "Sheyla Galba",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "CIDADANIA",
+		"orgao": "CMA"
+	},
+	{
+		"id": "fabiano-oliveira-aracaju",
+		"nome": "Fabiano Oliveira",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "PP",
+		"orgao": "CMA"
+	},
+	{
+		"id": "breno-garibalde-aracaju",
+		"nome": "Breno Garibalde",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "REDE",
+		"orgao": "CMA"
+	},
+	{
+		"id": "anderson-de-tuca-aracaju",
+		"nome": "Anderson de Tuca",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "UNIÃO",
+		"orgao": "CMA"
+	},
+	{
+		"id": "pastor-diego-aracaju",
+		"nome": "Pastor Diego",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "PP",
+		"orgao": "CMA"
+	},
+	{
+		"id": "sargento-byron-aracaju",
+		"nome": "Sargento Byron",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "MDB",
+		"orgao": "CMA"
+	},
+	{
+		"id": "professora-angela-aracaju",
+		"nome": "Professora Angela",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "PT",
+		"orgao": "CMA"
+	},
+	{
+		"id": "isac-silveira-aracaju",
+		"nome": "Isac Silveira",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "PDT",
+		"orgao": "CMA"
+	},
+	{
+		"id": "eduardo-lima-aracaju",
+		"nome": "Eduardo Lima",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "REPUBLICANOS",
+		"orgao": "CMA"
+	},
+	{
+		"id": "cicero-do-santa-maria-aracaju",
+		"nome": "Cícero do Santa Maria",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "PODEMOS",
+		"orgao": "CMA"
+	},
+	{
+		"id": "ricardo-marques-aracaju",
+		"nome": "Ricardo Marques",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "CIDADANIA",
+		"orgao": "CMA"
+	},
+	{
+		"id": "vinicius-porto-aracaju",
+		"nome": "Vinícius Porto",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "PDT",
+		"orgao": "CMA"
+	},
+	{
+		"id": "emilia-correa-aracaju",
+		"nome": "Emília Corrêa",
+		"casa": "PREFEITURA",
+		"cargo": "Prefeita",
+		"uf": "SE",
+		"municipio": "aracaju",
+		"partido": "PL",
+		"orgao": "Prefeitura de Aracaju"
+	},
+	{
+		"id": "fabio-mitidieri-se",
+		"nome": "Fábio Mitidieri",
+		"casa": "GOVERNO_ESTADUAL",
+		"cargo": "Governador",
+		"uf": "SE",
+		"partido": "PSD",
+		"orgao": "Governo de Sergipe"
+	},
+	{
+		"id": "eduardo-paes-rj",
+		"nome": "Eduardo Paes",
+		"casa": "PREFEITURA",
+		"cargo": "Prefeito",
+		"uf": "RJ",
+		"municipio": "rio-de-janeiro",
+		"partido": "PSD",
+		"orgao": "Prefeitura do Rio de Janeiro"
+	},
+	{
+		"id": "claudio-castro-rj",
+		"nome": "Cláudio Castro",
+		"casa": "GOVERNO_ESTADUAL",
+		"cargo": "Governador",
+		"uf": "RJ",
+		"partido": "PL",
+		"orgao": "Governo do Rio de Janeiro"
+	},
+	{
+		"id": "rick-azevedo-cmrj",
+		"nome": "Rick Azevedo",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "RJ",
+		"municipio": "rio-de-janeiro",
+		"partido": "PSOL",
+		"orgao": "CMRJ"
+	},
+	{
+		"id": "carlo-caiado-cmrj",
+		"nome": "Carlo Caiado",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "RJ",
+		"municipio": "rio-de-janeiro",
+		"partido": "PSD",
+		"orgao": "CMRJ"
+	},
+	{
+		"id": "carlos-bolsonaro-cmrj",
+		"nome": "Carlos Bolsonaro",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "RJ",
+		"municipio": "rio-de-janeiro",
+		"partido": "PL",
+		"orgao": "CMRJ"
+	},
+	{
+		"id": "tarcisio-de-freitas-sp",
+		"nome": "Tarcísio de Freitas",
+		"casa": "GOVERNO_ESTADUAL",
+		"cargo": "Governador",
+		"uf": "SP",
+		"partido": "REPUBLICANOS",
+		"orgao": "Governo de São Paulo"
+	},
+	{
+		"id": "ricardo-nunes-sp",
+		"nome": "Ricardo Nunes",
+		"casa": "PREFEITURA",
+		"cargo": "Prefeito",
+		"uf": "SP",
+		"municipio": "sao-paulo",
+		"partido": "MDB",
+		"orgao": "Prefeitura de São Paulo"
+	},
+	{
+		"id": "milton-leite-cmsp",
+		"nome": "Milton Leite",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SP",
+		"municipio": "sao-paulo",
+		"partido": "UNIÃO",
+		"orgao": "CMSP"
+	},
+	{
+		"id": "rubinho-nunes-cmsp",
+		"nome": "Rubinho Nunes",
+		"casa": "CAMARA_MUNICIPAL",
+		"cargo": "Vereador",
+		"uf": "SP",
+		"municipio": "sao-paulo",
+		"partido": "UNIÃO",
+		"orgao": "CMSP"
+	}
+]

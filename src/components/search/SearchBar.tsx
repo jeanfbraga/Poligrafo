@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
+import municipaisIndex from "@/services/integrations/data/municipais-index.json";
 
 const EXTRA_VIP_INDEX = [
 	{
@@ -82,6 +83,8 @@ const formatAutoRef = (p: any): string | undefined => {
 		return `GOVERNADOR:${p.uf || "BR"}:${p.id || p.nome}`;
 	if (p.casa === "PREFEITO" || p.casa === "PREFEITURA")
 		return `PREFEITO:${p.uf || "BR"}:${p.id || p.nome}`;
+	if (p.casa === "CAMARA_MUNICIPAL" || p.casa === "VEREADOR")
+		return `${p.uf || "SE"}:VEREADOR:${p.municipio || "aracaju"}:${p.id || p.nome}`;
 	return undefined;
 };
 
@@ -119,7 +122,7 @@ export default function SearchBar({
 			.normalize("NFD")
 			.replace(/[\u0300-\u036f]/g, "");
 		const searchTerms = termoNorm.split(/\s+/).filter(Boolean);
-		const matches = [...EXTRA_VIP_INDEX, ...congressoIndex].filter((p: any) => {
+		const matches = [...EXTRA_VIP_INDEX, ...congressoIndex, ...municipaisIndex].filter((p: any) => {
 			const nameNorm = p.nome
 				.toLowerCase()
 				.normalize("NFD")
@@ -295,7 +298,14 @@ export default function SearchBar({
 										</span>
 										<span className="font-bold">{p.nome}</span>
 									</span>
-									<span className="text-xs opacity-60">{p.uf}</span>
+									<span className="flex items-center gap-1.5 text-xs opacity-75">
+										{p.orgao && (
+											<span className="text-[10px] text-green-400 font-mono border border-green-800/60 bg-green-950/40 px-1 py-0.5">
+												{p.orgao}
+											</span>
+										)}
+										<span>{p.uf}</span>
+									</span>
 								</button>
 							))}
 						</div>
@@ -474,7 +484,12 @@ export default function SearchBar({
 								</span>
 								<span className="font-bold">{p.nome}</span>
 							</span>
-							<span className="flex items-center gap-2 text-xs opacity-60">
+							<span className="flex items-center gap-2 text-xs opacity-75">
+								{p.orgao && (
+									<span className="text-[10px] text-green-400 font-mono border border-green-800/60 bg-green-950/40 px-1.5 py-0.5">
+										{p.orgao}
+									</span>
+								)}
 								<span>{p.uf}</span>
 							</span>
 						</button>

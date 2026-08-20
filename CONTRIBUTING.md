@@ -34,34 +34,103 @@ Nosso sistema de IA de julgamento (Score de Letalidade) opera sob uma política 
 >
 > **Importante:** Se for alterar ou criar novos prompts de IA (em `src/services/ai/prompt-builder.ts` ou `ai_helpers.ts`), certifique-se de testar os prompts **em todos os níveis da cascata**. Modelos diferentes reagem de formas diferentes aos prompts de JSON estrito.
 
-### 2. Adicionando Novos Scrapers (Motores OSINT)
-O Polígrafo coleta dados de diversas casas legislativas e tribunais. Se você for adicionar uma nova fonte de dados:
-*   Coloque os scrapers estaduais/municipais na pasta `src/app/api/investigar/estados/[UF]/`. (Exemplo: `src/app/api/investigar/estados/rj/alerj.ts`).
-*   Scrapers de âmbito federal ou judicial geral (como CNJ/DataJud e CGU) devem ficar em `src/app/api/investigar/scrapers/`.
-*   Clients de APIs de dados devem ficar em `src/services/integrations/[fonte]/client.ts`.
-*   Todo novo *fetch* externo deve usar a função de utilidade `fetchWithTimeout` (exportada de `src/app/api/investigar/tse.ts`) para evitar travar as requisições *serverless* da Vercel.
-*   Respeite os rate limiters de `src/services/core/rate-limiter.ts`.
-*   Mantenha a segurança e higienize os dados contra injeção maliciosa e prompt injection.
+### 2. Arquitetura de Dados: Modelo Canônico Unificado vs Tabelas Específicas
+Para garantir escalabilidade nacional (5.570 municípios e 27 estados) sem explodir o número de tabelas no PostgreSQL, o Polígrafo adota um **Modelo Relacional Canônico Unificado**:
 
-### 3. Padrão Cache-First (Supabase como Insumos)
+```
+┌─────────────────┐       ┌─────────────────┐       ┌──────────────────────┐
+│    politicos    │──────<│    mandatos     │>──────│   orgaos_publicos    │
+└─────────────────┘       └─────────────────┘       └──────────────────────┘
+         │                         │                            │
+         │                         ▼                            │
+         │                ┌─────────────────┐                   │
+         └───────────────>│despesas_publicas│<──────────────────┘
+                          └─────────────────┘
+```
+
+1. **`politicos`**: Cadastro unificado de agentes públicos (`cpf`, `nome_civil`, `nome_urna`, `foto_url`, `biografia`).
+2. **`orgaos_publicos`**: Cadastro de órgãos dos 3 poderes e esferas (`esfera`, `poder`, `uf`, `municipio`, `sigla`, `cnpj`).
+3. **`mandatos`**: Vínculo histórico e atual de mandato entre político e órgão (`cargo`, `partido`, `ano_inicio`, `ano_fim`, `situacao`).
+4. **`despesas_publicas`**: Registro canônico unificado para qualquer despesa (CEAP federal, cotas de câmaras municipais, diárias, contratos).
+
+> **💡 Regra de Ouro da Escalabilidade:** Nunca crie uma nova tabela por cidade (`salvador_despesas`, `recife_despesas`). Novos dados municipais e estaduais devem alimentar preferencialmente as tabelas unificadas `despesas_publicas` e `politicos`, usando `orgao_id` e `mandato_id` para segmentação.
+
+---
+
+### 3. Guia Passo a Passo: Como Conectar um Novo Município ou Estado
+Para adicionar suporte a uma nova capital, câmara municipal ou assembleia legislativa (ex: Aracaju, Salvador, ALESP), siga este roteiro de 5 passos:
+
+#### Passo 1 — Criar o Extrator / Scraper Nativo
+Crie o arquivo em `src/app/api/investigar/estados/[uf]/[municipio].ts` (ou `tce.ts`):
+* Implemente `buscarMunicipal[UF](nomeBuscado)`: Resolve o candidato via TSE (`buscarCpfNoTSE`) para vereador (cargo 13) e prefeito (cargo 11).
+* Implemente `buscarDespesas[Municipio](identificador, nomeParaBusca, ...)`: Segue a estratégia híbrida:
+  1. Consulta `despesas_publicas` ou tabela de cache no Supabase (`supabaseAdmin`).
+  2. Faz fallback live para as APIs municipais ou do Tribunal de Contas estadual (TCE) usando `fetchWithTimeout`.
+  3. Formata os registros no formato canônico `{ tipoDespesa, fornecedor, cnpjFornecedor, valorLiquido, dataDocumento, descricao, urlDocumento }`.
+
+#### Passo 2 — Conectar ao Roteador Municipal Mestre
+No arquivo `src/app/api/investigar/municipios/router.ts`:
+* Importe seu extrator e adicione o case `"[UF]"` dentro de `buscarMunicipalMestre` e `buscarDespesasMunicipalMestre`.
+* Adicione a UF nas listas de varredura assíncrona de `src/services/core/identificacao-candidato.ts` e `investigador-principal.ts`.
+
+#### Passo 3 — Cadastrar Parlamentares no Autocomplete da SearchBar
+Adicione os vereadores ou prefeitos em `src/services/integrations/data/municipais-index.json`:
+```json
+{
+  "id": "nome-politico-municipio",
+  "nome": "Nome do Político",
+  "casa": "CAMARA_MUNICIPAL",
+  "cargo": "Vereador",
+  "uf": "SE",
+  "municipio": "aracaju",
+  "partido": "PSB",
+  "orgao": "CMA"
+}
+```
+Isso faz o político aparecer instantaneamente no autocomplete da busca com badge de identificação (ex: `[CMA - Aracaju / SE]`).
+
+#### Passo 4 — Criar o Script de ETL e Automação (Opcional)
+Se a câmara ou prefeitura disponibilizar dados abertos para download em lote:
+* Crie `scripts/etl/[municipio]-sync.ts` para baixar os dados e executar `upsert` no Supabase via `service_role`.
+* Crie `.github/workflows/[municipio]-sync.yml` configurando a execução agendada (ex: dias úteis).
+
+#### Passo 5 — Escrever Testes Automatizados (Vitest)
+Crie os testes cobrindo:
+* Resolução de candidatos e busca com cache hit/miss em `__tests__/estados/[uf].test.ts`.
+* Roteamento geográfico em `__tests__/unit/municipio-router-[uf].test.ts`.
+* Funções do ETL em `__tests__/unit/[municipio]-sync.test.ts`.
+
+---
+
+### 4. Adicionando Novos Scrapers Federais e Judiciais
+* Scrapers de âmbito federal ou judicial geral (como CNJ/DataJud e CGU) devem ficar em `src/app/api/investigar/scrapers/`.
+* Clients de APIs de dados externos devem ficar em `src/services/integrations/[fonte]/client.ts`.
+* Todo novo *fetch* externo DEVE usar a função `fetchWithTimeout` (exportada de `src/app/api/investigar/tse.ts`) para evitar travar as requisições *serverless* da Vercel.
+* Respeite os rate limiters de `src/services/core/rate-limiter.ts`.
+* Mantenha a segurança e higienize os dados contra injeção maliciosa e prompt injection.
+
+### 5. Padrão Cache-First (Supabase como Insumos)
 Ao criar novas integrações que alimentam a investigação, siga o padrão **cache-first** já extensamente implementado:
-1. **Cache-first**: consulta o Supabase primeiro (query indexada, sub-50ms). Ex: `ceap_despesas_cache`, `emendas_pix`.
+1. **Cache-first**: consulta o Supabase primeiro (query indexada, sub-50ms). Ex: `despesas_publicas`, `ceap_despesas_cache`, `emendas_pix`.
 2. **Fallback live**: se cache vazio ou stale, consulta a API original (TransfereGov, Dados Abertos, etc).
 3. **Write-back**: grava o resultado no cache para próximas buscas via ETLs em background.
 4. **Bypass de 24h**: O resultado completo de uma investigação (o grafo inteiro) fica armazenado na tabela `pesquisas`. Buscas pelo mesmo político dentro de 24h retornarão o grafo inteiro do banco instantaneamente, pulando até mesmo os *fallback lives* e requisições à IA, protegendo a cota das APIs externas.
 5. **Transparência**: emita evento SSE indicando a fonte (`[CACHE]` vs API) para visualização no frontend.
 
-### 4. Integração com Banco de Dados (Supabase) e ETLs
-*   **Acesso Seguro:** Operações críticas (gravação de alertas, sincronização massiva) devem ser feitas usando a `SUPABASE_SERVICE_ROLE_KEY` exclusivamente do lado do servidor.
-*   **Schema Único e Completo:** O arquivo [`supabase/schema.sql`](supabase/schema.sql) é 100% auto-contido e idempotente, provisionando todas as tabelas (investigação, OSINT e perfis parlamentares) em um único projeto Supabase.
-*   **Scripts de ETL (Sincronização em Lote):**
-    O projeto possui *pipelines* para baixar bases governamentais gigantes e popular o banco de dados. Eles ficam na pasta `scripts/etl/` (ex: `ibama-sync.ts`, `anac-sync.ts`, `cpgf-sync.ts`).
-    *   **Como testar/rodar os ETLs localmente:**
-        1. Certifique-se de que o seu `.env.local` possui as variáveis `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`.
-        2. Execute o script via *tsx* (que compila TypeScript on-the-fly). Exemplo:
-           `npx tsx scripts/etl/ibama-sync.ts`
-        3. **Atenção à Memória:** Nossos ETLs utilizam bibliotecas como `csv-parse` e `fs.createReadStream` para não estourar a memória (arquivos >100MB). Se for criar um novo ETL, evite carregar tudo em memória de uma vez (não use `.split('\n')`). Utilize `streams` e processe o envio para o Supabase em lotes (*batches*) de 500 a 1000 registros com `upsert`.
-    *   **Cross-platform:** Para download de arquivos, use detecção de plataforma (`process.platform === 'win32'` → `curl.exe`, senão → `curl`) para garantir compatibilidade com os runners Ubuntu do GitHub Actions.
+### 6. Integração com Banco de Dados (Supabase) e ETLs
+* **Acesso Seguro:** Operações críticas (gravação de alertas, sincronização massiva) devem ser feitas usando a `SUPABASE_SERVICE_ROLE_KEY` exclusivamente do lado do servidor.
+* **Schema Único e Completo:** O arquivo [`supabase/schema.sql`](supabase/schema.sql) é 100% auto-contido e idempotente, provisionando todas as tabelas (canônicas, investigação, OSINT e perfis parlamentares) em um único projeto Supabase.
+* **Ambiente Open Source (1 Banco) vs Produção (2 Bancos):**
+  * Para desenvolvimento e instâncias open source, **1 único banco Supabase gratuito** é suficiente.
+  * Em produção, o projeto separa o Banco Principal do Banco de Perfis para contornar limites de storage (500MB do free tier), com fallback automático em `src/lib/supabase-perfil.ts`.
+* **Scripts de ETL (Sincronização em Lote):**
+  O projeto possui *pipelines* para baixar bases governamentais gigantes e popular o banco de dados. Eles ficam na pasta `scripts/etl/` (ex: `ibama-sync.ts`, `anac-sync.ts`, `aracaju-sync.ts`, `cpgf-sync.ts`).
+  * **Como testar/rodar os ETLs localmente:**
+    1. Certifique-se de que o seu `.env.local` possui as variáveis `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`.
+    2. Execute o script via *tsx*:
+       `npx tsx scripts/etl/aracaju-sync.ts`
+    3. **Atenção à Memória:** Nossos ETLs utilizam bibliotecas como `csv-parse` e `fs.createReadStream` para não estourar a memória (arquivos >100MB). Utilize `streams` e processe o envio para o Supabase em lotes (*batches*) de 50 a 500 registros com `upsert`.
+  * **Cross-platform:** Para download de arquivos, use detecção de plataforma (`process.platform === 'win32'` → `curl.exe`, senão → `curl`) para garantir compatibilidade com os runners Ubuntu do GitHub Actions.
 
 ### 5. Componentes, UI e Design System
 *   Siga as convenções modernas do App Router do Next.js.

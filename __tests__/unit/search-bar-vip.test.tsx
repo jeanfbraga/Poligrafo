@@ -27,7 +27,7 @@ const Wrapper = () => {
     );
 };
 
-describe('SearchBar VIP e Inexata', () => {
+describe('SearchBar VIP e Municipal', () => {
     it('Deve encontrar Lula com digitação parcial e sugerir na interface', async () => {
         render(<Wrapper />);
 
@@ -40,4 +40,20 @@ describe('SearchBar VIP e Inexata', () => {
             expect(screen.getByText('Luiz Inácio Lula da Silva')).toBeInTheDocument();
         });
     });
+
+    it('Deve encontrar Elber Batalha no autocomplete com badge da CMA', async () => {
+        render(<Wrapper />);
+
+        const input = screen.getByPlaceholderText('ALVO: NOME DO POLÍTICO');
+        
+        fireEvent.focus(input);
+        fireEvent.change(input, { target: { value: 'Elber' } });
+        
+        await waitFor(() => {
+            expect(screen.getByText('Elber Batalha')).toBeInTheDocument();
+            expect(screen.getByText('CMA')).toBeInTheDocument();
+        });
+    });
 });
+
+

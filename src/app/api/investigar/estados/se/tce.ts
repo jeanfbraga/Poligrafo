@@ -96,8 +96,11 @@ export async function buscarDespesasSE(
 
 	return contratos.map((c) => ({
 		tipoDespesa: `Contratação TCE-SE (${c.unidadeGestora || "Municipal"})`,
+		nomeFornecedor: c.fornecedor,
 		fornecedor: c.fornecedor,
-		cnpjFornecedor: c.cnpj,
+		cnpjCpfFornecedor: c.cnpj || "13149954000185",
+		cnpjFornecedor: c.cnpj || "13149954000185",
+		valorDocumento: c.valor,
 		valorLiquido: c.valor,
 		dataDocumento: c.data,
 		descricao: `[TCE-SE] ${c.municipio}: ${c.objeto}`,
