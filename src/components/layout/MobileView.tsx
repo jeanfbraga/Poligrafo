@@ -1216,49 +1216,77 @@ export default function MobileView({
 											</div>
 										)}
 
-										{/* ===== AÇÃO: NOTA FISCAL (igual ao desktop) ===== */}
+										{sc.data?.descricao && (
+											<div className="p-2.5 bg-slate-900/60 border border-slate-800 rounded-sm">
+												<p className="text-[10px] uppercase font-bold opacity-50 mb-1">
+													OBJETO / FINALIDADE
+												</p>
+												<p className="text-xs text-slate-300 leading-relaxed">
+													{sc.data.descricao}
+												</p>
+											</div>
+										)}
+
+										{/* ===== AÇÃO: NOTA FISCAL / COMPROVAÇÃO (igual ao desktop) ===== */}
 										{sc.type === "DESPESA" && (
 											<div>
 												<p
 													className={`text-xs uppercase font-bold mb-2 border-b pb-1 ${dc.border} ${dc.label}`}
 												>
-													COMPROVAÇÃO FISCAL
+													COMPROVAÇÃO & REGISTRO OFICIAL
 												</p>
-												{sc.data?.urlDocumento ? (
+												{sc.data?.urlDocumento &&
+												(sc.data.urlDocumento.endsWith(".pdf") ||
+													sc.data.urlDocumento.includes("camara.leg.br") ||
+													sc.data.urlDocumento.includes("senado.leg.br")) ? (
 													<a
 														href={sc.data.urlDocumento}
 														target="_blank"
 														rel="noopener noreferrer"
 														className="flex w-full items-center justify-center p-3 border bg-blue-950/20 border-blue-900 text-blue-400 active:bg-blue-900/40 text-xs font-bold uppercase tracking-widest min-h-11"
 													>
-														<ExternalLink className="w-4 h-4 mr-2" /> VER NOTA
-														DIGITALIZADA
+														<ExternalLink className="w-4 h-4 mr-2" /> VER NOTA DIGITALIZADA (PDF)
 													</a>
 												) : (
 													<div className="space-y-2">
+														<div className="p-3 bg-slate-950 border border-slate-800 rounded-sm space-y-1.5">
+															<div className="flex justify-between items-center text-[11px]">
+																<span className="text-slate-500 uppercase">Processo:</span>
+																<span className="text-slate-300 font-mono font-bold">
+																	{sc.data?.numeroDocumento || "REGISTRO OFICIAL"}
+																</span>
+															</div>
+															<div className="flex justify-between items-center text-[11px]">
+																<span className="text-slate-500 uppercase">Órgão:</span>
+																<span className="text-slate-300 font-bold">
+																	{sc.data?.orgao || "MUNICIPAL"}
+																</span>
+															</div>
+															<div className="flex justify-between items-center text-[11px]">
+																<span className="text-slate-500 uppercase">Modalidade:</span>
+																<span className="text-slate-300">
+																	{sc.data?.modalidade || sc.data?.tipo || "Contrato"}
+																</span>
+															</div>
+														</div>
 														{(() => {
 															const fallback = getPortalTransparenciaFallback(
 																rootNode?.data?.casa as string | undefined,
 																rootNode?.data?.uri as string | undefined,
 															);
-															return (
-																<>
-																	<p className="text-[11px] text-slate-500 leading-tight mb-2">
-																		{fallback.mensagem}
-																	</p>
-																	{fallback.link !== "#" && (
-																		<a
-																			href={fallback.link}
-																			target="_blank"
-																			rel="noopener noreferrer"
-																			className="flex w-full items-center justify-center p-3 border bg-slate-900/50 border-slate-700 text-slate-300 active:bg-slate-800 text-xs font-bold uppercase tracking-widest min-h-11"
-																		>
-																			<ExternalLink className="w-4 h-4 mr-2" />{" "}
-																			{fallback.textoLink}
-																		</a>
-																	)}
-																</>
-															);
+															if (fallback.link !== "#") {
+																return (
+																	<a
+																		href={fallback.link}
+																		target="_blank"
+																		rel="noopener noreferrer"
+																		className="flex w-full items-center justify-center p-2.5 border bg-slate-900/50 border-slate-700 text-slate-300 active:bg-slate-800 text-xs font-bold uppercase tracking-widest min-h-11"
+																	>
+																		<ExternalLink className="w-3.5 h-3.5 mr-2" /> {fallback.textoLink}
+																	</a>
+																);
+															}
+															return null;
 														})()}
 													</div>
 												)}

@@ -44,6 +44,7 @@ import {
 	Building2,
 	DollarSign,
 	Download,
+	ExternalLink,
 	FileText,
 	History,
 	Landmark,
@@ -2584,52 +2585,57 @@ function DashboardArea() {
 											Data: {formatDateOnly(selectedNode.data.dataDocumento)}
 										</div>
 									)}
+									{selectedNode.data.descricao && (
+										<div className="text-xs text-slate-400 mt-2 p-2 bg-slate-900/60 border border-slate-800 rounded-xs leading-relaxed">
+											<span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+												Objeto / Finalidade:
+											</span>
+											{selectedNode.data.descricao}
+										</div>
+									)}
 								</SheetHeader>
 
 								<div className="space-y-6">
-									{/* Lógica do Botão da Nota Fiscal (Câmara vs Senado) */}
+									{/* Ficha Pericial e Comprovação Fiscal */}
 									<div>
 										<h3 className="text-xs uppercase font-bold text-slate-400 mb-2 border-b border-slate-800 pb-1">
-											Comprovação Fiscal
+											Comprovação & Registro Oficial
 										</h3>
-										{selectedNode.data.urlDocumento ? (
+										{selectedNode.data.urlDocumento &&
+										(selectedNode.data.urlDocumento.endsWith(".pdf") ||
+											selectedNode.data.urlDocumento.includes("camara.leg.br") ||
+											selectedNode.data.urlDocumento.includes("senado.leg.br")) ? (
 											<a
 												href={selectedNode.data.urlDocumento}
 												target="_blank"
 												rel="noopener noreferrer"
 												className="flex w-full items-center justify-center p-3 mt-2 border bg-blue-950/20 border-blue-900 text-blue-400 hover:bg-blue-900/40 hover:text-blue-300 transition-colors text-xs font-bold uppercase tracking-widest rounded-sm"
 											>
-												Ver Nota Digitalizada
+												<FileText className="w-4 h-4 mr-2" /> Ver Nota Fiscal Digitalizada (PDF)
 											</a>
 										) : (
-											<div className="space-y-2 mt-2">
-												{(() => {
-													const pessoaNode = nodes.find(
-														(n: any) => n.type === "PESSOA",
-													);
-													const fallback = getPortalTransparenciaFallback(
-														pessoaNode?.data?.casa as string | undefined,
-														pessoaNode?.data?.uri as string | undefined,
-													);
-
-													return (
-														<>
-															<p className="text-xs text-slate-500 leading-relaxed">
-																{fallback.mensagem}
-															</p>
-															{fallback.link !== "#" && (
-																<a
-																	href={fallback.link}
-																	target="_blank"
-																	rel="noopener noreferrer"
-																	className="flex w-full items-center justify-center p-3 border bg-slate-900/50 border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors text-xs font-bold uppercase tracking-widest rounded-sm"
-																>
-																	{fallback.textoLink}
-																</a>
-															)}
-														</>
-													);
-												})()}
+											<div className="p-3 bg-slate-950 border border-slate-800 rounded-sm space-y-2 mt-2">
+												<div className="flex justify-between items-center text-xs">
+													<span className="text-slate-500 uppercase">Documento / Processo:</span>
+													<span className="text-slate-300 font-mono font-bold">
+														{selectedNode.data.numeroDocumento || "REGISTRO OFICIAL"}
+													</span>
+												</div>
+												<div className="flex justify-between items-center text-xs">
+													<span className="text-slate-500 uppercase">Órgão Contratante:</span>
+													<span className="text-slate-300 font-bold">
+														{selectedNode.data.orgao || "MUNICIPAL"}
+													</span>
+												</div>
+												<div className="flex justify-between items-center text-xs">
+													<span className="text-slate-500 uppercase">Modalidade:</span>
+													<span className="text-slate-300">
+														{selectedNode.data.modalidade || selectedNode.data.tipo || "Contrato"}
+													</span>
+												</div>
+												<p className="text-[11px] text-slate-500 leading-tight pt-1 border-t border-slate-800/80">
+													Registro oficial consolidado via base de compras governamentais. Para auditar fornecedor e sócios, use o Dossiê Societário abaixo.
+												</p>
 											</div>
 										)}
 									</div>
@@ -2714,7 +2720,7 @@ function DashboardArea() {
 
 									{/* Botão para expandir malha societária (Pivot) */}
 									{selectedNode.data.documento &&
-										selectedNode.data.documento.length > 11 &&
+										selectedNode.data.documento.replace(/\D/g, "").length === 14 &&
 										!(
 											selectedNode.data.label
 												?.toUpperCase()
@@ -2742,7 +2748,7 @@ function DashboardArea() {
 																[selectedNode.id]: true,
 															}));
 															handlePivotCNPJ(
-																selectedNode.data.documento,
+																selectedNode.data.documento.replace(/\D/g, ""),
 																selectedNode.id,
 															);
 														}}
@@ -3280,6 +3286,51 @@ function DashboardArea() {
 								</SheetHeader>
 
 								<div className="space-y-6">
+									{/* Botão para expandir malha societária (Pivot) */}
+									{selectedNode.data.documento &&
+										(selectedNode.data.documento as string).replace(/\D/g, "").length === 14 &&
+										!(
+											selectedNode.data.label
+												?.toUpperCase()
+												.includes("ELEICAO") ||
+											selectedNode.data.label
+												?.toUpperCase()
+												.includes("CAMPANHA") ||
+											selectedNode.data.cnae?.toUpperCase().includes("CAMPANHA")
+										) && (
+											<div className="mt-8 pt-6 border-t border-slate-800">
+												<h3 className="text-xs uppercase font-bold text-blue-500 mb-2 border-b border-blue-900/50 pb-1 flex items-center gap-2">
+													<Briefcase className="w-4 h-4" /> Dossiê Societário
+												</h3>
+												<p className="text-xs text-slate-500 mb-3 leading-relaxed">
+													Deseja extrair os vínculos empresariais, sócios (QSA) e
+													o histórico de contratos públicos deste fornecedor?
+												</p>
+												{!expandedNodes[selectedNode.id] ? (
+													<Button
+														variant="outline"
+														className="w-full bg-blue-950/20 text-blue-400 border-blue-900 hover:bg-blue-900 hover:text-blue-300 rounded-none text-xs font-bold uppercase tracking-widest transition-all duration-300 group"
+														onClick={() => {
+															setExpandedNodes((prev) => ({
+																...prev,
+																[selectedNode.id]: true,
+															}));
+															handlePivotCNPJ(
+																(selectedNode.data.documento as string).replace(/\D/g, ""),
+																selectedNode.id,
+															);
+														}}
+													>
+														<Search className="mr-2 h-4 w-4" /> Aprofundar
+														Investigação
+													</Button>
+												) : (
+													<div className="w-full text-center p-3 border border-green-900/50 bg-green-950/10 text-green-500/80 text-xs font-mono uppercase tracking-widest">
+														[ DRILLDOWN CONCLUÍDO NO CANVAS ]
+													</div>
+												)}
+											</div>
+										)}
 									<div className="mt-8 pt-6 border-t border-slate-800">
 										<h3 className="text-xs uppercase font-bold text-purple-500 mb-2 border-b border-purple-900/50 pb-1 flex items-center gap-2">
 											<Users className="w-4 h-4" /> Busca Reversa

@@ -156,8 +156,14 @@ export async function buscarDespesasAracaju(
 						valorDocumento: valorNum,
 						valorLiquido: valorNum,
 						dataDocumento: r.data_despesa || "",
+						numeroDocumento: r.numero_documento || null,
+						orgao: r.orgao || "CMA",
+						modalidade: r.categoria_despesa || "Contrato",
 						descricao: r.descricao || `[${r.orgao}] Documento: ${r.numero_documento || "N/A"}`,
-						urlDocumento: r.fonte_url || "https://transparencia.aracaju.se.gov.br",
+						urlDocumento:
+							r.fonte_url && !r.fonte_url.includes("/api/api/")
+								? r.fonte_url
+								: null,
 					});
 				}
 
