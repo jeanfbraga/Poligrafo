@@ -18,6 +18,7 @@ import { createClient } from '@supabase/supabase-js';
 import { parse } from 'csv-parse';
 import dotenv from 'dotenv';
 import path from 'path';
+import { execSync } from 'child_process';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
@@ -39,13 +40,18 @@ const BATCH_SIZE = 1000;
 const ANO_INICIO_LEGISLATURA = 2023; // 57ª Legislatura
 const ANO_ATUAL = new Date().getFullYear();
 
+const DEFAULT_HEADERS = {
+    'Accept': 'application/json, text/csv, */*',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Poligrafo/1.0'
+};
+
 async function fetchWithRetry(url: string, retries = 5): Promise<Response> {
     for (let i = 0; i < retries; i++) {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 35000);
+        const timeout = setTimeout(() => controller.abort(), 45000);
         try {
             const res = await fetch(url, {
-                headers: { 'Accept': 'application/json, text/csv, */*' },
+                headers: DEFAULT_HEADERS,
                 signal: controller.signal
             });
             clearTimeout(timeout);
@@ -67,6 +73,37 @@ async function fetchWithRetry(url: string, retries = 5): Promise<Response> {
         }
     }
     throw new Error(`Falha após ${retries} tentativas: ${url}`);
+}
+
+/**
+ * Baixa conteúdo de texto/CSV com fallback para curl caso fetch nativo sofra timeout de conexão
+ */
+async function downloadTextWithFallback(url: string): Promise<string | null> {
+    try {
+        const res = await fetchWithRetry(url);
+        if (res.ok) {
+            return await res.text();
+        }
+        if (res.status === 404) {
+            console.warn(`[VOTOS SYNC] Arquivo não encontrado (HTTP 404): ${url}`);
+            return null;
+        }
+    } catch (fetchErr: any) {
+        console.warn(`[VOTOS SYNC] Fetch direto falhou (${fetchErr.message}). Tentando fallback com curl: ${url}`);
+        try {
+            const curlOutput = execSync(
+                `curl -s -f -L --connect-timeout 30 --max-time 120 -H "User-Agent: Mozilla/5.0 Poligrafo/1.0" "${url}"`,
+                { maxBuffer: 100 * 1024 * 1024, encoding: 'utf-8' }
+            );
+            if (curlOutput && curlOutput.trim().length > 0) {
+                console.log(`[VOTOS SYNC] Download via curl bem-sucedido (${(curlOutput.length / 1024).toFixed(0)} KB).`);
+                return curlOutput;
+            }
+        } catch (curlErr: any) {
+            console.error(`[VOTOS SYNC] Fallback com curl também falhou:`, curlErr.message);
+        }
+    }
+    return null;
 }
 
 async function carregarDeputadosValidos(): Promise<Set<number>> {
@@ -115,131 +152,134 @@ async function processarAnoCSV(ano: number, validDeputados: Set<number>): Promis
     const votacoesUrl = `${ARQUIVOS_BASE}/votacoes/csv/votacoes-${ano}.csv`;
     const votosUrl = `${ARQUIVOS_BASE}/votacoesVotos/csv/votacoesVotos-${ano}.csv`;
 
-    // 1. Download e parsing do CSV de Votações (Metadados)
-    console.log(`[VOTOS SYNC] Baixando metadados de votações: ${votacoesUrl}`);
-    const vRes = await fetchWithRetry(votacoesUrl);
-    if (!vRes.ok) {
-        console.warn(`[VOTOS SYNC] Arquivo de votações para ${ano} não encontrado (HTTP ${vRes.status}).`);
-        return { votacoesCount: 0, votosCount: 0 };
-    }
-
-    const vCsvText = await vRes.text();
-    const parserVotacoes = parse(vCsvText, {
-        delimiter: ';',
-        columns: true,
-        skip_empty_lines: true,
-        trim: true
-    });
-
-    const votacoesMasterMap = new Map<string, {
-        id_votacao: string;
-        id_proposicao: number | null;
-        projeto_nome: string;
-        projeto_tema: string;
-        data_votacao: string;
-    }>();
-
-    for await (const row of parserVotacoes) {
-        const idVotacao = row.id?.trim();
-        if (!idVotacao) continue;
-
-        const dataVotacao = row.dataHoraRegistro || row.data || `${ano}-01-01T00:00:00`;
-        const propIdNum = parseInt(row.ultimaApresentacaoProposicao_idProposicao, 10);
-        const id_proposicao = isNaN(propIdNum) || propIdNum <= 0 ? null : propIdNum;
-        const descricao = row.descricao || row.ultimaApresentacaoProposicao_descricao || "";
-        const projeto_nome = extrairProjetoNome(descricao, idVotacao);
-
-        votacoesMasterMap.set(idVotacao, {
-            id_votacao: idVotacao,
-            id_proposicao,
-            projeto_nome,
-            projeto_tema: descricao || "Votação em Plenário",
-            data_votacao: dataVotacao
-        });
-    }
-
-    console.log(`[VOTOS SYNC] ${votacoesMasterMap.size} votações carregadas do CSV para ${ano}.`);
-
-    // 2. Salvar Votações Master no Supabase em lotes
-    const masterEntries = Array.from(votacoesMasterMap.values());
-    for (let i = 0; i < masterEntries.length; i += BATCH_SIZE) {
-        const batch = masterEntries.slice(i, i + BATCH_SIZE);
-        const { error } = await supabaseAdmin
-            .from('camara_votacoes_master')
-            .upsert(batch, { onConflict: 'id_votacao' });
-        if (error) {
-            console.error(`[VOTOS SYNC] Erro ao salvar lote de votações master (${i}..${i + batch.length}):`, error.message);
-        }
-    }
-    console.log(`[VOTOS SYNC] ✅ Votações Master sincronizadas com sucesso para ${ano}.`);
-
-    // 3. Download e parsing em streaming do CSV de Votos Nominais
-    console.log(`[VOTOS SYNC] Baixando votos nominais dos deputados: ${votosUrl}`);
-    const vvRes = await fetchWithRetry(votosUrl);
-    if (!vvRes.ok) {
-        console.warn(`[VOTOS SYNC] Arquivo de votos para ${ano} não encontrado (HTTP ${vvRes.status}).`);
-        return { votacoesCount: votacoesMasterMap.size, votosCount: 0 };
-    }
-
-    const vvCsvText = await vvRes.text();
-    const parserVotos = parse(vvCsvText, {
-        delimiter: ';',
-        columns: true,
-        skip_empty_lines: true,
-        trim: true
-    });
-
-    let totalVotosLidos = 0;
-    let totalVotosSalvos = 0;
-    let votosBatch: Array<{ id_deputado: number; id_votacao: string; voto: string }> = [];
-
-    for await (const row of parserVotos) {
-        totalVotosLidos++;
-        const idVotacao = row.idVotacao?.trim();
-        const idDeputado = parseInt(row.deputado_id, 10);
-        const voto = row.voto?.trim() || "Votou";
-
-        if (!idVotacao || isNaN(idDeputado)) continue;
-
-        // Se houver lista de deputados cadastrados, filtra para manter consistência referencial
-        if (validDeputados.size > 0 && !validDeputados.has(idDeputado)) {
-            continue;
+    try {
+        // 1. Download e parsing do CSV de Votações (Metadados)
+        console.log(`[VOTOS SYNC] Baixando metadados de votações: ${votacoesUrl}`);
+        const vCsvText = await downloadTextWithFallback(votacoesUrl);
+        if (!vCsvText) {
+            console.warn(`[VOTOS SYNC] ⚠️ Metadados de votações para ${ano} indisponíveis via CSV. O sync continuará via API incremental.`);
+            return { votacoesCount: 0, votosCount: 0 };
         }
 
-        votosBatch.push({
-            id_deputado: idDeputado,
-            id_votacao: idVotacao,
-            voto: voto
+        const parserVotacoes = parse(vCsvText, {
+            delimiter: ';',
+            columns: true,
+            skip_empty_lines: true,
+            trim: true
         });
 
-        if (votosBatch.length >= BATCH_SIZE) {
+        const votacoesMasterMap = new Map<string, {
+            id_votacao: string;
+            id_proposicao: number | null;
+            projeto_nome: string;
+            projeto_tema: string;
+            data_votacao: string;
+        }>();
+
+        for await (const row of parserVotacoes) {
+            const idVotacao = row.id?.trim();
+            if (!idVotacao) continue;
+
+            const dataVotacao = row.dataHoraRegistro || row.data || `${ano}-01-01T00:00:00`;
+            const propIdNum = parseInt(row.ultimaApresentacaoProposicao_idProposicao, 10);
+            const id_proposicao = isNaN(propIdNum) || propIdNum <= 0 ? null : propIdNum;
+            const descricao = row.descricao || row.ultimaApresentacaoProposicao_descricao || "";
+            const projeto_nome = extrairProjetoNome(descricao, idVotacao);
+
+            votacoesMasterMap.set(idVotacao, {
+                id_votacao: idVotacao,
+                id_proposicao,
+                projeto_nome,
+                projeto_tema: descricao || "Votação em Plenário",
+                data_votacao: dataVotacao
+            });
+        }
+
+        console.log(`[VOTOS SYNC] ${votacoesMasterMap.size} votações carregadas do CSV para ${ano}.`);
+
+        // 2. Salvar Votações Master no Supabase em lotes
+        const masterEntries = Array.from(votacoesMasterMap.values());
+        for (let i = 0; i < masterEntries.length; i += BATCH_SIZE) {
+            const batch = masterEntries.slice(i, i + BATCH_SIZE);
+            const { error } = await supabaseAdmin
+                .from('camara_votacoes_master')
+                .upsert(batch, { onConflict: 'id_votacao' });
+            if (error) {
+                console.error(`[VOTOS SYNC] Erro ao salvar lote de votações master (${i}..${i + batch.length}):`, error.message);
+            }
+        }
+        console.log(`[VOTOS SYNC] ✅ Votações Master sincronizadas com sucesso para ${ano}.`);
+
+        // 3. Download e parsing em streaming do CSV de Votos Nominais
+        console.log(`[VOTOS SYNC] Baixando votos nominais dos deputados: ${votosUrl}`);
+        const vvCsvText = await downloadTextWithFallback(votosUrl);
+        if (!vvCsvText) {
+            console.warn(`[VOTOS SYNC] ⚠️ Votos nominais para ${ano} indisponíveis via CSV.`);
+            return { votacoesCount: votacoesMasterMap.size, votosCount: 0 };
+        }
+
+        const parserVotos = parse(vvCsvText, {
+            delimiter: ';',
+            columns: true,
+            skip_empty_lines: true,
+            trim: true
+        });
+
+        let totalVotosLidos = 0;
+        let totalVotosSalvos = 0;
+        let votosBatch: Array<{ id_deputado: number; id_votacao: string; voto: string }> = [];
+
+        for await (const row of parserVotos) {
+            totalVotosLidos++;
+            const idVotacao = row.idVotacao?.trim();
+            const idDeputado = parseInt(row.deputado_id, 10);
+            const voto = row.voto?.trim() || "Votou";
+
+            if (!idVotacao || isNaN(idDeputado)) continue;
+
+            // Se houver lista de deputados cadastrados, filtra para manter consistência referencial
+            if (validDeputados.size > 0 && !validDeputados.has(idDeputado)) {
+                continue;
+            }
+
+            votosBatch.push({
+                id_deputado: idDeputado,
+                id_votacao: idVotacao,
+                voto: voto
+            });
+
+            if (votosBatch.length >= BATCH_SIZE) {
+                const { error } = await supabaseAdmin
+                    .from('camara_votos_detalhados')
+                    .upsert(votosBatch, { onConflict: 'id_deputado,id_votacao' });
+                
+                if (error) {
+                    console.error(`[VOTOS SYNC] Erro ao salvar lote de votos:`, error.message);
+                } else {
+                    totalVotosSalvos += votosBatch.length;
+                }
+                votosBatch = [];
+            }
+        }
+
+        // Salvar remanescentes
+        if (votosBatch.length > 0) {
             const { error } = await supabaseAdmin
                 .from('camara_votos_detalhados')
                 .upsert(votosBatch, { onConflict: 'id_deputado,id_votacao' });
-            
             if (error) {
-                console.error(`[VOTOS SYNC] Erro ao salvar lote de votos:`, error.message);
+                console.error(`[VOTOS SYNC] Erro ao salvar lote final de votos:`, error.message);
             } else {
                 totalVotosSalvos += votosBatch.length;
             }
-            votosBatch = [];
         }
-    }
 
-    // Salvar remanescentes
-    if (votosBatch.length > 0) {
-        const { error } = await supabaseAdmin
-            .from('camara_votos_detalhados')
-            .upsert(votosBatch, { onConflict: 'id_deputado,id_votacao' });
-        if (error) {
-            console.error(`[VOTOS SYNC] Erro ao salvar lote final de votos:`, error.message);
-        } else {
-            totalVotosSalvos += votosBatch.length;
-        }
+        console.log(`[VOTOS SYNC] ✅ Ano ${ano}: ${totalVotosLidos} votos lidos do CSV, ${totalVotosSalvos} votos gravados.`);
+        return { votacoesCount: votacoesMasterMap.size, votosCount: totalVotosSalvos };
+    } catch (anoErr: any) {
+        console.warn(`[VOTOS SYNC] ⚠️ Falha ao processar CSV do ano ${ano}: ${anoErr.message}. O fluxo continuará com a API incremental.`);
+        return { votacoesCount: 0, votosCount: 0 };
     }
-
-    console.log(`[VOTOS SYNC] ✅ Ano ${ano}: ${totalVotosLidos} votos lidos do CSV, ${totalVotosSalvos} votos gravados.`);
-    return { votacoesCount: votacoesMasterMap.size, votosCount: totalVotosSalvos };
 }
 
 /**

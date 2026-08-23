@@ -14,6 +14,11 @@ jobs:
       matrix:
         node-version: [24.x]
 
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy_anon_key
+      SUPABASE_SERVICE_ROLE_KEY: dummy_service_role_key
+
     steps:
     - uses: actions/checkout@v4
     
@@ -28,9 +33,6 @@ jobs:
 
     - name: Check Formatting & Linting
       run: npm run lint
-      env:
-        NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
-        SUPABASE_SERVICE_ROLE_KEY: dummy_key
 
     - name: Type Check
       run: npx tsc --noEmit
