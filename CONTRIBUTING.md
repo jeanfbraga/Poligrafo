@@ -156,6 +156,7 @@ O projeto conta com 8 workflows automatizados (CEAP, CPGF, CMRJ, TSE Doadores, I
 *   Teste localmente com `npx tsx` antes de configurar o cron.
 *   Os workflows `camara-perfil-sync.yml` e `ceap-sync.yml` usam `concurrency` sem cancelar cargas em andamento. A etapa de detalhes das proposições recebe as mesmas variáveis opcionais `NEXT_PUBLIC_SUPABASE_PERFIL_URL` e `SUPABASE_PERFIL_SERVICE_ROLE_KEY` das etapas de perfil e produção.
 *   Perfil/produção reutilizam `.github/actions/camara-perfil-sync/action.yml`. O preflight `scripts/etl/camara-preflight.mjs` não acessa o banco e só permite outro runner para erros de transporte anteriores à carga. São no máximo dois runners sequenciais; a segunda falha permanece fatal. Não amplie `continue-on-error` para os ETLs.
+*   `proposicoes-detalhes-sync.ts` executa cinco proposições em paralelo e mantém as três consultas de cada proposição em sequência. Preserve esse limite para evitar que a carga inicial volte a ultrapassar os 60 minutos do job.
 
 ### 8. Arquivos Temporários e Sandbox
 Se precisar fazer testes locais, salvar resultados brutos de APIs ou analisar *payloads* em arquivos soltos (`.json`, `.csv`, etc.), **utilize a pasta `.sandbox/` na raiz do projeto**. Ela já está no `.gitignore` para evitar poluição do repositório e *commits* indesejados de dados de teste.

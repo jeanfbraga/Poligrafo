@@ -24,6 +24,20 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const API_BASE = "https://dadosabertos.camara.leg.br/api/v2";
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+const CONCORRENCIA = 5;
+
+export async function processarEmLotes<T>(
+    itens: T[],
+    concorrencia: number,
+    processar: (item: T) => Promise<void>,
+    pausaMs = 300,
+) {
+    if (!Number.isInteger(concorrencia) || concorrencia < 1) throw new Error('Concorrência inválida.');
+    for (let i = 0; i < itens.length; i += concorrencia) {
+        await Promise.all(itens.slice(i, i + concorrencia).map(processar));
+        if (i + concorrencia < itens.length && pausaMs > 0) await sleep(pausaMs);
+    }
+}
 
 async function fetchJson(url: string): Promise<any> {
     const json = await fetchCamaraJson(url);
@@ -59,16 +73,18 @@ export async function run() {
     console.log(`Projetos faltando (serão processados): ${missingIds.length}\n`);
 
     let falhas = 0;
-    for (let i = 0; i < missingIds.length; i++) {
-        const idProp = missingIds[i];
-        console.log(`[${i + 1}/${missingIds.length}] Processando Proposição ${idProp}...`);
+    let processadas = 0;
+
+    async function processarProposicao(idProp: string) {
+        const indice = ++processadas;
+        console.log(`[${indice}/${missingIds.length}] Processando Proposição ${idProp}...`);
 
         try {
             // 2. Buscar detalhes principais
             const detalhes = await fetchJson(`${API_BASE}/proposicoes/${idProp}`);
             if (!detalhes) {
                 console.log(`  - ❌ Proposição ${idProp} não encontrada na API da Câmara.`);
-                continue;
+                return;
             }
 
             // 3. Buscar autores
@@ -111,10 +127,10 @@ export async function run() {
             falhas++;
             console.error(`  - ❌ Erro inesperado no processamento do projeto ${idProp}:`, e.message);
         }
-
-        // Respeitar Rate Limit da Câmara (max ~3 requisições simultâneas por prop)
-        await sleep(500); 
     }
+
+    // Cinco proposições em paralelo, mantendo as três consultas de cada proposição sequenciais.
+    await processarEmLotes(missingIds, CONCORRENCIA, processarProposicao);
 
     if (falhas > 0) throw new Error(`Detalhes de proposições incompletos: ${falhas} projetos com falha.`);
     console.log("\n[PROPOSICOES DETALHES SYNC] Finalizado com sucesso!");
