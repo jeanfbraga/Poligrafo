@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 
 const BATCH_SIZE = 1000;
+const DELETE_BATCH_SIZE = 500;
 const MIN_REGISTROS_POR_ANO: Record<number, number> = { 2024: 100_000, 2025: 50_000 };
 const DOWNLOAD_DELAYS_MS = [15_000, 45_000, 90_000];
 type ResultadoAno = { success: boolean; count: number };
@@ -122,6 +123,40 @@ export async function validarCsv(csvPath: string, ano: number, minimo = minimoRe
 	return count;
 }
 
+export async function limparAno(client: ClienteCeap, ano: number): Promise<void> {
+	let ultimoIdRemovido = BigInt(0);
+	let total = 0;
+	while (true) {
+		// Limitar DELETE diretamente não é suportado por todas as versões do PostgREST.
+		// Seleciona uma faixa curta da PK para manter cada transação abaixo do timeout.
+		const { data, error: readError } = await client.from('ceap_despesas_cache')
+			.select('id').eq('ano', ano).eq('casa', 'CAMARA')
+			.order('id', { ascending: true }).limit(DELETE_BATCH_SIZE);
+		if (readError) throw new Error(`Falha ao listar cache de ${ano}: ${readError.message}`);
+		if (!Array.isArray(data)) throw new Error(`Resposta inválida ao listar cache de ${ano}.`);
+		if (data.length === 0) break;
+		const ids = data.map(({ id }: { id: number | string }) => {
+			if ((typeof id === 'number' && !Number.isSafeInteger(id)) || !/^[1-9]\d*$/.test(String(id))) {
+				throw new Error(`ID inválido no cache de ${ano}.`);
+			}
+			return BigInt(id);
+		});
+		if (ids[0] <= ultimoIdRemovido || ids.some((id, index) => index > 0 && id <= ids[index - 1])) {
+			throw new Error(`Limpeza de ${ano} sem progresso ou IDs fora de ordem; inserção interrompida.`);
+		}
+		const primeiroId = ids[0].toString();
+		const ultimoId = ids[ids.length - 1].toString();
+		// Repete ano/casa na exclusão para preservar Senado e outros anos nas lacunas da PK.
+		const { error: deleteError } = await client.from('ceap_despesas_cache').delete()
+			.eq('ano', ano).eq('casa', 'CAMARA').gte('id', primeiroId).lte('id', ultimoId);
+		if (deleteError) throw new Error(`Falha ao limpar lote de ${ano}: ${deleteError.message}`);
+		ultimoIdRemovido = ids[ids.length - 1];
+		total += ids.length;
+		if (total % 10_000 === 0) console.log(`[CEAP SYNC] ${ano}: ${total} registros antigos removidos.`);
+	}
+	console.log(`[CEAP SYNC] Limpeza de ${ano} concluída: ${total} registros removidos.`);
+}
+
 export async function runForYear(
 	ano: number,
 	client: ClienteCeap,
@@ -135,8 +170,7 @@ export async function runForYear(
 		// Duas passagens em stream: valida integralmente ANTES de apagar, sem reter o CSV na RAM.
 		const esperado = await validarCsv(csvPath, ano, minimo);
 		console.log(`[CEAP SYNC] CSV ${ano} validado: ${esperado} registros. Substituindo cache da Câmara...`);
-		const { error: deleteError } = await client.from('ceap_despesas_cache').delete().eq('ano', ano).eq('casa', 'CAMARA');
-		if (deleteError) throw new Error(`Falha ao limpar ${ano}: ${deleteError.message}`);
+		await limparAno(client, ano);
 		let batch: Despesa[] = [];
 		const insert = async () => {
 			const { error } = await client.from('ceap_despesas_cache').insert(batch);

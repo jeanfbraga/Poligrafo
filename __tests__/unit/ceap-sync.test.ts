@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { downloadAndExtractForYear, runForYear, runSync, validarCsv } from '../../scripts/etl/ceap-sync';
+import { downloadAndExtractForYear, limparAno, runForYear, runSync, validarCsv } from '../../scripts/etl/ceap-sync';
 
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn() }));
 vi.mock('@supabase/supabase-js', () => ({ createClient: vi.fn(() => { throw new Error('Banco real proibido no teste'); }) }));
@@ -20,13 +20,18 @@ function csv(contents: string): string {
 
 function clientMock() {
 	const insert = vi.fn().mockResolvedValue({ error: null });
-	const eqCasa = vi.fn().mockResolvedValue({ error: null });
+	const lte = vi.fn().mockResolvedValue({ error: null });
+	const gte = vi.fn().mockReturnValue({ lte });
+	const limit = vi.fn().mockResolvedValueOnce({ data: [{ id: 1 }], error: null }).mockResolvedValue({ data: [], error: null });
+	const order = vi.fn().mockReturnValue({ limit });
+	const eqCasa = vi.fn().mockReturnValue({ order, gte });
 	const eqAno = vi.fn().mockReturnValue({ eq: eqCasa });
 	const remove = vi.fn().mockReturnValue({ eq: eqAno });
-	const from = vi.fn().mockReturnValue({ delete: remove, insert });
+	const select = vi.fn().mockReturnValue({ eq: eqAno });
+	const from = vi.fn().mockReturnValue({ delete: remove, select, insert });
 	const rpc = vi.fn().mockResolvedValue({ error: null });
 	const client = { from, rpc } as unknown as Parameters<typeof runForYear>[1];
-	return { client, from, insert, remove, eqAno, eqCasa, rpc };
+	return { client, from, insert, remove, eqAno, eqCasa, rpc, limit, order, gte, lte };
 }
 
 beforeEach(() => {
@@ -118,9 +123,53 @@ describe('integridade e carga CEAP', () => {
 
 	it('interrompe inserção se a deleção falhar', async () => {
 		const db = clientMock();
-		db.eqCasa.mockResolvedValue({ error: { message: 'falha de permissão' } });
+		db.lte.mockResolvedValue({ error: { message: 'falha de permissão' } });
 		await expect(runForYear(2026, db.client, async () => csv(`${header}\n${row}`), 1)).resolves.toEqual({ success: false, count: 0 });
 		expect(db.insert).not.toHaveBeenCalled();
+	});
+
+	it('remove três lotes por faixas de PK e só insere após confirmar cache vazio', async () => {
+		const db = clientMock();
+		db.limit.mockReset()
+			.mockResolvedValueOnce({ data: [{ id: 1 }, { id: 5 }], error: null })
+			.mockResolvedValueOnce({ data: [{ id: 8 }, { id: 10 }], error: null })
+			.mockResolvedValueOnce({ data: [{ id: 15 }], error: null })
+			.mockResolvedValueOnce({ data: [], error: null });
+		await expect(runForYear(2026, db.client, async () => csv(`${header}\n${row}`), 1)).resolves.toEqual({ success: true, count: 1 });
+		expect(db.remove).toHaveBeenCalledTimes(3);
+		expect(db.limit).toHaveBeenCalledTimes(4);
+		expect(db.limit).toHaveBeenCalledWith(500);
+		expect(db.order).toHaveBeenCalledWith('id', { ascending: true });
+		expect(db.gte.mock.calls).toEqual([['id', '1'], ['id', '8'], ['id', '15']]);
+		expect(db.lte.mock.calls).toEqual([['id', '5'], ['id', '10'], ['id', '15']]);
+		expect(db.eqAno.mock.calls.every(call => call[0] === 'ano' && call[1] === 2026)).toBe(true);
+		expect(db.eqCasa.mock.calls.every(call => call[0] === 'casa' && call[1] === 'CAMARA')).toBe(true);
+		expect(db.insert.mock.invocationCallOrder[0]).toBeGreaterThan(db.limit.mock.invocationCallOrder[3]);
+	});
+
+	it('interrompe antes de inserir quando leitura de IDs falha após um lote removido', async () => {
+		const db = clientMock();
+		db.limit.mockReset()
+			.mockResolvedValueOnce({ data: [{ id: 1 }], error: null })
+			.mockResolvedValueOnce({ data: null, error: { message: 'timeout de leitura' } });
+		await expect(runForYear(2026, db.client, async () => csv(`${header}\n${row}`), 1)).resolves.toEqual({ success: false, count: 0 });
+		expect(db.remove).toHaveBeenCalledTimes(1);
+		expect(db.insert).not.toHaveBeenCalled();
+	});
+
+	it('detecta deleção sem progresso e não entra em loop infinito', async () => {
+		const db = clientMock();
+		db.limit.mockReset().mockResolvedValue({ data: [{ id: 1 }], error: null });
+		await expect(limparAno(db.client, 2026)).rejects.toThrow('sem progresso');
+		expect(db.remove).toHaveBeenCalledTimes(1);
+		expect(db.limit).toHaveBeenCalledTimes(2);
+	});
+
+	it('não interpreta resposta de leitura nula como cache vazio', async () => {
+		const db = clientMock();
+		db.limit.mockReset().mockResolvedValue({ data: null, error: null });
+		await expect(limparAno(db.client, 2026)).rejects.toThrow('Resposta inválida');
+		expect(db.remove).not.toHaveBeenCalled();
 	});
 
 	it('um lote falhado reprova o ano mesmo com contagem acima do mínimo', async () => {

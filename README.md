@@ -139,7 +139,7 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
 
     As consultas JSON dos ETLs de perfil e produção da Câmara usam timeout e fallback HTTPS com `curl`. Após recuperar uma falha nativa, reutilizam `curl` por cinco minutos para evitar repetir o timeout em cada deputado. Indisponibilidade após as tentativas encerra o script com erro, sem tratá-la como lista vazia. O workflow de perfis também enriquece os detalhes das proposições usando o mesmo banco de perfis.
 
-    O CEAP valida colunas, valores, ano e quantidade mínima do CSV inteiro antes de substituir os registros da Câmara. Downloads/extrações têm quatro tentativas; o workflow tem limite de 60 minutos e impede execuções simultâneas. Qualquer ano ou lote com falha impede a atualização das views. A substituição dos registros ainda ocorre em lotes, sem transação entre a exclusão e a inserção; uma falha de banco durante a carga exige nova sincronização.
+    O CEAP valida colunas, valores, ano e quantidade mínima do CSV inteiro antes de substituir os registros da Câmara. A exclusão usa lotes de até 500 registros para respeitar o tempo limite do Supabase. Downloads/extrações têm quatro tentativas; o workflow tem limite de 60 minutos e impede execuções simultâneas. Qualquer ano ou lote com falha impede a atualização das views. A substituição dos registros ainda ocorre em lotes, sem transação entre a exclusão e a inserção; uma falha de banco durante a carga exige nova sincronização.
 
 6. **Inicie o Servidor:**
    ```bash
