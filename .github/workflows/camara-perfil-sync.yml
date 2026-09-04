@@ -5,6 +5,10 @@ on:
     - cron: '0 5 * * *' # Run every day at 5 AM UTC (02:00 BRT - fora da janela de manutenção da Câmara)
   workflow_dispatch: # Allow manual trigger
 
+concurrency:
+  group: camara-perfil-sync
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -45,4 +49,6 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_PERFIL_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_PERFIL_URL }}
+          SUPABASE_PERFIL_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PERFIL_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/etl/proposicoes-detalhes-sync.ts

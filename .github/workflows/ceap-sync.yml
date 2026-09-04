@@ -5,10 +5,14 @@ on:
     - cron: '0 3 */3 * *' # Run every 3 days at 3 AM
   workflow_dispatch: # Allow manual trigger
 
+concurrency:
+  group: ceap-sync
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60 # Downloads com retry e carga de todos os anos
     permissions:
       contents: read
     steps:

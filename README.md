@@ -117,6 +117,8 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
    ```bash
     npx tsx scripts/etl/ceap-sync.ts             # Despesas CEAP (Câmara Federal)
     npx tsx scripts/etl/ceap-senado-sync.ts      # Despesas CEAP (Senado Federal)
+    npm run sync:perfil                         # Perfil político, gabinete e resumo CEAP
+    npm run sync:producao                       # Produção legislativa dos deputados
     npm run sync:votos                           # Votos nominais e votações (Dumps CSV + Delta API)
     npx tsx scripts/etl/frequencia-sync.ts       # Frequência em sessões
     npx tsx scripts/etl/votacoes-sync.ts         # Participação em votações
@@ -134,6 +136,10 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
     ```
 
     > Os ETLs de IBAMA, ANAC, SPU, CPGF, TSE, CGU, CEAP, Votos e Senado rodam automaticamente via GitHub Actions (com workflows dedicados e timeouts otimizados), mas podem ser forçados localmente rodando seus respectivos scripts `scripts/etl/*.ts`. O sincronizador de votos (`npm run sync:votos`) aceita flags `--ano [ANO]` e `--todos` para processar a 57ª Legislatura completa via dumps colunares em streaming.
+
+    As consultas JSON dos ETLs de perfil e produção da Câmara usam timeout e fallback HTTPS com `curl`. Após recuperar uma falha nativa, reutilizam `curl` por cinco minutos para evitar repetir o timeout em cada deputado. Indisponibilidade após as tentativas encerra o script com erro, sem tratá-la como lista vazia. O workflow de perfis também enriquece os detalhes das proposições usando o mesmo banco de perfis.
+
+    O CEAP valida colunas, valores, ano e quantidade mínima do CSV inteiro antes de substituir os registros da Câmara. Downloads/extrações têm quatro tentativas; o workflow tem limite de 60 minutos e impede execuções simultâneas. Qualquer ano ou lote com falha impede a atualização das views. A substituição dos registros ainda ocorre em lotes, sem transação entre a exclusão e a inserção; uma falha de banco durante a carga exige nova sincronização.
 
 6. **Inicie o Servidor:**
    ```bash

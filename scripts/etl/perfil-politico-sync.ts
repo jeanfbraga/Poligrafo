@@ -2,6 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import * as cheerio from 'cheerio';
+import { pathToFileURL } from 'node:url';
+import { fetchCamaraJson as fetchJson, exigirDeputados } from './camara-http';
+import { fetchWithTimeout } from '../../src/app/api/investigar/tse';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
@@ -37,36 +40,12 @@ const COTA_POR_UF: Record<string, number> = {
     'SP': 43236.43, 'TO': 45437.81
 };
 
-async function fetchJson(url: string, retries = 5, baseDelay = 3000): Promise<any> {
-    for (let i = 0; i < retries; i++) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
-        try {
-            const res = await fetch(url, {
-                headers: { 'Accept': 'application/json' },
-                signal: controller.signal
-            });
-            clearTimeout(timeout);
-            if (!res.ok) {
-                if (res.status === 404) return null;
-                throw new Error(`HTTP ${res.status}`);
-            }
-            return await res.json();
-        } catch (error: any) {
-            clearTimeout(timeout);
-            console.warn(`[PERFIL SYNC] Erro ao buscar ${url}: ${error.message}. Tentativa ${i + 1} de ${retries}...`);
-            if (i === retries - 1) return null;
-            await new Promise(resolve => setTimeout(resolve, baseDelay * (i + 1))); // Exponential backoff
-        }
-    }
-    return null;
-}
-
 async function scrapeGabinete(idDeputado: number) {
     const anoAtual = new Date().getFullYear();
     const url = `https://www.camara.leg.br/deputados/${idDeputado}/pessoal-gabinete?ano=${anoAtual}`;
     try {
-        const res = await fetch(url, {
+        const res = await fetchWithTimeout(url, {
+            timeout: 30000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
@@ -110,8 +89,7 @@ async function processarCotaCEAP(dep: any, anoAtual: number, mesAtual: number) {
         .eq('ano', anoAtual);
         
     if (error) {
-        console.error("Erro ao buscar CEAP no DB Principal:", error.message);
-        return;
+        throw new Error(`Erro ao buscar CEAP no DB Principal: ${error.message}`);
     }
 
     const batch = [];
@@ -151,16 +129,17 @@ async function processarCotaCEAP(dep: any, anoAtual: number, mesAtual: number) {
     }
 
     if (batch.length > 0) {
-        await supabasePerfil.from('camara_cota_resumo_cache').upsert(
+        const { error } = await supabasePerfil.from('camara_cota_resumo_cache').upsert(
             batch,
             { onConflict: 'deputado_id, ano_referencia, mes_referencia' }
         );
+        if (error) throw new Error(`Erro ao salvar resumo CEAP: ${error.message}`);
     }
 }
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function run() {
+export async function run() {
     console.log("[PERFIL SYNC] Iniciando sincronização de perfil completa...");
     
     // Código original mantido limpo
@@ -168,7 +147,7 @@ async function run() {
     try {
         console.log("[PERFIL SYNC] Buscando lista de deputados...");
         const depsReq = await fetchJson(`${API_BASE}/deputados`);
-        let deputados = depsReq.dados;
+        const deputados = exigirDeputados(depsReq);
         console.log(`[PERFIL SYNC] Encontrados ${deputados.length} deputados.`);
 
         const dataAtual = new Date();
@@ -181,6 +160,7 @@ async function run() {
             console.log(`[${count}/${deputados.length}] Sincronizando deputado ID ${dep.id} (${dep.nome})...`);
             
             const depDetailReq = await fetchJson(`${API_BASE}/deputados/${dep.id}`);
+            if (!depDetailReq?.dados) throw new Error(`Detalhes do deputado ${dep.id} indisponíveis; perfil preservado.`);
             const nomeCivil = depDetailReq?.dados?.nomeCivil || dep.nome;
             const nomeEleitoral = depDetailReq?.dados?.ultimoStatus?.nomeEleitoral || dep.nome;
 
@@ -193,7 +173,7 @@ async function run() {
             const profsReq = await fetchJson(`${API_BASE}/deputados/${dep.id}/profissoes`);
             const profissoes = profsReq?.dados?.map((p: any) => p.titulo) || [];
 
-            await supabasePerfil.from('camara_perfil_politico_cache').upsert(
+            const { error: perfilError } = await supabasePerfil.from('camara_perfil_politico_cache').upsert(
                 {
                     id_deputado: dep.id,
                     nome_civil: nomeCivil,
@@ -207,12 +187,15 @@ async function run() {
                 },
                 { onConflict: 'id_deputado' }
             );
+            if (perfilError) throw new Error(`Erro ao salvar perfil ${dep.id}: ${perfilError.message}`);
 
             console.log(`  - Extraindo servidores do gabinete (Scraping)...`);
             const servidores = await scrapeGabinete(dep.id);
             if (servidores.length > 0) {
-                await supabasePerfil.from('camara_servidores_gabinete').delete().eq('deputado_id', dep.id);
-                await supabasePerfil.from('camara_servidores_gabinete').insert(servidores);
+                const { error: deleteError } = await supabasePerfil.from('camara_servidores_gabinete').delete().eq('deputado_id', dep.id);
+                if (deleteError) throw new Error(`Erro ao limpar gabinete ${dep.id}: ${deleteError.message}`);
+                const { error: insertError } = await supabasePerfil.from('camara_servidores_gabinete').insert(servidores);
+                if (insertError) throw new Error(`Erro ao salvar gabinete ${dep.id}: ${insertError.message}`);
                 console.log(`  - ${servidores.length} servidores inseridos.`);
             } else {
                 console.log(`  - Nenhum servidor encontrado.`);
@@ -228,8 +211,10 @@ async function run() {
         console.log("[PERFIL SYNC] Finalizado com sucesso!");
     } catch (error) {
         console.error("[PERFIL SYNC] Erro fatal:", error);
-        process.exit(1);
+        throw error;
     }
 }
 
-run();
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+    run().catch(() => { process.exitCode = 1; });
+}

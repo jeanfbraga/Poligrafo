@@ -7,6 +7,8 @@
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import { resolve } from 'path';
+import { pathToFileURL } from 'node:url';
+import { fetchCamaraJson } from './camara-http';
 
 dotenv.config({ path: resolve(process.cwd(), '.env.local') });
 
@@ -23,33 +25,22 @@ const API_BASE = "https://dadosabertos.camara.leg.br/api/v2";
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-async function fetchJson(url: string, retries = 3): Promise<any> {
-    for (let i = 0; i < retries; i++) {
-        try {
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            if (!res.ok) {
-                if (res.status === 404) return null; // Não encontrou, não adianta tentar
-                throw new Error(`HTTP ${res.status}`);
-            }
-            const json = await res.json();
-            return json.dados;
-        } catch (e: any) {
-            console.warn(`[API Câmara] Erro ao acessar ${url}: ${e.message}. Tentativa ${i + 1}/${retries}`);
-            await sleep(2000 * (i + 1));
-        }
-    }
-    return null;
+async function fetchJson(url: string): Promise<any> {
+    const json = await fetchCamaraJson(url);
+    return json?.dados ?? null;
 }
 
-async function run() {
+export async function run() {
     console.log("\n[PROPOSICOES DETALHES SYNC] Iniciando atualização do cache estendido de projetos...");
 
     // 1. Levantar todos os projetos votados e de autoria (ID das proposições)
     console.log("Coletando IDs de projetos da produção legislativa...");
-    const { data: producao } = await supabase.from('camara_producao_legislativa').select('id_proposicao, titulo');
+    const { data: producao, error: producaoError } = await supabase.from('camara_producao_legislativa').select('id_proposicao, titulo');
+    if (producaoError) throw new Error(`Falha ao consultar produção: ${producaoError.message}`);
     
     console.log("Coletando IDs de projetos votados...");
-    const { data: votacoes } = await supabase.from('camara_votacoes_master').select('id_proposicao').not('id_proposicao', 'is', null);
+    const { data: votacoes, error: votacoesError } = await supabase.from('camara_votacoes_master').select('id_proposicao').not('id_proposicao', 'is', null);
+    if (votacoesError) throw new Error(`Falha ao consultar votações: ${votacoesError.message}`);
 
     const proposicoesSet = new Set<string>();
     producao?.forEach(p => proposicoesSet.add(p.id_proposicao));
@@ -59,13 +50,15 @@ async function run() {
     console.log(`\nTotal de projetos únicos encontrados: ${totalIds.length}`);
 
     // Verificar quais já estão no cache
-    const { data: cached } = await supabase.from('camara_proposicoes_detalhes_cache').select('id_proposicao');
+    const { data: cached, error: cacheError } = await supabase.from('camara_proposicoes_detalhes_cache').select('id_proposicao');
+    if (cacheError) throw new Error(`Falha ao consultar cache: ${cacheError.message}`);
     const cachedIds = new Set(cached?.map(c => c.id_proposicao) || []);
 
     const missingIds = totalIds.filter(id => !cachedIds.has(id));
     console.log(`Projetos já cacheados: ${cachedIds.size}`);
     console.log(`Projetos faltando (serão processados): ${missingIds.length}\n`);
 
+    let falhas = 0;
     for (let i = 0; i < missingIds.length; i++) {
         const idProp = missingIds[i];
         console.log(`[${i + 1}/${missingIds.length}] Processando Proposição ${idProp}...`);
@@ -109,11 +102,13 @@ async function run() {
                 .upsert(record);
 
             if (upsertError) {
+                falhas++;
                 console.error(`  - ❌ Erro ao salvar ${idProp} no Supabase:`, upsertError.message);
             } else {
                 console.log(`  - ✅ Salvo com sucesso (${record.titulo}).`);
             }
         } catch (e: any) {
+            falhas++;
             console.error(`  - ❌ Erro inesperado no processamento do projeto ${idProp}:`, e.message);
         }
 
@@ -121,7 +116,13 @@ async function run() {
         await sleep(500); 
     }
 
+    if (falhas > 0) throw new Error(`Detalhes de proposições incompletos: ${falhas} projetos com falha.`);
     console.log("\n[PROPOSICOES DETALHES SYNC] Finalizado com sucesso!");
 }
 
-run();
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+    run().catch(error => {
+        console.error('[PROPOSICOES DETALHES SYNC] Erro fatal:', error);
+        process.exitCode = 1;
+    });
+}

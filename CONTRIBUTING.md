@@ -131,6 +131,8 @@ Ao criar novas integrações que alimentam a investigação, siga o padrão **ca
        `npx tsx scripts/etl/aracaju-sync.ts`
     3. **Atenção à Memória:** Nossos ETLs utilizam bibliotecas como `csv-parse` e `fs.createReadStream` para não estourar a memória (arquivos >100MB). Utilize `streams` e processe o envio para o Supabase em lotes (*batches*) de 50 a 500 registros com `upsert`.
   * **Cross-platform:** Para download de arquivos, use detecção de plataforma (`process.platform === 'win32'` → `curl.exe`, senão → `curl`) para garantir compatibilidade com os runners Ubuntu do GitHub Actions.
+  * **Câmara (perfil/produção/detalhes):** Reutilize `scripts/etl/camara-http.ts`. O cliente limita a leitura do JSON, usa `curl` como fallback e retorna `null` apenas para HTTP 404. Falhas de rede não podem virar coleções vazias salvas no cache. Falhas de leitura/gravação devem resultar em código de saída não zero.
+  * **CEAP:** Valide o CSV completo antes da exclusão, preserve `vlrLiquido` e restrinja a substituição a `casa = CAMARA`. Não atualize views após carga parcial. As gravações em lote não são transacionais; evite reexecuções concorrentes. Teste downloads, validação e erros com mocks, sem mutar o Supabase de produção.
 
 ### 5. Componentes, UI e Design System
 *   Siga as convenções modernas do App Router do Next.js.
@@ -151,6 +153,7 @@ O projeto conta com 8 workflows automatizados (CEAP, CPGF, CMRJ, TSE Doadores, I
 *   **Sempre** utilize `npm ci` ao invés de `npm install` para garantir execuções consistentes e aderentes ao `package-lock.json`.
 *   Nunca commite secrets — use `gh secret set` e referencie via `${{ secrets.NOME }}`.
 *   Teste localmente com `npx tsx` antes de configurar o cron.
+*   Os workflows `camara-perfil-sync.yml` e `ceap-sync.yml` usam `concurrency` sem cancelar cargas em andamento. A etapa de detalhes das proposições recebe as mesmas variáveis opcionais `NEXT_PUBLIC_SUPABASE_PERFIL_URL` e `SUPABASE_PERFIL_SERVICE_ROLE_KEY` das etapas de perfil e produção.
 
 ### 8. Arquivos Temporários e Sandbox
 Se precisar fazer testes locais, salvar resultados brutos de APIs ou analisar *payloads* em arquivos soltos (`.json`, `.csv`, etc.), **utilize a pasta `.sandbox/` na raiz do projeto**. Ela já está no `.gitignore` para evitar poluição do repositório e *commits* indesejados de dados de teste.
