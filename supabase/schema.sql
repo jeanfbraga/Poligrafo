@@ -241,6 +241,8 @@ CREATE TABLE IF NOT EXISTS public.ceap_despesas_cache (
 
 CREATE INDEX IF NOT EXISTS idx_ceap_id_deputado ON public.ceap_despesas_cache (id_deputado);
 CREATE INDEX IF NOT EXISTS idx_ceap_ano ON public.ceap_despesas_cache (ano);
+-- Filtro ano/casa e paginação ordenada por ID usados na limpeza em lotes do CEAP.
+CREATE INDEX IF NOT EXISTS idx_ceap_ano_casa_id ON public.ceap_despesas_cache (ano, casa, id);
 
 ALTER TABLE public.ceap_despesas_cache ENABLE ROW LEVEL SECURITY;
 

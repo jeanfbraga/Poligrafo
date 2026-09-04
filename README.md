@@ -141,6 +141,8 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
 
     O CEAP valida colunas, valores, ano e quantidade mínima do CSV inteiro antes de substituir os registros da Câmara. A exclusão usa lotes de até 500 registros para respeitar o tempo limite do Supabase. Downloads/extrações têm quatro tentativas; o workflow tem limite de 60 minutos e impede execuções simultâneas. Qualquer ano ou lote com falha impede a atualização das views. A substituição dos registros ainda ocorre em lotes, sem transação entre a exclusão e a inserção; uma falha de banco durante a carga exige nova sincronização.
 
+    Em bancos existentes, aplique [`scripts/sql/migracao_indice_ceap_sync.sql`](scripts/sql/migracao_indice_ceap_sync.sql) no banco principal antes da carga CEAP. O índice `(ano, casa, id)` permite selecionar e excluir os lotes sem varrer registros de outros anos; novas instalações já o recebem pelo `schema.sql`.
+
 6. **Inicie o Servidor:**
    ```bash
    npm run dev

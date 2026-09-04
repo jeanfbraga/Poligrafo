@@ -133,6 +133,7 @@ Ao criar novas integrações que alimentam a investigação, siga o padrão **ca
   * **Cross-platform:** Para download de arquivos, use detecção de plataforma (`process.platform === 'win32'` → `curl.exe`, senão → `curl`) para garantir compatibilidade com os runners Ubuntu do GitHub Actions.
   * **Câmara (perfil/produção/detalhes):** Reutilize `scripts/etl/camara-http.ts`. O cliente limita a leitura do JSON, usa `curl` como fallback e retorna `null` apenas para HTTP 404. Falhas de rede não podem virar coleções vazias salvas no cache. Falhas de leitura/gravação devem resultar em código de saída não zero.
   * **CEAP:** Valide o CSV completo antes da exclusão, preserve `vlrLiquido` e restrinja a substituição a `casa = CAMARA`. Não atualize views após carga parcial. As gravações em lote não são transacionais; evite reexecuções concorrentes. Teste downloads, validação e erros com mocks, sem mutar o Supabase de produção.
+  * **Índice do CEAP:** Instalações existentes devem aplicar `scripts/sql/migracao_indice_ceap_sync.sql` no banco principal. O índice `(ano, casa, id)`, também no schema completo, atende à seleção ordenada e à exclusão dos lotes. Ao investigar lentidão, confira o plano real com `EXPLAIN`.
 
 ### 5. Componentes, UI e Design System
 *   Siga as convenções modernas do App Router do Next.js.
