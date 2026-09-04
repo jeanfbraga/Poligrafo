@@ -1,0 +1,49 @@
+name: Sincronizar perfil e produção da Câmara
+description: Valida a conexão antes de executar os três ETLs no mesmo runner.
+inputs:
+  allow-runner-retry:
+    description: Permite solicitar outro runner exclusivamente para falha de rede no preflight.
+    default: 'false'
+outputs:
+  retryable:
+    description: Indica falha de rede anterior a qualquer gravação.
+    value: ${{ steps.preflight.outputs.retryable }}
+runs:
+  using: composite
+  steps:
+    - name: Preparar Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        cache: npm
+
+    - name: Verificar conexão com a Câmara antes das gravações
+      id: preflight
+      continue-on-error: ${{ inputs.allow-runner-retry == 'true' }}
+      shell: bash
+      run: node scripts/etl/camara-preflight.mjs
+
+    - name: Reprovar preflight sem falha de rede recuperável
+      if: steps.preflight.outcome == 'failure' && steps.preflight.outputs.retryable != 'true'
+      shell: bash
+      run: exit 1
+
+    - name: Instalar dependências
+      if: steps.preflight.outcome == 'success'
+      shell: bash
+      run: npm ci
+
+    - name: Sincronizar perfis
+      if: steps.preflight.outcome == 'success'
+      shell: bash
+      run: npm run sync:perfil
+
+    - name: Sincronizar produção legislativa
+      if: steps.preflight.outcome == 'success'
+      shell: bash
+      run: npm run sync:producao
+
+    - name: Sincronizar detalhes das proposições
+      if: steps.preflight.outcome == 'success'
+      shell: bash
+      run: npx tsx scripts/etl/proposicoes-detalhes-sync.ts

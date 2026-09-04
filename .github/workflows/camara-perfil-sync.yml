@@ -15,40 +15,40 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+    outputs:
+      retryable: ${{ steps.sync.outputs.retryable }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Sincronizar no primeiro runner
+        id: sync
+        uses: ./.github/actions/camara-perfil-sync
         with:
-          node-version: '24'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run Perfil Sync
+          allow-runner-retry: 'true'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NEXT_PUBLIC_SUPABASE_PERFIL_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_PERFIL_URL }}
           SUPABASE_PERFIL_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PERFIL_SERVICE_ROLE_KEY }}
-        run: npm run sync:perfil
 
-      - name: Run Producao Sync
+  retry-network:
+    needs: sync
+    if: needs.sync.result == 'success' && needs.sync.outputs.retryable == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sincronizar em outro runner após falha de conexão sem gravações
+        uses: ./.github/actions/camara-perfil-sync
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NEXT_PUBLIC_SUPABASE_PERFIL_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_PERFIL_URL }}
           SUPABASE_PERFIL_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PERFIL_SERVICE_ROLE_KEY }}
-        run: npm run sync:producao
-        
-      - name: Run Proposicoes Detalhes Sync
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          NEXT_PUBLIC_SUPABASE_PERFIL_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_PERFIL_URL }}
-          SUPABASE_PERFIL_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PERFIL_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/etl/proposicoes-detalhes-sync.ts
