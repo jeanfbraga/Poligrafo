@@ -167,6 +167,29 @@ function aplicarBensCacheNaFicha(
 	});
 }
 
+async function persistirBensHistoricosTSE(cpfLimpo: string, nomePolitico: string, tseData: any): Promise<void> {
+	const docLimpo = cpfLimpo.replace(/\D/g, "");
+	if (!docLimpo || docLimpo.length !== 11 || docLimpo === "00000000000") return;
+
+	try {
+		const { error } = await supabaseAdmin
+			.from("tse_bens_historico")
+			.upsert(
+				{
+					cpf_candidato: docLimpo,
+					nome_candidato: nomePolitico,
+					ano_eleicao: tseData.anoEleicao || 2026,
+					valor_total: tseData.patrimonioTotal,
+					descricao_bens: tseData.bensDeclarados || [],
+				},
+				{ onConflict: "cpf_candidato,ano_eleicao" },
+			);
+		if (error) console.warn("[TSE] Erro ao persistir bens históricos no Supabase:", error.message);
+	} catch (e: any) {
+		console.warn("[TSE] Falha ao persistir bens históricos:", e?.message || e);
+	}
+}
+
 export async function resolverPatrimonioTSE(
 	fichaPolitico: any,
 	tseData: any,
@@ -176,6 +199,7 @@ export async function resolverPatrimonioTSE(
 ): Promise<void> {
 	if (tseData?.patrimonioTotal !== undefined && tseData.patrimonioTotal > 0) {
 		aplicarDadosTseNaFicha(fichaPolitico, tseData);
+		void persistirBensHistoricosTSE(cpfLimpo, nomePolitico, tseData);
 		return;
 	}
 

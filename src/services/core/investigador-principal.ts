@@ -92,6 +92,38 @@ function isNodeBemLegado(node: any): boolean {
 	return objeto.startsWith("Total de Bens");
 }
 
+async function consultarBensTSEParaReidratacao(pessoa: any): Promise<any[]> {
+	const { buscarBensHistoricoTSE, buscarBensPorNomeTSE } = await import(
+		"@/services/integrations/tse/bens"
+	);
+	const cpf = pessoa.data?.cpf?.replace(/\D/g, "");
+	if (cpf && cpf.length === 11 && cpf !== "00000000000") {
+		const bensCpf = await buscarBensHistoricoTSE(cpf);
+		if (bensCpf.length > 0) return bensCpf;
+	}
+	if (pessoa.data?.label) {
+		return buscarBensPorNomeTSE(pessoa.data.label);
+	}
+	return [];
+}
+
+function aplicarBensNoPessoaNode(pessoa: any, bens: any[]): void {
+	if (!bens || bens.length === 0 || !bens[0].valor_total) return;
+	pessoa.data.patrimonio = Number(bens[0].valor_total) || 0;
+	pessoa.data.anoPatrimonio = bens[0].ano_eleicao;
+	pessoa.data.bensDeclarados = bens[0].descricao_bens || [];
+}
+
+async function reidratarPessoaCacheSeNecessario(cachedNodes: any[]): Promise<void> {
+	const pessoa = cachedNodes.find((n: any) => n.type === "PESSOA");
+	if (!pessoa || (pessoa.data?.patrimonio && pessoa.data.patrimonio > 0)) return;
+
+	try {
+		const bens = await consultarBensTSEParaReidratacao(pessoa);
+		aplicarBensNoPessoaNode(pessoa, bens);
+	} catch {}
+}
+
 // eslint-disable-next-line complexity
 export async function executarInvestigacaoPrincipal(params: any) {
 	const {
@@ -469,6 +501,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 							return true;
 						});
 
+						await reidratarPessoaCacheSeNecessario(cachedNodes);
+
 						for (const node of cachedNodes) {
 							sendEvent("NODE_NOVO", node);
 						}
@@ -834,7 +868,11 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				cargo: cargoDisplay,
 				idLegislatura: deputadoBasico.idLegislatura,
 				casa: deputadoBasico.casa,
-				patrimonio: fichaPolitico.patrimonioTotal ?? tseData?.patrimonioTotal ?? 0,
+				patrimonio: (fichaPolitico.patrimonioTotal && fichaPolitico.patrimonioTotal > 0)
+					? fichaPolitico.patrimonioTotal
+					: (tseData?.patrimonioTotal && tseData.patrimonioTotal > 0)
+						? tseData.patrimonioTotal
+						: (fichaPolitico.patrimonioTotal ?? tseData?.patrimonioTotal ?? 0),
 				anoPatrimonio: fichaPolitico.anoPatrimonio || tseData?.anoEleicao || 2026,
 				patrimonioAnterior: fichaPolitico.patrimonioAnterior ?? tseData?.patrimonioAnterior,
 				anoPatrimonioAnterior: fichaPolitico.anoPatrimonioAnterior || tseData?.anoPatrimonioAnterior,

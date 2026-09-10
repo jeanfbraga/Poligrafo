@@ -44,12 +44,34 @@ function mesclarPerfilComIndex(perfilData: any, info: any) {
   };
 }
 
+function obterFallbackClient(primaryClient: any) {
+  if (primaryClient === supabasePerfilAdmin && supabaseAdmin !== supabasePerfilAdmin) {
+    return supabaseAdmin;
+  }
+  if (primaryClient === supabaseAdmin && supabasePerfilAdmin !== supabaseAdmin) {
+    return supabasePerfilAdmin;
+  }
+  return null;
+}
+
 async function buscarPerfilBasico(supabase: any, idDeputadoNum: number, idDeputado: string) {
-  const { data: perfilData } = await supabase
+  let { data: perfilData } = await supabase
     .from("camara_perfil_politico_cache")
     .select("*")
     .eq("id_deputado", idDeputadoNum)
     .single();
+
+  const fallback = obterFallbackClient(supabase);
+  if (!perfilData && fallback) {
+    const res = await fallback
+      .from("camara_perfil_politico_cache")
+      .select("*")
+      .eq("id_deputado", idDeputadoNum)
+      .single();
+    if (res.data) {
+      perfilData = res.data;
+    }
+  }
 
   const info = (congressoIndex as any[]).find((p: any) => String(p.id) === idDeputado);
   if (!perfilData && !info) return null;
@@ -58,14 +80,7 @@ async function buscarPerfilBasico(supabase: any, idDeputadoNum: number, idDeputa
   return mesclarPerfilComIndex(perfilData, info);
 }
 
-async function buscarVotosDeputado(supabase: any, idDeputadoNum: number) {
-  const { data, error } = await supabase
-    .from("camara_votos_detalhados")
-    .select("id_votacao, voto, camara_votacoes_master (id_proposicao, projeto_nome, projeto_tema, data_votacao)")
-    .eq("id_deputado", idDeputadoNum);
-
-  if (error || !data || data.length === 0) return [];
-
+function formatarVotosDeputado(data: any[]) {
   return data.map((v: any) => ({
     id_votacao: v.id_votacao,
     voto: v.voto,
@@ -80,23 +95,74 @@ async function buscarVotosDeputado(supabase: any, idDeputadoNum: number) {
   });
 }
 
+async function buscarVotosComFallback(supabase: any, idDeputadoNum: number) {
+  let { data, error } = await supabase
+    .from("camara_votos_detalhados")
+    .select("id_votacao, voto, camara_votacoes_master (id_proposicao, projeto_nome, projeto_tema, data_votacao)")
+    .eq("id_deputado", idDeputadoNum);
+
+  const fallback = obterFallbackClient(supabase);
+  if ((error || !data || data.length === 0) && fallback) {
+    const res = await fallback
+      .from("camara_votos_detalhados")
+      .select("id_votacao, voto, camara_votacoes_master (id_proposicao, projeto_nome, projeto_tema, data_votacao)")
+      .eq("id_deputado", idDeputadoNum);
+    if (!res.error && res.data && res.data.length > 0) {
+      data = res.data;
+    }
+  }
+
+  return data || [];
+}
+
+async function buscarVotosDeputado(supabase: any, idDeputadoNum: number) {
+  const data = await buscarVotosComFallback(supabase, idDeputadoNum);
+  if (data.length === 0) return [];
+  return formatarVotosDeputado(data);
+}
+
 async function buscarProducaoDeputado(supabase: any, idDeputadoNum: number) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("camara_producao_legislativa")
     .select("*")
     .eq("id_deputado", idDeputadoNum)
     .order("ano", { ascending: false });
+
+  const fallback = obterFallbackClient(supabase);
+  if ((error || !data || data.length === 0) && fallback) {
+    const res = await fallback
+      .from("camara_producao_legislativa")
+      .select("*")
+      .eq("id_deputado", idDeputadoNum)
+      .order("ano", { ascending: false });
+    if (!res.error && res.data && res.data.length > 0) {
+      data = res.data;
+      error = null;
+    }
+  }
 
   if (error || !data) return [];
   return data;
 }
 
 async function buscarServidoresDeputado(supabase: any, idDeputadoNum: number) {
-  const { data } = await supabase
+  let { data } = await supabase
     .from("camara_servidores_gabinete")
     .select("*")
     .eq("deputado_id", idDeputadoNum)
     .order("nome", { ascending: true });
+
+  const fallback = obterFallbackClient(supabase);
+  if ((!data || data.length === 0) && fallback) {
+    const res = await fallback
+      .from("camara_servidores_gabinete")
+      .select("*")
+      .eq("deputado_id", idDeputadoNum)
+      .order("nome", { ascending: true });
+    if (res.data && res.data.length > 0) {
+      data = res.data;
+    }
+  }
 
   return data || [];
 }
@@ -141,12 +207,25 @@ async function buscarCotaFallback(idDeputadoNum: number) {
 }
 
 async function buscarCotaDeputado(supabase: any, idDeputadoNum: number) {
-  const { data } = await supabase
+  let { data } = await supabase
     .from("camara_cota_resumo_cache")
     .select("*")
     .eq("deputado_id", idDeputadoNum)
     .order("ano_referencia", { ascending: true })
     .order("mes_referencia", { ascending: true });
+
+  const fallback = obterFallbackClient(supabase);
+  if ((!data || data.length === 0) && fallback) {
+    const res = await fallback
+      .from("camara_cota_resumo_cache")
+      .select("*")
+      .eq("deputado_id", idDeputadoNum)
+      .order("ano_referencia", { ascending: true })
+      .order("mes_referencia", { ascending: true });
+    if (res.data && res.data.length > 0) {
+      data = res.data;
+    }
+  }
 
   if (data && data.length > 0) return data;
   return buscarCotaFallback(idDeputadoNum);
