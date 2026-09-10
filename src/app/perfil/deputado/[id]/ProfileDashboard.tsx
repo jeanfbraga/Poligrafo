@@ -12,6 +12,44 @@ import { SiteHeader } from "@/components/layout/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
+function hasPerfilData(json: any): boolean {
+  if (!json) return false;
+  if (json.perfil) return true;
+  if (Array.isArray(json.votos) && json.votos.length > 0) return true;
+  return Boolean(Array.isArray(json.producao) && json.producao.length > 0);
+}
+
+function buildFallbackPerfil(idDeputado: string, searchParams?: Record<string, string | string[] | undefined>) {
+  const nomeStr = typeof searchParams?.nome === "string" ? searchParams.nome : undefined;
+  const partidoStr = typeof searchParams?.partido === "string" ? searchParams.partido : "N/A";
+  const ufStr = typeof searchParams?.uf === "string" ? searchParams.uf : "BR";
+
+  return {
+    id_deputado: idDeputado,
+    nome_civil: nomeStr,
+    nome_eleitoral: nomeStr,
+    partido: partidoStr,
+    uf: ufStr,
+    frentes_parlamentares: [],
+    comissoes: [],
+    profissoes: []
+  };
+}
+
+function enrichPerfilFallback(json: any, idDeputado: string, searchParams?: Record<string, string | string[] | undefined>) {
+  if (!searchParams?.nome) return;
+  const nomeStr = typeof searchParams.nome === "string" ? searchParams.nome : "";
+
+  if (!json.perfil) {
+    json.perfil = buildFallbackPerfil(idDeputado, searchParams);
+    return;
+  }
+  if (!json.perfil.nome_civil && !json.perfil.nome_eleitoral) {
+    json.perfil.nome_civil = nomeStr;
+    json.perfil.nome_eleitoral = nomeStr;
+  }
+}
+
 export default function ProfileDashboard({ 
   idDeputado, 
   searchParams 
@@ -31,32 +69,11 @@ export default function ProfileDashboard({
         if (!res.ok) throw new Error("Falha ao buscar dados do perfil.");
         const json = await res.json();
         
-        const hasDbData = json && (json.perfil || json.votos?.length > 0 || json.producao?.length > 0);
-        
-        // Se não houver dados no banco E não houver nome nos searchParams, aí sim quebramos
-        if (!hasDbData && !searchParams?.nome) {
+        if (!hasPerfilData(json) && !searchParams?.nome) {
           throw new Error(`Nenhum dado encontrado para o Parlamentar (ID: ${idDeputado}). O banco de dados pode ainda não ter sido sincronizado pela inteligência artificial.`);
         }
         
-        // Cria um perfil de fallback caso não exista no DB
-        if (!json.perfil && searchParams?.nome) {
-            json.perfil = {
-                id_deputado: idDeputado,
-                nome_civil: searchParams.nome,
-                nome_eleitoral: searchParams.nome,
-                partido: searchParams.partido || "N/A",
-                uf: searchParams.uf || "BR",
-                frentes_parlamentares: [],
-                comissoes: [],
-                profissoes: []
-            };
-        } else if (json.perfil && searchParams?.nome) {
-            if (!json.perfil.nome_civil && !json.perfil.nome_eleitoral) {
-                json.perfil.nome_civil = searchParams.nome;
-                json.perfil.nome_eleitoral = searchParams.nome;
-            }
-        }
-        
+        enrichPerfilFallback(json, idDeputado, searchParams);
         setData(json);
       } catch (err: any) {
         setError(err.message);
@@ -65,7 +82,7 @@ export default function ProfileDashboard({
       }
     }
     fetchData();
-  }, [idDeputado, searchParams?.nome, searchParams?.partido, searchParams?.uf]);
+  }, [idDeputado, searchParams]);
 
   if (loading) {
     return (
@@ -129,7 +146,13 @@ export default function ProfileDashboard({
         </div>
 
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-700">
-          {data.perfil && <ProfileHeader perfil={data.perfil} idDeputado={idDeputado} />}
+          {data.perfil && (
+            <ProfileHeader 
+              perfil={data.perfil} 
+              idDeputado={idDeputado} 
+              fotoUrl={typeof searchParams?.foto === "string" ? searchParams.foto : undefined} 
+            />
+          )}
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
             <VotingHistory votos={data.votos} idDeputado={idDeputado} />

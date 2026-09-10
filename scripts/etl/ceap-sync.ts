@@ -47,6 +47,7 @@ export async function downloadAndExtractForYear(
 			console.log(`[CEAP SYNC] Download ${ano}, tentativa ${tentativa + 1}/4: ${url}`);
 			execFileSync(process.platform === 'win32' ? 'curl.exe' : 'curl', [
 				'--fail', '--location', '--silent', '--show-error',
+				'--user-agent', 'Poligrafo-Bot/1.0 (Auditoria Publica)',
 				'--proto', '=https', '--proto-redir', '=https',
 				'--max-time', '180', '--connect-timeout', '45',
 				'--output', zipPath, url,
@@ -63,6 +64,51 @@ export async function downloadAndExtractForYear(
 		}
 	}
 	throw new Error(`Download de ${ano} não concluído.`);
+}
+
+function extrairCadastroId(record: RegistroCsv): number | null {
+	const cadastro = record.txIdCadastro || record.ideCadastro;
+	if (!cadastro?.trim()) return null;
+	const id = Number(cadastro);
+	return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function extrairValorLiquido(liquidoRaw?: string): number | null {
+	const liquido = liquidoRaw?.trim();
+	if (!liquido) return null;
+	const valor = Number(liquido.replace(',', '.'));
+	return Number.isFinite(valor) ? valor : null;
+}
+
+function extrairDocFornecedor(doc?: string): string | null {
+	if (!doc) return null;
+	return doc.replace(/\D/g, '') || null;
+}
+
+function validarAnoEValor(recordYear: number, ano: number, valor: number | null): void {
+	if (recordYear !== ano || valor === null) {
+		throw new Error(`Registro CEAP inválido para ${ano}: cadastro, ano ou vlrLiquido inconsistente.`);
+	}
+}
+
+function parseRegistroCeap(record: RegistroCsv, ano: number): Despesa | null {
+	const id = extrairCadastroId(record);
+	if (id === null) return null;
+
+	const valor = extrairValorLiquido(record.vlrLiquido);
+	validarAnoEValor(Number(record.numAno), ano, valor);
+
+	return {
+		id_deputado: id,
+		casa: 'CAMARA',
+		ano,
+		cnpj_cpf_fornecedor: extrairDocFornecedor(record.txtCNPJCPF),
+		nome_fornecedor: record.txtFornecedor || 'Desconhecido',
+		tipo_despesa: record.txtDescricao || 'Despesa CEAP',
+		valor_documento: valor as number,
+		data_documento: record.datEmissao || null,
+		url_documento: record.urlDocumento || null,
+	};
 }
 
 async function* lerRegistros(csvPath: string, ano: number): AsyncGenerator<Despesa> {
@@ -85,28 +131,10 @@ async function* lerRegistros(csvPath: string, ano: number): AsyncGenerator<Despe
 	input.pipe(parser);
 	try {
 		for await (const row of parser) {
-			const record = row as RegistroCsv;
-			const cadastro = record.txIdCadastro || record.ideCadastro;
-			// Lideranças e outros registros sem deputado não pertencem a este cache.
-			if (!cadastro?.trim()) continue;
-			const id = Number(cadastro);
-			const recordYear = Number(record.numAno);
-			const liquido = record.vlrLiquido?.trim();
-			const valor = Number(liquido?.replace(',', '.'));
-			if (!Number.isInteger(id) || id <= 0 || recordYear !== ano || !liquido || !Number.isFinite(valor)) {
-				throw new Error(`Registro CEAP inválido para ${ano}: cadastro, ano ou vlrLiquido inconsistente.`);
+			const despesa = parseRegistroCeap(row as RegistroCsv, ano);
+			if (despesa) {
+				yield despesa;
 			}
-			yield {
-				id_deputado: id,
-				casa: 'CAMARA',
-				ano,
-				cnpj_cpf_fornecedor: record.txtCNPJCPF ? record.txtCNPJCPF.replace(/\D/g, '') : null,
-				nome_fornecedor: record.txtFornecedor || 'Desconhecido',
-				tipo_despesa: record.txtDescricao || 'Despesa CEAP',
-				valor_documento: valor,
-				data_documento: record.datEmissao || null,
-				url_documento: record.urlDocumento || null,
-			};
 		}
 	} finally {
 		input.destroy();

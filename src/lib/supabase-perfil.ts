@@ -10,8 +10,18 @@ const keyPerfil = process.env.SUPABASE_PERFIL_SERVICE_ROLE_KEY;
 const urlPrincipal = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const keyPrincipal = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const targetUrl = urlPerfil || urlPrincipal;
-const targetKey = keyPerfil || keyPrincipal;
+// REGRA DE SEGURANÇA E INTEGRIDADE:
+// Exige o par completo (URL + Service Key) para usar o banco dedicado de perfis.
+// Evita misturar a URL de um projeto com a chave de outro projeto (erro de JWT / 401).
+const hasFullPerfil = Boolean(urlPerfil && keyPerfil);
+const targetUrl = hasFullPerfil ? urlPerfil! : urlPrincipal;
+const targetKey = hasFullPerfil ? keyPerfil! : keyPrincipal;
+
+if (urlPerfil && !keyPerfil) {
+	console.warn(
+		"[SUPABASE PERFIL] NEXT_PUBLIC_SUPABASE_PERFIL_URL definida sem SUPABASE_PERFIL_SERVICE_ROLE_KEY. Usando banco principal como fallback seguro.",
+	);
+}
 
 if (!targetUrl || !targetKey) {
 	console.error(

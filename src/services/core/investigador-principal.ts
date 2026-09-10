@@ -82,6 +82,16 @@ import {
 	gerarResumoEmendasPIX,
 } from "../integrations/transferegov/client";
 
+function isNodeBemLegado(node: any): boolean {
+	const id = String(node?.id || "");
+	if (id.startsWith("bens-") || id.startsWith("bem-")) return true;
+	if (node?.data?.codigo === "TSE-BENS") return true;
+	const label = String(node?.data?.label || "");
+	if (label.startsWith("BEM DECLARADO:") || label === "Patrimônio Declarado (TSE)") return true;
+	const objeto = String(node?.data?.objeto || "");
+	return objeto.startsWith("Total de Bens");
+}
+
 // eslint-disable-next-line complexity
 export async function executarInvestigacaoPrincipal(params: any) {
 	const {
@@ -452,18 +462,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 
 						const nodesLegadosIgnorados = new Set<string>();
 						const cachedNodes = (cacheData.grafo_dados.nodes || []).filter((node: any) => {
-							const label = String(node.data?.label || "");
-							const codigo = String(node.data?.codigo || "");
-							const id = String(node.id || "");
-							const objeto = String(node.data?.objeto || "");
-							if (
-								label.startsWith("BEM DECLARADO:") ||
-								codigo === "TSE-BENS" ||
-								label === "Patrimônio Declarado (TSE)" ||
-								objeto.startsWith("Total de Bens") ||
-								id.startsWith("bens-") ||
-								id.startsWith("bem-")
-							) {
+							if (isNodeBemLegado(node)) {
 								nodesLegadosIgnorados.add(node.id);
 								return false;
 							}
@@ -501,49 +500,62 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			// Extrair prefixos e chamar a API correta
 			if (forceRef?.startsWith("FEDERAL:CAMARA:")) {
 				const idRef = forceRef.split(":")[2];
-				deputadoBasico = await buscarPolitico(`id=${idRef}`);
-				if (deputadoBasico) {
-					(deputadoBasico as any).id = idRef;
-					deputadoBasico.casa = "CAMARA";
-				} else {
-					console.warn(
-						`[CÂMARA] buscarPolitico falhou (timeout/erro) para id=${idRef}. Buscando no índice local...`,
-					);
-					const localMatch = congressoIndex.find(
-						(p: any) => String(p.id) === String(idRef),
-					);
+				const localMatch = (congressoIndex as any[]).find(
+					(p: any) => String(p.id) === String(idRef),
+				);
+				if (localMatch) {
 					deputadoBasico = {
 						id: idRef,
 						uri: `https://dadosabertos.camara.leg.br/api/v2/deputados/${idRef}`,
-						nome:
-							localMatch?.nome || (nomeBruto || nomeParaBusca).toUpperCase(),
-						uf: localMatch?.uf || ufScope || "BR",
+						nome: localMatch.nome,
+						uf: localMatch.uf || ufScope || "BR",
 						idLegislatura: 57,
 						casa: "CAMARA",
 					};
+				} else {
+					deputadoBasico = await buscarPolitico(`id=${idRef}`);
+					if (deputadoBasico) {
+						(deputadoBasico as any).id = idRef;
+						deputadoBasico.casa = "CAMARA";
+					} else {
+						deputadoBasico = {
+							id: idRef,
+							uri: `https://dadosabertos.camara.leg.br/api/v2/deputados/${idRef}`,
+							nome: (nomeBruto || nomeParaBusca).toUpperCase(),
+							uf: ufScope || "BR",
+							idLegislatura: 57,
+							casa: "CAMARA",
+						};
+					}
 				}
 			} else if (forceRef?.startsWith("FEDERAL:SENADO:")) {
 				const idRef = forceRef.split(":")[2];
-				const senadoresAll = await buscarSenadoresLista(nomeParaBusca);
-				deputadoBasico =
-					senadoresAll.find((s) => String(s.id) === idRef) || null;
-				if (!deputadoBasico) {
-					console.warn(
-						`[SENADO] buscarSenadoresLista falhou ou ID não achado para id=${idRef}. Buscando no índice local...`,
-					);
-					const localMatchSenado = congressoIndex.find(
-						(p: any) => String(p.id) === String(idRef),
-					);
+				const localMatchSenado = (congressoIndex as any[]).find(
+					(p: any) => String(p.id) === String(idRef),
+				);
+				if (localMatchSenado) {
 					deputadoBasico = {
 						id: idRef,
 						uri: `https://www25.senado.leg.br/web/senadores/senador/-/perfil/${idRef}`,
-						nome:
-							localMatchSenado?.nome ||
-							(nomeBruto || nomeParaBusca).toUpperCase(),
-						uf: localMatchSenado?.uf || ufScope || "BR",
+						nome: localMatchSenado.nome,
+						uf: localMatchSenado.uf || ufScope || "BR",
 						idLegislatura: 57,
 						casa: "SENADO",
 					};
+				} else {
+					const senadoresAll = await buscarSenadoresLista(nomeParaBusca);
+					deputadoBasico =
+						senadoresAll.find((s) => String(s.id) === idRef) || null;
+					if (!deputadoBasico) {
+						deputadoBasico = {
+							id: idRef,
+							uri: `https://www25.senado.leg.br/web/senadores/senador/-/perfil/${idRef}`,
+							nome: (nomeBruto || nomeParaBusca).toUpperCase(),
+							uf: ufScope || "BR",
+							idLegislatura: 57,
+							casa: "SENADO",
+						};
+					}
 				}
 			} else if (forceRef?.startsWith("SP:")) {
 				const partesSP = forceRef.split(":");
@@ -744,17 +756,13 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		// Armazena o resultado do TSE para uso posterior (patrimônio)
 		(deputadoBasico as any)._tseResult = tseResult;
 
-		// NOVA LÓGICA: Fallback de CPF usando o cache Supabase
+		// NOVA LÓGICA: Fallback de CPF usando o cache Supabase com matching tolerante a nome civil/urna
 		if (documentoIsCnpj || !cpfLimpo) {
 			try {
-				const { supabaseAdmin } = await import("@/lib/supabase-admin");
-				const { data, error } = await supabaseAdmin
-					.from("tse_bens_historico")
-					.select("cpf_candidato")
-					.ilike("nome_candidato", `%${deputadoBasico.nome}%`)
-					.limit(1);
-				if (!error && data && data.length > 0 && data[0].cpf_candidato) {
-					cpfLimpo = data[0].cpf_candidato;
+				const { buscarBensPorNomeTSE } = await import("@/services/integrations/tse/bens");
+				const candidatosBens = await buscarBensPorNomeTSE(deputadoBasico.nome);
+				if (candidatosBens.length > 0 && candidatosBens[0].cpf_candidato) {
+					cpfLimpo = candidatosBens[0].cpf_candidato;
 					documentoIsCnpj = false;
 					sendEvent("STATUS", {
 						msg: `[OSINT] CPF real resgatado do histórico do TSE (${cpfLimpo}). Malha societária desbloqueada!`,
@@ -784,46 +792,16 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			sendEvent,
 		);
 
-		// Prioriza o patrimônio que veio da busca estruturada do TSE se for maior que zero ou igual a zero (declarado 0)
-		if (tseData?.patrimonioTotal !== undefined) {
-			fichaPolitico.patrimonioTotal = tseData.patrimonioTotal;
-			fichaPolitico.anoPatrimonio = tseData.anoEleicao || 2026;
-			fichaPolitico.bensDeclarados = tseData.bensDeclarados || fichaPolitico.bensDeclarados;
-			fichaPolitico.historicoPatrimonio = tseData.historicoPatrimonio || [];
-			fichaPolitico.patrimonioAnterior = tseData.patrimonioAnterior;
-			fichaPolitico.anoPatrimonioAnterior = tseData.anoPatrimonioAnterior;
-			fichaPolitico.variacaoPatrimonio = tseData.variacaoPatrimonio;
-			fichaPolitico.variacaoPatrimonioPercentual = tseData.variacaoPatrimonioPercentual;
+		// Resolução resiliente do patrimônio do político (TSE DivulgaCand + Fallback em cascata Supabase)
+		const { resolverPatrimonioTSE } = await import("@/services/integrations/tse/bens");
+		await resolverPatrimonioTSE(
+			fichaPolitico,
+			tseData,
+			cpfLimpo,
+			deputadoBasico.nome,
+			sendEvent,
+		);
 
-			const ptFmt = tseData.patrimonioTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
-			if (
-				!fichaPolitico.alertasPessoais.some((a: string) =>
-					a.includes("[TSE] Patrimônio"),
-				)
-			) {
-				fichaPolitico.alertasPessoais.push(
-					`[TSE] Patrimônio Declarado (${tseData.anoEleicao || "2026"}): R$ ${ptFmt}`,
-				);
-			}
-
-			if (
-				tseData.variacaoPatrimonioPercentual !== undefined &&
-				tseData.anoPatrimonioAnterior !== undefined &&
-				tseData.patrimonioAnterior !== undefined
-			) {
-				const antFmt = tseData.patrimonioAnterior.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
-				const pctSign = tseData.variacaoPatrimonioPercentual > 0 ? "+" : "";
-				const pctFmt = tseData.variacaoPatrimonioPercentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
-				if (
-					Math.abs(tseData.variacaoPatrimonioPercentual) > 50 ||
-					Math.abs(tseData.variacaoPatrimonio || 0) >= 500000
-				) {
-					fichaPolitico.alertasPessoais.push(
-						`[TSE] Evolução Patrimonial: R$ ${antFmt} (${tseData.anoPatrimonioAnterior}) ➔ R$ ${ptFmt} (${tseData.anoEleicao || "2026"}) [${pctSign}${pctFmt}%]`,
-					);
-				}
-			}
-		}
 		if (documentoIsCnpj && fichaPolitico.patrimonioTotal === 0) {
 			fichaPolitico.alertasPessoais.push(
 				"[LGPD] Patrimônio pessoal oculto no TSE (Apenas CNPJ de Campanha disponível).",
@@ -2246,6 +2224,15 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 		}
 		if (despesasCruas.length > 0) {
+			const { criarNodeResumoCeap } = await import("@/lib/utils");
+			const resumoCeap = criarNodeResumoCeap(
+				pessoaId,
+				deputadoBasico.casa,
+				despesasCruas,
+			);
+			sendEvent("NODE_NOVO", resumoCeap);
+			supabaseNodes.push(resumoCeap);
+
 			// PASSO 4: Triagem com IA passando a UF e os Doadores
 			sendEvent("STATUS", {
 				msg: "[POLÍGRAFO IA] Operando Triagem Documental e Cruzamento Geográfico...",
@@ -2606,7 +2593,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				// Partial Cache: Salva um snapshot a cada 5 faturas complexas processadas
 				if (i > 0 && i % 5 === 0 && dbSearchId && !isDev) {
 					try {
-						supabaseAdmin
+						await supabaseAdmin
 							.from("pesquisas")
 							.update({
 								grafo_dados: {
@@ -2616,8 +2603,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 									partial: true,
 								},
 							})
-							.eq("id", dbSearchId)
-							.then(); // Pass through assíncrono para não travar o loop
+							.eq("id", dbSearchId);
 					} catch (_e) {}
 				}
 			}

@@ -1,3 +1,4 @@
+import { primeiroValorTexto } from "@/lib/utils";
 import { fetchWithTimeout } from "../../tse";
 
 // ==========================================
@@ -9,6 +10,95 @@ const API_DIARIO =
 	"https://sistemas.tcepa.tc.br/dadosabertos/api/v1/diario_oficial";
 const TIMEOUT_PA = 15000;
 
+function parseAtoAcordaoPA(ato: any, termo: string): any | null {
+	const textoCompleto = JSON.stringify(ato).toLowerCase();
+	if (!textoCompleto.includes(termo.toLowerCase())) return null;
+
+	const num = primeiroValorTexto(ato.numeroPublicacao, ato.id, "S/N");
+	const tipo = primeiroValorTexto(ato.tipoAto, ato.tipo_ato, "Ato Oficial");
+	const ementa = primeiroValorTexto(
+		ato.ementa,
+		ato.assunto,
+		ato.resumo,
+		"Documento sem ementa detalhada.",
+	);
+	const link = primeiroValorTexto(ato.url, ato.link_documento, API_DIARIO);
+	const dataAto = primeiroValorTexto(
+		ato.dataPublicacao,
+		ato.data_publicacao,
+		"Recente",
+	);
+
+	return {
+		titulo: `${tipo} Nº ${num}`,
+		resumo: ementa.length > 200 ? `${ementa.substring(0, 197)}...` : ementa,
+		url: link,
+		dataPublicacao: dataAto,
+		ementa,
+	};
+}
+
+function isAtoRelevante(
+	textoCompleto: string,
+	isCpf: boolean,
+	mioloCpf: string | null,
+	termoAvo: string,
+	termoB: string,
+): boolean {
+	if (isCpf && mioloCpf && textoCompleto.includes(mioloCpf)) return true;
+	if (termoAvo.length > 5 && textoCompleto.includes(termoAvo)) return true;
+	if (termoB.length > 5 && textoCompleto.includes(termoB)) return true;
+	return false;
+}
+
+function extrairValorMoeda(ementaStr: string): number {
+	const match = ementaStr.match(/(?:r\$|reais|valor)\s*(?:de\s*)?([\d.,]+)/i);
+	if (!match?.[1]) return 0;
+	const strNum = match[1].replace(/\./g, "").replace(",", ".");
+	const valor = parseFloat(strNum);
+	return Number.isNaN(valor) ? 0 : valor;
+}
+
+function parseDespesaAtoPA(
+	ato: any,
+	tipo: string,
+	isCpf: boolean,
+	mioloCpf: string | null,
+	termoAvo: string,
+	termoB: string,
+): any | null {
+	const textoCompleto = JSON.stringify(ato).toLowerCase();
+	if (!isAtoRelevante(textoCompleto, isCpf, mioloCpf, termoAvo, termoB)) {
+		return null;
+	}
+
+	const ementaStr = String(
+		ato.ementa || ato.assunto || ato.resumo || "",
+	).toLowerCase();
+	const dataAto = primeiroValorTexto(
+		ato.dataPublicacao,
+		ato.data_publicacao,
+		"Recente",
+	);
+	const titulo = primeiroValorTexto(ato.tipoAto, ato.tipo_ato, tipo);
+	const num = primeiroValorTexto(ato.numeroPublicacao, ato.id, "S/N");
+	const valor = extrairValorMoeda(ementaStr);
+	const ementaResumo = primeiroValorTexto(
+		ato.ementa,
+		ato.assunto,
+		"Documento sem resumo.",
+	);
+
+	return {
+		cnpjCpfFornecedor: "S/N",
+		nomeFornecedor: `Extrato D.O. ${titulo} Nº ${num}`,
+		tipoDespesa: `${ementaResumo.substring(0, 300)}...`,
+		valorDocumento: valor,
+		dataDocumento: dataAto.includes("T") ? dataAto.split("T")[0] : dataAto,
+		urlDocumento: primeiroValorTexto(ato.url, ato.link_documento, API_DIARIO),
+	};
+}
+
 export async function buscarAcordaosTcePA(nomeBuscado: string): Promise<any[]> {
 	const termo = nomeBuscado.trim();
 	if (!termo) return [];
@@ -16,7 +106,6 @@ export async function buscarAcordaosTcePA(nomeBuscado: string): Promise<any[]> {
 	console.log(`[TCE-PA] Iniciando busca no Diário Oficial para: ${termo}`);
 	const processosEncontrados: any[] = [];
 
-	// Tenta usar o termo na busca. Caso a API ignore, filtraremos no client-side.
 	const url = `${API_DIARIO}?q=${encodeURIComponent(termo)}`;
 
 	try {
@@ -44,28 +133,8 @@ export async function buscarAcordaosTcePA(nomeBuscado: string): Promise<any[]> {
 				[];
 
 		data.forEach((ato: any) => {
-			// Filtro client-side de segurança para garantir que o termo aparece no ato
-			const textoCompleto = JSON.stringify(ato).toLowerCase();
-			if (textoCompleto.includes(termo.toLowerCase())) {
-				const num = ato.numeroPublicacao || ato.id || "S/N";
-				const tipo = ato.tipoAto || ato.tipo_ato || "Ato Oficial";
-				const ementa =
-					ato.ementa ||
-					ato.assunto ||
-					ato.resumo ||
-					"Documento sem ementa detalhada.";
-				const link = ato.url || ato.link_documento || API_DIARIO;
-				const dataAto = ato.dataPublicacao || ato.data_publicacao || "Recente";
-
-				processosEncontrados.push({
-					titulo: `${tipo} Nº ${num}`,
-					resumo:
-						ementa.length > 200 ? `${ementa.substring(0, 197)}...` : ementa,
-					url: link,
-					dataPublicacao: dataAto,
-					ementa: ementa,
-				});
-			}
+			const item = parseAtoAcordaoPA(ato, termo);
+			if (item) processosEncontrados.push(item);
 		});
 
 		console.log(
@@ -93,15 +162,12 @@ export async function buscarDespesasPA(
 	const isCpf = /^\d{11}$/.test(termoAvo);
 	const mioloCpf = isCpf ? termoAvo.substring(3, 9) : null;
 
-	// Município é fundamental para a busca. Caso ausente, usamos 'estado do para'
 	const queryBusca = municipioUri
 		? municipioUri.replace(/-/g, " ")
 		: "estado do para";
 	console.log(`[TCE-PA] Buscando Contratos e Licitações para: ${queryBusca}`);
 
 	const despesasEncontradas: any[] = [];
-
-	// Busca em duas frentes: CONTRATOS e LICITACOES
 	const frentes = ["CONTRATOS", "LICITACOES"];
 	const params = `q=${encodeURIComponent(queryBusca)}&tamanho=50`;
 
@@ -123,60 +189,21 @@ export async function buscarDespesasPA(
 			const data = Array.isArray(raw) ? raw : raw.data || raw.itens || [];
 
 			data.forEach((ato: any) => {
-				const ementaStr = String(
-					ato.ementa || ato.assunto || ato.resumo || "",
-				).toLowerCase();
-				const textoCompleto = JSON.stringify(ato).toLowerCase();
-
-				// Checagem de segurança dupla: o identificador (nome ou miolo CPF) DEVE estar no texto do ato
-				let ehRelevante = false;
-				if (isCpf && mioloCpf) {
-					if (textoCompleto.includes(mioloCpf)) ehRelevante = true;
-				} else if (termoAvo.length > 5) {
-					if (textoCompleto.includes(termoAvo)) ehRelevante = true;
-				}
-
-				if (!ehRelevante && termoB.length > 5) {
-					if (textoCompleto.includes(termoB)) ehRelevante = true;
-				}
-
-				if (ehRelevante) {
-					const dataAto =
-						ato.dataPublicacao || ato.data_publicacao || "Recente";
-					const titulo = ato.tipoAto || ato.tipo_ato || tipo;
-					const num = ato.numeroPublicacao || ato.id || "S/N";
-
-					// Tentativa rudimentar de extrair o valor financeiro do contrato
-					let valorExtraido = 0;
-					const matchMoeda = ementaStr.match(
-						/(?:r\$|reais|valor)\s*(?:de\s*)?([\d.,]+)/i,
-					);
-					if (matchMoeda?.[1]) {
-						const strNum = matchMoeda[1].replace(/\./g, "").replace(",", ".");
-						const valor = parseFloat(strNum);
-						if (!Number.isNaN(valor)) valorExtraido = valor;
-					}
-
-					despesasEncontradas.push({
-						cnpjCpfFornecedor: "S/N", // Forçado pois D.O raramente tem CNPJ limpo
-						nomeFornecedor: `Extrato D.O. ${titulo} Nº ${num}`,
-						tipoDespesa: `${(
-							ato.ementa || ato.assunto || "Documento sem resumo."
-						).substring(0, 300)}...`,
-						valorDocumento: valorExtraido,
-						dataDocumento: dataAto.includes("T")
-							? dataAto.split("T")[0]
-							: dataAto,
-						urlDocumento: ato.url || ato.link_documento || API_DIARIO,
-					});
-				}
+				const item = parseDespesaAtoPA(
+					ato,
+					tipo,
+					isCpf,
+					mioloCpf,
+					termoAvo,
+					termoB,
+				);
+				if (item) despesasEncontradas.push(item);
 			});
 		} catch (e) {
 			console.warn(`[TCE-PA] Falha ao extrair despesas do tipo ${tipo}:`, e);
 		}
 	}
 
-	// Ordena pelo valor para tentar exibir os contratos mais polpudos se houver muitos
 	return despesasEncontradas
 		.sort((a, b) => b.valorDocumento - a.valorDocumento)
 		.slice(0, 50);

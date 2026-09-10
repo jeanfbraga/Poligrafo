@@ -33,6 +33,42 @@ type LinhaContratoPE = {
 	LinkArquivo?: string;
 };
 
+function isLinhaValida(
+	row: LinhaContratoPE,
+	aceitar: (row: LinhaContratoPE) => boolean,
+): boolean {
+	if (!row) return false;
+	const temConteudo = Boolean(row.Objeto || row.RazaoSocial);
+	return temConteudo && aceitar(row);
+}
+
+function processarChunkBuffer(
+	buffer: string,
+	coletadas: LinhaContratoPE[],
+	aceitar: (row: LinhaContratoPE) => boolean,
+	limiteLinhas: number,
+): { novoBuffer: string; atingiuLimite: boolean } {
+	const re = /\{[^{}]*\}/g;
+	let m: RegExpExecArray | null;
+	let consumidoAte = 0;
+	while ((m = re.exec(buffer))) {
+		consumidoAte = re.lastIndex;
+		if (coletadas.length >= limiteLinhas) {
+			return { novoBuffer: buffer.slice(consumidoAte), atingiuLimite: true };
+		}
+		try {
+			const row = JSON.parse(m[0]) as LinhaContratoPE;
+			if (isLinhaValida(row, aceitar)) {
+				coletadas.push(row);
+			}
+		} catch {}
+	}
+	return {
+		novoBuffer: buffer.slice(consumidoAte),
+		atingiuLimite: coletadas.length >= limiteLinhas,
+	};
+}
+
 /** Lê o dump JSON da API em streaming e extrai linhas flat ({...}) uma a uma. */
 async function varrerContratosPE(
 	url: string,
@@ -55,25 +91,15 @@ async function varrerContratosPE(
 			bytesLidos += value.length;
 			buffer += decoder.decode(value, { stream: true });
 
-			// As linhas de "conteudo" são objetos JSON flat (sem chaves aninhadas).
-			const re = /\{[^{}]*\}/g;
-			let m: RegExpExecArray | null;
-			let consumidoAte = 0;
-			while ((m = re.exec(buffer))) {
-				consumidoAte = re.lastIndex;
-				if (coletadas.length >= limiteLinhas) break;
-				try {
-					const row = JSON.parse(m[0]) as LinhaContratoPE;
-					if (row && (row.Objeto || row.RazaoSocial) && aceitar(row)) {
-						coletadas.push(row);
-					}
-				} catch {
-					// fragmento inválido — ignora
-				}
-			}
-			buffer = buffer.slice(consumidoAte);
+			const resultadoChunk = processarChunkBuffer(
+				buffer,
+				coletadas,
+				aceitar,
+				limiteLinhas,
+			);
+			buffer = resultadoChunk.novoBuffer;
 
-			if (coletadas.length >= limiteLinhas || bytesLidos >= MAX_BYTES_STREAM) {
+			if (resultadoChunk.atingiuLimite || bytesLidos >= MAX_BYTES_STREAM) {
 				await reader.cancel();
 				break;
 			}

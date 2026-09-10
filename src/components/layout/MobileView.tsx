@@ -56,7 +56,7 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 } from "@/components/ui/drawer";
-import { getPortalTransparenciaFallback } from "@/lib/utils";
+import { extractDeputyId, extractDeputyPhotoUrl, getPortalTransparenciaFallback } from "@/lib/utils";
 
 /* ================================================================
    DESIGN SYSTEM — REGRAS GLOBAIS DE TIPOGRAFIA E MOBILE
@@ -861,30 +861,15 @@ export default function MobileView({
 							const isDeputadoFederal =
 								cargoUpper.includes("DEPUTADO FEDERAL") || casaUpper.includes("FEDERAL");
 
-							let deputyId = null;
-							if (rootNode.data.ref) {
-								deputyId = rootNode.data.ref.split(":").pop();
-							} else if (rootNode.id?.includes(":")) {
-								deputyId = rootNode.id.split(":").pop();
-							} else {
-								const fotoUrl =
-									rootNode.data.urlFoto ||
-									rootNode.data.urlFotoFallback ||
-									rootNode.data.fotoFallback ||
-									"";
-								const match = fotoUrl.match(/bandep\/(\d+)\.jpg/i);
-								if (match) {
-									deputyId = match[1];
-								} else {
-									deputyId = rootNode.data.id || rootNode.id;
-								}
-							}
+							const deputyId = extractDeputyId(rootNode.data, rootNode.id);
 
 							if (!isDeputadoFederal || !deputyId) return null;
 
+							const fotoParam = extractDeputyPhotoUrl(rootNode.data);
+
 							return (
 								<Link
-									href={`/perfil/deputado/${deputyId}?nome=${encodeURIComponent(rootNode.data.label)}&partido=${encodeURIComponent(rootNode.data.partido || "")}&uf=${encodeURIComponent(rootNode.data.uf || "")}&foto=${encodeURIComponent(rootNode.data.foto || rootNode.data.fotoFallback || "")}`}
+									href={`/perfil/deputado/${deputyId}?nome=${encodeURIComponent(rootNode.data.label || "")}&partido=${encodeURIComponent(rootNode.data.partido || "")}&uf=${encodeURIComponent(rootNode.data.uf || "")}&foto=${encodeURIComponent(fotoParam)}`}
 									className="flex-1 block text-center py-2 bg-green-950/60 hover:bg-green-900 text-green-300 border border-green-500/60 text-xs font-bold tracking-wider uppercase transition-colors"
 								>
 									IR PARA O PERFIL

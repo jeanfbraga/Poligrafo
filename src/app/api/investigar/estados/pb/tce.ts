@@ -1,3 +1,4 @@
+import { primeiroValorNumero, primeiroValorTexto } from "@/lib/utils";
 import { buscarProxyOsint } from "../../proxy_osint";
 import { fetchWithTimeout } from "../../tse";
 
@@ -6,11 +7,127 @@ import { fetchWithTimeout } from "../../tse";
 // Fonte: Sagres Online / Portal de Dados Abertos TCE-PB
 // ==========================================
 
-// Optamos por tentar a API REST do Sagres Captura / Dados Abertos
 const SAGRES_API_BASE = "https://sagresonline.tce.pb.gov.br/api";
 const TIMEOUT_PB = 15000;
 
-// O TSE atua como fallback geográfico primário. Apenas as despesas são tratadas no nível do estado.
+function parseDespesaPB(
+	d: any,
+	index: number,
+	urlDespesas: string,
+	nomeParaBusca?: string,
+) {
+	const numero = primeiroValorTexto(d.numero_empenho, "N/I");
+	const valor = primeiroValorNumero(d.valor_empenhado, d.valor);
+	const fornecedor = primeiroValorTexto(
+		d.credor,
+		d.favorecido,
+		nomeParaBusca,
+		"Desconhecido",
+	);
+	const data = primeiroValorTexto(d.data_emissao, d.data, "N/I");
+	const descricao = primeiroValorTexto(
+		d.historico,
+		d.objeto,
+		"Despesa registrada no TCE-PB (Sagres)",
+	);
+	const url = primeiroValorTexto(d.url, urlDespesas);
+
+	return {
+		id: `tcepb-desp-${Date.now()}-${index}`,
+		type: "DESPESA_PUBLICA",
+		data: {
+			label: `Empenho SAGRES: ${numero}`,
+			valor,
+			fornecedor,
+			data,
+			url,
+			descricao,
+		},
+	};
+}
+
+function parseContratoPB(
+	c: any,
+	index: number,
+	urlContratos: string,
+	nomeParaBusca?: string,
+) {
+	const numero = primeiroValorTexto(c.numero_contrato, "N/I");
+	const valor = primeiroValorNumero(c.valor_contratado, c.valor);
+	const fornecedor = primeiroValorTexto(
+		c.contratado,
+		c.favorecido,
+		nomeParaBusca,
+		"Desconhecido",
+	);
+	const data = primeiroValorTexto(c.data_assinatura, c.data, "N/I");
+	const descricao = primeiroValorTexto(
+		c.objeto,
+		"Contrato firmado na esfera municipal (PB)",
+	);
+	const url = primeiroValorTexto(c.url, urlContratos);
+
+	return {
+		id: `tcepb-contrato-${Date.now()}-${index}`,
+		type: "CONTRATO",
+		data: {
+			label: `Contrato SAGRES: ${numero}`,
+			valor,
+			fornecedor,
+			data,
+			url,
+			descricao,
+		},
+	};
+}
+
+async function extrairDespesasSagresPB(
+	identificador: string,
+	municipioUri: string,
+	headers: any,
+	nomeParaBusca?: string,
+): Promise<any[]> {
+	try {
+		const url = `${SAGRES_API_BASE}/despesas?documento=${identificador}&municipio=${encodeURIComponent(municipioUri)}`;
+		const res = await fetchWithTimeout(url, { headers, timeout: TIMEOUT_PB });
+		if (!res.ok) {
+			if (res.status === 403 || res.status === 503) {
+				console.warn(
+					`[TCE-PB] Bloqueio WAF detectado no endpoint de despesas. Status: ${res.status}`,
+				);
+			}
+			return [];
+		}
+		const data = await res.json();
+		if (!Array.isArray(data)) return [];
+		return data.map((d: any, index: number) =>
+			parseDespesaPB(d, index, url, nomeParaBusca),
+		);
+	} catch (e: any) {
+		console.warn(`[TCE-PB] Erro ao buscar despesas no Sagres:`, e.message || e);
+		return [];
+	}
+}
+
+async function extrairContratosSagresPB(
+	identificador: string,
+	headers: any,
+	nomeParaBusca?: string,
+): Promise<any[]> {
+	try {
+		const url = `${SAGRES_API_BASE}/contratos?cpfCnpj=${identificador}`;
+		const res = await fetchWithTimeout(url, { headers, timeout: TIMEOUT_PB });
+		if (!res.ok) return [];
+		const data = await res.json();
+		if (!Array.isArray(data)) return [];
+		return data.map((c: any, index: number) =>
+			parseContratoPB(c, index, url, nomeParaBusca),
+		);
+	} catch (e: any) {
+		console.warn(`[TCE-PB] Erro ao buscar contratos no Sagres:`, e.message || e);
+		return [];
+	}
+}
 
 export async function buscarDespesasMunicipalPB(
 	identificador: string,
@@ -30,89 +147,18 @@ export async function buscarDespesasMunicipalPB(
 		`[TCE-PB] Iniciando extração nativa de Despesas/Contratos para: ${identificador} em ${municipioUri} (${casa})`,
 	);
 
-	const malhaTce: any[] = [];
 	const headers = {
 		Accept: "application/json, text/plain, */*",
 		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Poligrafo/1.0",
 		Referer: "https://sagresonline.tce.pb.gov.br/",
 	};
 
-	try {
-		// Tentativa 1: Endpoint de Empenhos/Despesas
-		const urlDespesas = `${SAGRES_API_BASE}/despesas?documento=${identificador}&municipio=${encodeURIComponent(municipioUri)}`;
-		const res = await fetchWithTimeout(urlDespesas, {
-			headers,
-			timeout: TIMEOUT_PB,
-		});
+	const [despesas, contratos] = await Promise.all([
+		extrairDespesasSagresPB(identificador, municipioUri, headers, nomeParaBusca),
+		extrairContratosSagresPB(identificador, headers, nomeParaBusca),
+	]);
 
-		if (res.ok) {
-			const data = await res.json();
-			if (Array.isArray(data)) {
-				data.forEach((d: any, index: number) => {
-					malhaTce.push({
-						id: `tcepb-desp-${Date.now()}-${index}`,
-						type: "DESPESA_PUBLICA",
-						data: {
-							label: `Empenho SAGRES: ${d.numero_empenho || "N/I"}`,
-							valor: parseFloat(d.valor_empenhado || d.valor || 0),
-							fornecedor:
-								d.credor || d.favorecido || nomeParaBusca || "Desconhecido",
-							data: d.data_emissao || d.data || "N/I",
-							url: d.url || urlDespesas,
-							descricao:
-								d.historico ||
-								d.objeto ||
-								"Despesa registrada no TCE-PB (Sagres)",
-						},
-					});
-				});
-			}
-		} else if (res.status === 403 || res.status === 503) {
-			console.warn(
-				`[TCE-PB] Bloqueio WAF (Cloudflare Turnstile) detectado no endpoint de despesas. Status: ${res.status}`,
-			);
-		}
-	} catch (e: any) {
-		console.warn(`[TCE-PB] Erro ao buscar despesas no Sagres:`, e.message || e);
-	}
-
-	try {
-		// Tentativa 2: Endpoint de Contratos (Licitações)
-		const urlContratos = `${SAGRES_API_BASE}/contratos?cpfCnpj=${identificador}`;
-		const resContratos = await fetchWithTimeout(urlContratos, {
-			headers,
-			timeout: TIMEOUT_PB,
-		});
-
-		if (resContratos.ok) {
-			const dataC = await resContratos.json();
-			if (Array.isArray(dataC)) {
-				dataC.forEach((c: any, index: number) => {
-					malhaTce.push({
-						id: `tcepb-contrato-${Date.now()}-${index}`,
-						type: "CONTRATO",
-						data: {
-							label: `Contrato SAGRES: ${c.numero_contrato || "N/I"}`,
-							valor: parseFloat(c.valor_contratado || c.valor || 0),
-							fornecedor:
-								c.contratado || c.favorecido || nomeParaBusca || "Desconhecido",
-							data: c.data_assinatura || c.data || "N/I",
-							url: c.url || urlContratos,
-							descricao:
-								c.objeto || "Contrato firmado na esfera municipal (PB)",
-						},
-					});
-				});
-			}
-		}
-	} catch (e: any) {
-		console.warn(
-			`[TCE-PB] Erro ao buscar contratos no Sagres:`,
-			e.message || e,
-		);
-	}
-
-	// Fallback Inteligente: Se falhou na conexão com Sagres ou retornou vazio, cruzamos com dados Federais
+	const malhaTce = [...despesas, ...contratos];
 	if (malhaTce.length === 0) {
 		console.log(
 			`[TCE-PB] Sem retornos do Sagres. Acionando Fallback do TransfereGov/Federal.`,

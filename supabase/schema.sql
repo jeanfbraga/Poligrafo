@@ -297,6 +297,7 @@ CREATE TABLE IF NOT EXISTS public.tse_bens_historico (
 
 CREATE INDEX IF NOT EXISTS idx_tse_cpf ON public.tse_bens_historico (cpf_candidato);
 CREATE INDEX IF NOT EXISTS idx_tse_nome ON public.tse_bens_historico USING gin (nome_candidato gin_trgm_ops);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_idx_tse_bens_cpf_ano ON public.tse_bens_historico (cpf_candidato, ano_eleicao);
 
 ALTER TABLE public.tse_bens_historico ENABLE ROW LEVEL SECURITY;
 

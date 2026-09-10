@@ -1,3 +1,4 @@
+import { primeiroValorNumero, primeiroValorTexto } from "@/lib/utils";
 import { fetchWithTimeout } from "../../tse";
 
 // ==========================================
@@ -10,6 +11,20 @@ const API_BASE = "https://sistemas.tce.pi.gov.br/api/portaldacidadania";
 const TIMEOUT_PI = 15000;
 
 let prefeiturasCachePI: Record<string, number> | null = null;
+
+function parseCredorPI(c: any, anoAtual: number) {
+	const nome = primeiroValorTexto(c.nome, c.nomeCredor, "N/I");
+	const valor = primeiroValorNumero(c.valorPago, c.valor);
+	return {
+		tipoDespesa: "Credor Municipal (TCE-PI)",
+		fornecedor: nome,
+		cnpjFornecedor: primeiroValorTexto(c.cpfCnpj, c.documento),
+		valorLiquido: valor,
+		dataDocumento: `${anoAtual}`,
+		descricao: `CREDOR: ${nome} | Valor Pago: R$ ${valor}`,
+		urlDocumento: `https://sistemas.tce.pi.gov.br`,
+	};
+}
 
 export async function buscarIdPrefeituraPI(
 	nomeMunicipio: string,
@@ -84,15 +99,9 @@ export async function buscarDespesasPI(
 		credores = await buscarCredoresPI(idPrefeitura, anoAtual - 2);
 	}
 
-	const formatados: any[] = credores.map((c: any) => ({
-		tipoDespesa: "Credor Municipal (TCE-PI)",
-		fornecedor: c.nome || c.nomeCredor || "N/I",
-		cnpjFornecedor: c.cpfCnpj || c.documento || "",
-		valorLiquido: parseFloat(c.valorPago || c.valor || "0"),
-		dataDocumento: `${anoAtual}`,
-		descricao: `CREDOR: ${c.nome || c.nomeCredor || "N/I"} | Valor Pago: R$ ${c.valorPago || c.valor || "0"}`,
-		urlDocumento: `https://sistemas.tce.pi.gov.br`,
-	}));
+	const formatados: any[] = credores.map((c: any) =>
+		parseCredorPI(c, anoAtual),
+	);
 
 	console.log(
 		`[TCE-PI] Extração concluída. Total de credores para IA: ${formatados.length}`,

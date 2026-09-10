@@ -1,13 +1,15 @@
+import { primeiroValorNumero, primeiroValorTexto } from "@/lib/utils";
 import { fetchWithTimeout } from "../../tse";
 
 // ==========================================
 // Extrator NATIVO: TCE Minas Gerais (MG)
 // Portado do ecossistema mcp-brasil
-// Foco: Contratações, Empenhos e Fornecedores Municipais de MG
+// Foco: Contratos, Editais e Obras Municipais de MG
 // ==========================================
 
-const BASE_URL_MG = "https://dados.tce.mg.gov.br/api/3/action/datastore_search";
-const TIMEOUT_MG = 12000;
+const BASE_URL_MG =
+	"https://dadosabertos.tce.mg.gov.br/api/3/action/datastore_search";
+const TIMEOUT_MG = 15000;
 
 export interface ContratoTceMG {
 	objeto: string;
@@ -19,8 +21,41 @@ export interface ContratoTceMG {
 	modalidade?: string;
 }
 
+function parseContratoMG(r: any, municipioFormatado: string): ContratoTceMG {
+	return {
+		objeto: primeiroValorTexto(
+			r.objeto,
+			r.dsc_objeto,
+			r.DescricaoObjeto,
+			"Contratação Pública Municipal",
+		),
+		fornecedor: primeiroValorTexto(
+			r.fornecedor,
+			r.nom_fornecedor,
+			r.NomeRazaoSocial,
+			"FORNECEDOR NÃO INFORMADO",
+		),
+		cnpj: primeiroValorTexto(r.cnpj, r.num_documento, r.CpfCnpj).replace(
+			/\D/g,
+			"",
+		),
+		valor: primeiroValorNumero(r.vlr_contrato, r.valor, r.ValorContrato),
+		data: primeiroValorTexto(
+			r.data_publicacao,
+			r.dta_publicacao,
+			r.DataPublicacao,
+		),
+		municipio: municipioFormatado,
+		modalidade: primeiroValorTexto(
+			r.modalidade,
+			r.nom_modalidade,
+			"Licitação / Contrato",
+		),
+	};
+}
+
 /**
- * Busca contratações e compras municipais via portal de Dados Abertos do TCE-MG.
+ * Busca dados de contratações municipais do TCE-MG via CKAN API.
  */
 export async function buscarContratosMG(
 	municipioNome: string,
@@ -40,17 +75,14 @@ export async function buscarContratosMG(
 		const json = await res.json();
 		const records = json?.result?.records || [];
 
-		return records.map((r: any) => ({
-			objeto: r.objeto || r.dsc_objeto || r.DescricaoObjeto || "Contratação Pública Municipal",
-			fornecedor: r.fornecedor || r.nom_fornecedor || r.NomeRazaoSocial || "FORNECEDOR NÃO INFORMADO",
-			cnpj: (r.cnpj || r.num_documento || r.CpfCnpj || "").replace(/\D/g, ""),
-			valor: parseFloat(r.vlr_contrato || r.valor || r.ValorContrato || "0") || 0,
-			data: r.data_publicacao || r.dta_publicacao || r.DataPublicacao || "",
-			municipio: municipioFormatado,
-			modalidade: r.modalidade || r.nom_modalidade || "Licitação / Contrato",
-		}));
+		return records.map((r: any) =>
+			parseContratoMG(r, municipioFormatado),
+		);
 	} catch (err: any) {
-		console.warn(`[TCE-MG] Falha ao consultar contratações para ${municipioFormatado}:`, err.message);
+		console.warn(
+			`[TCE-MG] Falha ao consultar contratações para ${municipioFormatado}:`,
+			err.message,
+		);
 		return [];
 	}
 }

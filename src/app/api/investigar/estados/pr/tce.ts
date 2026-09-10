@@ -1,12 +1,13 @@
+import { primeiroValorNumero, primeiroValorTexto } from "@/lib/utils";
 import { fetchWithTimeout } from "../../tse";
 
 // ==========================================
 // Extrator NATIVO: TCE Paraná (PR)
 // Portado do ecossistema mcp-brasil
-// Foco: Licitações, Contratos e Atos Municipais do Paraná
+// Foco: Licitações e Contratos Municipais do PR
 // ==========================================
 
-const BASE_URL_PR = "https://servicos.tce.pr.gov.br/TCEPR/Tribunal/Relatorios/DadosAbertos";
+const BASE_URL_PR = "https://servicos.tce.pr.gov.br/TCEPR/Tribunal/Relatorios/Licitacoes";
 const TIMEOUT_PR = 12000;
 
 export interface ContratoTcePR {
@@ -19,8 +20,33 @@ export interface ContratoTcePR {
 	entidade?: string;
 }
 
+function parseContratoPR(r: any, municipioFormatado: string): ContratoTcePR {
+	return {
+		objeto: primeiroValorTexto(
+			r.objeto,
+			r.dsc_objeto,
+			"Contratação Municipal TCE-PR",
+		),
+		fornecedor: primeiroValorTexto(
+			r.fornecedor,
+			r.nom_vencedor,
+			r.razao_social,
+			"FORNECEDOR NÃO INFORMADO",
+		),
+		cnpj: primeiroValorTexto(r.cnpj, r.num_cnpj_cpf).replace(/\D/g, ""),
+		valor: primeiroValorNumero(r.valor, r.vlr_homologado),
+		data: primeiroValorTexto(r.data, r.dta_homologacao),
+		municipio: municipioFormatado,
+		entidade: primeiroValorTexto(
+			r.entidade,
+			r.nom_entidade,
+			"Prefeitura Municipal",
+		),
+	};
+}
+
 /**
- * Busca contratações municipais do Paraná via dados abertos do TCE-PR.
+ * Busca dados de contratações municipais do TCE-PR.
  */
 export async function buscarContratosPR(
 	municipioNome: string,
@@ -39,15 +65,9 @@ export async function buscarContratosPR(
 		const json = await res.json();
 		const items = Array.isArray(json) ? json : json?.dados || json?.licitacoes || [];
 
-		return items.map((r: any) => ({
-			objeto: r.objeto || r.dsc_objeto || "Contratação Municipal TCE-PR",
-			fornecedor: r.fornecedor || r.nom_vencedor || r.razao_social || "FORNECEDOR NÃO INFORMADO",
-			cnpj: (r.cnpj || r.num_cnpj_cpf || "").replace(/\D/g, ""),
-			valor: parseFloat(r.valor || r.vlr_homologado || "0") || 0,
-			data: r.data || r.dta_homologacao || "",
-			municipio: municipioFormatado,
-			entidade: r.entidade || r.nom_entidade || "Prefeitura Municipal",
-		}));
+		return items.map((r: any) =>
+			parseContratoPR(r, municipioFormatado),
+		);
 	} catch (err: any) {
 		console.warn(`[TCE-PR] Falha ao consultar contratações para ${municipioFormatado}:`, err.message);
 		return [];

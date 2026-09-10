@@ -1,3 +1,4 @@
+import { primeiroValorNumero, primeiroValorTexto } from "@/lib/utils";
 import { fetchWithTimeout } from "../../tse";
 
 // ==========================================
@@ -10,6 +11,29 @@ const CKAN_BASE = "https://dados.es.gov.br/api/3/action/datastore_search";
 const RESOURCE_CONTRATACOES_MUNICIPIOS = "bdc86561-cb94-4da9-9131-42ebe5d6c5ac";
 const RESOURCE_OBRAS = "f5fb83a1-361d-4169-999b-b7d65d81689a";
 const TIMEOUT_ES = 15000;
+
+function parseContratacaoES(r: any) {
+	return {
+		objeto: primeiroValorTexto(r.ObjetoContratacao, r.DescricaoObjeto, "N/I"),
+		fornecedor: primeiroValorTexto(r.NomeFornecedor, r.RazaoSocialFornecedor, "N/I"),
+		cnpj: primeiroValorTexto(r.CnpjCpfFornecedor),
+		valor: primeiroValorNumero(r.ValorContratado, r.ValorTotal),
+		data: primeiroValorTexto(r.DataContratacao, r.DataPublicacao),
+		unidadeGestora: primeiroValorTexto(r.NomeUnidadeGestora),
+		modalidade: primeiroValorTexto(r.ModalidadeLicitacao),
+	};
+}
+
+function parseObraES(r: any, municipioNome: string) {
+	return {
+		objeto: primeiroValorTexto(r.Objeto, r.DescricaoObjeto, "Obra Pública"),
+		fornecedor: primeiroValorTexto(r.Empresa, r.Contratado, "N/I"),
+		cnpj: primeiroValorTexto(r.CnpjEmpresa),
+		valor: primeiroValorNumero(r.ValorContrato, r.ValorOrcado),
+		situacao: primeiroValorTexto(r.Situacao, "N/I"),
+		municipio: primeiroValorTexto(r.Municipio, municipioNome),
+	};
+}
 
 /**
  * Busca contratações municipais do ES via CKAN (dados.es.gov.br).
@@ -32,15 +56,7 @@ export async function buscarContratacoesMunicipaisES(
 		const raw = await res.json();
 		const records = raw?.result?.records || [];
 
-		return records.map((r: any) => ({
-			objeto: r.ObjetoContratacao || r.DescricaoObjeto || "N/I",
-			fornecedor: r.NomeFornecedor || r.RazaoSocialFornecedor || "N/I",
-			cnpj: r.CnpjCpfFornecedor || "",
-			valor: parseFloat(r.ValorContratado || r.ValorTotal || "0"),
-			data: r.DataContratacao || r.DataPublicacao || "",
-			unidadeGestora: r.NomeUnidadeGestora || "",
-			modalidade: r.ModalidadeLicitacao || "",
-		}));
+		return records.map((r: any) => parseContratacaoES(r));
 	} catch (e) {
 		console.warn(`[TCE-ES] Falha ao buscar contratações municipais:`, e);
 		return [];
@@ -59,14 +75,7 @@ export async function buscarObrasES(municipioNome: string): Promise<any[]> {
 		const raw = await res.json();
 		const records = raw?.result?.records || [];
 
-		return records.map((r: any) => ({
-			objeto: r.Objeto || r.DescricaoObjeto || "Obra Pública",
-			fornecedor: r.Empresa || r.Contratado || "N/I",
-			cnpj: r.CnpjEmpresa || "",
-			valor: parseFloat(r.ValorContrato || r.ValorOrcado || "0"),
-			situacao: r.Situacao || "N/I",
-			municipio: r.Municipio || municipioNome,
-		}));
+		return records.map((r: any) => parseObraES(r, municipioNome));
 	} catch (e) {
 		console.warn(`[TCE-ES] Falha ao buscar obras:`, e);
 		return [];

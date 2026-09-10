@@ -142,7 +142,7 @@ export async function buscarPoliticosCamaraLista(
 			url += `&siglaUf=${ufScope}`;
 		}
 		const response = await fetchWithTimeout(url, {
-			timeout: 30000,
+			timeout: 10000,
 			headers: {
 				Accept: "application/json",
 				"User-Agent": "PoligrafoBot/1.0",

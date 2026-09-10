@@ -1,4 +1,17 @@
 import { fetchWithTimeout } from "../../tse";
+import { primeiroValorNumero, primeiroValorTexto } from "@/lib/utils";
+
+function parseItemContratoBA(r: any, municipioFormatado: string): ContratoTceBA {
+	return {
+		objeto: primeiroValorTexto(r.objeto, r.descricao, "Contratação Municipal TCM-BA"),
+		fornecedor: primeiroValorTexto(r.fornecedor, r.razaoSocial, r.nomeCredor, "FORNECEDOR NÃO INFORMADO"),
+		cnpj: primeiroValorTexto(r.cnpj, r.cpfCnpj).replace(/\D/g, ""),
+		valor: primeiroValorNumero(r.valor, r.valorContrato),
+		data: primeiroValorTexto(r.data, r.dataPublicacao),
+		municipio: municipioFormatado,
+		unidadeGestora: primeiroValorTexto(r.unidadeGestora, r.orgao, "Prefeitura / Câmara Municipal"),
+	};
+}
 
 // ==========================================
 // Extrator NATIVO: TCE-BA & TCM-BA (Bahia)
@@ -39,15 +52,9 @@ export async function buscarContratosBA(
 		const json = await res.json();
 		const items = Array.isArray(json) ? json : json?.dados || json?.registros || [];
 
-		return items.map((r: any) => ({
-			objeto: r.objeto || r.descricao || "Contratação Municipal TCM-BA",
-			fornecedor: r.fornecedor || r.razaoSocial || r.nomeCredor || "FORNECEDOR NÃO INFORMADO",
-			cnpj: (r.cnpj || r.cpfCnpj || "").replace(/\D/g, ""),
-			valor: parseFloat(r.valor || r.valorContrato || "0") || 0,
-			data: r.data || r.dataPublicacao || "",
-			municipio: municipioFormatado,
-			unidadeGestora: r.unidadeGestora || r.orgao || "Prefeitura / Câmara Municipal",
-		}));
+		return items.map((r: any) =>
+			parseItemContratoBA(r, municipioFormatado),
+		);
 	} catch (err: any) {
 		console.warn(`[TCM-BA] Falha ao consultar contratações para ${municipioFormatado}:`, err.message);
 		return [];

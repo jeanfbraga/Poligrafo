@@ -19,6 +19,7 @@ describe("Módulo de Extração: Rio de Janeiro", () => {
 			vi.mocked(tseModule.buscarCpfNoTSE).mockResolvedValueOnce({
 				cpf: "56646419000170",
 				documentoPrincipal: "56646419000170",
+				cnpjCampanha: "56646419000170",
 				isCnpj: true,
 				municipio: "rio-de-janeiro",
 				idUe: "60011",

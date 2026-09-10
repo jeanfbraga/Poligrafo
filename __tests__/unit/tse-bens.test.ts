@@ -38,4 +38,24 @@ describe('TSE Histórico Client Supabase', () => {
     const result = await buscarBensHistoricoTSE('ERROR');
     expect(result).toEqual([]);
   });
+
+  it('should return historico de bens por nome', async () => {
+    supabaseAdmin.from.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        ilike: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValueOnce({
+            data: [{ cpf_candidato: '12345678900', nome_candidato: 'MARIO LUIS FRIAS', ano_eleicao: 2022, valor_total: 500000 }],
+            error: null,
+          }),
+        }),
+      }),
+    } as any);
+
+    const { buscarBensPorNomeTSE } = await import('../../src/services/integrations/tse/bens');
+    const result = await buscarBensPorNomeTSE('Mario Frias');
+    expect(result).toHaveLength(1);
+    expect(result[0].nome_candidato).toBe('MARIO LUIS FRIAS');
+  });
 });
+

@@ -1761,9 +1761,7 @@ function DashboardArea() {
 		}
 	};
 
-	useEffect(() => {
-		handleSearchRef.current = handleSearch;
-	}, [handleSearch]);
+	handleSearchRef.current = handleSearch;
 
 	// Verifica se há um alvo inicial na URL para auto-busca
 	useEffect(() => {

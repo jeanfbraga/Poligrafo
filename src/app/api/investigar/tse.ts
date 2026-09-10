@@ -13,7 +13,6 @@ export function normalizeString(str: string): string {
  */
 export function matchPalavraInteira(texto: string, palavra: string): boolean {
 	if (!texto || !palavra) return false;
-	// Usa word boundary regex para garantir match de palavra inteira
 	const regex = new RegExp(
 		`(?:^|\\s|-)${palavra.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s|-|$)`,
 	);
@@ -90,287 +89,268 @@ export const CAMPANHAS_MUNICIPAIS = [
 	{ ano: "2016", idEleicao: "2" },          // Eleições Municipais 2016
 ];
 
+const REGEX_SITUACAO_INVALIDA = /(N[AÃ]O ELEITO|INDEFERIDO|CANCELADO|REN[UÚ]NCIA)/;
+
 export function isCandidatoEleitoOuValido(c: any): boolean {
 	if (!c) return false;
 	const sit = (c.descricaoTotalizacao || c.situacao || c.descricaoSituacao || "").toUpperCase();
-	if (
-		sit.includes("NÃO ELEITO") ||
-		sit.includes("NAO ELEITO") ||
-		sit.includes("INDEFERIDO") ||
-		sit.includes("CANCELADO") ||
-		sit.includes("RENÚNCIA") ||
-		sit.includes("RENUNCIA")
-	) {
-		return false;
-	}
-	return true;
+	return !REGEX_SITUACAO_INVALIDA.test(sit);
 }
 
-// NOVA FUNÇÃO: Busca o CPF real do político no TSE caso a casa legislativa o censure
-// Exportada para uso nos módulos estaduais/municipais
+function encontrarCandidatoPorNome(candidatos: any[], nomePolitico: string): any {
+	const termoNorm = normalizeString(nomePolitico);
+	const matchExato = candidatos.find((c: any) => {
+		const cUrna = normalizeString(c.nomeUrna || "");
+		const cNome = normalizeString(c.nomeCompleto || "");
+		return cUrna === termoNorm || cNome === termoNorm;
+	});
+	if (matchExato) return matchExato;
+
+	const parts = termoNorm
+		.split(/\s+/)
+		.filter((p: string) => !["de", "da", "do", "dos", "das"].includes(p));
+
+	return candidatos.find((c: any) => {
+		const cUrna = normalizeString(c.nomeUrna || "");
+		const cNome = normalizeString(c.nomeCompleto || "");
+		return parts.every(
+			(p: string) => matchPalavraInteira(cUrna, p) || matchPalavraInteira(cNome, p),
+		);
+	});
+}
+
+async function fetchCandidatosEleicao(url: string, timeout = 6000) {
+	try {
+		const res = await fetchWithTimeout(url, { timeout });
+		if (!res?.ok) return [];
+		const data = await res.json();
+		const todos = data?.candidatos || [];
+		return todos.filter(isCandidatoEleitoOuValido);
+	} catch {
+		return [];
+	}
+}
+
+async function buscarCandidatoEleicaoGeral(
+	eleicao: any,
+	uf: string,
+	cargoCodigo: string,
+	nomePolitico: string,
+): Promise<TseCandidateResult | null> {
+	const urlListagem = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${eleicao.ano}/${uf}/${eleicao.idEleicao}/${cargoCodigo}/candidatos`;
+	const candidatos = await fetchCandidatosEleicao(urlListagem, 6000);
+	if (candidatos.length === 0) return null;
+
+	const match = encontrarCandidatoPorNome(candidatos, nomePolitico);
+	if (!match?.id) return null;
+
+	return extrairDetalhesDoTSE(eleicao, uf, match, uf, nomePolitico);
+}
+
+async function buscarLocaisMunicipais(uf: string, idEleicao: string): Promise<string[]> {
+	try {
+		const urlMuni = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/eleicao/buscar/${uf}/${idEleicao}/municipios`;
+		const resMuni = await fetchWithTimeout(urlMuni, { timeout: 10000 });
+		if (!resMuni.ok) return [];
+		const dataMuni = await resMuni.json();
+		if (!Array.isArray(dataMuni.municipios)) return [];
+
+		return dataMuni.municipios
+			.sort((a: any) => (a.codigo === "71072" || a.codigo === "60011" ? -1 : 1))
+			.map((m: any) => m.codigo);
+	} catch {
+		return [];
+	}
+}
+
+async function buscarCandidatoNoLocal(
+	eleicao: any,
+	localidade: string,
+	cargoCodigo: string,
+	nomePolitico: string,
+	timeout = 3500,
+) {
+	const urlListagem = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${eleicao.ano}/${localidade}/${eleicao.idEleicao}/${cargoCodigo}/candidatos`;
+	const candidatos = await fetchCandidatosEleicao(urlListagem, timeout);
+	if (candidatos.length === 0) return null;
+	const match = encontrarCandidatoPorNome(candidatos, nomePolitico);
+	if (!match?.id) return null;
+	return { match, localidade };
+}
+
+async function buscarCandidatoEleicaoMunicipal(
+	eleicao: any,
+	uf: string,
+	cargoCodigo: string,
+	nomePolitico: string,
+): Promise<TseCandidateResult | null> {
+	const locais = await buscarLocaisMunicipais(uf, eleicao.idEleicao);
+	if (locais.length === 0) return null;
+
+	const capitalLocal = locais[0];
+	if (capitalLocal) {
+		const achouCapital = await buscarCandidatoNoLocal(eleicao, capitalLocal, cargoCodigo, nomePolitico, 15000);
+		if (achouCapital) {
+			const res = await extrairDetalhesDoTSE(eleicao, capitalLocal, achouCapital.match, uf, nomePolitico);
+			if (res) return res;
+		}
+	}
+
+	const locaisRestantes = locais.slice(1);
+	const chunkSize = 20;
+	for (let i = 0; i < locaisRestantes.length; i += chunkSize) {
+		const chunk = locaisRestantes.slice(i, i + chunkSize);
+		const chunkPromises = chunk.map((loc) => buscarCandidatoNoLocal(eleicao, loc, cargoCodigo, nomePolitico));
+		const chunkResults = await Promise.all(chunkPromises);
+		const resultFound = chunkResults.find(Boolean);
+		if (resultFound) {
+			const res = await extrairDetalhesDoTSE(eleicao, resultFound.localidade, resultFound.match, uf, nomePolitico);
+			if (res) return res;
+		}
+	}
+	return null;
+}
+
 export async function buscarCpfNoTSE(
 	nomePolitico: string,
 	uf: string,
 	cargoCodigo: string = "5",
 ): Promise<TseCandidateResult | null> {
-	console.log(
-		`[>> TSE ENTRY] buscarCpfNoTSE chamado: ${nomePolitico} UF:${uf} Cargo:${cargoCodigo}`,
-	);
-	try {
-		// Cargo 1 = Pres, 3 = Gov, 5 = Senador, 6 = Dep. Federal, 7 = Dep. Estadual, 11 = Prefeito, 13 = Vereador
-		const isMunicipal = ["11", "12", "13"].includes(cargoCodigo);
-		const campanhas = isMunicipal ? CAMPANHAS_MUNICIPAIS : CAMPANHAS_GERAIS;
+	const isMunicipal = ["11", "12", "13"].includes(cargoCodigo);
+	const campanhas = isMunicipal ? CAMPANHAS_MUNICIPAIS : CAMPANHAS_GERAIS;
 
-		for (const eleicao of campanhas) {
-			try {
-				if (!isMunicipal) {
-					console.log(
-						`[TSE DEBUG] Buscando "listar" TODOS os candidatos para ${uf} (eleição ${eleicao.ano}, cargo ${cargoCodigo})...`,
-					);
-					const urlListagem = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${eleicao.ano}/${uf}/${eleicao.idEleicao}/${cargoCodigo}/candidatos`;
+	for (const eleicao of campanhas) {
+		try {
+			const resultado = isMunicipal
+				? await buscarCandidatoEleicaoMunicipal(eleicao, uf, cargoCodigo, nomePolitico)
+				: await buscarCandidatoEleicaoGeral(eleicao, uf, cargoCodigo, nomePolitico);
 
-					let resListagem;
-					try {
-						resListagem = await fetchWithTimeout(urlListagem, {
-							timeout: 6000,
-						});
-					} catch (_e) {
-						continue;
-					}
-					if (!resListagem?.ok) continue;
-
-					let dataListagem;
-					try {
-						dataListagem = await resListagem.json();
-					} catch (_e) {
-						continue;
-					}
-
-					const todosCandidatos = dataListagem.candidatos || [];
-					const candidatos = todosCandidatos.filter(isCandidatoEleitoOuValido);
-
-					if (candidatos.length > 0) {
-						const termoNorm = normalizeString(nomePolitico);
-						// ETAPA 1: Busca apenas correspondência EXATA
-						let match = candidatos.find((c: any) => {
-							const cUrna = normalizeString(c.nomeUrna || "");
-							const cNome = normalizeString(c.nomeCompleto || "");
-							return cUrna === termoNorm || cNome === termoNorm;
-						});
-						// ETAPA 2: Se não encontrou o exato, faz fallback para o PARCIAL
-						// Usa word-boundary para evitar falsos positivos (ex: "marotto" em "camarotto")
-						if (!match) {
-							const parts = termoNorm
-								.split(/\s+/)
-								.filter(
-									(p: string) => !["de", "da", "do", "dos", "das"].includes(p),
-								);
-							match = candidatos.find((c: any) => {
-								const cUrna = normalizeString(c.nomeUrna || "");
-								const cNome = normalizeString(c.nomeCompleto || "");
-								return parts.every(
-									(p: string) =>
-										matchPalavraInteira(cUrna, p) ||
-										matchPalavraInteira(cNome, p),
-								);
-							});
-						}
-
-						if (match?.id) {
-							return await extrairDetalhesDoTSE(
-								eleicao,
-								uf,
-								match,
-								uf,
-								nomePolitico,
-							);
-						}
-					}
-				} else {
-					// Para municipal, usamos "listar" na capital primeiro (maior chance), depois interior
-					const urlMuni = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/eleicao/buscar/${uf}/${eleicao.idEleicao}/municipios`;
-					const resMuni = await fetchWithTimeout(urlMuni, { timeout: 10000 });
-					if (!resMuni.ok) continue;
-
-					let dataMuni;
-					try {
-						dataMuni = await resMuni.json();
-					} catch (_e) {
-						continue;
-					}
-					if (!dataMuni.municipios) continue;
-
-					const locais = dataMuni.municipios
-						.sort((a: any, _b: any) =>
-							a.codigo === "71072" || a.codigo === "60011" ? -1 : 1,
-						)
-						.map((m: any) => m.codigo);
-
-					console.log(
-						`[TSE DEBUG] Buscando "listar" "${nomePolitico}"... Capital separada, restante em chunks.`,
-					);
-
-					// Separa a capital (primeiro elemento ordenado) para busca isolada com timeout maior
-					// A maioria das buscas ocorre na capital e a concorrência pode causar timeout
-					const capitalLocal = locais[0];
-					const locaisRestantes = locais.slice(1);
-
-					// 1. Busca isolada na Capital
-					if (capitalLocal) {
-						try {
-							console.log(
-								`[TSE DEBUG] Buscando na capital (${capitalLocal}) isoladamente...`,
-							);
-							const urlListagemCap = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${eleicao.ano}/${capitalLocal}/${eleicao.idEleicao}/${cargoCodigo}/candidatos`;
-							const resListagemCap = await fetchWithTimeout(urlListagemCap, {
-								timeout: 15000,
-							});
-							if (resListagemCap.ok) {
-								let dataListagemCap;
-								try {
-									dataListagemCap = await resListagemCap.json();
-								} catch (_e) {}
-								const todosCap = dataListagemCap?.candidatos || [];
-								const candidatosCap = todosCap.filter(isCandidatoEleitoOuValido);
-								if (candidatosCap.length > 0) {
-									const termoNorm = normalizeString(nomePolitico);
-									let match = candidatosCap.find((c: any) => {
-										const cUrna = normalizeString(c.nomeUrna || "");
-										const cNome = normalizeString(c.nomeCompleto || "");
-										return cUrna === termoNorm || cNome === termoNorm;
-									});
-									if (!match) {
-										const parts = termoNorm
-											.split(/\s+/)
-											.filter(
-												(p: string) =>
-													!["de", "da", "do", "dos", "das"].includes(p),
-											);
-										match = candidatosCap.find((c: any) => {
-											const cUrna = normalizeString(c.nomeUrna || "");
-											const cNome = normalizeString(c.nomeCompleto || "");
-											return parts.every(
-												(p: string) =>
-													matchPalavraInteira(cUrna, p) ||
-													matchPalavraInteira(cNome, p),
-											);
-										});
-									}
-									if (match?.id) {
-										console.log(
-											`[TSE DEBUG] Alvo encontrado na capital (${capitalLocal}).`,
-										);
-										const finalResult = await extrairDetalhesDoTSE(
-											eleicao,
-											capitalLocal,
-											match,
-											uf,
-											nomePolitico,
-										);
-										if (finalResult) return finalResult;
-									}
-								}
-							}
-						} catch (e) {
-							console.warn(
-								`[TSE DEBUG] Timeout/Erro na busca isolada da capital:`,
-								e,
-							);
-						}
-					}
-
-					// 2. Busca no interior em chunks
-					const chunkSize = 20; // Reduzido de 30 para 20 para aliviar a API
-					for (let i = 0; i < locaisRestantes.length; i += chunkSize) {
-						const chunk = locaisRestantes.slice(i, i + chunkSize);
-						console.log(
-							`[TSE DEBUG] Processando chunk ${Math.floor(i / chunkSize) + 1} (${chunk.length} municípios)...`,
-						);
-
-						const chunkPromises = chunk.map(async (localidade: string) => {
-							try {
-								const urlListagem = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${eleicao.ano}/${localidade}/${eleicao.idEleicao}/${cargoCodigo}/candidatos`;
-								const resListagem = await fetchWithTimeout(urlListagem, {
-									timeout: 3500,
-								});
-								if (resListagem.ok) {
-									let dataListagem;
-									try {
-										dataListagem = await resListagem.json();
-									} catch (_e) {
-										return null;
-									}
-									const todosCandidatos = dataListagem.candidatos || [];
-									const candidatos = todosCandidatos.filter(isCandidatoEleitoOuValido);
-									if (candidatos.length > 0) {
-										const termoNorm = normalizeString(nomePolitico);
-										// ETAPA 1: Busca apenas correspondência EXATA
-										let match = candidatos.find((c: any) => {
-											const cUrna = normalizeString(c.nomeUrna || "");
-											const cNome = normalizeString(c.nomeCompleto || "");
-											return cUrna === termoNorm || cNome === termoNorm;
-										});
-										// ETAPA 2: Se não encontrou o exato, faz fallback para o PARCIAL
-										// Usa word-boundary para evitar falsos positivos (ex: "marotto" em "camarotto")
-										if (!match) {
-											const parts = termoNorm
-												.split(/\s+/)
-												.filter(
-													(p: string) =>
-														!["de", "da", "do", "dos", "das"].includes(p),
-												);
-											match = candidatos.find((c: any) => {
-												const cUrna = normalizeString(c.nomeUrna || "");
-												const cNome = normalizeString(c.nomeCompleto || "");
-												return parts.every(
-													(p: string) =>
-														matchPalavraInteira(cUrna, p) ||
-														matchPalavraInteira(cNome, p),
-												);
-											});
-										}
-
-										if (match?.id) return { match, localidade };
-									}
-								}
-							} catch (_e) {}
-							return null;
-						});
-
-						const chunkResults = await Promise.all(chunkPromises);
-						const resultFound = chunkResults.find((r) => r !== null);
-
-						if (resultFound) {
-							console.log(
-								`[TSE DEBUG] Alvo encontrado no município ${resultFound.localidade}.`,
-							);
-							const finalResult = await extrairDetalhesDoTSE(
-								eleicao,
-								resultFound.localidade,
-								resultFound.match,
-								uf,
-								nomePolitico,
-							);
-							if (finalResult) return finalResult;
-						}
-					}
-				}
-			} catch (e) {
-				console.warn(
-					`[TSE] Falha iterando eleicao ${eleicao.ano} para CPF de ${nomePolitico}:`,
-					e,
-				);
-			}
+			if (resultado) return resultado;
+		} catch (e) {
+			console.warn(`[TSE] Falha iterando eleicao ${eleicao.ano} para CPF de ${nomePolitico}:`, e);
 		}
-
-		return null;
-	} catch (e) {
-		console.warn(
-			`[TSE] Erro principal tentar resgatar o CPF de ${nomePolitico}:`,
-			e,
-		);
-		return null;
 	}
+	return null;
+}
+
+async function buscarBensAdicionais(
+	eleicao: any,
+	uf: string,
+	matchId: string,
+): Promise<{ total: number; bens: any[] }> {
+	try {
+		const urlBens = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/candidato/${eleicao.ano}/${uf}/${eleicao.idEleicao}/candidato/${matchId}/bens`;
+		const resBens = await fetchWithTimeout(urlBens, { timeout: 3000 });
+		if (!resBens?.ok) return { total: 0, bens: [] };
+		const dataBens = await resBens.json();
+		return {
+			total: dataBens.totalDeBens || 0,
+			bens: dataBens.bens || [],
+		};
+	} catch {
+		return { total: 0, bens: [] };
+	}
+}
+
+async function resolverBensHistorico(eleicao: any, uf: string, matchId: string, det: any) {
+	const total = det.totalDeBens || 0;
+	const bens = det.bens || [];
+	if (total > 0) return { total, bens };
+
+	const bensExtra = await buscarBensAdicionais(eleicao, uf, matchId);
+	if (bensExtra.total > 0) return bensExtra;
+	return { total: 0, bens: [] };
+}
+
+function resolverCampoTexto(v1?: string, v2?: string, padrao = ""): string {
+	if (v1) return v1;
+	if (v2) return v2;
+	return padrao;
+}
+
+function montarItemHistorico(eleicao: any, cargoPadrao: string, match: any, det: any, bensData: any): ItemHistoricoTse {
+	return {
+		ano: Number(eleicao.ano),
+		idEleicao: eleicao.idEleicao,
+		cargo: resolverCampoTexto(det.cargo?.nome, match.cargo?.nome, `Cargo ${cargoPadrao}`),
+		partido: resolverCampoTexto(det.partido?.sigla, match.partido?.sigla),
+		patrimonioTotal: bensData.total,
+		bensDeclarados: bensData.bens,
+		idTse: match.id,
+		nomeUrna: match.nomeUrna,
+		nomeCompleto: resolverCampoTexto(det.nomeCompleto, match.nomeCompleto),
+		urlFoto: resolverCampoTexto(det.fotoUrl, match.fotoUrl),
+	};
+}
+
+async function coletarCandidatoHistorico(
+	eleicao: any,
+	uf: string,
+	cargo: string,
+	nomePolitico: string,
+): Promise<ItemHistoricoTse | null> {
+	const urlListagem = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${eleicao.ano}/${uf}/${eleicao.idEleicao}/${cargo}/candidatos`;
+	const candidatos = await fetchCandidatosEleicao(urlListagem, 3500);
+	if (candidatos.length === 0) return null;
+
+	const match = encontrarCandidatoPorNome(candidatos, nomePolitico);
+	if (!match?.id) return null;
+
+	const urlDet = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/${eleicao.ano}/${uf}/${eleicao.idEleicao}/candidato/${match.id}`;
+	const resDet = await fetchWithTimeout(urlDet, { timeout: 3500 });
+	if (!resDet?.ok) return null;
+
+	const det = await resDet.json().catch(() => null);
+	if (!det) return null;
+
+	const bensData = await resolverBensHistorico(eleicao, uf, match.id, det);
+	return montarItemHistorico(eleicao, cargo, match, det, bensData);
+}
+
+async function processarCampanhaHistorico(
+	eleicao: any,
+	uf: string,
+	nomePolitico: string,
+	isMunicipal: boolean,
+): Promise<ItemHistoricoTse | null> {
+	if (isMunicipal) return null;
+	const cargosGeraisParaBuscar = ["6", "5", "3", "7", "1"];
+
+	for (const cargo of cargosGeraisParaBuscar) {
+		try {
+			const item = await coletarCandidatoHistorico(eleicao, uf, cargo, nomePolitico);
+			if (item) return item;
+		} catch {
+			// Continua para o próximo cargo
+		}
+	}
+	return null;
+}
+
+function calcularVariacoesPatrimonio(historico: ItemHistoricoTse[]) {
+	if (historico.length < 2) {
+		return {};
+	}
+
+	const maisRecente = historico[0];
+	const anterior = historico[1];
+	const patrimonioAnterior = anterior.patrimonioTotal;
+	const anoPatrimonioAnterior = anterior.ano;
+	const variacaoPatrimonio = maisRecente.patrimonioTotal - anterior.patrimonioTotal;
+
+	let variacaoPatrimonioPercentual = 0;
+	if (anterior.patrimonioTotal > 0) {
+		variacaoPatrimonioPercentual = ((maisRecente.patrimonioTotal - anterior.patrimonioTotal) / anterior.patrimonioTotal) * 100;
+	} else if (maisRecente.patrimonioTotal > 0) {
+		variacaoPatrimonioPercentual = 100;
+	}
+
+	return {
+		patrimonioAnterior,
+		anoPatrimonioAnterior,
+		variacaoPatrimonio,
+		variacaoPatrimonioPercentual,
+	};
 }
 
 async function buscarHistoricoPatrimonioTse(
@@ -385,134 +365,120 @@ async function buscarHistoricoPatrimonioTse(
 	variacaoPatrimonio?: number;
 	variacaoPatrimonioPercentual?: number;
 }> {
-	const termoNorm = normalizeString(nomePolitico);
-	const parts = termoNorm
-		.split(/\s+/)
-		.filter((p: string) => !["de", "da", "do", "dos", "das"].includes(p));
-
 	const todasCampanhas = isMunicipal ? CAMPANHAS_MUNICIPAIS : CAMPANHAS_GERAIS;
 	const outrasCampanhas = todasCampanhas.filter((c) => Number(c.ano) !== registroAtual.ano);
 
-	const cargosGeraisParaBuscar = ["6", "5", "3", "7", "1"];
-	const cargosMunicipaisParaBuscar = ["11", "12", "13"];
-
 	const historico: ItemHistoricoTse[] = [registroAtual];
+	const resultados = await Promise.allSettled(
+		outrasCampanhas.map((eleicao) => processarCampanhaHistorico(eleicao, uf, nomePolitico, isMunicipal)),
+	);
 
-	const promessas = outrasCampanhas.map(async (eleicao) => {
-		try {
-			if (!isMunicipal) {
-				for (const cargo of cargosGeraisParaBuscar) {
-					const urlListagem = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${eleicao.ano}/${uf}/${eleicao.idEleicao}/${cargo}/candidatos`;
-					const res = await fetchWithTimeout(urlListagem, { timeout: 3500 });
-					if (!res?.ok) continue;
-
-					let data;
-					try {
-						data = await res.json();
-					} catch (_e) {
-						continue;
-					}
-
-					const candidatos = data.candidatos || [];
-					let match = candidatos.find((c: any) => {
-						const cUrna = normalizeString(c.nomeUrna || "");
-						const cNome = normalizeString(c.nomeCompleto || "");
-						return cUrna === termoNorm || cNome === termoNorm;
-					});
-
-					if (!match) {
-						match = candidatos.find((c: any) => {
-							const cUrna = normalizeString(c.nomeUrna || "");
-							const cNome = normalizeString(c.nomeCompleto || "");
-							return parts.every(
-								(p: string) =>
-									matchPalavraInteira(cUrna, p) ||
-									matchPalavraInteira(cNome, p),
-							);
-						});
-					}
-
-					if (match?.id) {
-						const urlDet = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/${eleicao.ano}/${uf}/${eleicao.idEleicao}/candidato/${match.id}`;
-						const resDet = await fetchWithTimeout(urlDet, { timeout: 3500 });
-						if (resDet?.ok) {
-							let det;
-							try {
-								det = await resDet.json();
-							} catch (_e) {
-								continue;
-							}
-							let total = det.totalDeBens || 0;
-							let bens = det.bens || [];
-
-							if (total === 0) {
-								const urlBens = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/candidato/${eleicao.ano}/${uf}/${eleicao.idEleicao}/candidato/${match.id}/bens`;
-								const resBens = await fetchWithTimeout(urlBens, {
-									timeout: 3000,
-								});
-								if (resBens?.ok) {
-									try {
-										const dataBens = await resBens.json();
-										total = dataBens.totalDeBens || 0;
-										bens = dataBens.bens || [];
-									} catch (_e) {}
-								}
-							}
-
-							historico.push({
-								ano: Number(eleicao.ano),
-								idEleicao: eleicao.idEleicao,
-								cargo: det.cargo?.nome || match.cargo?.nome || `Cargo ${cargo}`,
-								partido: det.partido?.sigla || match.partido?.sigla,
-								patrimonioTotal: total,
-								bensDeclarados: bens,
-								idTse: match.id,
-								nomeUrna: match.nomeUrna,
-								nomeCompleto: det.nomeCompleto || match.nomeCompleto,
-								urlFoto: det.fotoUrl || match.fotoUrl,
-							});
-							break; // Encontrou neste ano
-						}
-					}
-				}
-			}
-		} catch (e) {
-			console.warn(`[TSE HISTORICO] Falha ao coletar ano ${eleicao.ano}:`, e);
-		}
-	});
-
-	await Promise.allSettled(promessas);
-	historico.sort((a, b) => b.ano - a.ano);
-
-	let patrimonioAnterior: number | undefined;
-	let anoPatrimonioAnterior: number | undefined;
-	let variacaoPatrimonio: number | undefined;
-	let variacaoPatrimonioPercentual: number | undefined;
-
-	if (historico.length >= 2) {
-		const maisRecente = historico[0];
-		const anterior = historico[1];
-		patrimonioAnterior = anterior.patrimonioTotal;
-		anoPatrimonioAnterior = anterior.ano;
-		variacaoPatrimonio = maisRecente.patrimonioTotal - anterior.patrimonioTotal;
-		if (anterior.patrimonioTotal > 0) {
-			variacaoPatrimonioPercentual =
-				((maisRecente.patrimonioTotal - anterior.patrimonioTotal) /
-					anterior.patrimonioTotal) *
-				100;
-		} else if (maisRecente.patrimonioTotal > 0) {
-			variacaoPatrimonioPercentual = 100;
-		} else {
-			variacaoPatrimonioPercentual = 0;
+	for (const r of resultados) {
+		if (r.status === "fulfilled" && r.value) {
+			historico.push(r.value);
 		}
 	}
 
+	historico.sort((a, b) => b.ano - a.ano);
+	const variacoes = calcularVariacoesPatrimonio(historico);
+
 	return {
 		historico,
-		patrimonioAnterior,
-		anoPatrimonioAnterior,
-		variacaoPatrimonio,
-		variacaoPatrimonioPercentual,
+		...variacoes,
+	};
+}
+
+async function fetchJsonDetalhes(url: string) {
+	try {
+		const res = await fetchWithTimeout(url, { timeout: 4000 });
+		if (!res.ok) return null;
+		const text = await res.text();
+		return text ? JSON.parse(text) : null;
+	} catch {
+		return null;
+	}
+}
+
+async function obterJsonDetalhesCandidato(eleicao: any, localidade: string, uf: string, matchId: string) {
+	const urlPrimaria = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/${eleicao.ano}/${localidade}/${eleicao.idEleicao}/candidato/${matchId}`;
+	const jsonPrimario = await fetchJsonDetalhes(urlPrimaria);
+	if (jsonPrimario) return jsonPrimario;
+
+	const urlFallback = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/${eleicao.ano}/${uf}/${eleicao.idEleicao}/candidato/${matchId}`;
+	return fetchJsonDetalhes(urlFallback);
+}
+
+async function obterBensDetalhes(eleicao: any, localidade: string, matchId: string, jsonCpf: any) {
+	let total = jsonCpf?.totalDeBens || 0;
+	let bens = jsonCpf?.bens || [];
+
+	if (total === 0 && matchId) {
+		const urlBens = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/candidato/${eleicao.ano}/${localidade}/${eleicao.idEleicao}/candidato/${matchId}/bens`;
+		const resBens = await fetchJsonDetalhes(urlBens);
+		if (resBens) {
+			total = resBens.totalDeBens || 0;
+			bens = resBens.bens || [];
+		}
+	}
+	return { total, bens };
+}
+
+function extrairDocumentosCandidato(jsonCpf: any) {
+	const cpfReal = jsonCpf?.cpf ? String(jsonCpf.cpf).replace(/\D/g, "") : null;
+	const cnpjCampanha = jsonCpf?.cnpjcampanha ? String(jsonCpf.cnpjcampanha).replace(/\D/g, "") : null;
+	const documentoValido = cpfReal || cnpjCampanha;
+	const isCnpj = !cpfReal && Boolean(cnpjCampanha);
+	return { cpfReal, cnpjCampanha, documentoValido, isCnpj };
+}
+
+function montarRegistroAtualTse(eleicao: any, match: any, jsonCpf: any, bensData: any): ItemHistoricoTse {
+	return {
+		ano: Number(eleicao.ano),
+		idEleicao: eleicao.idEleicao,
+		cargo: resolverCampoTexto(jsonCpf?.cargo?.nome, match.cargo?.nome, "Candidato"),
+		partido: resolverCampoTexto(jsonCpf?.partido?.sigla, match.partido?.sigla),
+		patrimonioTotal: bensData.total,
+		bensDeclarados: bensData.bens,
+		idTse: match.id,
+		nomeUrna: match.nomeUrna,
+		nomeCompleto: resolverCampoTexto(jsonCpf?.nomeCompleto, match.nomeCompleto),
+		urlFoto: resolverCampoTexto(jsonCpf?.fotoUrl, match.fotoUrl),
+	};
+}
+
+function montarResultadoTse(
+	docInfo: any,
+	municipioRef: string,
+	localidade: string,
+	eleicao: any,
+	match: any,
+	jsonCpf: any,
+	bensData: any,
+	dadosHistorico: any,
+	nomePolitico: string,
+): TseCandidateResult {
+	const nomeFinal = resolverCampoTexto(jsonCpf?.nomeCompleto, match.nomeCompleto, nomePolitico);
+	return {
+		cpf: docInfo.documentoValido,
+		documentoPrincipal: docInfo.documentoValido,
+		cnpjCampanha: docInfo.cnpjCampanha,
+		isCnpj: docInfo.isCnpj,
+		municipio: municipioRef,
+		idUe: localidade,
+		nome: nomeFinal,
+		nomeUrna: match.nomeUrna || null,
+		idTse: match.id,
+		anoEleicao: Number(eleicao.ano),
+		idEleicao: eleicao.idEleicao,
+		patrimonioTotal: bensData.total,
+		bensDeclarados: bensData.bens,
+		partido: resolverCampoTexto(jsonCpf?.partido?.sigla, match.partido?.sigla),
+		urlFoto: resolverCampoTexto(jsonCpf?.fotoUrl, match.fotoUrl),
+		historicoPatrimonio: dadosHistorico.historico,
+		patrimonioAnterior: dadosHistorico.patrimonioAnterior,
+		anoPatrimonioAnterior: dadosHistorico.anoPatrimonioAnterior,
+		variacaoPatrimonio: dadosHistorico.variacaoPatrimonio,
+		variacaoPatrimonioPercentual: dadosHistorico.variacaoPatrimonioPercentual,
 	};
 }
 
@@ -523,125 +489,36 @@ async function extrairDetalhesDoTSE(
 	uf: string,
 	nomePolitico: string,
 ): Promise<TseCandidateResult | null> {
-	console.log(
-		`[TSE DEBUG] ID encontrado: ${match.id} (${match.nomeUrna}). Buscando detalhes em ${localidade}...`,
+	const jsonCpf = await obterJsonDetalhesCandidato(eleicao, localidade, uf, match.id);
+	const docInfo = extrairDocumentosCandidato(jsonCpf);
+	if (!docInfo.documentoValido) return null;
+
+	const nomeMunicipioRaw = resolverCampoTexto(jsonCpf?.localCandidatura, jsonCpf?.unidadeEleitoral?.nome, uf);
+	const municipioRef = normalizeString(nomeMunicipioRaw).replace(/\s+/g, "-");
+
+	const bensData = await obterBensDetalhes(eleicao, localidade, match.id, jsonCpf);
+	const isMunicipal = ["11", "12", "13"].includes(String(jsonCpf?.cargo?.codigo || ""));
+	const registroAtual = montarRegistroAtualTse(eleicao, match, jsonCpf, bensData);
+
+	const nomeParaHistorico = resolverCampoTexto(jsonCpf?.nomeCompleto, match.nomeCompleto, nomePolitico);
+	const dadosHistorico = await buscarHistoricoPatrimonioTse(nomeParaHistorico, uf, isMunicipal, registroAtual);
+
+	return montarResultadoTse(
+		docInfo,
+		municipioRef,
+		localidade,
+		eleicao,
+		match,
+		jsonCpf,
+		bensData,
+		dadosHistorico,
+		nomePolitico,
 	);
-	const urlDetalhes = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/${eleicao.ano}/${localidade}/${eleicao.idEleicao}/candidato/${match.id}`;
-	let resDetalhes = await fetchWithTimeout(urlDetalhes, { timeout: 4000 });
-
-	let jsonCpf = null;
-	if (resDetalhes.ok) {
-		try {
-			const t1 = await resDetalhes.text();
-			if (t1) jsonCpf = JSON.parse(t1);
-		} catch (_e) {}
-	}
-
-	if (!jsonCpf) {
-		const urlAlt = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/${eleicao.ano}/${uf}/${eleicao.idEleicao}/candidato/${match.id}`;
-		resDetalhes = await fetchWithTimeout(urlAlt, { timeout: 4000 });
-		if (resDetalhes.ok) {
-			try {
-				const t2 = await resDetalhes.text();
-				if (t2) jsonCpf = JSON.parse(t2);
-			} catch (_e) {}
-		}
-	}
-
-	const cpfReal = jsonCpf?.cpf ? jsonCpf.cpf.replace(/\D/g, "") : null;
-	const cnpjCampanha = jsonCpf?.cnpjcampanha
-		? jsonCpf.cnpjcampanha.replace(/\D/g, "")
-		: null;
-	const documentoValido = cpfReal || cnpjCampanha;
-	const isCnpj = !cpfReal && !!cnpjCampanha;
-
-	if (documentoValido) {
-		const nomeMunicipioRaw =
-			jsonCpf?.localCandidatura || jsonCpf?.unidadeEleitoral?.nome || uf;
-		const municipioRef = normalizeString(nomeMunicipioRaw).replace(/\s+/g, "-");
-
-		// NOVIDADE: Tenta capturar o patrimônio total (bens) e a lista de bens
-		let patrimonioTotal = jsonCpf?.totalDeBens || 0;
-		let bensDeclarados = jsonCpf?.bens || [];
-
-		// Se for zero no JSON principal, tenta o endpoint de bens específico (necessário para algumas eleições)
-		if (patrimonioTotal === 0 && match.id) {
-			try {
-				const urlBens = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/candidato/${eleicao.ano}/${localidade}/${eleicao.idEleicao}/candidato/${match.id}/bens`;
-				const resBens = await fetchWithTimeout(urlBens, { timeout: 3000 });
-				if (resBens.ok) {
-					const dataBens = await resBens.json();
-					patrimonioTotal = dataBens.totalDeBens || 0;
-					bensDeclarados = dataBens.bens || [];
-				}
-			} catch (_e) {}
-		}
-
-		console.log(
-			`[TSE DEBUG] SUCESSO! Documento Extraído. isCnpj=${isCnpj} Patrimônio (${eleicao.ano}): ${patrimonioTotal}`,
-		);
-
-		const isMunicipal = ["11", "12", "13"].includes(String(jsonCpf?.cargo?.codigo || ""));
-		const registroAtual: ItemHistoricoTse = {
-			ano: Number(eleicao.ano),
-			idEleicao: eleicao.idEleicao,
-			cargo: jsonCpf?.cargo?.nome || match.cargo?.nome || "Candidato",
-			partido: jsonCpf?.partido?.sigla || match.partido?.sigla,
-			patrimonioTotal,
-			bensDeclarados,
-			idTse: match.id,
-			nomeUrna: match.nomeUrna,
-			nomeCompleto: jsonCpf?.nomeCompleto || match.nomeCompleto,
-			urlFoto: jsonCpf?.fotoUrl || match.fotoUrl,
-		};
-
-		// Busca o histórico eleitoral e calcula a evolução patrimonial
-		const dadosHistorico = await buscarHistoricoPatrimonioTse(
-			jsonCpf?.nomeCompleto || match.nomeCompleto || nomePolitico,
-			uf,
-			isMunicipal,
-			registroAtual,
-		);
-
-		return {
-			cpf: documentoValido,
-			documentoPrincipal: documentoValido,
-			cnpjCampanha: cnpjCampanha,
-			isCnpj,
-			municipio: municipioRef,
-			idUe: localidade,
-			nome: jsonCpf?.nomeCompleto || match.nomeCompleto || nomePolitico,
-			nomeUrna: match.nomeUrna || null,
-			idTse: match.id,
-			anoEleicao: Number(eleicao.ano),
-			idEleicao: eleicao.idEleicao,
-			patrimonioTotal,
-			bensDeclarados,
-			partido: jsonCpf?.partido?.sigla || match.partido?.sigla,
-			urlFoto: jsonCpf?.fotoUrl || match.fotoUrl,
-			historicoPatrimonio: dadosHistorico.historico,
-			patrimonioAnterior: dadosHistorico.patrimonioAnterior,
-			anoPatrimonioAnterior: dadosHistorico.anoPatrimonioAnterior,
-			variacaoPatrimonio: dadosHistorico.variacaoPatrimonio,
-			variacaoPatrimonioPercentual: dadosHistorico.variacaoPatrimonioPercentual,
-		};
-	}
-	console.log(
-		`[TSE DEBUG] Falha: CPF e CNPJ de Campanha não encontrados nos detalhes do candidato.`,
-	);
-	return null;
 }
 
-export async function buscarDoadoresTSE(
-	nomePolitico: string,
-	uf: string,
-	cargoCodigo: string = "6",
-	idEleicao: string = "20322002026",
-): Promise<string[]> {
+async function consultarCacheDoadores(nomePolitico: string, uf: string): Promise<string[] | null> {
 	try {
 		const { supabaseAdmin } = await import("@/lib/supabase-admin");
-
-		// TENTA CACHE PRIMEIRO
 		const { data: cacheData, error: cacheErr } = await supabaseAdmin
 			.from("tse_doadores_cache")
 			.select("doadores")
@@ -650,29 +527,31 @@ export async function buscarDoadoresTSE(
 			.limit(1)
 			.single();
 
-		if (
-			!cacheErr &&
-			cacheData &&
-			cacheData.doadores &&
-			cacheData.doadores.length > 0
-		) {
-			console.log(
-				`[TSE DOADORES] ✅ Cache Supabase: ${cacheData.doadores.length} doadores para ${nomePolitico} (bypass WAF).`,
-			);
+		if (!cacheErr && cacheData?.doadores?.length > 0) {
 			return cacheData.doadores;
 		}
+	} catch {
+		// Falha silenciosa no cache
+	}
+	return null;
+}
 
-		// 1. Busca o ID e Partido do candidato
-		const ano =
-			idEleicao === "20322002026"
-				? "2026"
-				: idEleicao === "2045202024"
-					? "2024"
-					: idEleicao === "2040602022"
-						? "2022"
-						: "2020";
-		const urlBusca = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${ano}/${uf}/${idEleicao}/${cargoCodigo}/candidatos`;
+function resolverAnoEleicao(idEleicao: string): string {
+	if (idEleicao === "20322002026") return "2026";
+	if (idEleicao === "2045202024") return "2024";
+	if (idEleicao === "2040602022") return "2022";
+	return "2020";
+}
 
+async function buscarCandidatoIdParaDoadores(
+	ano: string,
+	uf: string,
+	idEleicao: string,
+	cargoCodigo: string,
+	nomePolitico: string,
+): Promise<string | null> {
+	const urlBusca = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${ano}/${uf}/${idEleicao}/${cargoCodigo}/candidatos`;
+	try {
 		const resBusca = await fetchWithTimeout(urlBusca, {
 			timeout: 5000,
 			headers: {
@@ -681,8 +560,7 @@ export async function buscarDoadoresTSE(
 					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 			},
 		});
-		if (!resBusca.ok) return [];
-
+		if (!resBusca.ok) return null;
 		const dataBusca = await resBusca.json();
 		const termoNorm = normalizeString(nomePolitico);
 
@@ -697,23 +575,44 @@ export async function buscarDoadoresTSE(
 			);
 		});
 
-		if (!candidato?.id) {
-			console.log(
-				`[TSE DEBUG] Candidato não encontrado na listagem para buscar doadores.`,
-			);
-			return [];
-		}
+		return candidato?.id ? String(candidato.id) : null;
+	} catch {
+		return null;
+	}
+}
 
-		// 2. Monta a rota da Prestação de Contas Resumo (Bypass para rota /receitas que é estritamente bloqueada pelo WAF)
-		// A API possui variação no idEleicao para contas de 2022, mas tentaremos os identificadores padrão
-		// O TSE permite usar '90' como wildcard para partido e numero, escapando da necessidade de saber o numero correto do partido do candidato na epoca
-		const urlContas = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/prestador/consulta/${idEleicao}/${ano}/${uf}/${cargoCodigo}/90/90/${candidato.id}`;
-
-		console.log(
-			`[TSE DEBUG] Buscando contas/ranking (WAF Bypass): ${urlContas}`,
+async function salvarDoadoresNoCache(nomePolitico: string, uf: string, doadores: string[]) {
+	if (doadores.length === 0) return;
+	try {
+		const { supabaseAdmin } = await import("@/lib/supabase-admin");
+		await supabaseAdmin.from("tse_doadores_cache").upsert(
+			{
+				nome_politico: nomePolitico,
+				uf: uf,
+				doadores,
+			},
+			{ onConflict: "nome_politico, uf" },
 		);
+	} catch (err) {
+		console.warn("[TSE DEBUG] Erro ao salvar doadores no cache", err);
+	}
+}
 
-		// 3. Fetch imitando um Chrome real para driblar o Firewall do TSE
+export async function buscarDoadoresTSE(
+	nomePolitico: string,
+	uf: string,
+	cargoCodigo: string = "6",
+	idEleicao: string = "20322002026",
+): Promise<string[]> {
+	const cache = await consultarCacheDoadores(nomePolitico, uf);
+	if (cache) return cache;
+
+	const ano = resolverAnoEleicao(idEleicao);
+	const candidatoId = await buscarCandidatoIdParaDoadores(ano, uf, idEleicao, cargoCodigo, nomePolitico);
+	if (!candidatoId) return [];
+
+	const urlContas = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/prestador/consulta/${idEleicao}/${ano}/${uf}/${cargoCodigo}/90/90/${candidatoId}`;
+	try {
 		const resContas = await fetchWithTimeout(urlContas, {
 			method: "GET",
 			timeout: 8000,
@@ -729,71 +628,18 @@ export async function buscarDoadoresTSE(
 				Connection: "keep-alive",
 			},
 		});
+		if (!resContas.ok) return [];
 
-		if (!resContas.ok) {
-			console.log(
-				`[TSE DEBUG] WAF/TSE bloqueou ou não encontrou contas: HTTP ${resContas.status}`,
-			);
-			return [];
-		}
-
-		let dataContas;
-		try {
-			dataContas = await resContas.json();
-		} catch (_e) {
-			console.warn(
-				`[TSE DOADORES] ⚠️  WAF bloqueou a rota /prestador/consulta (body não-JSON). Doadores de campanha indisponíveis.`,
-			);
-			console.warn(
-				`[TSE DOADORES]    → Em produção, execute o ETL para popular o cache: npx tsx scripts/etl/tse-doadores-sync.ts`,
-			);
-			return [];
-		}
-
-		// Extrai CPFs e CNPJs do ranking de doadores e remove nulos
+		const dataContas = await resContas.json();
 		const listaDoadores = (dataContas.rankingDoadores || [])
-			.map((doacao: any) => {
-				return doacao.cpfCnpj ? doacao.cpfCnpj.replace(/\D/g, "") : null;
-			})
+			.map((doacao: any) => (doacao.cpfCnpj ? doacao.cpfCnpj.replace(/\D/g, "") : null))
 			.filter(Boolean);
 
-		// Remove duplicatas usando Set
 		const doadoresUnicos = [...new Set<string>(listaDoadores)];
-
-		if (doadoresUnicos.length > 0) {
-			console.log(
-				`[TSE DOADORES] ✅ Extraídos ${doadoresUnicos.length} doadores da API oficial (WAF Bypass).`,
-			);
-		} else {
-			console.log(`[TSE DOADORES] ℹ️  Candidato não possui doadores registrados na prestação de contas.`);
-		}
-
-		console.log(
-			`[TSE DEBUG] ${doadoresUnicos.length} doadores únicos capturados! Salvando no cache Supabase...`,
-		);
-
-		if (doadoresUnicos.length > 0) {
-			try {
-				const { supabaseAdmin } = await import("@/lib/supabase-admin");
-				await supabaseAdmin.from("tse_doadores_cache").upsert(
-					{
-						nome_politico: nomePolitico,
-						uf: uf,
-						doadores: doadoresUnicos,
-					},
-					{ onConflict: "nome_politico, uf" },
-				);
-			} catch (err) {
-				console.warn("[TSE DEBUG] Erro ao salvar doadores no cache", err);
-			}
-		}
-
+		await salvarDoadoresNoCache(nomePolitico, uf, doadoresUnicos);
 		return doadoresUnicos;
 	} catch (e) {
-		console.warn(
-			`[TSE] Falha severa ao buscar doadores para ${nomePolitico}:`,
-			e,
-		);
+		console.warn(`[TSE] Falha ao buscar doadores para ${nomePolitico}:`, e);
 		return [];
 	}
 }
