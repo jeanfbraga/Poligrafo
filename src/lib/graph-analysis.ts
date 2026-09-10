@@ -115,55 +115,81 @@ export function analyzeGraphNetwork(nodesInput: any[]): GraphAnalysisResult {
 		console.warn("[Cytoscape] Erro ao instanciar analítico:", e);
 	}
 
-	// ==========================================
-	// MONTAGEM DO RESULTADO
-	// ==========================================
-	const results: GraphAnalysisResult = {};
+function pontuarTipoGrafo(type: string) {
+	if (type === "EMPRESA" || type === "CONTRATO") return 2;
+	if (type === "SOCIO") return 1;
+	return 0;
+}
 
-	// Mapeia também os bypassNodes para o frontend não quebrar
-	nodesInput.forEach((n) => {
-		if (bypassNodes.has(n.id)) {
-			results[n.id] = {
-				degree: 0,
-				betweennessCentrality: 0,
-				pagerank: 0,
-				componentId: -1,
-				suspicionScore: 0,
-				suspicious: false,
-			};
-			return;
-		}
+function calcularScoreSuspeicao(bc: number, degree: number, type: string) {
+	let suspicionScore = 0;
+	if (bc >= 0.6) suspicionScore += 3;
+	else if (bc >= 0.3) suspicionScore += 1;
 
-		const degree = graph.degree(n.id);
-		const pr = (prScores[n.id] || 0) / maxPr;
-		const bc = (bcScores[n.id] || 0) / maxBc;
-		const componentId =
-			componentsMapping[n.id] !== undefined ? componentsMapping[n.id] : -1;
+	if (degree > 0 && degree <= 5 && bc >= 0.4) suspicionScore += 1;
+	if (degree > 15) suspicionScore -= 2;
 
-		// Regra de Negócio: Score Composto de Suspeição
-		let suspicionScore = 0;
+	suspicionScore += pontuarTipoGrafo(type);
 
-		if (bc >= 0.6) suspicionScore += 3;
-		else if (bc >= 0.3) suspicionScore += 1;
+	const suspicious = type !== "PESSOA" && suspicionScore >= 4;
+	return { suspicionScore, suspicious };
+}
 
-		if (degree > 0 && degree <= 5 && bc >= 0.4) suspicionScore += 1; // Ponte discreta
-		if (degree > 15) suspicionScore -= 2; // Mega hub público, menos provável ser canal oculto
-
-		const type = graph.getNodeAttribute(n.id, "type");
-		if (type === "EMPRESA" || type === "CONTRATO") suspicionScore += 2;
-		if (type === "SOCIO") suspicionScore += 1;
-
-		const suspicious = type !== "PESSOA" && suspicionScore >= 4;
-
-		results[n.id] = {
-			degree,
-			betweennessCentrality: bc,
-			pagerank: pr,
-			componentId,
-			suspicionScore,
-			suspicious,
+function montarNodeAnalysis(
+	n: any,
+	bypassNodes: Set<string>,
+	graph: any,
+	prScores: Record<string, number>,
+	maxPr: number,
+	bcScores: Record<string, number>,
+	maxBc: number,
+	componentsMapping: Record<string, number>,
+) {
+	if (bypassNodes.has(n.id)) {
+		return {
+			degree: 0,
+			betweennessCentrality: 0,
+			pagerank: 0,
+			componentId: -1,
+			suspicionScore: 0,
+			suspicious: false,
 		};
-	});
+	}
+
+	const degree = graph.degree(n.id);
+	const pr = (prScores[n.id] || 0) / maxPr;
+	const bc = (bcScores[n.id] || 0) / maxBc;
+	const componentId = componentsMapping[n.id] !== undefined ? componentsMapping[n.id] : -1;
+	const type = graph.getNodeAttribute(n.id, "type");
+	const { suspicionScore, suspicious } = calcularScoreSuspeicao(bc, degree, type);
+
+	return {
+		degree,
+		betweennessCentrality: bc,
+		pagerank: pr,
+		componentId,
+		suspicionScore,
+		suspicious,
+	};
+}
+
+// ==========================================
+// MONTAGEM DO RESULTADO
+// ==========================================
+const results: GraphAnalysisResult = {};
+
+nodesInput.forEach((n) => {
+	results[n.id] = montarNodeAnalysis(
+		n,
+		bypassNodes,
+		graph,
+		prScores,
+		maxPr,
+		bcScores,
+		maxBc,
+		componentsMapping,
+	);
+});
 
 	return results;
 }

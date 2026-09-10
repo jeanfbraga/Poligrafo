@@ -61,6 +61,51 @@ export async function buscarEnteSiconfi(
 	}
 }
 
+function processarItemRGF(
+	item: any,
+	acc: { rcl: number; dtp: number; pct: number; limiteMax: number },
+) {
+	const { cod_conta: codConta, coluna, valor: v } = item;
+	const valor = Number(v) || 0;
+
+	if (codConta === "ReceitaCorrenteLiquidaAjustada" && coluna === "Valor") {
+		acc.rcl = valor;
+		return;
+	}
+	if (codConta === "DespesaComPessoalTotal") {
+		if (coluna === "Valor") acc.dtp = valor;
+		if (coluna === "% sobre a RCL Ajustada") acc.pct = valor;
+		return;
+	}
+	if (
+		codConta === "LimiteMaximoDespesaComPessoalTotal" &&
+		coluna === "% sobre a RCL Ajustada"
+	) {
+		acc.limiteMax = valor;
+	}
+}
+
+function extrairMetricasRGF(items: any[]) {
+	const acc = { rcl: 0, dtp: 0, pct: 0, limiteMax: 54 };
+	for (const item of items) {
+		processarItemRGF(item, acc);
+	}
+	if (acc.pct === 0 && acc.rcl > 0) {
+		acc.pct = (acc.dtp / acc.rcl) * 100;
+	}
+	return acc;
+}
+
+function classificarSituacaoLimite(
+	pct: number,
+	limiteMax: number,
+): "NORMAL" | "ALERTA" | "PRUDENCIAL" | "EXCEDIDO" {
+	if (pct >= limiteMax) return "EXCEDIDO";
+	if (pct >= limiteMax * 0.95) return "PRUDENCIAL";
+	if (pct >= limiteMax * 0.9) return "ALERTA";
+	return "NORMAL";
+}
+
 async function queryRGF(
 	enteId: number,
 	ano: number,
@@ -71,55 +116,10 @@ async function queryRGF(
 		const res = await fetchWithTimeout(url, { timeout: 8000 });
 		if (!res.ok) return null;
 		const json = await res.json();
-		if (!json.items || json.items.length === 0) return null;
+		if (!json.items?.length) return null;
 
-		const items = json.items;
-
-		let rcl = 0;
-		let dtp = 0;
-		let pct = 0;
-		let limiteMax = 54; // Default LRF limit for Executive
-
-		for (const item of items) {
-			const codConta = item.cod_conta;
-			const coluna = item.coluna;
-			const valor = Number(item.valor || 0);
-
-			if (codConta === "ReceitaCorrenteLiquidaAjustada" && coluna === "Valor") {
-				rcl = valor;
-			} else if (codConta === "DespesaComPessoalTotal") {
-				if (coluna === "Valor") {
-					dtp = valor;
-				} else if (coluna === "% sobre a RCL Ajustada") {
-					pct = valor;
-				}
-			} else if (
-				codConta === "LimiteMaximoDespesaComPessoalTotal" &&
-				coluna === "% sobre a RCL Ajustada"
-			) {
-				limiteMax = valor;
-			}
-		}
-
+		const { rcl, dtp, pct, limiteMax } = extrairMetricasRGF(json.items);
 		if (rcl === 0 && dtp === 0 && pct === 0) return null;
-
-		// Se o percentual não veio preenchido, calcula
-		if (pct === 0 && rcl > 0) {
-			pct = (dtp / rcl) * 100;
-		}
-
-		let situacaoLimite: "NORMAL" | "ALERTA" | "PRUDENCIAL" | "EXCEDIDO" =
-			"NORMAL";
-		const prudencial = limiteMax * 0.95;
-		const alerta = limiteMax * 0.9;
-
-		if (pct >= limiteMax) {
-			situacaoLimite = "EXCEDIDO";
-		} else if (pct >= prudencial) {
-			situacaoLimite = "PRUDENCIAL";
-		} else if (pct >= alerta) {
-			situacaoLimite = "ALERTA";
-		}
 
 		return {
 			exercicio: ano,
@@ -129,7 +129,7 @@ async function queryRGF(
 			despesaPessoalTotal: dtp,
 			percentualDespesaPessoal: Number(pct.toFixed(2)),
 			limiteMaximoPercentual: limiteMax,
-			situacaoLimite,
+			situacaoLimite: classificarSituacaoLimite(pct, limiteMax),
 		};
 	} catch {
 		return null;

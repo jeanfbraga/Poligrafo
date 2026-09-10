@@ -97,99 +97,91 @@ const MobileAvatar = ({ rootNode, className = "h-10 w-10" }: { rootNode: any; cl
 
 
 
-function getCardStyles(type: string, score: number) {
-	if (type === "DESPESA") {
-		if (score >= 85)
-			return {
-				variant: "cyber-red" as const,
-				bg: "bg-red-950/20",
-				text: "text-red-500",
-				border: "border-red-500",
-				icon: <ShieldAlert className="w-5 h-5 text-red-500" />,
-				riskLabel: "CRÍTICO",
-			};
-		return {
-			variant: "cyber-yellow" as const,
-			bg: "bg-yellow-950/20",
-			text: "text-yellow-500",
-			border: "border-yellow-500",
-			icon: <DollarSign className="w-5 h-5 text-yellow-500" />,
-			riskLabel: "ALERTA",
-		};
-	}
-	if (type === "CONTRATO")
-		return {
-			variant: "cyber-yellow" as const,
-			bg: "bg-yellow-950/10",
-			text: "text-yellow-500",
-			border: "border-yellow-500",
-			icon: <FileText className="w-5 h-5 text-yellow-500" />,
-			riskLabel: "",
-		};
-	if (type === "EMENDA" || type === "EMENDA_RESUMO") {
-		if (score >= 85)
-			return {
-				variant: "cyber-red" as const,
-				bg: "bg-red-950/20",
-				text: "text-red-500",
-				border: "border-red-500",
-				icon: <ShieldAlert className="w-5 h-5 text-red-500" />,
-				riskLabel: "CRÍTICO",
-			};
-		return {
-			variant: "cyber-green" as const,
-			bg: "bg-green-950/10",
-			text: "text-green-500",
-			border: "border-green-500",
-			icon: <Landmark className="w-5 h-5 text-green-500" />,
-			riskLabel: "REGULAR",
-		};
-	}
-	if (type === "EMPRESA") {
-		if (score >= 85)
-			return {
-				variant: "cyber-red" as const,
-				bg: "bg-red-950/20",
-				text: "text-red-500",
-				border: "border-red-500",
-				icon: <ShieldAlert className="w-5 h-5 text-red-500" />,
-				riskLabel: "CRÍTICO",
-			};
-		return {
-			variant: "cyber-slate" as const,
-			bg: "bg-slate-900",
-			text: "text-slate-300",
-			border: "border-slate-700",
-			icon: <Briefcase className="w-5 h-5 text-slate-400" />,
-			riskLabel: "INFO",
-		};
-	}
-	if (type === "SOCIO")
-		return {
-			variant: "cyber-purple" as const,
-			bg: "bg-purple-950/20",
-			text: "text-purple-400",
-			border: "border-purple-500",
-			icon: <Users className="w-5 h-5 text-purple-400" />,
-			riskLabel: "",
-		};
-	if (type === "PROCESSO_JUDICIAL")
-		return {
-			variant: "cyber-red" as const,
-			bg: "bg-red-950/20",
-			text: "text-red-500",
-			border: "border-red-600",
-			icon: <Scale className="w-5 h-5 text-red-500" />,
-			riskLabel: "",
-		};
+function getCriticalCardStyle() {
 	return {
-		variant: "cyber-green" as const,
-		bg: "bg-green-950/20",
-		text: "text-green-500",
-		border: "border-green-500/50",
-		icon: <FileText className="w-5 h-5 text-green-500" />,
-		riskLabel: "",
+		variant: "cyber-red" as const,
+		bg: "bg-red-950/20",
+		text: "text-red-500",
+		border: "border-red-500",
+		icon: <ShieldAlert className="w-5 h-5 text-red-500" />,
+		riskLabel: "CRÍTICO",
 	};
+}
+
+const STATIC_CARD_STYLES: Record<string, any> = {
+	CONTRATO: {
+		variant: "cyber-yellow" as const,
+		bg: "bg-yellow-950/10",
+		text: "text-yellow-500",
+		border: "border-yellow-500",
+		icon: <FileText className="w-5 h-5 text-yellow-500" />,
+		riskLabel: "",
+	},
+	DESPESA: {
+		variant: "cyber-yellow" as const,
+		bg: "bg-yellow-950/20",
+		text: "text-yellow-500",
+		border: "border-yellow-500",
+		icon: <DollarSign className="w-5 h-5 text-yellow-500" />,
+		riskLabel: "ALERTA",
+	},
+	EMENDA: {
+		variant: "cyber-green" as const,
+		bg: "bg-green-950/10",
+		text: "text-green-500",
+		border: "border-green-500",
+		icon: <Landmark className="w-5 h-5 text-green-500" />,
+		riskLabel: "REGULAR",
+	},
+	EMENDA_RESUMO: {
+		variant: "cyber-green" as const,
+		bg: "bg-green-950/10",
+		text: "text-green-500",
+		border: "border-green-500",
+		icon: <Landmark className="w-5 h-5 text-green-500" />,
+		riskLabel: "REGULAR",
+	},
+	EMPRESA: {
+		variant: "cyber-slate" as const,
+		bg: "bg-slate-900",
+		text: "text-slate-300",
+		border: "border-slate-700",
+		icon: <Briefcase className="w-5 h-5 text-slate-400" />,
+		riskLabel: "INFO",
+	},
+	SOCIO: {
+		variant: "cyber-purple" as const,
+		bg: "bg-purple-950/20",
+		text: "text-purple-400",
+		border: "border-purple-500",
+		icon: <Users className="w-5 h-5 text-purple-400" />,
+		riskLabel: "",
+	},
+	PROCESSO_JUDICIAL: {
+		variant: "cyber-red" as const,
+		bg: "bg-red-950/20",
+		text: "text-red-500",
+		border: "border-red-600",
+		icon: <Scale className="w-5 h-5 text-red-500" />,
+		riskLabel: "",
+	},
+};
+
+const DEFAULT_CARD_STYLE = {
+	variant: "cyber-green" as const,
+	bg: "bg-green-950/20",
+	text: "text-green-500",
+	border: "border-green-500/50",
+	icon: <FileText className="w-5 h-5 text-green-500" />,
+	riskLabel: "",
+};
+
+function getCardStyles(type: string, score: number) {
+	const canBeCritical = type === "DESPESA" || type === "EMENDA" || type === "EMENDA_RESUMO" || type === "EMPRESA";
+	if (canBeCritical && score >= 85) {
+		return getCriticalCardStyle();
+	}
+	return STATIC_CARD_STYLES[type] || DEFAULT_CARD_STYLE;
 }
 
 const dotBg = {
@@ -298,6 +290,958 @@ function MobileResultCard({ node, onSelect, onShare, footer }: { node: any; onSe
 	);
 }
 
+
+
+function getDespesaDrawerColors(score: number) {
+	if (score >= 85) {
+		return {
+			variant: "cyber-red" as const,
+			text: "text-red-500",
+			border: "border-red-900",
+			label: "text-red-400/70",
+			valueBg: "border-red-900/30",
+		};
+	}
+	if (score >= 60) {
+		return {
+			variant: "cyber-yellow" as const,
+			text: "text-yellow-500",
+			border: "border-yellow-900",
+			label: "text-yellow-400/70",
+			valueBg: "border-yellow-900/30",
+		};
+	}
+	return {
+		variant: "cyber-slate" as const,
+		text: "text-slate-400",
+		border: "border-slate-800",
+		label: "text-slate-500",
+		valueBg: "border-slate-800",
+	};
+}
+
+const STATIC_DRAWER_COLORS: Record<string, any> = {
+	EMPRESA: {
+		variant: "cyber-blue" as const,
+		text: "text-blue-500",
+		border: "border-blue-900",
+		label: "text-blue-400/70",
+		valueBg: "border-blue-900/30",
+	},
+	CONTRATO: {
+		variant: "cyber-yellow" as const,
+		text: "text-yellow-500",
+		border: "border-yellow-900",
+		label: "text-yellow-400/70",
+		valueBg: "border-yellow-900/30",
+	},
+	SOCIO: {
+		variant: "cyber-purple" as const,
+		text: "text-purple-400",
+		border: "border-purple-900",
+		label: "text-purple-400/70",
+		valueBg: "border-purple-900/30",
+	},
+};
+
+const EMENDA_DRAWER_COLOR = {
+	variant: "cyber-teal" as const,
+	text: "text-teal-500",
+	border: "border-teal-900",
+	label: "text-teal-400/70",
+	valueBg: "border-teal-900/30",
+};
+
+const DEFAULT_DRAWER_COLOR = {
+	variant: "cyber-green" as const,
+	text: "text-green-500",
+	border: "border-green-900",
+	label: "text-green-400/70",
+	valueBg: "border-green-900/30",
+};
+
+function getDrawerColors(sc: any) {
+	if (sc.type === "DESPESA") {
+		return getDespesaDrawerColors(Number(sc.data?.score_letalidade || 0));
+	}
+	if (sc.type.startsWith("EMENDA")) {
+		return EMENDA_DRAWER_COLOR;
+	}
+	return STATIC_DRAWER_COLORS[sc.type] || DEFAULT_DRAWER_COLOR;
+}
+
+function DespesaComprovacaoSection({ sc, dc, rootNode }: { sc: any; dc: any; rootNode: any }) {
+	const urlDoc = sc.data?.urlDocumento;
+	const isDigital = urlDoc && (urlDoc.endsWith(".pdf") || urlDoc.includes("camara.leg.br") || urlDoc.includes("senado.leg.br"));
+
+	return (
+		<div>
+			<p className={`text-xs uppercase font-bold mb-2 border-b pb-1 ${dc.border} ${dc.label}`}>
+				COMPROVAÇÃO & REGISTRO OFICIAL
+			</p>
+			{isDigital ? (
+				<a
+					href={urlDoc}
+					target="_blank"
+					rel="noopener noreferrer"
+					className="flex w-full items-center justify-center p-3 border bg-blue-950/20 border-blue-900 text-blue-400 active:bg-blue-900/40 text-xs font-bold uppercase tracking-widest min-h-11"
+				>
+					<ExternalLink className="w-4 h-4 mr-2" /> VER NOTA DIGITALIZADA (PDF)
+				</a>
+			) : (
+				<div className="space-y-2">
+					<div className="p-3 bg-slate-950 border border-slate-800 rounded-sm space-y-1.5">
+						<div className="flex justify-between items-center text-[11px]">
+							<span className="text-slate-500 uppercase">Processo:</span>
+							<span className="text-slate-300 font-mono font-bold">
+								{sc.data?.numeroDocumento || "REGISTRO OFICIAL"}
+							</span>
+						</div>
+						<div className="flex justify-between items-center text-[11px]">
+							<span className="text-slate-500 uppercase">Órgão:</span>
+							<span className="text-slate-300 font-bold">
+								{sc.data?.orgao || "MUNICIPAL"}
+							</span>
+						</div>
+						<div className="flex justify-between items-center text-[11px]">
+							<span className="text-slate-500 uppercase">Modalidade:</span>
+							<span className="text-slate-300">
+								{sc.data?.modalidade || sc.data?.tipo || "Contrato"}
+							</span>
+						</div>
+					</div>
+					{(() => {
+						const fallback = getPortalTransparenciaFallback(
+							rootNode?.data?.casa as string | undefined,
+							rootNode?.data?.uri as string | undefined,
+						);
+						if (fallback.link !== "#") {
+							return (
+								<a
+									href={fallback.link}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="flex w-full items-center justify-center p-2.5 border bg-slate-900/50 border-slate-700 text-slate-300 active:bg-slate-800 text-xs font-bold uppercase tracking-widest min-h-11"
+								>
+									<ExternalLink className="w-3.5 h-3.5 mr-2" /> {fallback.textoLink}
+								</a>
+							);
+						}
+						return null;
+					})()}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function EmendaBeneficiarioSection({
+	sc,
+	beneficiaryContracts,
+	setBeneficiaryContracts,
+	loadingBeneficiaryContracts,
+	setLoadingBeneficiaryContracts,
+}: any) {
+	const handleInvestigar = async () => {
+		setLoadingBeneficiaryContracts(true);
+		try {
+			const res = await fetch(`/api/investigar/contratos-beneficiario?cnpj=${sc.data.beneficiario.cnpj}`);
+			if (res.ok) {
+				const json = await res.json();
+				const contracts = json.contracts || [];
+				setBeneficiaryContracts(contracts);
+				if (contracts.length === 0) {
+					toast.info("Nenhum contrato encontrado para este CNPJ no PNCP.");
+				}
+			} else {
+				toast.error("Erro ao buscar contratos do beneficiário.");
+			}
+		} catch (_e) {
+			toast.error("Falha de rede ao consultar contratos.");
+		} finally {
+			setLoadingBeneficiaryContracts(false);
+		}
+	};
+
+	return (
+		<div className="mt-4 pt-4 border-t border-slate-800">
+			<p className="text-xs uppercase font-bold text-teal-500 mb-2 border-b border-teal-900 pb-1 flex items-center gap-1 font-mono">
+				<Building2 className="w-4 h-4" /> BENEFICIÁRIO RECEBEDOR
+			</p>
+			<div className="p-3 border bg-teal-950/10 border-teal-900/30 text-teal-400 text-xs leading-relaxed uppercase tracking-wide mb-3">
+				<span className="opacity-60 font-bold">NOME:</span> {sc.data.beneficiario.nome}
+				<br />
+				<span className="opacity-60 font-bold">CNPJ:</span> {sc.data.beneficiario.cnpj}
+				<br />
+				<span className="opacity-60 font-bold">UF:</span> {sc.data.beneficiario.uf}
+				{sc.data.beneficiario.area && (
+					<>
+						<br />
+						<span className="opacity-60 font-bold">ÁREA:</span> {sc.data.beneficiario.area}
+					</>
+				)}
+				{sc.data.beneficiario.situacao && (
+					<>
+						<br />
+						<span className="opacity-60 font-bold">SITUAÇÃO:</span> {sc.data.beneficiario.situacao}
+					</>
+				)}
+			</div>
+
+			{beneficiaryContracts.length === 0 ? (
+				<Button
+					variant="outline"
+					disabled={loadingBeneficiaryContracts}
+					className="w-full bg-teal-950/20 text-teal-400 border border-teal-850 active:bg-teal-900 rounded-none text-xs font-bold uppercase h-12"
+					onClick={handleInvestigar}
+				>
+					{loadingBeneficiaryContracts ? (
+						<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+					) : (
+						<Search className="mr-2 h-4 w-4" />
+					)}
+					INVESTIGAR CONTRATOS DO RECEBEDOR (PNCP)
+				</Button>
+			) : (
+				<div className="space-y-2">
+					<p className="text-[11px] font-bold uppercase text-teal-500 flex items-center gap-1">
+						<Briefcase className="w-3.5 h-3.5" /> ÚLTIMOS CONTRATOS PNCP ({beneficiaryContracts.length})
+					</p>
+					<div className="space-y-2 max-h-45 overflow-y-auto pr-1">
+						{beneficiaryContracts.map((c: any, idx: number) => (
+							<div
+								key={idx}
+								className="p-2 border border-slate-800 bg-slate-950/50 text-xs leading-relaxed font-mono"
+							>
+								<div className="flex justify-between items-start mb-1">
+									<span className="font-bold text-teal-400 text-[10px] bg-teal-950/50 px-1.5 py-0.5 border border-teal-900 uppercase">
+										{c.tipo === "COMPRADOR" ? "COMPRADOR" : "FORNECEDOR"}
+									</span>
+									<span className="text-slate-500 text-[10px] font-mono">
+										{c.data ? new Date(c.data).toLocaleDateString("pt-BR") : ""}
+									</span>
+								</div>
+								<p className="text-slate-300 font-bold uppercase tracking-wider line-clamp-1 text-xs">
+									{c.orgao}
+								</p>
+								<p className="text-slate-400 mt-1 uppercase text-[10px] line-clamp-2 leading-tight">
+									{c.objeto}
+								</p>
+								<p className="text-right text-green-400 font-bold mt-1 text-xs font-mono">
+									R$ {Number(c.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+								</p>
+							</div>
+						))}
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
+
+function extractDocUrl(nodeData: any): string | undefined {
+	if (!nodeData) return undefined;
+	return nodeData.urlDocumento || nodeData.url_documento || nodeData.link_documento || undefined;
+}
+
+function resolvePoliticoInfo(rootData: any) {
+	return {
+		politicoNome: rootData?.nomeCivil || rootData?.label || "Desconhecido",
+		politicoCargo: rootData?.cargo || "Cargo",
+		politicoUf: rootData?.uf || "UF",
+		politicoFoto: rootData?.urlFoto || undefined,
+	};
+}
+
+function resolveAchadoInfo(nodeData: any, type: string) {
+	const achadoTipo = type === "EMENDA_RESUMO" ? "EMENDA" : type;
+	const achadoValor = nodeData?.valor !== undefined ? Number(nodeData.valor) : undefined;
+	return {
+		achadoTipo,
+		achadoTitulo: nodeData?.label || "Sem título",
+		achadoValor,
+		achadoScore: Number(nodeData?.score_letalidade || 0),
+		achadoData: nodeData?.dataDocumento || undefined,
+		achadoMotivo: nodeData?.motivo_ia || undefined,
+		achadoAlerta: nodeData?.risco?.alertas?.[0] || undefined,
+		achadoFonteUrl: extractDocUrl(nodeData),
+	};
+}
+
+function buildMobileShareData(rootNode: any, nodeData: any, type: string): ShareData {
+	return {
+		...resolvePoliticoInfo(rootNode?.data),
+		...resolveAchadoInfo(nodeData, type),
+	};
+}
+
+function SelectedCardMetaSection({ sc, dc }: { sc: any; dc: any }) {
+	const temValor = sc.type !== "PESSOA" && (sc.data?.valor !== undefined && sc.data?.valor !== null);
+	const tipoTexto = sc.data?.tipoDespesa || sc.data?.tipo;
+
+	return (
+		<>
+			{temValor && (
+				<div className={`p-3 border ${dc.valueBg} bg-black text-center`}>
+					<p className="text-xs uppercase font-bold opacity-50 mb-1">VALOR / MONTANTE</p>
+					<p className={`text-xl font-bold tracking-widest ${dc.text}`}>
+						R$ {Number(sc.data.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+					</p>
+				</div>
+			)}
+			{sc.data?.nomeFornecedor && (
+				<div>
+					<p className="text-xs uppercase font-bold opacity-50 mb-1">FORNECEDOR</p>
+					<p className={`text-xs font-bold ${dc.text}`}>{sc.data.nomeFornecedor}</p>
+				</div>
+			)}
+			{tipoTexto && (
+				<div>
+					<p className="text-xs uppercase font-bold opacity-50 mb-1">TIPO</p>
+					<p className={`text-xs font-bold ${dc.text}`}>{tipoTexto}</p>
+				</div>
+			)}
+			{sc.data?.dataDocumento && (
+				<div>
+					<p className="text-xs uppercase font-bold opacity-50 mb-1">DATA</p>
+					<p className={`text-xs font-bold ${dc.text}`}>{sc.data.dataDocumento}</p>
+				</div>
+			)}
+			{sc.data?.descricao && (
+				<div className="p-2.5 bg-slate-900/60 border border-slate-800 rounded-sm">
+					<p className="text-[10px] uppercase font-bold opacity-50 mb-1">OBJETO / FINALIDADE</p>
+					<p className="text-xs text-slate-300 leading-relaxed">{sc.data.descricao}</p>
+				</div>
+			)}
+		</>
+	);
+}
+
+function SelectedCardActionsSection({
+	sc,
+	handlePivotCNPJ,
+	handleSocioSearch,
+	setDrawerOpen,
+}: any) {
+	if (sc.type === "EMPRESA") {
+		return (
+			<>
+				{sc.data?.situacao && (
+					<div>
+						<p className="text-xs uppercase font-bold opacity-50 mb-1">SITUAÇÃO</p>
+						<p className="text-xs text-blue-400 font-bold">{sc.data.situacao}</p>
+					</div>
+				)}
+				<Button
+					variant="outline"
+					className="w-full bg-blue-950/20 text-blue-400 border-blue-900 active:bg-blue-900 rounded-none text-xs font-bold uppercase h-12"
+					onClick={() => {
+						handlePivotCNPJ(sc.data?.cnpj || sc.data?.documento, sc.id);
+						setDrawerOpen(false);
+					}}
+				>
+					<Briefcase className="mr-2 h-4 w-4" /> APROFUNDAR DOSSIÊ (QSA)
+				</Button>
+			</>
+		);
+	}
+	if (sc.type === "SOCIO") {
+		return (
+			<Button
+				variant="outline"
+				className="w-full bg-purple-950/20 text-purple-400 border-purple-900 active:bg-purple-900 rounded-none text-xs font-bold uppercase h-12"
+				onClick={() => {
+					handleSocioSearch(sc.data?.label, sc.id);
+					setDrawerOpen(false);
+				}}
+			>
+				<Users className="mr-2 h-4 w-4" /> BUSCA REVERSA
+			</Button>
+		);
+	}
+	return null;
+}
+
+function SelectedCardAlertsSection({ sc, scScore }: { sc: any; scScore: number }) {
+	const alertas = sc.data?.risco?.alertas;
+	const temAlertas = Array.isArray(alertas) && alertas.length > 0;
+
+	return (
+		<>
+			{sc.data?.motivo_ia && (
+				<div className="mt-4">
+					<AIProgressBar score={scScore} motivo={sc.data.motivo_ia} />
+				</div>
+			)}
+			{temAlertas && (
+				<div>
+					<p className="text-xs uppercase font-bold text-red-600 mb-2 border-b border-red-900 pb-1">
+						&gt; CRUZAMENTO DE DADOS OFICIAIS
+					</p>
+					<ul className="space-y-2">
+						{alertas.map((alerta: string, idx: number) => (
+							<li key={idx} className="flex gap-2 text-xs text-red-400 wrap-break-word w-full font-bold">
+								<ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
+								<span className="leading-tight">{alerta}</span>
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+		</>
+	);
+}
+
+function SelectedCardDrawerContent({
+	sc,
+	rootNode,
+	handlePivotCNPJ,
+	handleSocioSearch,
+	setDrawerOpen,
+	beneficiaryContracts,
+	setBeneficiaryContracts,
+	loadingBeneficiaryContracts,
+	setLoadingBeneficiaryContracts,
+}: any) {
+	const scScore = Number(sc.data?.score_letalidade || 0);
+	const dc = getDrawerColors(sc);
+
+	return (
+		<div className="p-5 overflow-y-auto max-h-[85vh] font-mono" style={{ scrollbarWidth: "none" }}>
+			<DrawerHeader className={`px-0 pt-0 border-b border-dashed ${dc.border} pb-4 mb-4 text-left`}>
+				<Badge variant={dc.variant} className="w-fit mb-2">
+					{sc.type === "EMENDA_RESUMO" ? "EMENDA" : sc.type}{" "}
+					{sc.type === "DESPESA" ? `• SCORE ${scScore}/100` : ""}
+				</Badge>
+				<h2 className={`text-base font-bold uppercase tracking-widest ${dc.text} m-0`}>
+					{sc.data?.label}
+				</h2>
+				{sc.data?.documento && (
+					<DrawerDescription className={`font-mono text-xs mt-1 font-bold ${dc.label}`}>
+						CNPJ/CPF: {sc.data.documento}
+					</DrawerDescription>
+				)}
+			</DrawerHeader>
+
+			<div className="space-y-5">
+				{sc.type === "PESSOA" && (
+					<PoliticoDetailsContent data={sc.data} nodeId={sc.id} isMobile={true} />
+				)}
+
+				<SelectedCardMetaSection sc={sc} dc={dc} />
+
+				{sc.type === "DESPESA" && (
+					<DespesaComprovacaoSection sc={sc} dc={dc} rootNode={rootNode} />
+				)}
+
+				<SelectedCardActionsSection
+					sc={sc}
+					handlePivotCNPJ={handlePivotCNPJ}
+					handleSocioSearch={handleSocioSearch}
+					setDrawerOpen={setDrawerOpen}
+				/>
+
+				<SelectedCardAlertsSection sc={sc} scScore={scScore} />
+
+				{sc.type === "EMENDA" && sc.data?.beneficiario && (
+					<EmendaBeneficiarioSection
+						sc={sc}
+						beneficiaryContracts={beneficiaryContracts}
+						setBeneficiaryContracts={setBeneficiaryContracts}
+						loadingBeneficiaryContracts={loadingBeneficiaryContracts}
+						setLoadingBeneficiaryContracts={setLoadingBeneficiaryContracts}
+					/>
+				)}
+			</div>
+		</div>
+	);
+}
+
+function MobileInitialSearchScreen({
+	onOpenSearch,
+	searchDrawer,
+}: {
+	onOpenSearch: () => void;
+	searchDrawer: React.ReactNode;
+}) {
+	return (
+		<>
+			<div className="fixed bottom-6 left-0 right-0 z-60 flex justify-center pointer-events-none">
+				<Button
+					variant="cyber"
+					onClick={onOpenSearch}
+					className="h-14 px-8 pointer-events-auto"
+				>
+					<Search className="w-5 h-5 mr-2" /> Investigar Político
+				</Button>
+			</div>
+			{searchDrawer}
+		</>
+	);
+}
+
+function MobileLoadingDossieCard({ rootNode }: { rootNode: any }) {
+	const cargoTexto = `${rootNode.data.cargo || "POLÍTICO"} — ${rootNode.data.uf || "??"}`;
+	const docPrincipal = rootNode.data.documentoPrincipal || rootNode.data.cpf;
+	const temPatrimonio = rootNode.data.patrimonio !== undefined && rootNode.data.patrimonio > 0;
+
+	return (
+		<div className="w-full border border-green-500 bg-black p-5 font-mono text-green-400 shadow-[0_0_25px_rgba(34,197,94,0.35)] animate-pulse">
+			<div className="flex items-center justify-between mb-3 border-b border-green-500/50 pb-2">
+				<Badge
+					variant="outline"
+					className="bg-black text-green-400 border-green-500 rounded-none uppercase text-xs tracking-widest"
+				>
+					{cargoTexto}
+				</Badge>
+				<Loader2 className="w-4 h-4 text-green-500 animate-spin" />
+			</div>
+			<div className="flex items-center gap-3 mb-4">
+				<MobileAvatar rootNode={rootNode} className="h-10 w-10" />
+				<div>
+					<h2 className="text-base font-bold uppercase tracking-widest text-green-400">
+						{rootNode.data.label}
+					</h2>
+					{rootNode.data.nomeCivil && (
+						<p className="text-xs text-green-600 uppercase mt-0.5 font-bold">
+							{rootNode.data.nomeCivil}
+						</p>
+					)}
+				</div>
+			</div>
+			{docPrincipal && (
+				<div className="border-t border-green-900/50 pt-3">
+					<p className="text-xs uppercase font-bold text-green-500 mb-1">
+						DOCUMENTO RAIZ
+					</p>
+					<span className="text-xs text-green-300 bg-green-500/20 px-2 py-1 font-bold">
+						{String(docPrincipal)}
+					</span>
+				</div>
+			)}
+			{temPatrimonio && (
+				<div className="border-t border-green-900/50 pt-3">
+					<p className="text-xs uppercase font-bold text-yellow-500 mb-1 flex items-center gap-1">
+						<DollarSign className="w-3.5 h-3.5" /> PATRIMÔNIO DECLARADO ({rootNode.data.anoPatrimonio || 2026})
+					</p>
+					<span className="text-xs text-yellow-300 bg-yellow-950/40 border border-yellow-900/40 px-2 py-1 font-bold font-mono">
+						R$ {Number(rootNode.data.patrimonio).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+					</span>
+				</div>
+			)}
+			<div className="mt-5 pt-3 border-t border-green-900/50">
+				<div className="flex justify-between text-xs text-green-500 mb-1.5 uppercase font-bold">
+					<span>PROCESSANDO DOSSIÊ...</span>
+					<span className="animate-pulse">[■■■■■■■■■]</span>
+				</div>
+				<div className="w-full h-1.5 bg-green-950 overflow-hidden">
+					<div
+						className="h-full bg-green-500 animate-[slideRight_1.5s_ease-in-out_infinite]"
+						style={{ width: "40%" }}
+					/>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function MobileLoadingScreen({
+	onNovaBusca,
+	isLoading,
+	rootNode,
+	allResultsLength,
+	tabCounts,
+	displayedStatus,
+	isTyping,
+}: {
+	onNovaBusca: () => void;
+	isLoading: boolean;
+	rootNode?: any;
+	allResultsLength: number;
+	tabCounts: Record<TabKey, number>;
+	displayedStatus: string;
+	isTyping: boolean;
+}) {
+	return (
+		<div
+			className="w-full h-full flex flex-col items-center justify-center relative z-20 px-6"
+			style={dotBg}
+		>
+			<div className="absolute top-0 left-0 w-full h-12 z-30">
+				<SiteHeader
+					showOnMobile={true}
+					showSearch={false}
+					onClearAll={onNovaBusca}
+					isLoading={isLoading}
+				/>
+			</div>
+
+			{rootNode ? (
+				<div className="w-full max-w-sm flex flex-col items-center gap-5">
+					<MobileLoadingDossieCard rootNode={rootNode} />
+
+					{allResultsLength > 0 && (
+						<div className="w-full border border-green-500/30 bg-black px-3 py-2 flex items-center justify-between">
+							<span className="text-xs text-green-500 font-bold uppercase">
+								{allResultsLength} ACHADOS
+							</span>
+							<div className="flex gap-1">
+								{tabCounts.CRITICO > 0 && (
+									<Badge className="bg-red-500/20 text-red-400 border-red-500 rounded-none text-xs px-1.5">
+										{tabCounts.CRITICO} 🔴
+									</Badge>
+								)}
+								{tabCounts.ATENCAO > 0 && (
+									<Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500 rounded-none text-xs px-1.5">
+										{tabCounts.ATENCAO} 🟡
+									</Badge>
+								)}
+							</div>
+						</div>
+					)}
+
+					<div className="w-full border border-green-900/50 bg-black p-3 font-mono">
+						<p className="text-xs text-green-400 leading-tight flex items-start gap-2 font-bold uppercase">
+							<span className="text-green-600 shrink-0">{">"}</span>
+							<span className="normal-case">
+								{displayedStatus || "Iniciando investigação..."}
+							</span>
+							<span
+								className={`inline-block w-2 h-4 ml-1 shrink-0 ${isTyping ? "bg-green-400" : "bg-green-400/50 animate-pulse"}`}
+							/>
+						</p>
+					</div>
+				</div>
+			) : (
+				<div className="w-full max-w-sm flex flex-col items-center gap-5">
+					<div className="w-full border border-green-500/30 bg-black p-5 animate-pulse">
+						<div className="h-4 w-32 bg-green-900/40 mb-4" />
+						<div className="h-6 w-48 bg-green-900/30 mb-2" />
+						<div className="h-3 w-24 bg-green-900/20" />
+					</div>
+					<div className="w-full border border-green-900/50 bg-black p-3">
+						<p className="text-xs text-green-400 flex items-center gap-2 font-bold">
+							<span className="text-green-600">{">"}</span>
+							<span>{displayedStatus || "Conectando às fontes..."}</span>
+							<span className="inline-block w-2 h-4 ml-1 bg-green-400/50 animate-pulse" />
+						</p>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
+
+function getVariacaoBadgeStyle(variacao: number) {
+	if (variacao > 50) return "bg-amber-950/60 text-amber-300 border-amber-500/60";
+	if (variacao >= 0) return "bg-yellow-950/40 text-yellow-300 border-yellow-500/40";
+	return "bg-emerald-950/40 text-emerald-300 border-emerald-500/40";
+}
+
+function VariacaoPatrimonialBadge({ variacao }: { variacao: number }) {
+	const style = getVariacaoBadgeStyle(variacao);
+	const sinal = variacao > 0 ? "+" : "";
+	const Icon = variacao >= 0 ? TrendingUp : TrendingDown;
+
+	return (
+		<span className={`px-2 py-0.5 font-bold uppercase tracking-wider text-xs border flex items-center gap-1 shrink-0 ${style}`}>
+			<Icon className="w-3 h-3" />
+			{sinal}{variacao.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
+		</span>
+	);
+}
+
+function MobileHeroPatrimonio({ rootNode, onSelectRoot }: { rootNode: any; onSelectRoot: () => void }) {
+	if (rootNode.data.patrimonio === undefined) return null;
+	const valorFormatado = rootNode.data.patrimonio > 0
+		? `R$ ${Number(rootNode.data.patrimonio).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+		: "R$ 0,00";
+	const temComparativo = rootNode.data.variacaoPatrimonioPercentual !== undefined && rootNode.data.anoPatrimonioAnterior !== undefined;
+
+	return (
+		<div className="mt-3 p-3 bg-yellow-950/15 border border-yellow-900/40 cursor-pointer space-y-2" onClick={onSelectRoot}>
+			<div className="flex items-center justify-between">
+				<p className="text-[10px] uppercase font-bold text-yellow-500 flex items-center gap-1.5">
+					<DollarSign className="w-3.5 h-3.5 text-yellow-400" />
+					PATRIMÔNIO DECLARADO ({rootNode.data.anoPatrimonio || 2026})
+				</p>
+				{rootNode.data.partido && (
+					<span className="text-[10px] px-1.5 py-0.5 bg-yellow-950/40 border border-yellow-500/40 text-yellow-400 font-bold uppercase font-mono">
+						{rootNode.data.partido}
+					</span>
+				)}
+			</div>
+			<p className="text-xl font-bold tracking-widest text-yellow-400 font-mono">
+				{valorFormatado}
+			</p>
+			{temComparativo && (
+				<div className="pt-2 border-t border-yellow-900/40 flex items-center justify-between gap-2">
+					<span className="text-[10px] uppercase font-bold text-yellow-600 flex items-center gap-1">
+						<History className="w-3.5 h-3.5 text-yellow-400" />
+						vs {rootNode.data.anoPatrimonioAnterior} (R${" "}
+						{Number(rootNode.data.patrimonioAnterior || 0).toLocaleString("pt-BR", {
+							minimumFractionDigits: 2,
+						})}
+						)
+					</span>
+					<VariacaoPatrimonialBadge variacao={rootNode.data.variacaoPatrimonioPercentual} />
+				</div>
+			)}
+		</div>
+	);
+}
+
+function MobileHeroActions({ rootNode, onSelectRoot }: { rootNode: any; onSelectRoot: () => void }) {
+	const cargoUpper = rootNode.data.cargo?.toUpperCase() || "";
+	const casaUpper = rootNode.data.casa?.toUpperCase() || "";
+	const isDeputadoFederal = cargoUpper.includes("DEPUTADO FEDERAL") || casaUpper.includes("FEDERAL");
+	const deputyId = extractDeputyId(rootNode.data, rootNode.id);
+	const fotoParam = extractDeputyPhotoUrl(rootNode.data);
+
+	return (
+		<div className="mt-3 flex gap-2">
+			<button
+				onClick={onSelectRoot}
+				className="flex-1 py-2 bg-black hover:bg-green-950/40 text-green-400 border border-green-500/50 text-xs font-bold tracking-wider uppercase transition-colors"
+			>
+				VER BENS & DETALHES
+			</button>
+			{isDeputadoFederal && deputyId && (
+				<Link
+					href={`/perfil/deputado/${deputyId}?nome=${encodeURIComponent(rootNode.data.label || "")}&partido=${encodeURIComponent(rootNode.data.partido || "")}&uf=${encodeURIComponent(rootNode.data.uf || "")}&foto=${encodeURIComponent(fotoParam)}`}
+					className="flex-1 block text-center py-2 bg-green-950/60 hover:bg-green-900 text-green-300 border border-green-500/60 text-xs font-bold tracking-wider uppercase transition-colors"
+				>
+					IR PARA O PERFIL
+				</Link>
+			)}
+		</div>
+	);
+}
+
+function MobileHeroPolitico({
+	rootNode,
+	onSelectRoot,
+}: {
+	rootNode: any;
+	onSelectRoot: () => void;
+}) {
+	return (
+		<div className="shrink-0 border-b border-green-500/30 bg-black px-4 py-3">
+			<div className="flex items-center gap-3 cursor-pointer" onClick={onSelectRoot}>
+				<MobileAvatar rootNode={rootNode} className="h-10 w-10" />
+				<div className="flex-1 min-w-0">
+					<div className="flex items-center justify-between">
+						<h2 className="text-sm font-bold uppercase tracking-widest text-green-400 truncate">
+							{rootNode.data.label}
+						</h2>
+						{rootNode.data.partido && (
+							<span className="text-[10px] px-1.5 py-0.5 bg-green-950/60 border border-green-500/40 text-green-400 font-mono font-bold uppercase">
+								{rootNode.data.partido}
+							</span>
+						)}
+					</div>
+					<p className="text-xs text-green-600 uppercase font-bold mt-0.5">
+						{rootNode.data.cargo || "POLÍTICO"} — {rootNode.data.uf || "??"}
+					</p>
+				</div>
+			</div>
+
+			<MobileHeroPatrimonio rootNode={rootNode} onSelectRoot={onSelectRoot} />
+			<MobileHeroActions rootNode={rootNode} onSelectRoot={onSelectRoot} />
+		</div>
+	);
+}
+
+function MobileTabsBar({
+	activeTab,
+	setActiveTab,
+	tabCounts,
+}: {
+	activeTab: TabKey;
+	setActiveTab: (t: TabKey) => void;
+	tabCounts: Record<TabKey, number>;
+}) {
+	return (
+		<div
+			className="shrink-0 border-b border-green-900/50 bg-black flex overflow-x-auto"
+			style={{ scrollbarWidth: "none" }}
+		>
+			{TABS.map((tab) => {
+				const count = tabCounts[tab.key];
+				if (tab.key !== "TODOS" && count === 0) return null;
+				const isActive = activeTab === tab.key;
+				return (
+					<button
+						key={tab.key}
+						onClick={() => setActiveTab(tab.key)}
+						className={`shrink-0 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors min-h-10 ${isActive ? tab.activeColor : `${tab.color} border-transparent`}`}
+					>
+						{tab.label} <span className="opacity-60">({count})</span>
+					</button>
+				);
+			})}
+		</div>
+	);
+}
+
+function MobileCardFooter({
+	node,
+	cardEdgesLength,
+	onOpenConnections,
+	onInvestigarContratos,
+	s,
+}: any) {
+	if (cardEdgesLength > 0) {
+		return (
+			<Button
+				variant="outline"
+				className={`w-full bg-black ${s.text} ${s.border} active:scale-95 transition-all text-xs font-bold uppercase tracking-widest h-10 mt-3`}
+				onClick={(e) => {
+					e.stopPropagation();
+					onOpenConnections();
+				}}
+			>
+				ITEM COM CONEXÕES ({cardEdgesLength})
+			</Button>
+		);
+	}
+	if (node.type === "EMPRESA" && onInvestigarContratos && !node.data.isSearching) {
+		return (
+			<Button
+				variant="outline"
+				className={`w-full bg-blue-950/20 text-blue-400 border-blue-900 active:bg-blue-900 transition-all text-[10px] font-bold uppercase tracking-widest h-10 mt-3`}
+				onClick={(e) => {
+					e.stopPropagation();
+					onInvestigarContratos(node.data.cnpj || node.data.documento, node.id);
+				}}
+			>
+				<Search className="w-3 h-3 mr-1.5" /> INVESTIGAR CONTRATOS (PNCP)
+			</Button>
+		);
+	}
+	return null;
+}
+
+function MobileGalleryView({
+	filteredResults,
+	allResultsLength,
+	activeIndex,
+	scrollTo,
+	galleryRef,
+	handleScroll,
+	edges,
+	onSelectCard,
+	handleShareClick,
+	setSubGalleryOwnerId,
+	setActiveSubIndex,
+	setSubGalleryDrawerOpen,
+	handleInvestigarContratos,
+}: any) {
+	if (filteredResults.length === 0) {
+		return (
+			<div className="flex-1 flex flex-col justify-center overflow-hidden relative">
+				<div className="text-center font-mono text-green-700 uppercase tracking-widest text-xs px-6">
+					<ShieldAlert className="w-8 h-8 text-green-700/50 mx-auto mb-3" />
+					<p className="text-xs font-bold">
+						&gt;{" "}
+						{allResultsLength === 0
+							? "NENHUM VÍNCULO ENCONTRADO"
+							: "NENHUM ITEM NESTA CATEGORIA"}
+					</p>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div className="flex-1 flex flex-col justify-center overflow-hidden relative">
+			{activeIndex > 0 && (
+				<button
+					onClick={() => scrollTo("prev")}
+					className="absolute left-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 flex items-center justify-center border border-green-500/50 bg-black text-green-500 active:bg-green-900"
+				>
+					<ChevronLeft className="w-5 h-5" />
+				</button>
+			)}
+			{activeIndex < filteredResults.length - 1 && (
+				<button
+					onClick={() => scrollTo("next")}
+					className="absolute right-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 flex items-center justify-center border border-green-500/50 bg-black text-green-500 active:bg-green-900"
+				>
+					<ChevronRight className="w-5 h-5" />
+				</button>
+			)}
+
+			<div
+				ref={galleryRef}
+				onScroll={handleScroll}
+				className="w-full flex gap-4 overflow-x-auto snap-x snap-mandatory py-4 items-center h-full scroll-smooth before:content-[''] before:shrink-0 before:w-[10vw] sm:before:w-[calc(50vw-160px)] after:content-[''] after:shrink-0 after:w-[10vw] sm:after:w-[calc(50vw-160px)]"
+				style={{
+					scrollbarWidth: "none",
+					msOverflowStyle: "none",
+					WebkitOverflowScrolling: "touch",
+				}}
+			>
+				{filteredResults.map((node: any) => {
+					const cardEdges = edges.filter((e: any) => e.source === node.id);
+					const s = getCardStyles(node.type, Number(node.data?.score_letalidade || 0));
+
+					const footer = (
+						<MobileCardFooter
+							node={node}
+							cardEdgesLength={cardEdges.length}
+							onOpenConnections={() => {
+								setSubGalleryOwnerId(node.id);
+								setActiveSubIndex(0);
+								setSubGalleryDrawerOpen(true);
+							}}
+							onInvestigarContratos={handleInvestigarContratos}
+							s={s}
+						/>
+					);
+
+					return (
+						<MobileResultCard
+							key={node.id}
+							node={node}
+							onSelect={() => onSelectCard(node)}
+							onShare={handleShareClick}
+							footer={footer}
+						/>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
+function MobilePaginator({
+	filteredResultsLength,
+	activeIndex,
+}: {
+	filteredResultsLength: number;
+	activeIndex: number;
+}) {
+	return (
+		<div className="h-6 shrink-0 flex justify-center items-center">
+			{filteredResultsLength <= 20 ? (
+				<div className="flex gap-1.5">
+					{Array.from({ length: filteredResultsLength }).map((_, i) => (
+						<div
+							key={i}
+							className={`w-2 h-2 border border-black transition-all duration-300 ${i === activeIndex ? "bg-green-400 scale-150" : "bg-green-800"}`}
+						/>
+					))}
+				</div>
+			) : (
+				<span className="text-xs text-green-700 font-mono uppercase font-bold">
+					{activeIndex + 1} / {filteredResultsLength}
+				</span>
+			)}
+		</div>
+	);
+}
+
 export default function MobileView({
 	nodes,
 	edges,
@@ -359,26 +1303,7 @@ export default function MobileView({
 	const rootNode = nodes.find((n: any) => n.type === "PESSOA");
 
 	const handleShareClick = (nodeData: any, type: string) => {
-		setShareData({
-			politicoNome:
-				rootNode?.data?.nomeCivil || rootNode?.data?.label || "Desconhecido",
-			politicoCargo: rootNode?.data?.cargo || "Cargo",
-			politicoUf: rootNode?.data?.uf || "UF",
-			politicoFoto: rootNode?.data?.urlFoto || undefined,
-			achadoTipo: type === "EMENDA_RESUMO" ? "EMENDA" : type,
-			achadoTitulo: nodeData?.label || "Sem título",
-			achadoValor:
-				nodeData?.valor !== undefined ? Number(nodeData.valor) : undefined,
-			achadoScore: Number(nodeData?.score_letalidade || 0),
-			achadoData: nodeData?.dataDocumento || undefined,
-			achadoMotivo: nodeData?.motivo_ia || undefined,
-			achadoAlerta: nodeData?.risco?.alertas?.[0] || undefined,
-			achadoFonteUrl:
-				nodeData?.urlDocumento ||
-				nodeData?.url_documento ||
-				nodeData?.link_documento ||
-				undefined,
-		});
+		setShareData(buildMobileShareData(rootNode, nodeData, type));
 		setIsShareOpen(true);
 	};
 
@@ -510,20 +1435,10 @@ export default function MobileView({
        ================================================================ */
 	if (!isLoading && nodes.length === 0) {
 		return (
-			<>
-				{/* FAB */}
-				<div className="fixed bottom-6 left-0 right-0 z-60 flex justify-center pointer-events-none">
-					<Button
-						variant="cyber"
-						onClick={() => setSearchDrawerOpen(true)}
-						className="h-14 px-8 pointer-events-auto"
-					>
-						<Search className="w-5 h-5 mr-2" /> Investigar Político
-					</Button>
-				</div>
-
-				{renderSearchDrawer()}
-			</>
+			<MobileInitialSearchScreen
+				onOpenSearch={() => setSearchDrawerOpen(true)}
+				searchDrawer={renderSearchDrawer()}
+			/>
 		);
 	}
 
@@ -532,206 +1447,21 @@ export default function MobileView({
        ================================================================ */
 	if (isLoading) {
 		return (
-			<div
-				className="w-full h-full flex flex-col items-center justify-center relative z-20 px-6"
-				style={dotBg}
-			>
-				<div className="absolute top-0 left-0 w-full h-12 z-30">
-					<SiteHeader
-						showOnMobile={true}
-						showSearch={false}
-						onClearAll={onNovaBusca}
-						isLoading={isLoading}
-					/>
-				</div>
-
-				{rootNode ? (
-					<div className="w-full max-w-sm flex flex-col items-center gap-5">
-						<div className="w-full border border-green-500 bg-black p-5 font-mono text-green-400 shadow-[0_0_25px_rgba(34,197,94,0.35)] animate-pulse">
-							<div className="flex items-center justify-between mb-3 border-b border-green-500/50 pb-2">
-								<Badge
-									variant="outline"
-									className="bg-black text-green-400 border-green-500 rounded-none uppercase text-xs tracking-widest"
-								>
-									{rootNode.data.cargo || "POLÍTICO"} —{" "}
-									{rootNode.data.uf || "??"}
-								</Badge>
-								<Loader2 className="w-4 h-4 text-green-500 animate-spin" />
-							</div>
-							<div className="flex items-center gap-3 mb-4">
-								<MobileAvatar rootNode={rootNode} className="h-10 w-10" />
-								<div>
-									<h2 className="text-base font-bold uppercase tracking-widest text-green-400">
-										{rootNode.data.label}
-									</h2>
-									{rootNode.data.nomeCivil && (
-										<p className="text-xs text-green-600 uppercase mt-0.5 font-bold">
-											{rootNode.data.nomeCivil}
-										</p>
-									)}
-								</div>
-							</div>
-							{(rootNode.data.documentoPrincipal || rootNode.data.cpf) && (
-								<div className="border-t border-green-900/50 pt-3">
-									<p className="text-xs uppercase font-bold text-green-500 mb-1">
-										DOCUMENTO RAIZ
-									</p>
-									<span className="text-xs text-green-300 bg-green-500/20 px-2 py-1 font-bold">
-										{String(
-											rootNode.data.documentoPrincipal || rootNode.data.cpf,
-										)}
-									</span>
-								</div>
-							)}
-							{rootNode.data.patrimonio !== undefined && rootNode.data.patrimonio > 0 && (
-								<div className="border-t border-green-900/50 pt-3">
-									<p className="text-xs uppercase font-bold text-yellow-500 mb-1 flex items-center gap-1">
-										<DollarSign className="w-3.5 h-3.5" /> PATRIMÔNIO DECLARADO ({rootNode.data.anoPatrimonio || 2026})
-									</p>
-									<span className="text-xs text-yellow-300 bg-yellow-950/40 border border-yellow-900/40 px-2 py-1 font-bold font-mono">
-										R$ {Number(rootNode.data.patrimonio).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-									</span>
-								</div>
-							)}
-							<div className="mt-5 pt-3 border-t border-green-900/50">
-								<div className="flex justify-between text-xs text-green-500 mb-1.5 uppercase font-bold">
-									<span>PROCESSANDO DOSSIÊ...</span>
-									<span className="animate-pulse">[■■■■■■■■■]</span>
-								</div>
-								<div className="w-full h-1.5 bg-green-950 overflow-hidden">
-									<div
-										className="h-full bg-green-500 animate-[slideRight_1.5s_ease-in-out_infinite]"
-										style={{ width: "40%" }}
-									/>
-								</div>
-							</div>
-						</div>
-
-						{allResults.length > 0 && (
-							<div className="w-full border border-green-500/30 bg-black px-3 py-2 flex items-center justify-between">
-								<span className="text-xs text-green-500 font-bold uppercase">
-									{allResults.length} ACHADOS
-								</span>
-								<div className="flex gap-1">
-									{tabCounts.CRITICO > 0 && (
-										<Badge className="bg-red-500/20 text-red-400 border-red-500 rounded-none text-xs px-1.5">
-											{tabCounts.CRITICO} 🔴
-										</Badge>
-									)}
-									{tabCounts.ATENCAO > 0 && (
-										<Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500 rounded-none text-xs px-1.5">
-											{tabCounts.ATENCAO} 🟡
-										</Badge>
-									)}
-								</div>
-							</div>
-						)}
-
-						<div className="w-full border border-green-900/50 bg-black p-3 font-mono">
-							<p className="text-xs text-green-400 leading-tight flex items-start gap-2 font-bold uppercase">
-								<span className="text-green-600 shrink-0">{">"}</span>
-								<span className="normal-case">
-									{displayedStatus || "Iniciando investigação..."}
-								</span>
-								<span
-									className={`inline-block w-2 h-4 ml-1 shrink-0 ${isTyping ? "bg-green-400" : "bg-green-400/50 animate-pulse"}`}
-								/>
-							</p>
-						</div>
-					</div>
-				) : (
-					<div className="w-full max-w-sm flex flex-col items-center gap-5">
-						<div className="w-full border border-green-500/30 bg-black p-5 animate-pulse">
-							<div className="h-4 w-32 bg-green-900/40 mb-4" />
-							<div className="h-6 w-48 bg-green-900/30 mb-2" />
-							<div className="h-3 w-24 bg-green-900/20" />
-						</div>
-						<div className="w-full border border-green-900/50 bg-black p-3">
-							<p className="text-xs text-green-400 flex items-center gap-2 font-bold">
-								<span className="text-green-600">{">"}</span>
-								<span>{displayedStatus || "Conectando às fontes..."}</span>
-								<span className="inline-block w-2 h-4 ml-1 bg-green-400/50 animate-pulse" />
-							</p>
-						</div>
-					</div>
-				)}
-			</div>
+			<MobileLoadingScreen
+				onNovaBusca={onNovaBusca}
+				isLoading={isLoading}
+				rootNode={rootNode}
+				allResultsLength={allResults.length}
+				tabCounts={tabCounts}
+				displayedStatus={displayedStatus}
+				isTyping={isTyping}
+			/>
 		);
 	}
 
 	/* ================================================================
        TELA 2: RESULTADOS
        ================================================================ */
-
-	// Cores do drawer baseadas no score (corrigidas: <60 = slate, NÃO red)
-	const getDrawerColors = (sc: any) => {
-		const score = Number(sc.data?.score_letalidade || 0);
-		if (sc.type === "DESPESA") {
-			if (score >= 85)
-				return {
-					variant: "cyber-red" as const,
-					text: "text-red-500",
-					border: "border-red-900",
-					label: "text-red-400/70",
-					valueBg: "border-red-900/30",
-				};
-			if (score >= 60)
-				return {
-					variant: "cyber-yellow" as const,
-					text: "text-yellow-500",
-					border: "border-yellow-900",
-					label: "text-yellow-400/70",
-					valueBg: "border-yellow-900/30",
-				};
-			return {
-				variant: "cyber-slate" as const,
-				text: "text-slate-400",
-				border: "border-slate-800",
-				label: "text-slate-500",
-				valueBg: "border-slate-800",
-			};
-		}
-		if (sc.type === "EMPRESA")
-			return {
-				variant: "cyber-blue" as const,
-				text: "text-blue-500",
-				border: "border-blue-900",
-				label: "text-blue-400/70",
-				valueBg: "border-blue-900/30",
-			};
-		if (sc.type.startsWith("EMENDA"))
-			return {
-				variant: "cyber-teal" as const,
-				text: "text-teal-500",
-				border: "border-teal-900",
-				label: "text-teal-400/70",
-				valueBg: "border-teal-900/30",
-			};
-		if (sc.type === "CONTRATO")
-			return {
-				variant: "cyber-yellow" as const,
-				text: "text-yellow-500",
-				border: "border-yellow-900",
-				label: "text-yellow-400/70",
-				valueBg: "border-yellow-900/30",
-			};
-		if (sc.type === "SOCIO")
-			return {
-				variant: "cyber-purple" as const,
-				text: "text-purple-400",
-				border: "border-purple-900",
-				label: "text-purple-400/70",
-				valueBg: "border-purple-900/30",
-			};
-		return {
-			variant: "cyber-green" as const,
-			text: "text-green-500",
-			border: "border-green-900",
-			label: "text-green-400/70",
-			valueBg: "border-green-900/30",
-		};
-	};
-
 	return (
 		<div className="w-full h-full flex flex-col relative z-20" style={dotBg}>
 			{/* HEADER: SiteHeader padronizado */}
@@ -754,267 +1484,48 @@ export default function MobileView({
 
 			{/* HERO: Político */}
 			{rootNode && (
-				<div className="shrink-0 border-b border-green-500/30 bg-black px-4 py-3">
-					<div
-						className="flex items-center gap-3 cursor-pointer"
-						onClick={() => {
-							setSelectedCard(rootNode);
-							setDrawerOpen(true);
-						}}
-					>
-						<MobileAvatar rootNode={rootNode} className="h-10 w-10" />
-						<div className="flex-1 min-w-0">
-							<div className="flex items-center justify-between">
-								<h2 className="text-sm font-bold uppercase tracking-widest text-green-400 truncate">
-									{rootNode.data.label}
-								</h2>
-								{rootNode.data.partido && (
-									<span className="text-[10px] px-1.5 py-0.5 bg-green-950/60 border border-green-500/40 text-green-400 font-mono font-bold uppercase">
-										{rootNode.data.partido}
-									</span>
-								)}
-							</div>
-							<p className="text-xs text-green-600 uppercase font-bold mt-0.5">
-								{rootNode.data.cargo || "POLÍTICO"} — {rootNode.data.uf || "??"}
-							</p>
-						</div>
-					</div>
-
-					{/* BLOCO DE PATRIMÔNIO DECLARADO & EVOLUÇÃO (DESIGN SYSTEM: COMPARATIVO ABAIXO DO VALOR BRUTO) */}
-					{rootNode.data.patrimonio !== undefined && (
-						<div
-							className="mt-3 p-3 bg-yellow-950/15 border border-yellow-900/40 cursor-pointer space-y-2"
-							onClick={() => {
-								setSelectedCard(rootNode);
-								setDrawerOpen(true);
-							}}
-						>
-							<div className="flex items-center justify-between">
-								<p className="text-[10px] uppercase font-bold text-yellow-500 flex items-center gap-1.5">
-									<DollarSign className="w-3.5 h-3.5 text-yellow-400" />
-									PATRIMÔNIO DECLARADO ({rootNode.data.anoPatrimonio || 2026})
-								</p>
-								{rootNode.data.partido && (
-									<span className="text-[10px] px-1.5 py-0.5 bg-yellow-950/40 border border-yellow-500/40 text-yellow-400 font-bold uppercase font-mono">
-										{rootNode.data.partido}
-									</span>
-								)}
-							</div>
-
-							<p className="text-xl font-bold tracking-widest text-yellow-400 font-mono">
-								{rootNode.data.patrimonio > 0
-									? `R$ ${Number(rootNode.data.patrimonio).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-									: "R$ 0,00"}
-							</p>
-
-							{/* VALOR COMPARATIVO ABAIXO DO VALOR BRUTO COM FONTE MAIOR */}
-							{rootNode.data.variacaoPatrimonioPercentual !== undefined &&
-								rootNode.data.anoPatrimonioAnterior !== undefined && (
-									<div className="pt-2 border-t border-yellow-900/40 flex items-center justify-between gap-2">
-										<span className="text-[10px] uppercase font-bold text-yellow-600 flex items-center gap-1">
-											<History className="w-3.5 h-3.5 text-yellow-400" />
-											vs {rootNode.data.anoPatrimonioAnterior} (R${" "}
-											{Number(rootNode.data.patrimonioAnterior || 0).toLocaleString("pt-BR", {
-												minimumFractionDigits: 2,
-											})}
-											)
-										</span>
-										<span
-											className={`px-2 py-0.5 font-bold uppercase tracking-wider text-xs border flex items-center gap-1 shrink-0 ${
-												rootNode.data.variacaoPatrimonioPercentual > 50
-													? "bg-amber-950/60 text-amber-300 border-amber-500/60"
-													: rootNode.data.variacaoPatrimonioPercentual >= 0
-														? "bg-yellow-950/40 text-yellow-300 border-yellow-500/40"
-														: "bg-emerald-950/40 text-emerald-300 border-emerald-500/40"
-											}`}
-										>
-											{rootNode.data.variacaoPatrimonioPercentual >= 0 ? (
-												<TrendingUp className="w-3 h-3" />
-											) : (
-												<TrendingDown className="w-3 h-3" />
-											)}
-											{rootNode.data.variacaoPatrimonioPercentual > 0 ? "+" : ""}
-											{rootNode.data.variacaoPatrimonioPercentual.toLocaleString("pt-BR", {
-												maximumFractionDigits: 1,
-											})}
-											%
-										</span>
-									</div>
-								)}
-						</div>
-					)}
-
-					<div className="mt-3 flex gap-2">
-						<button
-							onClick={() => {
-								setSelectedCard(rootNode);
-								setDrawerOpen(true);
-							}}
-							className="flex-1 py-2 bg-black hover:bg-green-950/40 text-green-400 border border-green-500/50 text-xs font-bold tracking-wider uppercase transition-colors"
-						>
-							VER BENS & DETALHES
-						</button>
-
-						{(() => {
-							const cargoUpper = rootNode.data.cargo?.toUpperCase() || "";
-							const casaUpper = rootNode.data.casa?.toUpperCase() || "";
-							const isDeputadoFederal =
-								cargoUpper.includes("DEPUTADO FEDERAL") || casaUpper.includes("FEDERAL");
-
-							const deputyId = extractDeputyId(rootNode.data, rootNode.id);
-
-							if (!isDeputadoFederal || !deputyId) return null;
-
-							const fotoParam = extractDeputyPhotoUrl(rootNode.data);
-
-							return (
-								<Link
-									href={`/perfil/deputado/${deputyId}?nome=${encodeURIComponent(rootNode.data.label || "")}&partido=${encodeURIComponent(rootNode.data.partido || "")}&uf=${encodeURIComponent(rootNode.data.uf || "")}&foto=${encodeURIComponent(fotoParam)}`}
-									className="flex-1 block text-center py-2 bg-green-950/60 hover:bg-green-900 text-green-300 border border-green-500/60 text-xs font-bold tracking-wider uppercase transition-colors"
-								>
-									IR PARA O PERFIL
-								</Link>
-							);
-						})()}
-					</div>
-				</div>
+				<MobileHeroPolitico
+					rootNode={rootNode}
+					onSelectRoot={() => {
+						setSelectedCard(rootNode);
+						setDrawerOpen(true);
+					}}
+				/>
 			)}
 
-			{/* ABAS: min h-10, font-bold 12px */}
-			<div
-				className="shrink-0 border-b border-green-900/50 bg-black flex overflow-x-auto"
-				style={{ scrollbarWidth: "none" }}
-			>
-				{TABS.map((tab) => {
-					const count = tabCounts[tab.key];
-					if (tab.key !== "TODOS" && count === 0) return null;
-					const isActive = activeTab === tab.key;
-					return (
-						<button
-							key={tab.key}
-							onClick={() => setActiveTab(tab.key)}
-							className={`shrink-0 px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors min-h-10 ${isActive ? tab.activeColor : `${tab.color} border-transparent`}`}
-						>
-							{tab.label} <span className="opacity-60">({count})</span>
-						</button>
-					);
-				})}
-			</div>
+			{/* ABAS */}
+			<MobileTabsBar
+				activeTab={activeTab}
+				setActiveTab={setActiveTab}
+				tabCounts={tabCounts}
+			/>
 
 			{/* GALERIA COM SETAS */}
-			<div className="flex-1 flex flex-col justify-center overflow-hidden relative">
-				{filteredResults.length === 0 ? (
-					<div className="text-center font-mono text-green-700 uppercase tracking-widest text-xs px-6">
-						<ShieldAlert className="w-8 h-8 text-green-700/50 mx-auto mb-3" />
-						<p className="text-xs font-bold">
-							&gt;{" "}
-							{allResults.length === 0
-								? "NENHUM VÍNCULO ENCONTRADO"
-								: "NENHUM ITEM NESTA CATEGORIA"}
-						</p>
-					</div>
-				) : (
-					<>
-						{/* Seta esquerda */}
-						{activeIndex > 0 && (
-							<button
-								onClick={() => scrollTo("prev")}
-								className="absolute left-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 flex items-center justify-center border border-green-500/50 bg-black text-green-500 active:bg-green-900"
-							>
-								<ChevronLeft className="w-5 h-5" />
-							</button>
-						)}
-						{/* Seta direita */}
-						{activeIndex < filteredResults.length - 1 && (
-							<button
-								onClick={() => scrollTo("next")}
-								className="absolute right-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 flex items-center justify-center border border-green-500/50 bg-black text-green-500 active:bg-green-900"
-							>
-								<ChevronRight className="w-5 h-5" />
-							</button>
-						)}
-
-						<div
-							ref={galleryRef}
-							onScroll={handleScroll}
-							className="w-full flex gap-4 overflow-x-auto snap-x snap-mandatory py-4 items-center h-full scroll-smooth before:content-[''] before:shrink-0 before:w-[10vw] sm:before:w-[calc(50vw-160px)] after:content-[''] after:shrink-0 after:w-[10vw] sm:after:w-[calc(50vw-160px)]"
-							style={{
-								scrollbarWidth: "none",
-								msOverflowStyle: "none",
-								WebkitOverflowScrolling: "touch",
-							}}
-						>
-							{filteredResults.map((node: any) => {
-								const cardEdges = edges.filter((e: any) => e.source === node.id);
-								const s = getCardStyles(node.type, Number(node.data?.score_letalidade || 0));
-								
-								let footer = null;
-								if (cardEdges.length > 0) {
-									footer = (
-										<Button
-											variant="outline"
-											className={`w-full bg-black ${s.text} ${s.border} active:scale-95 transition-all text-xs font-bold uppercase tracking-widest h-10 mt-3`}
-											onClick={(e) => {
-												e.stopPropagation();
-												setSubGalleryOwnerId(node.id);
-												setActiveSubIndex(0);
-												setSubGalleryDrawerOpen(true);
-											}}
-										>
-											ITEM COM CONEXÕES ({cardEdges.length})
-										</Button>
-									);
-								} else if (node.type === "EMPRESA" && handleInvestigarContratos && !node.data.isSearching) {
-									footer = (
-										<Button
-											variant="outline"
-											className={`w-full bg-blue-950/20 text-blue-400 border-blue-900 active:bg-blue-900 transition-all text-[10px] font-bold uppercase tracking-widest h-10 mt-3`}
-											onClick={(e) => {
-												e.stopPropagation();
-												handleInvestigarContratos(node.data.cnpj || node.data.documento, node.id);
-											}}
-										>
-											<Search className="w-3 h-3 mr-1.5" /> INVESTIGAR CONTRATOS (PNCP)
-										</Button>
-									);
-								}
-
-								return (
-									<MobileResultCard
-										key={node.id}
-										node={node}
-										onSelect={() => {
-											setSelectedCard(node);
-											setDrawerOpen(true);
-										}}
-										onShare={handleShareClick}
-										footer={footer}
-									/>
-								);
-							})}
-						</div>
-					</>
-				)}
-			</div>
+			<MobileGalleryView
+				filteredResults={filteredResults}
+				allResultsLength={allResults.length}
+				activeIndex={activeIndex}
+				scrollTo={scrollTo}
+				galleryRef={galleryRef}
+				handleScroll={handleScroll}
+				edges={edges}
+				onSelectCard={(node: any) => {
+					setSelectedCard(node);
+					setDrawerOpen(true);
+				}}
+				handleShareClick={handleShareClick}
+				setSubGalleryOwnerId={setSubGalleryOwnerId}
+				setActiveSubIndex={setActiveSubIndex}
+				setSubGalleryDrawerOpen={setSubGalleryDrawerOpen}
+				handleInvestigarContratos={handleInvestigarContratos}
+			/>
 
 			{/* PAGINATOR */}
 			{filteredResults.length > 0 && (
-				<div className="h-6 shrink-0 flex justify-center items-center">
-					{filteredResults.length <= 20 ? (
-						<div className="flex gap-1.5">
-							{filteredResults.map((_: any, i: number) => (
-								<div
-									key={i}
-									className={`w-2 h-2 border border-black transition-all duration-300 ${i === activeIndex ? "bg-green-400 scale-150" : "bg-green-800"}`}
-								/>
-							))}
-						</div>
-					) : (
-						<span className="text-xs text-green-700 font-mono uppercase font-bold">
-							{activeIndex + 1} / {filteredResults.length}
-						</span>
-					)}
-				</div>
+				<MobilePaginator
+					filteredResultsLength={filteredResults.length}
+					activeIndex={activeIndex}
+				/>
 			)}
 
 			{/* FAB: Exportar */}
@@ -1094,396 +1605,19 @@ export default function MobileView({
 					<DrawerTitle className="sr-only">
 						Detalhes da Investigação
 					</DrawerTitle>
-					{selectedCard &&
-						(() => {
-							const sc = selectedCard;
-							const scScore = Number(sc.data?.score_letalidade || 0);
-							const dc = getDrawerColors(sc);
-
-							return (
-								<div
-									className="p-5 overflow-y-auto max-h-[85vh] font-mono"
-									style={{ scrollbarWidth: "none" }}
-								>
-									<DrawerHeader
-										className={`px-0 pt-0 border-b border-dashed ${dc.border} pb-4 mb-4 text-left`}
-									>
-										<Badge variant={dc.variant} className="w-fit mb-2">
-											{sc.type === "EMENDA_RESUMO" ? "EMENDA" : sc.type}{" "}
-											{sc.type === "DESPESA" ? `• SCORE ${scScore}/100` : ""}
-										</Badge>
-										<h2
-											className={`text-base font-bold uppercase tracking-widest ${dc.text} m-0`}
-										>
-											{sc.data?.label}
-										</h2>
-										{sc.data?.documento && (
-											<DrawerDescription
-												className={`font-mono text-xs mt-1 font-bold ${dc.label}`}
-											>
-												CNPJ/CPF: {sc.data.documento}
-											</DrawerDescription>
-										)}
-									</DrawerHeader>
-
-									<div className="space-y-5">
-										{/* ===== DETALHES DE PESSOA / POLÍTICO NO MOBILE ===== */}
-										{sc.type === "PESSOA" && (
-											<PoliticoDetailsContent
-												data={sc.data}
-												nodeId={sc.id}
-												isMobile={true}
-											/>
-										)}
-
-										{/* VALOR */}
-										{sc.type !== "PESSOA" && (sc.data?.valor || sc.data?.valor === 0) && (
-											<div
-												className={`p-3 border ${dc.valueBg} bg-black text-center`}
-											>
-												<p className="text-xs uppercase font-bold opacity-50 mb-1">
-													VALOR / MONTANTE
-												</p>
-												<p
-													className={`text-xl font-bold tracking-widest ${dc.text}`}
-												>
-													R${" "}
-													{Number(sc.data.valor).toLocaleString("pt-BR", {
-														minimumFractionDigits: 2,
-													})}
-												</p>
-											</div>
-										)}
-
-										{/* FORNECEDOR */}
-										{sc.data?.nomeFornecedor && (
-											<div>
-												<p className="text-xs uppercase font-bold opacity-50 mb-1">
-													FORNECEDOR
-												</p>
-												<p className={`text-xs font-bold ${dc.text}`}>
-													{sc.data.nomeFornecedor}
-												</p>
-											</div>
-										)}
-
-										{/* TIPO DE DESPESA */}
-										{sc.data?.tipoDespesa && (
-											<div>
-												<p className="text-xs uppercase font-bold opacity-50 mb-1">
-													TIPO
-												</p>
-												<p className={`text-xs font-bold ${dc.text}`}>
-													{sc.data.tipoDespesa}
-												</p>
-											</div>
-										)}
-										{sc.data?.tipo && !sc.data?.tipoDespesa && (
-											<div>
-												<p className="text-xs uppercase font-bold opacity-50 mb-1">
-													TIPO
-												</p>
-												<p className={`text-xs font-bold ${dc.text}`}>
-													{sc.data.tipo}
-												</p>
-											</div>
-										)}
-
-										{/* DATA */}
-										{sc.data?.dataDocumento && (
-											<div>
-												<p className="text-xs uppercase font-bold opacity-50 mb-1">
-													DATA
-												</p>
-												<p className={`text-xs font-bold ${dc.text}`}>
-													{sc.data.dataDocumento}
-												</p>
-											</div>
-										)}
-
-										{sc.data?.descricao && (
-											<div className="p-2.5 bg-slate-900/60 border border-slate-800 rounded-sm">
-												<p className="text-[10px] uppercase font-bold opacity-50 mb-1">
-													OBJETO / FINALIDADE
-												</p>
-												<p className="text-xs text-slate-300 leading-relaxed">
-													{sc.data.descricao}
-												</p>
-											</div>
-										)}
-
-										{/* ===== AÇÃO: NOTA FISCAL / COMPROVAÇÃO (igual ao desktop) ===== */}
-										{sc.type === "DESPESA" && (
-											<div>
-												<p
-													className={`text-xs uppercase font-bold mb-2 border-b pb-1 ${dc.border} ${dc.label}`}
-												>
-													COMPROVAÇÃO & REGISTRO OFICIAL
-												</p>
-												{sc.data?.urlDocumento &&
-												(sc.data.urlDocumento.endsWith(".pdf") ||
-													sc.data.urlDocumento.includes("camara.leg.br") ||
-													sc.data.urlDocumento.includes("senado.leg.br")) ? (
-													<a
-														href={sc.data.urlDocumento}
-														target="_blank"
-														rel="noopener noreferrer"
-														className="flex w-full items-center justify-center p-3 border bg-blue-950/20 border-blue-900 text-blue-400 active:bg-blue-900/40 text-xs font-bold uppercase tracking-widest min-h-11"
-													>
-														<ExternalLink className="w-4 h-4 mr-2" /> VER NOTA DIGITALIZADA (PDF)
-													</a>
-												) : (
-													<div className="space-y-2">
-														<div className="p-3 bg-slate-950 border border-slate-800 rounded-sm space-y-1.5">
-															<div className="flex justify-between items-center text-[11px]">
-																<span className="text-slate-500 uppercase">Processo:</span>
-																<span className="text-slate-300 font-mono font-bold">
-																	{sc.data?.numeroDocumento || "REGISTRO OFICIAL"}
-																</span>
-															</div>
-															<div className="flex justify-between items-center text-[11px]">
-																<span className="text-slate-500 uppercase">Órgão:</span>
-																<span className="text-slate-300 font-bold">
-																	{sc.data?.orgao || "MUNICIPAL"}
-																</span>
-															</div>
-															<div className="flex justify-between items-center text-[11px]">
-																<span className="text-slate-500 uppercase">Modalidade:</span>
-																<span className="text-slate-300">
-																	{sc.data?.modalidade || sc.data?.tipo || "Contrato"}
-																</span>
-															</div>
-														</div>
-														{(() => {
-															const fallback = getPortalTransparenciaFallback(
-																rootNode?.data?.casa as string | undefined,
-																rootNode?.data?.uri as string | undefined,
-															);
-															if (fallback.link !== "#") {
-																return (
-																	<a
-																		href={fallback.link}
-																		target="_blank"
-																		rel="noopener noreferrer"
-																		className="flex w-full items-center justify-center p-2.5 border bg-slate-900/50 border-slate-700 text-slate-300 active:bg-slate-800 text-xs font-bold uppercase tracking-widest min-h-11"
-																	>
-																		<ExternalLink className="w-3.5 h-3.5 mr-2" /> {fallback.textoLink}
-																	</a>
-																);
-															}
-															return null;
-														})()}
-													</div>
-												)}
-											</div>
-										)}
-
-										{/* SITUAÇÃO EMPRESA */}
-										{sc.type === "EMPRESA" && sc.data?.situacao && (
-											<div>
-												<p className="text-xs uppercase font-bold opacity-50 mb-1">
-													SITUAÇÃO
-												</p>
-												<p className="text-xs text-blue-400 font-bold">
-													{sc.data.situacao}
-												</p>
-											</div>
-										)}
-
-										{/* ===== AÇÃO: PIVOT CNPJ (EMPRESA) ===== */}
-										{sc.type === "EMPRESA" && (
-											<Button
-												variant="outline"
-												className="w-full bg-blue-950/20 text-blue-400 border-blue-900 active:bg-blue-900 rounded-none text-xs font-bold uppercase h-12"
-												onClick={() => {
-													handlePivotCNPJ(
-														sc.data?.cnpj || sc.data?.documento,
-														sc.id,
-													);
-													setDrawerOpen(false);
-												}}
-											>
-												<Briefcase className="mr-2 h-4 w-4" /> APROFUNDAR DOSSIÊ
-												(QSA)
-											</Button>
-										)}
-
-										{/* ===== AÇÃO: BUSCA REVERSA (SÓCIO) ===== */}
-										{sc.type === "SOCIO" && (
-											<Button
-												variant="outline"
-												className="w-full bg-purple-950/20 text-purple-400 border-purple-900 active:bg-purple-900 rounded-none text-xs font-bold uppercase h-12"
-												onClick={() => {
-													handleSocioSearch(sc.data?.label, sc.id);
-													setDrawerOpen(false);
-												}}
-											>
-												<Users className="mr-2 h-4 w-4" /> BUSCA REVERSA
-											</Button>
-										)}
-
-										{/* ===== IA ANALYSIS ===== */}
-										{sc.data?.motivo_ia && (
-											<div className="mt-4">
-												<AIProgressBar
-													score={Number(sc.data?.score_letalidade || 0)}
-													motivo={sc.data.motivo_ia}
-												/>
-											</div>
-										)}
-
-										{/* ===== ALERTAS OSINT (CGU/TCU/RECEITA) ===== */}
-										{sc.data?.risco?.alertas?.length > 0 && (
-											<div>
-												<p className="text-xs uppercase font-bold text-red-600 mb-2 border-b border-red-900 pb-1">
-													&gt; CRUZAMENTO DE DADOS OFICIAIS
-												</p>
-												<ul className="space-y-2">
-													{sc.data.risco.alertas.map(
-														(alerta: string, idx: number) => (
-															<li
-																key={idx}
-																className="flex gap-2 text-xs text-red-400 wrap-break-word w-full font-bold"
-															>
-																<ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
-																<span className="leading-tight">{alerta}</span>
-															</li>
-														),
-													)}
-												</ul>
-											</div>
-										)}
-
-										{/* BENEFICIÁRIO E CONTRATOS DO RECEBEDOR (PNCP) MOBILE */}
-										{sc.type === "EMENDA" && sc.data?.beneficiario && (
-											<div className="mt-4 pt-4 border-t border-slate-800">
-												<p className="text-xs uppercase font-bold text-teal-500 mb-2 border-b border-teal-900 pb-1 flex items-center gap-1 font-mono">
-													<Building2 className="w-4 h-4" /> BENEFICIÁRIO
-													RECEBEDOR
-												</p>
-												<div className="p-3 border bg-teal-950/10 border-teal-900/30 text-teal-400 text-xs leading-relaxed uppercase tracking-wide mb-3">
-													<span className="opacity-60 font-bold">NOME:</span>{" "}
-													{sc.data.beneficiario.nome}
-													<br />
-													<span className="opacity-60 font-bold">CNPJ:</span>{" "}
-													{sc.data.beneficiario.cnpj}
-													<br />
-													<span className="opacity-60 font-bold">UF:</span>{" "}
-													{sc.data.beneficiario.uf}
-													<br />
-													{sc.data.beneficiario.area && (
-														<>
-															<span className="opacity-60 font-bold">
-																ÁREA:
-															</span>{" "}
-															{sc.data.beneficiario.area}
-															<br />
-														</>
-													)}
-													{sc.data.beneficiario.situacao && (
-														<>
-															<span className="opacity-60 font-bold">
-																SITUAÇÃO:
-															</span>{" "}
-															{sc.data.beneficiario.situacao}
-														</>
-													)}
-												</div>
-
-												{beneficiaryContracts.length === 0 ? (
-													<Button
-														variant="outline"
-														disabled={loadingBeneficiaryContracts}
-														className="w-full bg-teal-950/20 text-teal-400 border border-teal-850 active:bg-teal-900 rounded-none text-xs font-bold uppercase h-12"
-														onClick={async () => {
-															setLoadingBeneficiaryContracts(true);
-															try {
-																const res = await fetch(
-																	`/api/investigar/contratos-beneficiario?cnpj=${sc.data.beneficiario.cnpj}`,
-																);
-																if (res.ok) {
-																	const json = await res.json();
-																	setBeneficiaryContracts(json.contracts || []);
-																	if (
-																		!json.contracts ||
-																		json.contracts.length === 0
-																	) {
-																		toast.info(
-																			"Nenhum contrato encontrado para este CNPJ no PNCP.",
-																		);
-																	}
-																} else {
-																	toast.error(
-																		"Erro ao buscar contratos do beneficiário.",
-																	);
-																}
-															} catch (_e) {
-																toast.error(
-																	"Falha de rede ao consultar contratos.",
-																);
-															} finally {
-																setLoadingBeneficiaryContracts(false);
-															}
-														}}
-													>
-														{loadingBeneficiaryContracts ? (
-															<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-														) : (
-															<Search className="mr-2 h-4 w-4" />
-														)}
-														INVESTIGAR CONTRATOS DO RECEBEDOR (PNCP)
-													</Button>
-												) : (
-													<div className="space-y-2">
-														<p className="text-[11px] font-bold uppercase text-teal-500 flex items-center gap-1">
-															<Briefcase className="w-3.5 h-3.5" /> ÚLTIMOS
-															CONTRATOS PNCP ({beneficiaryContracts.length})
-														</p>
-														<div className="space-y-2 max-h-45 overflow-y-auto pr-1">
-															{beneficiaryContracts.map(
-																(c: any, idx: number) => (
-																	<div
-																		key={idx}
-																		className="p-2 border border-slate-800 bg-slate-950/50 text-xs leading-relaxed font-mono"
-																	>
-																		<div className="flex justify-between items-start mb-1">
-																			<span className="font-bold text-teal-400 text-[10px] bg-teal-950/50 px-1.5 py-0.5 border border-teal-900 uppercase">
-																				{c.tipo === "COMPRADOR"
-																					? "COMPRADOR"
-																					: "FORNECEDOR"}
-																			</span>
-																			<span className="text-slate-500 text-[10px] font-mono">
-																				{c.data
-																					? new Date(c.data).toLocaleDateString(
-																							"pt-BR",
-																						)
-																					: ""}
-																			</span>
-																		</div>
-																		<p className="text-slate-300 font-bold uppercase tracking-wider line-clamp-1 text-xs">
-																			{c.orgao}
-																		</p>
-																		<p className="text-slate-400 mt-1 uppercase text-[10px] line-clamp-2 leading-tight">
-																			{c.objeto}
-																		</p>
-																		<p className="text-right text-green-400 font-bold mt-1 text-xs font-mono">
-																			R${" "}
-																			{Number(c.valor).toLocaleString("pt-BR", {
-																				minimumFractionDigits: 2,
-																			})}
-																		</p>
-																	</div>
-																),
-															)}
-														</div>
-													</div>
-												)}
-											</div>
-										)}
-									</div>
-								</div>
-							);
-						})()}
+					{selectedCard && (
+						<SelectedCardDrawerContent
+							sc={selectedCard}
+							rootNode={rootNode}
+							handlePivotCNPJ={handlePivotCNPJ}
+							handleSocioSearch={handleSocioSearch}
+							setDrawerOpen={setDrawerOpen}
+							beneficiaryContracts={beneficiaryContracts}
+							setBeneficiaryContracts={setBeneficiaryContracts}
+							loadingBeneficiaryContracts={loadingBeneficiaryContracts}
+							setLoadingBeneficiaryContracts={setLoadingBeneficiaryContracts}
+						/>
+					)}
 				</DrawerContent>
 			</Drawer>
 			<ShareDialog

@@ -341,19 +341,26 @@ const DEFAULT_THEME: EntityTheme = {
 	accent: green,
 };
 
+function checkFantasmaOrJudicial(type: string, data: any): RiskLevel | null {
+	if (data?.isFantasma || data?._isFantasma) return "FANTASMA";
+	if (type === "PROCESSO_JUDICIAL") return "CRITICO";
+	return null;
+}
+
 /**
  * Resolvedor unificado de risco — mesmas regras no desktop e no mobile.
  */
 export function resolveRisk(type: string, data: any): RiskLevel {
 	if (!data) return "NORMAL";
-	if (data.isFantasma ?? data._isFantasma) return "FANTASMA";
-	if (type === "PROCESSO_JUDICIAL") return "CRITICO";
+	const earlyRisk = checkFantasmaOrJudicial(type, data);
+	if (earlyRisk) return earlyRisk;
+
 	const score = Number(data.score_letalidade ?? data.score ?? 0);
 	const riscoNivel = data.riscoNivel ?? data._riscoTipo?.nivel;
-	if (score >= 85 || riscoNivel === "CRÍTICO" || data.metrics?.suspicious)
+	if (score >= 85 || riscoNivel === "CRÍTICO" || Boolean(data.metrics?.suspicious)) {
 		return "CRITICO";
-	if (score >= 60) return "ATENCAO";
-	return "NORMAL";
+	}
+	return score >= 60 ? "ATENCAO" : "NORMAL";
 }
 
 export interface NodeVisual {

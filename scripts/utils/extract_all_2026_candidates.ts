@@ -21,6 +21,12 @@ for (const line of envFile.split('\n')) {
 
 const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Credenciais do Supabase não encontradas no .env.local ou variáveis de ambiente');
+  process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const ESTADOS = [
@@ -101,10 +107,37 @@ async function runConcurrent<T, R>(items: T[], fn: (item: T) => Promise<R>, conc
   return results;
 }
 
-async function main() {
-  console.log('🚀 Iniciando Extração Unificada Nacional 2026 (Federal, Estadual e Distrital)...\n');
+interface TaskTse {
+  cargoNome: string;
+  cargoCod: number;
+  uf: string;
+}
 
-  // 1. Carregar políticos da base do Polígrafo
+function mapearMandatarioBanco(m: any) {
+  const pol = m.politicos;
+  const org = m.orgaos_publicos;
+  if (!pol) return null;
+
+  const nomeUrna = pol.nome_urna || pol.nome_civil;
+  const nomeCivil = pol.nome_civil;
+  const info = {
+    nomeUrna,
+    nomeCivil,
+    partidoAtual: m.partido,
+    cargoAtual: m.cargo,
+    uf: org?.uf || pol.uf_naturalidade || 'BR',
+    municipio: org?.municipio || 'Brasília',
+    cpf: pol.cpf || 'N/D'
+  };
+
+  return {
+    keyUrna: normalizeName(nomeUrna),
+    keyCivil: normalizeName(nomeCivil),
+    info
+  };
+}
+
+async function carregarPoliticosBanco(): Promise<Map<string, any>> {
   console.log('📦 Carregando mandatários cadastrados no Supabase...');
   const { data: dbMandatos, error: dbErr } = await supabase
     .from('mandatos')
@@ -125,69 +158,76 @@ async function main() {
 
   const mapPoliticosBanco = new Map<string, any>();
   for (const m of dbMandatos || []) {
-    const pol: any = m.politicos;
-    const org: any = m.orgaos_publicos;
-    if (!pol) continue;
-
-    const nomeUrna = pol.nome_urna || pol.nome_civil;
-    const nomeCivil = pol.nome_civil;
-    const info = {
-      nomeUrna,
-      nomeCivil,
-      partidoAtual: m.partido,
-      cargoAtual: m.cargo,
-      uf: org?.uf || pol.uf_naturalidade || 'BR',
-      municipio: org?.municipio || 'Brasília',
-      cpf: pol.cpf || 'N/D'
-    };
-
-    mapPoliticosBanco.set(normalizeName(nomeUrna), info);
-    mapPoliticosBanco.set(normalizeName(nomeCivil), info);
+    const item = mapearMandatarioBanco(m);
+    if (item) {
+      mapPoliticosBanco.set(item.keyUrna, item.info);
+      mapPoliticosBanco.set(item.keyCivil, item.info);
+    }
   }
   console.log(`✅ ${dbMandatos?.length || 0} mandatários da base mapeados.\n`);
+  return mapPoliticosBanco;
+}
 
-  // 2. Montar lista de requisições a serem feitas no TSE
-  const tasks: { cargoNome: string; cargoCod: number; uf: string }[] = [];
+function montarTasksTse(): TaskTse[] {
+  const tasks: TaskTse[] = [];
   for (const cargo of CARGOS) {
     for (const uf of cargo.ufs) {
       tasks.push({ cargoNome: cargo.nome, cargoCod: cargo.cod, uf });
     }
   }
+  return tasks;
+}
 
-  console.log(`🌐 Disparando coleta para ${tasks.length} combinações de Cargo x UF no TSE 2026...`);
+function formatarCandidatoTse(c: any, cargoNome: string, ufResult: string): CandidatoTse {
+  const isBr = ufResult === 'BR';
+  return {
+    id: c.id,
+    nomeUrna: (c.nomeUrna || c.nomeCompleto || '').trim(),
+    nomeCompleto: (c.nomeCompleto || '').trim(),
+    numero: c.numero,
+    partido: (c.partido?.sigla || 'SEM PARTIDO').trim(),
+    cargo: cargoNome,
+    uf: isBr ? 'BR (Nacional)' : ufResult,
+    municipio: isBr ? 'Brasília' : (c.nomeMunicipioNascimento || '-'),
+    situacao: c.descricaoSituacao || 'Aguardando julgamento',
+    totalizacao: c.descricaoTotalizacao || 'Concorrendo',
+    reeleicao: Boolean(c.st_REELEICAO)
+  };
+}
 
-  const taskResults = await runConcurrent(tasks, async (t) => {
-    const cands = await fetchCandidatosCargoUf('2026', '20322002026', t.uf, t.cargoCod);
-    process.stdout.write(`.`);
-    return { ...t, cands };
-  }, 8);
-
-  console.log('\n✅ Coleta na API do TSE concluída!\n');
-
-  // 3. Processar e estruturar todos os candidatos
-  const todosCandidatosTse: CandidatoTse[] = [];
-
+function extrairCandidatosDeResultados(taskResults: any[]): CandidatoTse[] {
+  const todos: CandidatoTse[] = [];
   for (const res of taskResults) {
     for (const c of res.cands) {
-      todosCandidatosTse.push({
-        id: c.id,
-        nomeUrna: (c.nomeUrna || c.nomeCompleto || '').trim(),
-        nomeCompleto: (c.nomeCompleto || '').trim(),
-        numero: c.numero,
-        partido: (c.partido?.sigla || 'SEM PARTIDO').trim(),
-        cargo: res.cargoNome,
-        uf: res.uf === 'BR' ? 'BR (Nacional)' : res.uf,
-        municipio: res.uf === 'BR' ? 'Brasília' : (c.nomeMunicipioNascimento || '-'),
-        situacao: c.descricaoSituacao || 'Aguardando julgamento',
-        totalizacao: c.descricaoTotalizacao || 'Concorrendo',
-        reeleicao: c.st_REELEICAO || false
-      });
+      todos.push(formatarCandidatoTse(c, res.cargoNome, res.uf));
     }
   }
+  return todos;
+}
 
-  console.log(`🎉 Total de Candidatos 2026 Coletados: ${todosCandidatosTse.length}`);
+function processarCruzamentoCandidato(
+  cand: CandidatoTse,
+  mapPoliticosBanco: Map<string, any>,
+  politicosBancoEm2026: any[]
+) {
+  const normUrna = normalizeName(cand.nomeUrna);
+  const normCompl = normalizeName(cand.nomeCompleto);
+  const matchBanco = mapPoliticosBanco.get(normUrna) || mapPoliticosBanco.get(normCompl);
 
-  // 4. Cruzamento e Métricas
+  if (matchBanco) {
+    politicosBancoEm2026.push({
+      ...cand,
+      bancoCargoAtual: matchBanco.cargoAtual,
+      bancoPartidoAtual: matchBanco.partidoAtual,
+      cpf: matchBanco.cpf
+    });
+  }
+}
+
+function calcularMetricasECruzamento(
+  todosCandidatosTse: CandidatoTse[],
+  mapPoliticosBanco: Map<string, any>
+) {
   const politicosBancoEm2026: any[] = [];
   const contagemPorCargo: Record<string, number> = {};
   const contagemPorPartido: Record<string, number> = {};
@@ -198,26 +238,18 @@ async function main() {
     contagemPorPartido[cand.partido] = (contagemPorPartido[cand.partido] || 0) + 1;
     contagemPorEstado[cand.uf] = (contagemPorEstado[cand.uf] || 0) + 1;
 
-    const normUrna = normalizeName(cand.nomeUrna);
-    const normCompl = normalizeName(cand.nomeCompleto);
-    const matchBanco = mapPoliticosBanco.get(normUrna) || mapPoliticosBanco.get(normCompl);
-
-    if (matchBanco) {
-      politicosBancoEm2026.push({
-        ...cand,
-        bancoCargoAtual: matchBanco.cargoAtual,
-        bancoPartidoAtual: matchBanco.partidoAtual,
-        cpf: matchBanco.cpf
-      });
-    }
+    processarCruzamentoCandidato(cand, mapPoliticosBanco, politicosBancoEm2026);
   }
 
-  console.log(`🔗 Candidatos cruzados com o banco do Polígrafo: ${politicosBancoEm2026.length}`);
+  return {
+    politicosBancoEm2026,
+    contagemPorCargo,
+    contagemPorPartido,
+    contagemPorEstado
+  };
+}
 
-  // Ordenar alfabeticamente por Nome de Urna
-  todosCandidatosTse.sort((a, b) => a.nomeUrna.localeCompare(b.nomeUrna, 'pt-BR'));
-
-  // 5. Gravar CSV Unificado Oficial
+function gravarCsvOficial(todosCandidatosTse: CandidatoTse[]) {
   const csvHeader = 'Nome de Urna;Nome Completo;Número;Partido;Cargo Pleiteado;Estado (UF);Cidade;Situação Registro;Reeleição\n';
   const csvRows = todosCandidatosTse.map(c =>
     `"${c.nomeUrna}";"${c.nomeCompleto}";"${c.numero}";"${c.partido}";"${c.cargo}";"${c.uf}";"${c.municipio}";"${c.situacao}";"${c.reeleicao ? 'Sim' : 'Não'}"`
@@ -226,13 +258,15 @@ async function main() {
   const csvPath = path.join(process.cwd(), 'candidatos_oficiais_tse_2026.csv');
   fs.writeFileSync(csvPath, '\uFEFF' + csvHeader + csvRows, 'utf-8');
   console.log(`💾 CSV Completo Unificado salvo em: ${csvPath}`);
+}
 
-  // 6. Gravar JSON Unificado Oficial
+function gravarJsonOficial(todosCandidatosTse: CandidatoTse[]) {
   const jsonPath = path.join(process.cwd(), 'candidatos_oficiais_tse_2026.json');
   fs.writeFileSync(jsonPath, JSON.stringify(todosCandidatosTse, null, 2), 'utf-8');
   console.log(`💾 JSON Completo Unificado salvo em: ${jsonPath}`);
+}
 
-  // 7. Gravar Cruzamento
+function gravarCruzamentoCsv(politicosBancoEm2026: any[]) {
   const cruzamentoCsvHeader = 'Nome de Urna;Nome Completo;Partido 2026;Cargo Disputado 2026;Estado (UF);Cidade;Cargo no Banco;Partido no Banco;Reeleição\n';
   const cruzamentoRows = politicosBancoEm2026.map(c =>
     `"${c.nomeUrna}";"${c.nomeCompleto}";"${c.partido}";"${c.cargo}";"${c.uf}";"${c.municipio}";"${c.bancoCargoAtual}";"${c.bancoPartidoAtual}";"${c.reeleicao ? 'Sim' : 'Não'}"`
@@ -240,7 +274,13 @@ async function main() {
   const cruzamentoPath = path.join(process.cwd(), 'politicos_banco_candidatos_2026.csv');
   fs.writeFileSync(cruzamentoPath, '\uFEFF' + cruzamentoCsvHeader + cruzamentoRows, 'utf-8');
   console.log(`💾 Cruzamento salvo em: ${cruzamentoPath}`);
+}
 
+function exibirRelatorioFinal(
+  contagemPorCargo: Record<string, number>,
+  contagemPorPartido: Record<string, number>,
+  contagemPorEstado: Record<string, number>
+) {
   console.log('\n--- Total por Cargo Pleiteado ---');
   console.table(contagemPorCargo);
 
@@ -251,6 +291,39 @@ async function main() {
   console.log('\n--- Top 10 Estados com Mais Candidatos ---');
   const topEstados = Object.entries(contagemPorEstado).sort((a, b) => b[1] - a[1]).slice(0, 10);
   console.table(Object.fromEntries(topEstados));
+}
+
+async function main() {
+  console.log('🚀 Iniciando Extração Unificada Nacional 2026 (Federal, Estadual e Distrital)...\n');
+  const mapPoliticosBanco = await carregarPoliticosBanco();
+
+  const tasks = montarTasksTse();
+  console.log(`🌐 Disparando coleta para ${tasks.length} combinações de Cargo x UF no TSE 2026...`);
+
+  const taskResults = await runConcurrent(tasks, async (t) => {
+    const cands = await fetchCandidatosCargoUf('2026', '20322002026', t.uf, t.cargoCod);
+    process.stdout.write('.');
+    return { ...t, cands };
+  }, 8);
+  console.log('\n✅ Coleta na API do TSE concluída!\n');
+
+  const todosCandidatosTse = extrairCandidatosDeResultados(taskResults);
+  console.log(`🎉 Total de Candidatos 2026 Coletados: ${todosCandidatosTse.length}`);
+
+  const {
+    politicosBancoEm2026,
+    contagemPorCargo,
+    contagemPorPartido,
+    contagemPorEstado
+  } = calcularMetricasECruzamento(todosCandidatosTse, mapPoliticosBanco);
+
+  console.log(`🔗 Candidatos cruzados com o banco do Polígrafo: ${politicosBancoEm2026.length}`);
+  todosCandidatosTse.sort((a, b) => a.nomeUrna.localeCompare(b.nomeUrna, 'pt-BR'));
+
+  gravarCsvOficial(todosCandidatosTse);
+  gravarJsonOficial(todosCandidatosTse);
+  gravarCruzamentoCsv(politicosBancoEm2026);
+  exibirRelatorioFinal(contagemPorCargo, contagemPorPartido, contagemPorEstado);
 }
 
 main().catch(console.error);

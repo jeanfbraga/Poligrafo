@@ -22,6 +22,32 @@ const API_BASE = 'https://dadosabertos.camara.leg.br/api/v2';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+function extrairTextoIntegral(prop: any): string | null {
+    if (prop.urlInteiroTeor) return prop.urlInteiroTeor;
+    if (prop.uri) return prop.uri;
+    return null;
+}
+
+function mapearProposicao(prop: any, depId: number, anoAtual: number) {
+    const tipo = prop.siglaTipo || "PROP";
+    const numero = prop.numero || 0;
+    const ano = prop.ano || anoAtual;
+    const ementa = prop.ementa || "Sem ementa informada";
+    const titulo = `${tipo} ${numero}/${ano}`;
+
+    return {
+        id_deputado: depId,
+        id_proposicao: String(prop.id),
+        tipo,
+        numero,
+        ano,
+        titulo,
+        ementa,
+        texto_integral: extrairTextoIntegral(prop),
+        data_apresentacao: prop.dataApresentacao || null
+    };
+}
+
 export async function run() {
     console.log("[PRODUCAO LEGISLATIVA SYNC] Iniciando sincronização otimizada...");
     const anoAtual = new Date().getFullYear();
@@ -57,17 +83,7 @@ export async function run() {
                     const proposicoes = data?.dados || [];
                     
                     if (proposicoes.length > 0) {
-                        const payload = proposicoes.map((prop: any) => ({
-                            id_deputado: dep.id,
-                            id_proposicao: String(prop.id),
-                            tipo: prop.siglaTipo || "PROP",
-                            numero: prop.numero || 0,
-                            ano: prop.ano || anoAtual,
-                            titulo: `${prop.siglaTipo || "PROP"} ${prop.numero || 0}/${prop.ano || anoAtual}`,
-                            ementa: prop.ementa || "Sem ementa informada",
-                            texto_integral: prop.urlInteiroTeor || prop.uri || null,
-                            data_apresentacao: prop.dataApresentacao || null
-                        }));
+                        const payload = proposicoes.map((prop: any) => mapearProposicao(prop, dep.id, anoAtual));
 
                         const { error } = await supabaseAdmin.from('camara_producao_legislativa').upsert(
                             payload,
@@ -76,9 +92,6 @@ export async function run() {
 
                         if (error) {
                             falhas++;
-                            console.error(`  [${depIndex}/${deputados.length}] Erro ao salvar deputado ${dep.nome}:`, error.message);
-                        } else {
-                            console.log(`  [${depIndex}/${deputados.length}] ✅ ${dep.nome}: ${payload.length} proposições salvas.`);
                         }
                     } else {
                         console.log(`  [${depIndex}/${deputados.length}] ℹ️ ${dep.nome}: 0 proposições.`);

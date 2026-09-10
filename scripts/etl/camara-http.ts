@@ -62,36 +62,53 @@ function erroPermanente(error: unknown): boolean {
         && error.status !== 408 && error.status !== 429;
 }
 
-/** Retorna null apenas para 404. Indisponibilidade nunca equivale a uma lista vazia. */
-export async function fetchCamaraJson(url: string, tentativas = 3, esperaMs = 5000): Promise<any> {
+function validarUrlCamara(url: string): void {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:' || parsed.hostname !== 'dadosabertos.camara.leg.br') {
         throw new Error('O cliente Câmara aceita apenas o endpoint HTTPS oficial de dados abertos');
     }
+}
+
+async function tentarTransporteFetch(url: string, tentativa: number, tentativas: number): Promise<{ ok: boolean; dado?: any }> {
+    try {
+        const dado = await buscarComFetch(url);
+        return { ok: true, dado };
+    } catch (error) {
+        if (error instanceof HttpError && error.status === 404) return { ok: true, dado: null };
+        if (erroPermanente(error)) throw error;
+        console.warn(`[API Câmara] ${descreverErro(error)} em ${url}. Tentando curl (${tentativa}/${tentativas}).`);
+        return { ok: false };
+    }
+}
+
+async function tentarTransporteCurl(url: string, tentarFetch: boolean): Promise<any> {
+    try {
+        const json = await buscarComCurl(url);
+        if (tentarFetch) preferirCurlAte = Date.now() + 5 * 60_000;
+        return json;
+    } catch (error) {
+        if (error instanceof HttpError && error.status === 404) return null;
+        if (erroPermanente(error)) throw error;
+        preferirCurlAte = 0;
+        console.warn(`[API Câmara] curl falhou em ${url}: ${descreverErro(error)}`);
+        throw error;
+    }
+}
+
+/** Retorna null apenas para 404. Indisponibilidade nunca equivale a uma lista vazia. */
+export async function fetchCamaraJson(url: string, tentativas = 3, esperaMs = 5000): Promise<any> {
+    validarUrlCamara(url);
     let ultimoErro: unknown;
     for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
         const tentarFetch = Date.now() >= preferirCurlAte;
         if (tentarFetch) {
-            try {
-                return await buscarComFetch(url);
-            } catch (error) {
-                if (error instanceof HttpError && error.status === 404) return null;
-                if (erroPermanente(error)) throw error;
-                console.warn(`[API Câmara] ${descreverErro(error)} em ${url}. Tentando curl (${tentativa}/${tentativas}).`);
-            }
+            const resFetch = await tentarTransporteFetch(url, tentativa, tentativas);
+            if (resFetch.ok) return resFetch.dado;
         }
         try {
-            const json = await buscarComCurl(url);
-            // Evita pagar o mesmo timeout nativo para cada um dos 513 deputados.
-            // Após cinco minutos, testa novamente o transporte nativo.
-            if (tentarFetch) preferirCurlAte = Date.now() + 5 * 60_000;
-            return json;
+            return await tentarTransporteCurl(url, tentarFetch);
         } catch (error) {
-            if (error instanceof HttpError && error.status === 404) return null;
-            if (erroPermanente(error)) throw error;
             ultimoErro = error;
-            preferirCurlAte = 0;
-            console.warn(`[API Câmara] curl falhou em ${url}: ${descreverErro(error)}`);
         }
         if (tentativa < tentativas) {
             await new Promise(resolve => setTimeout(resolve, esperaMs * 2 ** (tentativa - 1)));

@@ -90,6 +90,36 @@ export async function buscarCadirregTCU(cpf: string): Promise<CadirregTCU[]> {
 	}
 }
 
+function parseCertidaoTCU(data: any, cnpjLimpo: string): CertidaoTCU {
+	const situacaoTcu = data.situacaoTcu ?? "NADA_CONSTA";
+	const situacaoCnj = data.situacaoCnj ?? "NADA_CONSTA";
+	const situacaoCeis = data.situacaoCeis ?? "NADA_CONSTA";
+	const situacaoCnep = data.situacaoCnep ?? "NADA_CONSTA";
+
+	const situacoes = [situacaoTcu, situacaoCnj, situacaoCeis, situacaoCnep];
+	const temInfracao = situacoes.some((s) => s !== "NADA_CONSTA");
+
+	return {
+		cnpj: cnpjLimpo,
+		situacaoTcu,
+		situacaoCnj,
+		situacaoCeis,
+		situacaoCnep,
+		temInfracao,
+	};
+}
+
+function logErroTCU(e: any, cnpjLimpo: string) {
+	if (e.name === "AbortError" || e.code === 20) {
+		console.warn(`[TCU] Timeout ao buscar certidão para ${cnpjLimpo}.`);
+	} else {
+		console.warn(
+			`[TCU] Erro ao buscar certidão para ${cnpjLimpo}:`,
+			e?.message ?? e,
+		);
+	}
+}
+
 // 3. Certidões APF: GET /certidoes/{cnpj}
 export async function buscarCertidaoTCU(
 	cnpj: string,
@@ -103,35 +133,9 @@ export async function buscarCertidaoTCU(
 			throw new Error(`TCU Certidões HTTP ${res.status}`);
 		}
 		const data = await res.json();
-
-		const situacaoTcu = data.situacaoTcu || "NADA_CONSTA";
-		const situacaoCnj = data.situacaoCnj || "NADA_CONSTA";
-		const situacaoCeis = data.situacaoCeis || "NADA_CONSTA";
-		const situacaoCnep = data.situacaoCnep || "NADA_CONSTA";
-
-		const temInfracao =
-			situacaoTcu !== "NADA_CONSTA" ||
-			situacaoCnj !== "NADA_CONSTA" ||
-			situacaoCeis !== "NADA_CONSTA" ||
-			situacaoCnep !== "NADA_CONSTA";
-
-		return {
-			cnpj: cnpjLimpo,
-			situacaoTcu,
-			situacaoCnj,
-			situacaoCeis,
-			situacaoCnep,
-			temInfracao,
-		};
+		return parseCertidaoTCU(data, cnpjLimpo);
 	} catch (e: any) {
-		if (e.name === "AbortError" || e.code === 20) {
-			console.warn(`[TCU] Timeout ao buscar certidão para ${cnpjLimpo}.`);
-		} else {
-			console.warn(
-				`[TCU] Erro ao buscar certidão para ${cnpjLimpo}:`,
-				e.message || e,
-			);
-		}
+		logErroTCU(e, cnpjLimpo);
 		return null;
 	}
 }

@@ -75,43 +75,47 @@ export async function run() {
     let falhas = 0;
     let processadas = 0;
 
+    function extrairCamposStatus(status: any) {
+        return {
+            situacao: status?.descricaoSituacao || null,
+            despacho: status?.despacho || null,
+            regime: status?.regime || null,
+            apreciacao: status?.apreciacao || null
+        };
+    }
+
+    function montarRegistroProposicao(idProp: string, detalhes: any, autores: any, tramitacoes: any) {
+        const camposStatus = extrairCamposStatus(detalhes.statusProposicao);
+        return {
+            id_proposicao: idProp.toString(),
+            sigla_tipo: detalhes.siglaTipo,
+            numero: detalhes.numero,
+            ano: detalhes.ano,
+            titulo: `${detalhes.siglaTipo} ${detalhes.numero}/${detalhes.ano}`,
+            ementa: detalhes.ementa || "Sem ementa",
+            texto_integral: detalhes.urlInteiroTeor || null,
+            data_apresentacao: detalhes.dataApresentacao,
+            autores_json: autores || [],
+            tramitacoes_json: tramitacoes || [],
+            ...camposStatus,
+            atualizado_em: new Date().toISOString()
+        };
+    }
+
     async function processarProposicao(idProp: string) {
         const indice = ++processadas;
         console.log(`[${indice}/${missingIds.length}] Processando Proposição ${idProp}...`);
 
         try {
-            // 2. Buscar detalhes principais
             const detalhes = await fetchJson(`${API_BASE}/proposicoes/${idProp}`);
             if (!detalhes) {
                 console.log(`  - ❌ Proposição ${idProp} não encontrada na API da Câmara.`);
                 return;
             }
 
-            // 3. Buscar autores
             const autores = await fetchJson(`${API_BASE}/proposicoes/${idProp}/autores`);
-            
-            // 4. Buscar tramitações
             const tramitacoes = await fetchJson(`${API_BASE}/proposicoes/${idProp}/tramitacoes`);
-
-            const status = detalhes.statusProposicao || {};
-
-            const record = {
-                id_proposicao: idProp.toString(),
-                sigla_tipo: detalhes.siglaTipo,
-                numero: detalhes.numero,
-                ano: detalhes.ano,
-                titulo: `${detalhes.siglaTipo} ${detalhes.numero}/${detalhes.ano}`,
-                ementa: detalhes.ementa || "Sem ementa",
-                texto_integral: detalhes.urlInteiroTeor || null,
-                data_apresentacao: detalhes.dataApresentacao,
-                autores_json: autores || [],
-                tramitacoes_json: tramitacoes || [],
-                situacao: status.descricaoSituacao || null,
-                despacho: status.despacho || null,
-                regime: status.regime || null,
-                apreciacao: status.apreciacao || null,
-                atualizado_em: new Date().toISOString()
-            };
+            const record = montarRegistroProposicao(idProp, detalhes, autores, tramitacoes);
 
             const { error: upsertError } = await supabase
                 .from('camara_proposicoes_detalhes_cache')

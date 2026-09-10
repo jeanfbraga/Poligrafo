@@ -18,6 +18,33 @@ export interface OperacaoBNDES {
 	setor: string;
 }
 
+function pickString(r: any, fallback: string, ...keys: string[]): string {
+	for (const k of keys) {
+		if (r[k]) return String(r[k]).trim();
+	}
+	return fallback;
+}
+
+function parseRecordBNDES(r: any): OperacaoBNDES {
+	const valorRaw =
+		r.valor_da_operacao_em_reais ??
+		r.valor_contratado_reais ??
+		r.valor_desembolsado_reais ??
+		0;
+	return {
+		cliente: pickString(r, "N/A", "cliente", "nome_do_cliente"),
+		cnpj: pickString(r, "", "cnpj", "cnpj_do_cliente"),
+		uf: pickString(r, "N/A", "uf", "uf_do_cliente"),
+		municipio: pickString(r, "", "municipio", "municipio_do_cliente"),
+		valor: Number(valorRaw) || 0,
+		situacao: pickString(r, "N/A", "situacao_da_operacao", "situacao_do_contrato"),
+		data: pickString(r, "N/A", "data_da_contratacao", "data_do_contrato"),
+		produto: pickString(r, "N/A", "produto"),
+		instrumento: pickString(r, "N/A", "instrumento_financeiro"),
+		setor: pickString(r, "N/A", "setor_cnae"),
+	};
+}
+
 async function queryDatastore(
 	resourceId: string,
 	q: string,
@@ -29,26 +56,7 @@ async function queryDatastore(
 		const json = await res.json();
 		if (!json.success || !json.result?.records) return [];
 
-		return json.result.records.map((r: any) => {
-			const valor = Number(
-				r.valor_da_operacao_em_reais ||
-					r.valor_contratado_reais ||
-					r.valor_desembolsado_reais ||
-					0,
-			);
-			return {
-				cliente: r.cliente || r.nome_do_cliente || "N/A",
-				cnpj: r.cnpj || r.cnpj_do_cliente || "",
-				uf: String(r.uf || r.uf_do_cliente || "N/A").trim(),
-				municipio: r.municipio || r.municipio_do_cliente || "",
-				valor,
-				situacao: r.situacao_da_operacao || r.situacao_do_contrato || "N/A",
-				data: r.data_da_contratacao || r.data_do_contrato || "N/A",
-				produto: r.produto || "N/A",
-				instrumento: r.instrumento_financeiro || "N/A",
-				setor: r.setor_cnae || "N/A",
-			};
-		});
+		return json.result.records.map(parseRecordBNDES);
 	} catch (e: any) {
 		console.warn(
 			`[BNDES] Erro ao consultar recurso ${resourceId}:`,

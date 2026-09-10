@@ -11,100 +11,100 @@ const VIP_MAP: Record<string, { mandatoInicio: string, mandatoFim: string }> = {
 	temer: { mandatoInicio: "31/08/2016", mandatoFim: "31/12/2018" }
 };
 
+function verificarSigilo(item: any): boolean {
+	const est = item?.estabelecimento;
+	if (!est) return true;
+	if (est.id === -1) return true;
+	if (est.nome === "SEM INFORMACAO") return true;
+	if (est.cnpjFormatado === "SIGILOSO" || !est.cnpjFormatado) return true;
+	return false;
+}
+
+function extrairValorTransacao(item: any): number {
+	if (!item.valorTransacao) return 0;
+	const valorStr = String(item.valorTransacao).replace(/\./g, "").replace(",", ".");
+	return Number(valorStr) || 0;
+}
+
+function formatarRegistroCpgf(item: any, idPresidente: string) {
+	if (!item) return null;
+	const isSigiloso = verificarSigilo(item);
+	const valor = extrairValorTransacao(item);
+	const est = item.estabelecimento;
+	const nomeFornecedor = isSigiloso ? "SIGILOSO" : (est?.nome || est?.razaoSocialReceita || "Desconhecido");
+	const cnpj = isSigiloso ? "SIGILOSO" : (est?.cnpjFormatado || "Não Informado");
+
+	return {
+		id_presidente: idPresidente,
+		nome_fornecedor: nomeFornecedor,
+		cnpj_fornecedor: cnpj,
+		data_transacao: item.dataTransacao,
+		valor_transacao: valor,
+		tipo_cartao: item.tipoCartao?.descricao || "CPGF"
+	};
+}
+
+async function tratarRespostaCpgf(res: Response, page: number, idPresidente: string, retries: number) {
+	if (res.status === 429) {
+		console.log(`[Rate Limit] Aguardando 5s para a página ${page}...`);
+		await new Promise(r => setTimeout(r, 5000));
+		return { retry: true };
+	}
+	if (res.status === 400) {
+		console.log(`[Paginação] Status 400 na pág ${page} — fim dos dados para ${idPresidente}.`);
+		return { endOfPages: true, success: true };
+	}
+	if (res.status >= 500) {
+		const attempt = 5 - retries;
+		const wait = Math.min(attempt * attempt * 2000, 30000);
+		console.log(`[Timeout] Status ${res.status} na pág ${page}. Tentativa ${attempt}/4, aguardando ${wait / 1000}s...`);
+		await new Promise(r => setTimeout(r, wait));
+		return { retry: true };
+	}
+	if (!res.ok) throw new Error(`Status ${res.status}`);
+	const data = await res.json();
+	return { success: true, data };
+}
+
+async function buscarPaginaCpgf(url: string, page: number, idPresidente: string) {
+	let retries = 4;
+	while (retries > 0) {
+		try {
+			const res = await fetch(url, { headers: { "chave-api-dados": TRANSPARENCIA_API_KEY } as HeadersInit });
+			const resultado = await tratarRespostaCpgf(res, page, idPresidente, retries);
+			if (resultado.endOfPages) return { endOfPages: true, success: true, data: [] };
+			if (resultado.success) return { endOfPages: false, success: true, data: resultado.data };
+			retries--;
+		} catch (e) {
+			const attempt = 5 - retries;
+			console.error(`Erro na pág ${page} (tentativa ${attempt}/4):`, e);
+			retries--;
+			await new Promise(r => setTimeout(r, attempt * 1000));
+		}
+	}
+	return { endOfPages: false, success: false, data: [] };
+}
+
 async function fetchCpgf(idPresidente: string, vipInfo: { mandatoInicio: string, mandatoFim: string }) {
 	const allRecords: any[] = [];
-	const MAX_PAGES = 2000; // Aumentado para cobrir a Dilma folgado
+	const MAX_PAGES = 2000;
 
 	for (let page = 1; page <= MAX_PAGES; page++) {
 		const url = `https://api.portaldatransparencia.gov.br/api-de-dados/cartoes?codigoOrgao=20101&dataTransacaoInicio=${vipInfo.mandatoInicio}&dataTransacaoFim=${vipInfo.mandatoFim}&pagina=${page}`;
-		
-		let success = false;
-		let retries = 4;
-		let data: any[] = [];
-		let endOfPages = false;
-		
-		while (!success && retries > 0) {
-			try {
-				const res = await fetch(url, { headers: { "chave-api-dados": TRANSPARENCIA_API_KEY } as HeadersInit });
-
-				// Rate limit — aguarda antes de retentar
-				if (res.status === 429) {
-					console.log(`[Rate Limit] Aguardando 5s para a página ${page}...`);
-					await new Promise(r => setTimeout(r, 5000));
-					retries--;
-					continue;
-				}
-
-				// 400 = página além do limite disponível — fim da paginação, comportamento normal
-				if (res.status === 400) {
-					console.log(`[Paginação] Status 400 na pág ${page} — fim dos dados para ${idPresidente}.`);
-					endOfPages = true;
-					success = true;
-					break;
-				}
-
-				// 5xx (504, 503, 502) = timeout/erro transitório do servidor — backoff exponencial
-				if (res.status >= 500) {
-					const attempt = 5 - retries; // 1, 2, 3, 4
-					const wait = Math.min(attempt * attempt * 2000, 30000); // 2s, 8s, 18s, 30s
-					console.log(`[Timeout] Status ${res.status} na pág ${page}. Tentativa ${attempt}/4, aguardando ${wait / 1000}s...`);
-					await new Promise(r => setTimeout(r, wait));
-					retries--;
-					continue;
-				}
-
-				if (!res.ok) throw new Error(`Status ${res.status}`);
-				data = await res.json();
-				success = true;
-			} catch (e) {
-				const attempt = 5 - retries;
-				console.error(`Erro na pág ${page} (tentativa ${attempt}/4):`, e);
-				retries--;
-				await new Promise(r => setTimeout(r, attempt * 1000));
+		const res = await buscarPaginaCpgf(url, page, idPresidente);
+		if (res.endOfPages || !res.success || res.data.length === 0) {
+			if (!res.success) {
+				console.error(`❌ Falha irreversível na página ${page}. Abortando extração para ${idPresidente}.`);
 			}
-		}
-
-		if (endOfPages) break;
-
-		if (!success) {
-			console.error(`❌ Falha irreversível na página ${page}. Abortando extração para ${idPresidente}.`);
 			break;
 		}
-
-		if (data.length === 0) {
-			// Não há mais dados
-			break;
-		}
-
-		allRecords.push(...data);
-
-		// Pequeno delay entre páginas para não sobrecarregar a API
+		allRecords.push(...res.data);
 		await new Promise(r => setTimeout(r, 350));
 	}
 
-	const registrosFormatados = [];
-	
-	for (const item of allRecords) {
-		if (!item) continue;
-		
-		const isSigiloso = item.estabelecimento?.id === -1 || item.estabelecimento?.nome === "SEM INFORMACAO" || item.estabelecimento?.cnpjFormatado === "SIGILOSO" || !item.estabelecimento?.cnpjFormatado;
-		const valorStr = item.valorTransacao ? String(item.valorTransacao).replace(/\./g, "").replace(",", ".") : "0";
-		const valor = Number(valorStr) || 0;
-
-		const nomeFornecedor = isSigiloso ? "SIGILOSO" : (item.estabelecimento?.nome || item.estabelecimento?.razaoSocialReceita || "Desconhecido");
-		const cnpj = isSigiloso ? "SIGILOSO" : (item.estabelecimento?.cnpjFormatado || "Não Informado");
-		
-		registrosFormatados.push({
-			id_presidente: idPresidente,
-			nome_fornecedor: nomeFornecedor,
-			cnpj_fornecedor: cnpj,
-			data_transacao: item.dataTransacao,
-			valor_transacao: valor,
-			tipo_cartao: item.tipoCartao?.descricao || "CPGF"
-		});
-	}
-
-	return registrosFormatados;
+	return allRecords
+		.map(item => formatarRegistroCpgf(item, idPresidente))
+		.filter(Boolean);
 }
 
 async function run() {

@@ -25,58 +25,76 @@ export interface ContratoTceSE {
  * Busca contratações e despesas públicas no estado de Sergipe.
  * Tenta primeiramente a API de Transparência do Estado de Sergipe e faz fallback para o TCE-SE.
  */
+function firstNonEmpty(candidates: any[], fallback: string): string {
+	for (const c of candidates) {
+		if (c) return String(c);
+	}
+	return fallback;
+}
+
+function firstNumeric(candidates: any[]): number {
+	for (const c of candidates) {
+		const parsed = parseFloat(c);
+		if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+	}
+	return 0;
+}
+
+function mapTransparenciaItem(r: any, municipio: string): ContratoTceSE {
+	return {
+		objeto: firstNonEmpty([r.objeto, r.descricao, r.historico], "Contratação / Despesa Pública SE"),
+		fornecedor: firstNonEmpty([r.fornecedor, r.razaoSocial, r.nomeCredor, r.favorecido], "FORNECEDOR NÃO INFORMADO"),
+		cnpj: firstNonEmpty([r.cnpj, r.cpfCnpj, r.cpf_cnpj], "").replace(/\D/g, ""),
+		valor: firstNumeric([r.valor, r.valorPago, r.valorLiquidado, r.valorEmpenhado]),
+		data: firstNonEmpty([r.data, r.dataPagamento, r.dataPublicacao], ""),
+		municipio,
+		unidadeGestora: firstNonEmpty([r.unidadeGestora, r.orgao], "Órgão Estadual / Municipal SE"),
+		modalidade: firstNonEmpty([r.modalidade], "Despesa Consolidada"),
+	};
+}
+
+function mapTceItem(r: any, municipio: string): ContratoTceSE {
+	return {
+		objeto: firstNonEmpty([r.objeto, r.descricao], "Contratação Pública TCE-SE"),
+		fornecedor: firstNonEmpty([r.fornecedor, r.razaoSocial, r.nomeCredor], "FORNECEDOR NÃO INFORMADO"),
+		cnpj: firstNonEmpty([r.cnpj, r.cpfCnpj], "").replace(/\D/g, ""),
+		valor: firstNumeric([r.valor, r.valorContrato]),
+		data: firstNonEmpty([r.data, r.dataPublicacao], ""),
+		municipio,
+		unidadeGestora: firstNonEmpty([r.unidadeGestora, r.orgao], "Prefeitura / Câmara Municipal SE"),
+		modalidade: firstNonEmpty([r.modalidade], "Contrato TCE-SE"),
+	};
+}
+
+async function consultarTransparenciaSE(municipioFormatado: string, limite: number): Promise<ContratoTceSE[]> {
+	const urlTransparencia = `${BASE_URL_SE_TRANSPARENCIA}/despesas/consolidadas?q=${encodeURIComponent(municipioFormatado)}&limit=${limite}`;
+	const res = await fetchWithTimeout(urlTransparencia, { timeout: TIMEOUT_SE });
+	if (!res.ok) return [];
+	const json = await res.json();
+	const items = Array.isArray(json) ? json : json?.dados || json?.data || json?.registros || [];
+	return items.map((r: any) => mapTransparenciaItem(r, municipioFormatado));
+}
+
+async function consultarTceSE(municipioFormatado: string, limite: number): Promise<ContratoTceSE[]> {
+	const urlTce = `${BASE_URL_SE_TCE}/contratos?municipio=${encodeURIComponent(municipioFormatado)}&limite=${limite}`;
+	const res = await fetchWithTimeout(urlTce, { timeout: TIMEOUT_SE });
+	if (!res.ok) return [];
+	const json = await res.json();
+	const items = Array.isArray(json) ? json : json?.dados || json?.registros || [];
+	return items.map((r: any) => mapTceItem(r, municipioFormatado));
+}
+
 export async function buscarContratosSE(
 	municipioNome: string,
 	limite = 30,
 ): Promise<ContratoTceSE[]> {
 	if (!municipioNome || municipioNome.trim().length < 3) return [];
-
 	const municipioFormatado = municipioNome.replace(/-/g, " ").trim();
 
 	try {
-		// 1. Consulta à API de Transparência de Sergipe (despesas e contratos consolidados)
-		const urlTransparencia = `${BASE_URL_SE_TRANSPARENCIA}/despesas/consolidadas?q=${encodeURIComponent(municipioFormatado)}&limit=${limite}`;
-		const resTransparencia = await fetchWithTimeout(urlTransparencia, { timeout: TIMEOUT_SE });
-
-		if (resTransparencia.ok) {
-			const json = await resTransparencia.json();
-			const items = Array.isArray(json) ? json : json?.dados || json?.data || json?.registros || [];
-
-			if (items.length > 0) {
-				return items.map((r: any) => ({
-					objeto: r.objeto || r.descricao || r.historico || "Contratação / Despesa Pública SE",
-					fornecedor: r.fornecedor || r.razaoSocial || r.nomeCredor || r.favorecido || "FORNECEDOR NÃO INFORMADO",
-					cnpj: (r.cnpj || r.cpfCnpj || r.cpf_cnpj || "").replace(/\D/g, ""),
-					valor: parseFloat(r.valor || r.valorPago || r.valorLiquidado || r.valorEmpenhado || "0") || 0,
-					data: r.data || r.dataPagamento || r.dataPublicacao || "",
-					municipio: municipioFormatado,
-					unidadeGestora: r.unidadeGestora || r.orgao || "Órgão Estadual / Municipal SE",
-					modalidade: r.modalidade || "Despesa Consolidada",
-				}));
-			}
-		}
-
-		// 2. Fallback: API de Dados Abertos do TCE-SE / SAGRES
-		const urlTce = `${BASE_URL_SE_TCE}/contratos?municipio=${encodeURIComponent(municipioFormatado)}&limite=${limite}`;
-		const resTce = await fetchWithTimeout(urlTce, { timeout: TIMEOUT_SE });
-
-		if (resTce.ok) {
-			const jsonTce = await resTce.json();
-			const itemsTce = Array.isArray(jsonTce) ? jsonTce : jsonTce?.dados || jsonTce?.registros || [];
-
-			return itemsTce.map((r: any) => ({
-				objeto: r.objeto || r.descricao || "Contratação Pública TCE-SE",
-				fornecedor: r.fornecedor || r.razaoSocial || r.nomeCredor || "FORNECEDOR NÃO INFORMADO",
-				cnpj: (r.cnpj || r.cpfCnpj || "").replace(/\D/g, ""),
-				valor: parseFloat(r.valor || r.valorContrato || "0") || 0,
-				data: r.data || r.dataPublicacao || "",
-				municipio: municipioFormatado,
-				unidadeGestora: r.unidadeGestora || r.orgao || "Prefeitura / Câmara Municipal SE",
-				modalidade: r.modalidade || "Contrato TCE-SE",
-			}));
-		}
-
-		return [];
+		const contratosTransp = await consultarTransparenciaSE(municipioFormatado, limite);
+		if (contratosTransp.length > 0) return contratosTransp;
+		return await consultarTceSE(municipioFormatado, limite);
 	} catch (err: any) {
 		console.warn(`[TCE-SE] Falha ao consultar contratações para ${municipioFormatado}:`, err.message);
 		return [];

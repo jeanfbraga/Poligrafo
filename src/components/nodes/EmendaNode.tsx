@@ -2,15 +2,48 @@
 
 import { NodeShell } from "./NodeShell";
 
-export const EmendaNode = ({ data, isMobile }: { data: any, isMobile?: boolean }) => {
-	const taxa = data.percentualExecucao ?? data._percentualExecucao ?? data.taxaExecucao ?? 0;
-	const isFantasma = data.isFantasma ?? data._isFantasma;
-	const tipoLabel = data.tipo ?? data._riscoTipo?.label ?? "EMENDA_PARLAMENTAR";
-	
-	const badgeText = `[${tipoLabel.toUpperCase().replace(/\s/g, "_")}]`;
+function extrairTaxaExecucao(data: any): number {
+	return data?.percentualExecucao ?? data?._percentualExecucao ?? data?.taxaExecucao ?? 0;
+}
 
-	const textColor = isFantasma ? "text-red-400" : "text-teal-400";
-	const barColor = isFantasma ? "bg-red-500" : taxa < 30 ? "bg-yellow-500" : "bg-teal-500";
+function obterRotuloEmenda(data: any): string {
+	const tipoLabel = data?.tipo ?? data?._riscoTipo?.label ?? "EMENDA_PARLAMENTAR";
+	return `[${String(tipoLabel).toUpperCase().replace(/\s/g, "_")}]`;
+}
+
+function obterCoresEmenda(isFantasma: boolean, taxa: number) {
+	if (isFantasma) {
+		return {
+			textColor: "text-red-400",
+			barColor: "bg-red-500",
+			taxaColor: "text-red-500"
+		};
+	}
+	if (taxa < 30) {
+		return {
+			textColor: "text-teal-400",
+			barColor: "bg-yellow-500",
+			taxaColor: "text-yellow-500"
+		};
+	}
+	return {
+		textColor: "text-teal-400",
+		barColor: "bg-teal-500",
+		taxaColor: "text-teal-400"
+	};
+}
+
+function formatarValorEmpenhado(data: any): string {
+	const val = Number(data?._empenhado || data?.valor || 0);
+	return val.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+}
+
+export const EmendaNode = ({ data, isMobile }: { data: any, isMobile?: boolean }) => {
+	const taxa = extrairTaxaExecucao(data);
+	const isFantasma = Boolean(data?.isFantasma ?? data?._isFantasma);
+	const badgeText = obterRotuloEmenda(data);
+	const { textColor, barColor, taxaColor } = obterCoresEmenda(isFantasma, taxa);
+	const valorFormatado = formatarValorEmpenhado(data);
 
 	return (
 		<NodeShell type="EMENDA" data={data} isMobile={isMobile} badge={badgeText}>
@@ -19,8 +52,7 @@ export const EmendaNode = ({ data, isMobile }: { data: any, isMobile?: boolean }
 					Valor Empenhado
 				</p>
 				<p className={`text-sm font-bold mt-0.5 ${textColor}`}>
-					R${" "}
-					{Number(data._empenhado || data.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+					R$ {valorFormatado}
 				</p>
 			</div>
 			<div className="mt-2">
@@ -28,7 +60,7 @@ export const EmendaNode = ({ data, isMobile }: { data: any, isMobile?: boolean }
 					<p className="text-xs text-teal-500 uppercase font-bold">
 						Execução
 					</p>
-					<p className={`text-xs font-bold ${isFantasma ? "text-red-500" : taxa < 30 ? "text-yellow-500" : "text-teal-400"}`}>
+					<p className={`text-xs font-bold ${taxaColor}`}>
 						{taxa}%
 					</p>
 				</div>

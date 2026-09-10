@@ -101,6 +101,371 @@ function createDataCell(
 	});
 }
 
+function gerarCoverChildren(nomePolitico: string, dataGeracao: string): Paragraph[] {
+	return [
+		new Paragraph({ spacing: { after: 600 }, children: [] }),
+		new Paragraph({
+			alignment: AlignmentType.CENTER,
+			spacing: { after: 200 },
+			children: [
+				new TextRun({
+					text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+					color: COLORS.GREEN,
+					size: 28,
+					font: "Consolas",
+				}),
+			],
+		}),
+		new Paragraph({
+			alignment: AlignmentType.CENTER,
+			spacing: { after: 100 },
+			children: [
+				new TextRun({
+					text: "POLÍGRAFO",
+					bold: true,
+					size: 56,
+					color: COLORS.GREEN,
+					font: "Consolas",
+				}),
+			],
+		}),
+		new Paragraph({
+			alignment: AlignmentType.CENTER,
+			spacing: { after: 200 },
+			children: [
+				new TextRun({
+					text: "DOSSIÊ ANALÍTICO DE INTELIGÊNCIA",
+					size: 24,
+					color: COLORS.GRAY,
+					font: "Consolas",
+				}),
+			],
+		}),
+		new Paragraph({
+			alignment: AlignmentType.CENTER,
+			spacing: { after: 200 },
+			children: [
+				new TextRun({
+					text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+					color: COLORS.GREEN,
+					size: 28,
+					font: "Consolas",
+				}),
+			],
+		}),
+		new Paragraph({ spacing: { after: 400 }, children: [] }),
+		new Paragraph({
+			alignment: AlignmentType.CENTER,
+			spacing: { after: 100 },
+			children: [
+				new TextRun({
+					text: "ALVO: ",
+					size: 28,
+					color: COLORS.GRAY,
+					font: "Consolas",
+				}),
+				new TextRun({
+					text: nomePolitico.toUpperCase(),
+					bold: true,
+					size: 32,
+					color: COLORS.RED,
+					font: "Consolas",
+				}),
+			],
+		}),
+		new Paragraph({
+			alignment: AlignmentType.CENTER,
+			spacing: { after: 600 },
+			children: [
+				new TextRun({
+					text: `Gerado em: ${dataGeracao}`,
+					size: 18,
+					color: COLORS.GRAY,
+					font: "Consolas",
+				}),
+			],
+		}),
+		new Paragraph({
+			alignment: AlignmentType.CENTER,
+			spacing: { after: 100 },
+			children: [
+				new TextRun({
+					text: "DOCUMENTO CONFIDENCIAL — GERADO POR MOTOR DE INTELIGÊNCIA ARTIFICIAL",
+					size: 16,
+					color: COLORS.ORANGE,
+					bold: true,
+					font: "Consolas",
+				}),
+			],
+		}),
+		new Paragraph({
+			alignment: AlignmentType.CENTER,
+			children: [
+				new TextRun({
+					text: "Dados extraídos de bases públicas governamentais (TSE, Câmara dos Deputados, Portal da Transparência, Receita Federal, PNCP).",
+					size: 14,
+					color: COLORS.GRAY,
+					font: "Consolas",
+				}),
+			],
+		}),
+	];
+}
+
+function montarDataRow(d: any, isLetal: boolean): TableRow {
+	const nome = String(d.label || "N/A").substring(0, 50);
+	const classificacao = String(d.classificacao || d.tipo || d.type || "-").substring(0, 30).toUpperCase();
+	const valor = Number(d.valor || d.capitalSocial || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+	const score = String(d.score_letalidade || "-");
+	const motivo = String(d.motivo_ia || "Sem observação da IA.");
+
+	return new TableRow({
+		children: [
+			createDataCell(nome, isLetal, COL_WIDTHS_DXA[0]),
+			createDataCell(classificacao, isLetal, COL_WIDTHS_DXA[1]),
+			createDataCell(`R$ ${valor}`, isLetal, COL_WIDTHS_DXA[2]),
+			createDataCell(score, isLetal, COL_WIDTHS_DXA[3]),
+			createDataCell(motivo, isLetal, COL_WIDTHS_DXA[4]),
+		],
+	});
+}
+
+function obterFundamentacao(d: any): string {
+	return d.fundamentacao_tecnica || d.risco?.fundamentacao_tecnica || "";
+}
+
+function obterEnquadramento(d: any): string {
+	return d.enquadramento_normativo || d.risco?.enquadramento_normativo || "";
+}
+
+function montarFundamentacaoRow(d: any, isLetal: boolean): TableRow | null {
+	const score = d.score_letalidade || 0;
+	if (score < 50) return null;
+
+	const fundamentacao = obterFundamentacao(d);
+	const enquadramento = obterEnquadramento(d);
+	if (!fundamentacao && !enquadramento) return null;
+
+	const fillColor = isLetal ? "FFF4F4" : "FDF7E8";
+	return new TableRow({
+		children: [
+			new TableCell({
+				columnSpan: 5,
+				shading: {
+					fill: fillColor,
+					type: ShadingType.SOLID,
+					color: fillColor,
+				},
+				margins: { left: 200, right: 200, top: 100, bottom: 100 },
+				children: [
+					new Paragraph({
+						spacing: { before: 60, after: 60 },
+						children: [
+							new TextRun({
+								text: "[ANÁLISE PROFUNDA MÁQUINA] ",
+								bold: true,
+								size: 14,
+								color: COLORS.GRAY,
+								font: "Consolas",
+							}),
+							new TextRun({
+								text: fundamentacao || "N/I",
+								size: 14,
+								color: COLORS.DARK,
+								font: "Consolas",
+							}),
+							new TextRun({
+								text: " | Enquadramento Típico: ",
+								bold: true,
+								size: 14,
+								color: COLORS.GRAY,
+								font: "Consolas",
+							}),
+							new TextRun({
+								text: enquadramento || "N/I",
+								size: 14,
+								color: COLORS.DARK,
+								font: "Consolas",
+							}),
+						],
+					}),
+				],
+			}),
+		],
+	});
+}
+
+function criarTabelaGrupo(label: string, entidades: any[]): (Paragraph | Table)[] {
+	const headerRow = new TableRow({
+		children: [
+			createHeaderCell("ENTIDADE", COL_WIDTHS_DXA[0]),
+			createHeaderCell("CLASSIFICAÇÃO", COL_WIDTHS_DXA[1]),
+			createHeaderCell("VALOR (R$)", COL_WIDTHS_DXA[2]),
+			createHeaderCell("SCORE", COL_WIDTHS_DXA[3]),
+			createHeaderCell("MOTIVO IA", COL_WIDTHS_DXA[4]),
+		],
+	});
+
+	const dataRows: TableRow[] = [];
+	for (const d of entidades) {
+		const isLetal = (d.score_letalidade || 0) >= 85;
+		dataRows.push(montarDataRow(d, isLetal));
+		const fRow = montarFundamentacaoRow(d, isLetal);
+		if (fRow) dataRows.push(fRow);
+	}
+
+	return [
+		new Paragraph({ spacing: { before: 400, after: 100 }, children: [] }),
+		new Paragraph({
+			heading: HeadingLevel.HEADING_2,
+			spacing: { after: 200 },
+			children: [
+				new TextRun({
+					text: label,
+					bold: true,
+					size: 24,
+					color: COLORS.GREEN,
+					font: "Consolas",
+				}),
+			],
+		}),
+		new Table({
+			width: { size: 100, type: WidthType.PERCENTAGE },
+			columnWidths: COL_WIDTHS_DXA,
+			rows: [headerRow, ...dataRows],
+			borders: {
+				top: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+				bottom: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+				left: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+				right: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+				insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "EEEEEE" },
+				insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "EEEEEE" },
+			},
+		}),
+	];
+}
+
+function gerarTableChildren(despesasCriticas?: any[]): (Paragraph | Table)[] {
+	if (!despesasCriticas || despesasCriticas.length === 0) {
+		return [
+			new Paragraph({
+				spacing: { before: 400 },
+				children: [
+					new TextRun({
+						text: "Nenhuma entidade com score de risco relevante foi detectada nesta investigação.",
+						size: 20,
+						color: COLORS.GRAY,
+						font: "Consolas",
+					}),
+				],
+			}),
+		];
+	}
+
+	const grupos: Record<string, any[]> = {};
+	for (const d of despesasCriticas) {
+		const tipo = d.type || "DESPESA";
+		grupos[tipo] = grupos[tipo] || [];
+		grupos[tipo].push(d);
+	}
+
+	const tableChildren: (Paragraph | Table)[] = [];
+	for (const [tipo, entidades] of Object.entries(grupos)) {
+		const label = ENTITY_LABELS[tipo] || tipo;
+		tableChildren.push(...criarTabelaGrupo(label, entidades));
+	}
+	return tableChildren;
+}
+
+function gerarUrlChildren(urlsNotasFiscais?: string[]): Paragraph[] {
+	if (!urlsNotasFiscais || urlsNotasFiscais.length === 0) return [];
+
+	const urlChildren: Paragraph[] = [
+		new Paragraph({ spacing: { before: 600 }, children: [] }),
+		new Paragraph({
+			heading: HeadingLevel.HEADING_1,
+			spacing: { after: 200 },
+			children: [
+				new TextRun({
+					text: "🔗 FONTES E DOCUMENTOS COMPROBATÓRIOS",
+					bold: true,
+					size: 28,
+					color: COLORS.GREEN,
+					font: "Consolas",
+				}),
+			],
+		}),
+		new Paragraph({
+			spacing: { after: 200 },
+			children: [
+				new TextRun({
+					text: "Os documentos abaixo podem ser verificados diretamente nas fontes governamentais originais:",
+					size: 18,
+					color: COLORS.GRAY,
+					font: "Consolas",
+				}),
+			],
+		}),
+	];
+
+	const uniqueUrls = Array.from(new Set(urlsNotasFiscais));
+	for (const url of uniqueUrls) {
+		urlChildren.push(
+			new Paragraph({
+				spacing: { after: 100 },
+				children: [
+					new TextRun({ text: "• ", size: 18, font: "Consolas" }),
+					new ExternalHyperlink({
+						children: [
+							new TextRun({
+								text: url,
+								size: 16,
+								color: "2563EB",
+								underline: {},
+								font: "Consolas",
+							}),
+						],
+						link: url,
+					}),
+				],
+			}),
+		);
+	}
+
+	return urlChildren;
+}
+
+function gerarFooterChildren(): Paragraph[] {
+	return [
+		new Paragraph({ spacing: { before: 600 }, children: [] }),
+		new Paragraph({
+			children: [
+				new TextRun({
+					text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+					color: COLORS.GREEN,
+					size: 16,
+					font: "Consolas",
+				}),
+			],
+		}),
+		new Paragraph({
+			spacing: { after: 100 },
+			children: [
+				new TextRun({
+					text:
+						"Este documento foi gerado automaticamente pelo sistema Polígrafo com auxílio de Inteligência Artificial (LLM). " +
+						"As informações são extraídas de bases públicas governamentais e não possuem caráter acusatório. " +
+						"Cabe ao destinatário verificar as fontes oficiais antes de qualquer ação jurídica ou editorial.",
+					size: 14,
+					color: COLORS.GRAY,
+					italics: true,
+					font: "Consolas",
+				}),
+			],
+		}),
+	];
+}
+
 export async function POST(req: NextRequest) {
 	try {
 		const body = await req.json();
@@ -114,396 +479,18 @@ export async function POST(req: NextRequest) {
 		}
 
 		const dataGeracao = `${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}`;
+		const coverChildren = gerarCoverChildren(nomePolitico, dataGeracao);
+		const tableChildren = gerarTableChildren(despesasCriticas);
+		const urlChildren = gerarUrlChildren(urlsNotasFiscais);
+		const footerChildren = gerarFooterChildren();
 
-		// ===========================
-		// SEÇÃO 1: CAPA
-		// ===========================
-		const coverChildren: Paragraph[] = [
-			new Paragraph({ spacing: { after: 600 }, children: [] }),
-			new Paragraph({
-				alignment: AlignmentType.CENTER,
-				spacing: { after: 200 },
-				children: [
-					new TextRun({
-						text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-						color: COLORS.GREEN,
-						size: 28,
-						font: "Consolas",
-					}),
-				],
-			}),
-			new Paragraph({
-				alignment: AlignmentType.CENTER,
-				spacing: { after: 100 },
-				children: [
-					new TextRun({
-						text: "POLÍGRAFO",
-						bold: true,
-						size: 56,
-						color: COLORS.GREEN,
-						font: "Consolas",
-					}),
-				],
-			}),
-			new Paragraph({
-				alignment: AlignmentType.CENTER,
-				spacing: { after: 200 },
-				children: [
-					new TextRun({
-						text: "DOSSIÊ ANALÍTICO DE INTELIGÊNCIA",
-						size: 24,
-						color: COLORS.GRAY,
-						font: "Consolas",
-					}),
-				],
-			}),
-			new Paragraph({
-				alignment: AlignmentType.CENTER,
-				spacing: { after: 200 },
-				children: [
-					new TextRun({
-						text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-						color: COLORS.GREEN,
-						size: 28,
-						font: "Consolas",
-					}),
-				],
-			}),
-			new Paragraph({ spacing: { after: 400 }, children: [] }),
-			new Paragraph({
-				alignment: AlignmentType.CENTER,
-				spacing: { after: 100 },
-				children: [
-					new TextRun({
-						text: "ALVO: ",
-						size: 28,
-						color: COLORS.GRAY,
-						font: "Consolas",
-					}),
-					new TextRun({
-						text: nomePolitico.toUpperCase(),
-						bold: true,
-						size: 32,
-						color: COLORS.RED,
-						font: "Consolas",
-					}),
-				],
-			}),
-			new Paragraph({
-				alignment: AlignmentType.CENTER,
-				spacing: { after: 600 },
-				children: [
-					new TextRun({
-						text: `Gerado em: ${dataGeracao}`,
-						size: 18,
-						color: COLORS.GRAY,
-						font: "Consolas",
-					}),
-				],
-			}),
-			new Paragraph({
-				alignment: AlignmentType.CENTER,
-				spacing: { after: 100 },
-				children: [
-					new TextRun({
-						text: "DOCUMENTO CONFIDENCIAL — GERADO POR MOTOR DE INTELIGÊNCIA ARTIFICIAL",
-						size: 16,
-						color: COLORS.ORANGE,
-						bold: true,
-						font: "Consolas",
-					}),
-				],
-			}),
-			new Paragraph({
-				alignment: AlignmentType.CENTER,
-				children: [
-					new TextRun({
-						text: "Dados extraídos de bases públicas governamentais (TSE, Câmara dos Deputados, Portal da Transparência, Receita Federal, PNCP).",
-						size: 14,
-						color: COLORS.GRAY,
-						font: "Consolas",
-					}),
-				],
-			}),
-		];
-
-		// ===========================
-		// SEÇÃO 2: TABELA DE ENTIDADES (AGRUPADAS)
-		// ===========================
-		const tableChildren: (Paragraph | Table)[] = [];
-
-		if (despesasCriticas && despesasCriticas.length > 0) {
-			// Agrupar por tipo
-			const grupos: Record<string, any[]> = {};
-			for (const d of despesasCriticas) {
-				const tipo = d.type || "DESPESA";
-				if (!grupos[tipo]) grupos[tipo] = [];
-				grupos[tipo].push(d);
-			}
-
-			for (const [tipo, entidades] of Object.entries(grupos)) {
-				const label = ENTITY_LABELS[tipo] || tipo;
-
-				// Sub-header do grupo
-				tableChildren.push(
-					new Paragraph({ spacing: { before: 400, after: 100 }, children: [] }),
-					new Paragraph({
-						heading: HeadingLevel.HEADING_2,
-						spacing: { after: 200 },
-						children: [
-							new TextRun({
-								text: label,
-								bold: true,
-								size: 24,
-								color: COLORS.GREEN,
-								font: "Consolas",
-							}),
-						],
-					}),
-				);
-
-				// Cabeçalho da tabela
-				const headerRow = new TableRow({
-					children: [
-						createHeaderCell("ENTIDADE", COL_WIDTHS_DXA[0]),
-						createHeaderCell("CLASSIFICAÇÃO", COL_WIDTHS_DXA[1]),
-						createHeaderCell("VALOR (R$)", COL_WIDTHS_DXA[2]),
-						createHeaderCell("SCORE", COL_WIDTHS_DXA[3]),
-						createHeaderCell("MOTIVO IA", COL_WIDTHS_DXA[4]),
-					],
-				});
-
-				// Linhas do corpo
-				const dataRows: TableRow[] = [];
-				entidades.forEach((d: any) => {
-					const isLetal = (d.score_letalidade || 0) >= 85;
-					const isAlerta = (d.score_letalidade || 0) >= 50;
-					const nome = String(d.label || "N/A").substring(0, 50);
-					// Captura a nova classificação injetada pelo ai_helpers no route.ts
-					const classificacao = String(
-						d.classificacao || d.tipo || d.type || "-",
-					)
-						.substring(0, 30)
-						.toUpperCase();
-					const valor = Number(d.valor || d.capitalSocial || 0).toLocaleString(
-						"pt-BR",
-						{ minimumFractionDigits: 2 },
-					);
-					const score = String(d.score_letalidade || "-");
-					const motivo = String(d.motivo_ia || "Sem observação da IA.");
-					const fundamentacao = String(
-						d.fundamentacao_tecnica || d.risco?.fundamentacao_tecnica || "",
-					);
-					const enquadramento = String(
-						d.enquadramento_normativo || d.risco?.enquadramento_normativo || "",
-					);
-
-					dataRows.push(
-						new TableRow({
-							children: [
-								createDataCell(nome, isLetal, COL_WIDTHS_DXA[0]),
-								createDataCell(classificacao, isLetal, COL_WIDTHS_DXA[1]),
-								createDataCell(`R$ ${valor}`, isLetal, COL_WIDTHS_DXA[2]),
-								createDataCell(score, isLetal, COL_WIDTHS_DXA[3]),
-								createDataCell(motivo, isLetal, COL_WIDTHS_DXA[4]),
-							],
-						}),
-					);
-
-					// Adiciona a quebra de linha detalhada (fundamentação da IA) se houver
-					if (isAlerta && (fundamentacao || enquadramento)) {
-						dataRows.push(
-							new TableRow({
-								children: [
-									new TableCell({
-										columnSpan: 5,
-										shading: {
-											fill: isLetal ? "FFF4F4" : "FDF7E8",
-											type: ShadingType.SOLID,
-											color: isLetal ? "FFF4F4" : "FDF7E8",
-										},
-										margins: { left: 200, right: 200, top: 100, bottom: 100 },
-										children: [
-											new Paragraph({
-												spacing: { before: 60, after: 60 },
-												children: [
-													new TextRun({
-														text: "[ANÁLISE PROFUNDA MÁQUINA] ",
-														bold: true,
-														size: 14,
-														color: COLORS.GRAY,
-														font: "Consolas",
-													}),
-													new TextRun({
-														text: fundamentacao || "N/I",
-														size: 14,
-														color: COLORS.DARK,
-														font: "Consolas",
-													}),
-													new TextRun({
-														text: " | Enquadramento Típico: ",
-														bold: true,
-														size: 14,
-														color: COLORS.GRAY,
-														font: "Consolas",
-													}),
-													new TextRun({
-														text: enquadramento || "N/I",
-														size: 14,
-														color: COLORS.DARK,
-														font: "Consolas",
-													}),
-												],
-											}),
-										],
-									}),
-								],
-							}),
-						);
-					}
-				});
-
-				tableChildren.push(
-					new Table({
-						width: { size: 100, type: WidthType.PERCENTAGE },
-						columnWidths: COL_WIDTHS_DXA,
-						rows: [headerRow, ...dataRows],
-						borders: {
-							top: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
-							bottom: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
-							left: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
-							right: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
-							insideHorizontal: {
-								style: BorderStyle.SINGLE,
-								size: 1,
-								color: "EEEEEE",
-							},
-							insideVertical: {
-								style: BorderStyle.SINGLE,
-								size: 1,
-								color: "EEEEEE",
-							},
-						},
-					}),
-				);
-			}
-		} else {
-			tableChildren.push(
-				new Paragraph({
-					spacing: { before: 400 },
-					children: [
-						new TextRun({
-							text: "Nenhuma entidade com score de risco relevante foi detectada nesta investigação.",
-							size: 20,
-							color: COLORS.GRAY,
-							font: "Consolas",
-						}),
-					],
-				}),
-			);
-		}
-
-		// ===========================
-		// SEÇÃO 3: FONTES E EVIDÊNCIAS OFICIAIS (URLs)
-		// ===========================
-		const urlChildren: Paragraph[] = [];
-
-		if (urlsNotasFiscais && urlsNotasFiscais.length > 0) {
-			urlChildren.push(
-				new Paragraph({ spacing: { before: 600 }, children: [] }),
-				new Paragraph({
-					heading: HeadingLevel.HEADING_1,
-					spacing: { after: 200 },
-					children: [
-						new TextRun({
-							text: "🔗 FONTES E DOCUMENTOS COMPROBATÓRIOS",
-							bold: true,
-							size: 28,
-							color: COLORS.GREEN,
-							font: "Consolas",
-						}),
-					],
-				}),
-				new Paragraph({
-					spacing: { after: 200 },
-					children: [
-						new TextRun({
-							text: "Os documentos abaixo podem ser verificados diretamente nas fontes governamentais originais:",
-							size: 18,
-							color: COLORS.GRAY,
-							font: "Consolas",
-						}),
-					],
-				}),
-			);
-
-			const uniqueUrls = Array.from(new Set(urlsNotasFiscais as string[]));
-			for (const url of uniqueUrls) {
-				urlChildren.push(
-					new Paragraph({
-						spacing: { after: 100 },
-						children: [
-							new TextRun({ text: "• ", size: 18, font: "Consolas" }),
-							new ExternalHyperlink({
-								children: [
-									new TextRun({
-										text: url,
-										size: 16,
-										color: "2563EB",
-										underline: {},
-										font: "Consolas",
-									}),
-								],
-								link: url,
-							}),
-						],
-					}),
-				);
-			}
-		}
-
-		// ===========================
-		// SEÇÃO 4: RODAPÉ LEGAL
-		// ===========================
-		const footerChildren: Paragraph[] = [
-			new Paragraph({ spacing: { before: 600 }, children: [] }),
-			new Paragraph({
-				children: [
-					new TextRun({
-						text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-						color: COLORS.GREEN,
-						size: 16,
-						font: "Consolas",
-					}),
-				],
-			}),
-			new Paragraph({
-				spacing: { after: 100 },
-				children: [
-					new TextRun({
-						text:
-							"Este documento foi gerado automaticamente pelo sistema Polígrafo com auxílio de Inteligência Artificial (LLM). " +
-							"As informações são extraídas de bases públicas governamentais e não possuem caráter acusatório. " +
-							"Cabe ao destinatário verificar as fontes oficiais antes de qualquer ação jurídica ou editorial.",
-						size: 14,
-						color: COLORS.GRAY,
-						italics: true,
-						font: "Consolas",
-					}),
-				],
-			}),
-		];
-
-		// ===========================
-		// MONTAGEM FINAL DO DOCUMENTO
-		// ===========================
 		const doc = new Document({
 			creator: "Polígrafo IA",
 			title: `Dossiê Analítico - ${nomePolitico}`,
 			description: `Dossiê gerado pelo Polígrafo em ${dataGeracao}`,
 			sections: [
 				{
-					children: [...coverChildren],
+					children: coverChildren,
 				},
 				{
 					properties: {

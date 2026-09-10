@@ -75,6 +75,59 @@ function findKey(row: any, possibleKeys: string[]): string | undefined {
     return undefined;
 }
 
+function parseNumeroSpu(valStr: string | null | undefined): number {
+    if (!valStr || valStr === '-' || valStr === '—') return 0;
+    const num = parseFloat(valStr.replace(',', '.'));
+    return isNaN(num) ? 0 : num;
+}
+
+function mapearLinhaSpu(row: any) {
+    const endereco = findKey(row, ['endereco']);
+    if (!endereco) return null;
+
+    const uf = findKey(row, ['uf']);
+    const municipio = findKey(row, ['municipio_nome', 'municipio']);
+    const tipoImovel = findKey(row, ['tipo_imovel']);
+    const areaStr = findKey(row, ['metro_quadrado_area', 'area_terreno_m2', 'area_m2']);
+    const valorStr = findKey(row, ['valor_imovel']);
+
+    return {
+        uf: uf?.trim().toUpperCase() || null,
+        municipio_nome: municipio?.trim() || null,
+        endereco: endereco.trim(),
+        tipo_imovel: tipoImovel?.trim() || null,
+        area_m2: parseNumeroSpu(areaStr),
+        valor_imovel: parseNumeroSpu(valorStr)
+    };
+}
+
+function deduplicarPorEndereco(items: any[]): any[] {
+    const unique = [];
+    const seen = new Set<string>();
+    for (const item of items) {
+        if (!seen.has(item.endereco)) {
+            seen.add(item.endereco);
+            unique.push(item);
+        }
+    }
+    return unique;
+}
+
+async function salvarLoteSpu(batch: any[]): Promise<number> {
+    const uniqueBatch = deduplicarPorEndereco(batch);
+    if (uniqueBatch.length === 0) return 0;
+
+    const { error } = await supabase
+        .from('spu_imoveis')
+        .upsert(uniqueBatch, { onConflict: 'endereco' });
+
+    if (error) {
+        console.error('[SPU] Erro no lote:', error.message);
+        return 0;
+    }
+    return uniqueBatch.length;
+}
+
 async function processData() {
     console.log(`[SPU] Processando CSV...`);
     
@@ -102,58 +155,16 @@ async function processData() {
             rowCount++;
             
             try {
-                const uf = findKey(row, ['uf']);
-                const municipio = findKey(row, ['municipio_nome', 'municipio']);
-                const endereco = findKey(row, ['endereco']);
-                const tipoImovel = findKey(row, ['tipo_imovel']);
-                const areaStr = findKey(row, ['metro_quadrado_area', 'area_terreno_m2', 'area_m2']);
-                const valorStr = findKey(row, ['valor_imovel']);
+                const item = mapearLinhaSpu(row);
+                if (!item) return;
 
-                let area = 0;
-                if (areaStr && areaStr !== '-' && areaStr !== '—') {
-                    area = parseFloat(areaStr.replace(',', '.'));
-                }
-                
-                let valor = 0;
-                if (valorStr && valorStr !== '-' && valorStr !== '—') {
-                    valor = parseFloat(valorStr.replace(',', '.'));
-                }
-
-                if (!endereco) return;
-
-                batch.push({
-                    uf: uf?.trim().toUpperCase() || null,
-                    municipio_nome: municipio?.trim() || null,
-                    endereco: endereco.trim(),
-                    tipo_imovel: tipoImovel?.trim() || null,
-                    area_m2: isNaN(area) ? 0 : area,
-                    valor_imovel: isNaN(valor) ? 0 : valor
-                });
+                batch.push(item);
 
                 if (batch.length >= BATCH_SIZE) {
                     stream.pause();
-                    
-                    // Deduplicate batch by 'endereco' to prevent PostgreSQL 'ON CONFLICT DO UPDATE command cannot affect row a second time'
-                    const uniqueBatch = [];
-                    const seen = new Set();
-                    for (const item of batch) {
-                        if (!seen.has(item.endereco)) {
-                            seen.add(item.endereco);
-                            uniqueBatch.push(item);
-                        }
-                    }
-                    
+                    const currentBatch = [...batch];
                     batch = [];
-                    
-                    const { error } = await supabase
-                        .from('spu_imoveis')
-                        .upsert(uniqueBatch, { onConflict: 'endereco' });
-                        
-                    if (error) {
-                        console.error('[SPU] Erro no lote:', error.message);
-                    } else {
-                        totalInseridos += uniqueBatch.length;
-                    }
+                    totalInseridos += await salvarLoteSpu(currentBatch);
                     stream.resume();
                 }
             } catch (err) {
@@ -162,19 +173,7 @@ async function processData() {
 
         stream.on('end', async () => {
             if (batch.length > 0) {
-                const uniqueBatch = [];
-                const seen = new Set();
-                for (const item of batch) {
-                    if (!seen.has(item.endereco)) {
-                        seen.add(item.endereco);
-                        uniqueBatch.push(item);
-                    }
-                }
-                const { error } = await supabase
-                    .from('spu_imoveis')
-                    .upsert(uniqueBatch, { onConflict: 'endereco' });
-                    
-                if (!error) totalInseridos += uniqueBatch.length;
+                totalInseridos += await salvarLoteSpu(batch);
             }
             console.log(`[SPU] Processamento concluído. ${totalInseridos} imóveis inseridos únicos.`);
             resolve();

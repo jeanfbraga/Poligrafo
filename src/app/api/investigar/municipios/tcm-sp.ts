@@ -19,6 +19,26 @@ export interface ContratoTcmSP {
 	orgao: string;
 }
 
+function fallbackTcm(val1: any, val2: any, def: string): string {
+	if (val1) return String(val1);
+	if (val2) return String(val2);
+	return def;
+}
+
+function mapContratoTcmSP(c: any): ContratoTcmSP {
+	const doc = fallbackTcm(c.cnpj, c.cnpjContratado, "").replace(/\D/g, "");
+	const val = Number(c.valor || c.valorInicial) || 0;
+	return {
+		numeroContrato: fallbackTcm(c.numero, c.numeroContrato, "N/I"),
+		objeto: fallbackTcm(c.objeto, c.descricaoObjeto, "Contratação Pública Municipal SP"),
+		contratado: fallbackTcm(c.contratado, c.razaoSocial, "FORNECEDOR NÃO INFORMADO"),
+		cnpjContratado: doc,
+		valor: val,
+		dataAssinatura: fallbackTcm(c.dataAssinatura, c.dataPublicacao, ""),
+		orgao: fallbackTcm(c.orgao, c.secretaria, "Prefeitura de São Paulo"),
+	};
+}
+
 /**
  * Consulta contratações fiscalizadas pelo Tribunal de Contas do Município de São Paulo (TCM-SP).
  */
@@ -35,16 +55,7 @@ export async function buscarContratosTcmSP(
 
 		const json = await res.json();
 		const items = Array.isArray(json) ? json : json?.contratos || json?.dados || [];
-
-		return items.map((c: any) => ({
-			numeroContrato: c.numero || c.numeroContrato || "N/I",
-			objeto: c.objeto || c.descricaoObjeto || "Contratação Pública Municipal SP",
-			contratado: c.contratado || c.razaoSocial || "FORNECEDOR NÃO INFORMADO",
-			cnpjContratado: (c.cnpj || c.cnpjContratado || "").replace(/\D/g, ""),
-			valor: parseFloat(c.valor || c.valorInicial || "0") || 0,
-			dataAssinatura: c.dataAssinatura || c.dataPublicacao || "",
-			orgao: c.orgao || c.secretaria || "Prefeitura de São Paulo",
-		}));
+		return items.map(mapContratoTcmSP);
 	} catch (err: any) {
 		console.warn("[TCM-SP] Erro ao consultar contratações:", err.message);
 		return [];

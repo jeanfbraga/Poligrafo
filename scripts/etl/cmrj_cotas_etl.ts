@@ -188,6 +188,37 @@ Return [] if no data. No text outside JSON.`;
     return null;
 }
 
+function extrairDespesaDeLinhaTexto(linha: string, context: string): Despesa | null {
+    const cnpjRegex = /(\d{2}[\.\-]?\d{3}[\.\-]?\d{3}[\/\.\-]?\d{4}[\.\-]?\d{2})/g;
+    const valorRegex = /R?\$?\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)/g;
+    const dataRegex = /(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})/g;
+
+    const cnpjMatch = linha.match(cnpjRegex);
+    const valorMatch = linha.match(valorRegex);
+    if (!cnpjMatch || !valorMatch) return null;
+
+    const cnpj = cnpjMatch[0].replace(/\D/g, '');
+    const valorStr = valorMatch[valorMatch.length - 1]
+        .replace(/[R$\s]/g, '')
+        .replace(/\./g, '')
+        .replace(',', '.');
+    const valor = parseFloat(valorStr);
+    if (isNaN(valor) || valor <= 0) return null;
+
+    const dataMatch = linha.match(dataRegex);
+    return {
+        vereador_nome: '',
+        fornecedor_nome: null,
+        fornecedor_cnpj_cpf: cnpj.length >= 11 ? cnpj : null,
+        valor,
+        data_despesa: dataMatch ? dataMatch[0] : null,
+        categoria_despesa: '',
+        descricao: linha.substring(0, 200).trim(),
+        fonte_arquivo: context,
+        extraido_por: 'l4-pdf-parse',
+    };
+}
+
 // ─── L4: pdf-parse (texto nativo do PDF) ─────────────────────────────────────
 async function ocrViaPdfParse(pdfBuffer: Buffer, context: string): Promise<Despesa[] | null> {
     try {
@@ -198,43 +229,17 @@ async function ocrViaPdfParse(pdfBuffer: Buffer, context: string): Promise<Despe
         const text = parsed.text;
         if (!text || text.trim().length < 10) return null;
 
-        // Heurística: encontrar linhas com padrão de CNPJ (XX.XXX.XXX/XXXX-XX) e valor (R$ X.XXX,XX)
-        const cnpjRegex = /(\d{2}[\.\-]?\d{3}[\.\-]?\d{3}[\/\.\-]?\d{4}[\.\-]?\d{2})/g;
-        const valorRegex = /R?\$?\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)/g;
-        const dataRegex = /(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})/g;
-
         const linhas = text.split('\n').filter((l: string) => l.trim().length > 5);
         const despesas: Despesa[] = [];
 
         for (const linha of linhas) {
-            const cnpjMatch = linha.match(cnpjRegex);
-            const valorMatch = linha.match(valorRegex);
-            if (!cnpjMatch || !valorMatch) continue;
-
-            const cnpj = cnpjMatch[0].replace(/\D/g, '');
-            const valorStr = valorMatch[valorMatch.length - 1]
-                .replace(/[R$\s]/g, '')
-                .replace(/\./g, '')
-                .replace(',', '.');
-            const valor = parseFloat(valorStr);
-            if (isNaN(valor) || valor <= 0) continue;
-
-            const dataMatch = linha.match(dataRegex);
-            despesas.push({
-                vereador_nome: '',
-                fornecedor_nome: null,
-                fornecedor_cnpj_cpf: cnpj.length >= 11 ? cnpj : null,
-                valor,
-                data_despesa: dataMatch ? dataMatch[0] : null,
-                categoria_despesa: '',
-                descricao: linha.substring(0, 200).trim(),
-                fonte_arquivo: context,
-                extraido_por: 'l4-pdf-parse',
-            });
+            const d = extrairDespesaDeLinhaTexto(linha, context);
+            if (d) despesas.push(d);
         }
 
         return despesas.length > 0 ? despesas : null;
-    } catch {
+    } catch (e: any) {
+        console.warn(`  ⚠️  Falha L4 (pdf-parse) para ${context}:`, e.message);
         return null;
     }
 }
@@ -277,6 +282,34 @@ async function extrairDespesasDeArquivo(
     return { dados: [], source: 'none' };
 }
 
+function isLinkInvalidoCmrj(href: string): boolean {
+    return href.includes('?format=') || href.includes('search?') || href.endsWith('#');
+}
+
+function isLinkArquivoCmrj(href: string): boolean {
+    return href.endsWith('/file') || /\.(pdf|xls|xlsx|csv)$/i.test(href);
+}
+
+function classificarLinksCmrj(links: { href: string; text: string }[], url: string) {
+    const files: { href: string; text: string }[] = [];
+    const subcats: string[] = [];
+
+    for (const l of links) {
+        if (isLinkInvalidoCmrj(l.href)) continue;
+
+        if (isLinkArquivoCmrj(l.href)) {
+            if (!files.some(f => f.href === l.href)) {
+                files.push({ href: l.href, text: l.text || 'Documento' });
+            }
+        } else if (l.href.startsWith(url) && l.href.length > url.length) {
+            if (!subcats.includes(l.href)) {
+                subcats.push(l.href);
+            }
+        }
+    }
+    return { files, subcats };
+}
+
 // ─── Crawler DOCman ───────────────────────────────────────────────────────────
 async function crawlCategory(page: Page, url: string, visited = new Set<string>()): Promise<{href: string, text: string}[]> {
     if (visited.has(url)) return [];
@@ -289,25 +322,7 @@ async function crawlCategory(page: Page, url: string, visited = new Set<string>(
         anchors.map(a => ({ href: (a as HTMLAnchorElement).href, text: a.textContent?.trim() || '' }))
     );
     
-    const files: {href: string, text: string}[] = [];
-    const subcats: string[] = [];
-    
-    for (const l of links) {
-        if (l.href.includes('?format=') || l.href.includes('search?') || l.href.endsWith('#')) continue;
-        
-        // Links de arquivos DOCman (/file) ou arquivos diretos
-        if (l.href.endsWith('/file') || /\.(pdf|xls|xlsx|csv)$/i.test(l.href)) {
-            if (!files.some(f => f.href === l.href)) {
-                files.push({ href: l.href, text: l.text || 'Documento' });
-            }
-        } 
-        // Subcategorias (ex: /2025, /2026) que estão dentro da mesma árvore
-        else if (l.href.startsWith(url) && l.href.length > url.length) {
-            if (!subcats.includes(l.href)) {
-                subcats.push(l.href);
-            }
-        }
-    }
+    const { files, subcats } = classificarLinksCmrj(links, url);
     
     for (const subcat of subcats) {
         const subFiles = await crawlCategory(page, subcat, visited);
@@ -380,11 +395,151 @@ async function salvarDespesas(despesas: Despesa[]): Promise<void> {
     }
 }
 
+function identificarVereadorMatch(cols: any[], vereadores: any[]) {
+    for (const c of cols) {
+        if (typeof c === 'string' && c.trim().length > 3) {
+            const vMatch = vereadores.find(v => c.toLowerCase().includes(v.nome_urna.toLowerCase().split(' ')[0]));
+            if (vMatch) return vMatch;
+        }
+    }
+    return null;
+}
+
+function extrairDespesasLinhaXlsx(cols: any[], vereadorMatch: any, categoria: string, href: string): Despesa[] {
+    const despesas: Despesa[] = [];
+    for (let j = 0; j < cols.length; j++) {
+        const valRaw = cols[j];
+        let valor = 0;
+        if (typeof valRaw === 'number') {
+            valor = valRaw;
+        } else if (typeof valRaw === 'string') {
+            const num = parseFloat(valRaw.replace(/\./g, '').replace(',', '.'));
+            if (!isNaN(num)) valor = num;
+        }
+
+        if (valor > 0 && valor < 100000) {
+            despesas.push({
+                vereador_nome: vereadorMatch.nome_urna,
+                fornecedor_nome: 'Despesa Consolidada (Planilha CMRJ)',
+                fornecedor_cnpj_cpf: null,
+                valor,
+                data_despesa: null,
+                categoria_despesa: categoria,
+                descricao: 'Extraído automaticamente de XLSX/CSV',
+                fonte_arquivo: href,
+                extraido_por: 'l4-xlsx-parse',
+            });
+        }
+    }
+    return despesas;
+}
+
+function tentarExtrairXlsx(fileData: any, href: string, categoria: string, vereadores: any[]): Despesa[] | null {
+    const { buffer, type, filename } = fileData;
+    const isPlanilha = type.includes('csv') || filename.toLowerCase().endsWith('.csv') || filename.toLowerCase().endsWith('.xls');
+    if (!isPlanilha) return null;
+
+    try {
+        const xlsx = require('xlsx');
+        const workbook = xlsx.read(buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = xlsx.utils.sheet_to_json(sheet, { header: 1 }) as string[][];
+
+        if (rows.length <= 2) return null;
+
+        const despesas: Despesa[] = [];
+        for (const cols of rows) {
+            if (!cols || cols.length < 2) continue;
+            const vereadorMatch = identificarVereadorMatch(cols, vereadores);
+            if (!vereadorMatch) continue;
+            despesas.push(...extrairDespesasLinhaXlsx(cols, vereadorMatch, categoria, href));
+        }
+        return despesas;
+    } catch (err: any) {
+        console.log('    📄 Falha ao ler como XLSX:', err.message);
+        return null;
+    }
+}
+
+async function extrairDespesasPdf(page: Page, buffer: Buffer, href: string, categoria: string, vereadores: any[]): Promise<Despesa[]> {
+    const pageImages = await pdfToImages(page, href);
+    const { dados, source } = await extrairDespesasDeArquivo(buffer, pageImages, `${href} (${categoria})`);
+
+    const despesas: Despesa[] = [];
+    for (const d of dados) {
+        if (!d.vereador_nome || Number(d.valor) <= 0) continue;
+        const vereadorMatch = vereadores.find(v =>
+            d.vereador_nome.toLowerCase().includes(v.nome_urna.toLowerCase().split(' ')[0])
+        );
+        if (!vereadorMatch) continue;
+
+        despesas.push({
+            vereador_nome: vereadorMatch.nome_urna,
+            fornecedor_nome: d.fornecedor_nome,
+            fornecedor_cnpj_cpf: d.fornecedor_cnpj_cpf,
+            valor: Number(d.valor),
+            data_despesa: d.data_despesa,
+            categoria_despesa: categoria,
+            descricao: d.descricao,
+            fonte_arquivo: href,
+            extraido_por: source,
+        });
+    }
+    return despesas;
+}
+
+async function processarLinkArquivoCmrj(page: Page, fileLink: { href: string; text: string }, categoria: string, vereadores: any[]): Promise<number> {
+    console.log(`  ⬇️  Baixando arquivo: ${fileLink.text} (${fileLink.href})`);
+    const fileData = await downloadFile(fileLink.href);
+    if (!fileData) {
+        console.warn('    ⚠️ Falha no download');
+        return 0;
+    }
+
+    const despesasXlsx = tentarExtrairXlsx(fileData, fileLink.href, categoria, vereadores);
+    if (despesasXlsx) {
+        if (despesasXlsx.length > 0) {
+            await salvarDespesas(despesasXlsx);
+        }
+        return despesasXlsx.length;
+    }
+
+    const despesasPdf = await extrairDespesasPdf(page, fileData.buffer, fileLink.href, categoria, vereadores);
+    if (despesasPdf.length > 0) {
+        await salvarDespesas(despesasPdf);
+    }
+    return despesasPdf.length;
+}
+
+async function processarCategoriaCmrj(browser: Browser, categoria: string, vereadores: any[]): Promise<number> {
+    console.log(`\n📂 Categoria: ${categoria}`);
+    const page: Page = await browser.newPage();
+    let total = 0;
+
+    try {
+        const catUrl = `${BASE_URL}/${categoria}`;
+        await page.goto(catUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
+        await page.waitForTimeout(1500);
+
+        const fileLinks = await crawlCategory(page, catUrl);
+        console.log(`  📄 ${fileLinks.length} arquivo(s) encontrado(s) na árvore`);
+
+        for (const fileLink of fileLinks) {
+            total += await processarLinkArquivoCmrj(page, fileLink, categoria, vereadores);
+        }
+    } catch (err: any) {
+        console.error(`  ❌ Erro na categoria ${categoria}:`, err.message);
+    } finally {
+        await page.close();
+    }
+    return total;
+}
+
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 async function main() {
     console.log('🚀 ETL Cota de Gabinete CMRJ iniciado em', new Date().toISOString());
 
-    // Buscar todos os vereadores do mapeamento já criado
     const { data: vereadores, error } = await supabase
         .from('cmrj_vereador_gabinete')
         .select('nome_urna, gabinete_numero')
@@ -395,9 +550,7 @@ async function main() {
         process.exit(1);
     }
 
-    const vereadoresFiltrados = vereadores;
-
-    console.log(`✅ ${vereadoresFiltrados.length} vereadores carregados para processamento.`);
+    console.log(`✅ ${vereadores.length} vereadores carregados para processamento.`);
 
     const browser: Browser = await chromium.launch({
         headless: true,
@@ -408,123 +561,7 @@ async function main() {
 
     try {
         for (const categoria of CATEGORIAS_COTA) {
-            console.log(`\n📂 Categoria: ${categoria}`);
-            const page: Page = await browser.newPage();
-
-            try {
-                const catUrl = `${BASE_URL}/${categoria}`;
-                await page.goto(catUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
-                await page.waitForTimeout(1500);
-
-                const fileLinks = await crawlCategory(page, catUrl);
-                console.log(`  📄 ${fileLinks.length} arquivo(s) encontrado(s) na árvore`);
-
-                for (const { href, text } of fileLinks) {
-                    console.log(`  ⬇️  Baixando arquivo: ${text} (${href})`);
-
-                    const fileData = await downloadFile(href);
-                    if (!fileData) { console.warn('    ⚠️ Falha no download'); continue; }
-
-                    const { buffer, type, filename } = fileData;
-
-                    let isRealCsv = false;
-                    if (type.includes('csv') || filename.toLowerCase().endsWith('.csv') || filename.toLowerCase().endsWith('.xls')) {
-                        try {
-                            const xlsx = require('xlsx');
-                            const workbook = xlsx.read(buffer, { type: 'buffer' });
-                            const sheetName = workbook.SheetNames[0];
-                            const sheet = workbook.Sheets[sheetName];
-                            const rows = xlsx.utils.sheet_to_json(sheet, { header: 1 }) as string[][];
-
-                            isRealCsv = rows.length > 2;
-
-                            if (isRealCsv) {
-                                const despesas: Despesa[] = [];
-                                for (let i = 0; i < rows.length; i++) {
-                                    const cols = rows[i];
-                                    if (!cols || cols.length < 2) continue;
-
-                                    // Busca em qualquer coluna da linha um nome que lembre um vereador
-                                    let vereadorMatch = null;
-                                    for (const c of cols) {
-                                        if (typeof c === 'string' && c.trim().length > 3) {
-                                            const vMatch = vereadoresFiltrados.find(v => c.toLowerCase().includes(v.nome_urna.toLowerCase().split(' ')[0]));
-                                            if (vMatch) { vereadorMatch = vMatch; break; }
-                                        }
-                                    }
-
-                                    if (!vereadorMatch) continue;
-
-                                    // Pega todos os números reais dessa linha
-                                    for (let j = 0; j < cols.length; j++) {
-                                        const valRaw = cols[j];
-                                        let valor = 0;
-                                        if (typeof valRaw === 'number') {
-                                            valor = valRaw;
-                                        } else if (typeof valRaw === 'string') {
-                                            const num = parseFloat(valRaw.replace(/\./g, '').replace(',', '.'));
-                                            if (!isNaN(num)) valor = num;
-                                        }
-
-                                        if (valor > 0 && valor < 100000) {
-                                            despesas.push({
-                                                vereador_nome: vereadorMatch.nome_urna,
-                                                fornecedor_nome: 'Despesa Consolidada (Planilha CMRJ)',
-                                                fornecedor_cnpj_cpf: null,
-                                                valor,
-                                                data_despesa: null,
-                                                categoria_despesa: categoria,
-                                                descricao: 'Extraído automaticamente de XLSX/CSV',
-                                                fonte_arquivo: href,
-                                                extraido_por: 'l4-xlsx-parse',
-                                            });
-                                        }
-                                    }
-                                }
-                                if (despesas.length > 0) {
-                                    await salvarDespesas(despesas);
-                                    totalDespesas += despesas.length;
-                                }
-                                continue;
-                            }
-                        } catch (err: any) {
-                            console.log('    📄 Falha ao ler como XLSX:', err.message);
-                        }
-                    }
-
-                    // Se for PDF (ou se não for CSV explícito, tentamos como PDF na IA)
-                    const pageImages = await pdfToImages(page, href);
-                    const { dados, source } = await extrairDespesasDeArquivo(buffer, pageImages, `${href} (${categoria})`);
-
-                    const despesas: Despesa[] = [];
-                    for (const d of dados) {
-                        if (!d.vereador_nome || Number(d.valor) <= 0) continue;
-                        const vereadorMatch = vereadoresFiltrados.find(v =>
-                            d.vereador_nome.toLowerCase().includes(v.nome_urna.toLowerCase().split(' ')[0])
-                        );
-                        if (!vereadorMatch) continue;
-
-                        despesas.push({
-                            vereador_nome: vereadorMatch.nome_urna,
-                            fornecedor_nome: d.fornecedor_nome,
-                            fornecedor_cnpj_cpf: d.fornecedor_cnpj_cpf,
-                            valor: Number(d.valor),
-                            data_despesa: d.data_despesa,
-                            categoria_despesa: categoria,
-                            descricao: d.descricao,
-                            fonte_arquivo: href,
-                            extraido_por: source,
-                        });
-                    }
-
-                    await salvarDespesas(despesas);
-                    totalDespesas += despesas.length;
-                }
-            } catch (err: any) {
-                console.error(`  ❌ Erro na categoria ${categoria}:`, err.message);
-            } finally {
-                await page.close();
-            }
+            totalDespesas += await processarCategoriaCmrj(browser, categoria, vereadores);
         }
     } finally {
         await browser.close();

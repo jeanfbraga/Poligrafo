@@ -67,21 +67,32 @@ export function extractJsonFromHtml(html: string): {
 	}
 }
 
+function pickField(
+	item: Record<string, any>,
+	...keys: string[]
+): string | null {
+	for (const k of keys) {
+		const v = item[k];
+		if (v !== undefined && v !== null && v !== "") return v;
+	}
+	return null;
+}
+
 /** Parseia um item de resultado do DOU para nosso tipo */
 export function parsePublicacao(item: Record<string, any>): PublicacaoDOU {
 	return {
-		titulo: item.title || item.titulo || null,
-		resumo: item.abstract || item.resumo || null,
-		urlTitulo: item.urlTitle || item.url_titulo || null,
-		orgao: item.pubName || item.orgao || null,
-		tipoPublicacao: item.artType || item.tipo_publicacao || null,
-		secao: item.pubType || item.secao || null,
-		dataPublicacao: item.pubDate || item.data_publicacao || null,
-		edicao: item.numberPage || item.edicao || null,
-		pagina: item.pageNumber || item.pagina || null,
-		conteudo: item.content || item.conteudo || null,
-		assinante: item.assina || item.assinante || null,
-		cargoAssinante: item.cargo || item.cargo_assinante || null,
+		titulo: pickField(item, "title", "titulo"),
+		resumo: pickField(item, "abstract", "resumo"),
+		urlTitulo: pickField(item, "urlTitle", "url_titulo"),
+		orgao: pickField(item, "pubName", "orgao"),
+		tipoPublicacao: pickField(item, "artType", "tipo_publicacao"),
+		secao: pickField(item, "pubType", "secao"),
+		dataPublicacao: pickField(item, "pubDate", "data_publicacao"),
+		edicao: pickField(item, "numberPage", "edicao"),
+		pagina: pickField(item, "pageNumber", "pagina"),
+		conteudo: pickField(item, "content", "conteudo"),
+		assinante: pickField(item, "assina", "assinante"),
+		cargoAssinante: pickField(item, "cargo", "cargo_assinante"),
 	};
 }
 
@@ -103,17 +114,7 @@ export interface BuscarDOUOptions {
 	timeout?: number; // timeout em ms (default: 8000)
 }
 
-/**
- * Busca publicações no Diário Oficial da União via Imprensa Nacional.
- * A busca retorna HTML com JSON embutido em um <script> tag.
- *
- * @example
- * const resultado = await buscarDOU({ termo: 'João Silva', secao: 'SECAO_2', periodo: 'ANO' });
- * // Seção 2 = atos de pessoal (nomeações, exonerações)
- */
-export async function buscarDOU(
-	options: BuscarDOUOptions,
-): Promise<ResultadoDOU> {
+function buildDouSearchParams(options: BuscarDOUOptions): URLSearchParams {
 	const {
 		termo,
 		secao = "TODOS",
@@ -125,10 +126,8 @@ export async function buscarDOU(
 		campo = "TUDO",
 		pagina = 0,
 		tamanho = 20,
-		timeout = 8000,
 	} = options;
 
-	// Mapeia nomes legíveis para códigos da API
 	const secaoCode = DOU_SECTIONS[secao] ?? secao;
 	const periodoCode = DOU_PERIODS[periodo] ?? periodo.toLowerCase();
 
@@ -141,7 +140,6 @@ export async function buscarDOU(
 		currentPage: String(pagina),
 	});
 
-	// Período personalizado com datas
 	if (dataInicio && dataFim) {
 		params.set("exactDate", "personalizado");
 		params.set("publishFrom", toDMY(dataInicio));
@@ -152,6 +150,18 @@ export async function buscarDOU(
 	if (tipoPublicacao) params.set("artType", tipoPublicacao);
 	if (campo !== "TUDO") params.set("searchType", campo);
 
+	return params;
+}
+
+/**
+ * Busca publicações no Diário Oficial da União via Imprensa Nacional.
+ * A busca retorna HTML com JSON embutido em um <script> tag.
+ */
+export async function buscarDOU(
+	options: BuscarDOUOptions,
+): Promise<ResultadoDOU> {
+	const { termo, timeout = 8000 } = options;
+	const params = buildDouSearchParams(options);
 	const url = `${DOU_SEARCH_URL}?${params.toString()}`;
 
 	try {
@@ -166,9 +176,7 @@ export async function buscarDOU(
 		clearTimeout(timer);
 
 		if (!response.ok) {
-			console.warn(
-				`[DOU] API retornou HTTP ${response.status} para "${termo}"`,
-			);
+			console.warn(`[DOU] API retornou HTTP ${response.status} para "${termo}"`);
 			return { total: 0, publicacoes: [] };
 		}
 
@@ -182,11 +190,8 @@ export async function buscarDOU(
 		const publicacoes = data.jsonArray.map(parsePublicacao);
 		return { total: data.total ?? publicacoes.length, publicacoes };
 	} catch (e: any) {
-		if (e.name === "AbortError") {
-			console.warn(`[DOU] Timeout (${timeout}ms) buscando "${termo}"`);
-		} else {
-			console.warn(`[DOU] Erro ao buscar "${termo}":`, e.message);
-		}
+		const msg = e.name === "AbortError" ? `Timeout (${timeout}ms)` : e.message;
+		console.warn(`[DOU] Falha ao buscar "${termo}":`, msg);
 		return { total: 0, publicacoes: [] };
 	}
 }

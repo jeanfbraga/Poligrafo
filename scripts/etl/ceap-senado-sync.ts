@@ -77,26 +77,11 @@ async function downloadCsv(ano: number): Promise<string | null> {
 // EXECUÇÃO POR ANO
 // ============================================================================
 
-async function runForYear(ano: number): Promise<{ success: boolean; count: number }> {
-    const csvPath = await downloadCsv(ano);
-    if (!csvPath) return { success: false, count: 0 };
-
-    await prepare(ano);
-
-    console.log(`[SENADO SYNC] Parseando e inserindo CSV: ${csvPath}`);
-    
-    let batch: any[] = [];
-    let count = 0;
-    
-    const fileContent = fs.readFileSync(csvPath, 'latin1'); // As vezes é latin1, às vezes utf8
-    
-    // As in etl_extractors.ts, skip the first line (metadata header "Ano: 2024")
+function parsearCsvSenado(csvPath: string): any[] {
+    const fileContent = fs.readFileSync(csvPath, 'latin1');
     const lines = fileContent.split('\n');
-    let realContent = lines.slice(1).join('\n'); // skips the first line
-    
-    // Substitui ponto e vírgula dentro de aspas duplas, pois o parser csv-parse com delimitador ';' e relax_quotes falha em alguns casos do Senado.
-    // Mas usaremos o csv-parse e o próprio formato
-    const records: any[] = parse(realContent, {
+    const realContent = lines.slice(1).join('\n');
+    return parse(realContent, {
         columns: true,
         skip_empty_lines: true,
         delimiter: ';',
@@ -104,50 +89,68 @@ async function runForYear(ano: number): Promise<{ success: boolean; count: numbe
         relax_column_count: true,
         bom: true
     });
+}
+
+function extrairValorReembolsado(val: string | undefined): number {
+    if (!val) return 0;
+    return Number(val.replace(/\./g, "").replace(",", "."));
+}
+
+function mapearRegistroSenado(record: any, ano: number): Record<string, any> | null {
+    if (!record['SENADOR']) return null;
+
+    const idSenadorStr = record['CODIGO_PARLAMENTAR'] || "0";
+    const idSenador = parseInt(idSenadorStr, 10);
+    if (!idSenador || isNaN(idSenador)) return null;
+
+    const valorDespesa = extrairValorReembolsado(record['VALOR_REEMBOLSADO']);
+    const cnpjCpf = record['CNPJ_CPF'] ? record['CNPJ_CPF'].replace(/[^\d]/g, "") : null;
+
+    return {
+        id_deputado: idSenador,
+        ano,
+        cnpj_cpf_fornecedor: cnpjCpf,
+        nome_fornecedor: record['FORNECEDOR'] || 'FORNECEDOR NÃO IDENTIFICADO',
+        tipo_despesa: record['TIPO_DESPESA'] || 'SEM TIPO',
+        valor_documento: valorDespesa,
+        data_documento: record['DATA'] || `${ano}-01-01`,
+        url_documento: record['DOCUMENTO'] || null,
+        casa: 'SENADO',
+        atualizado_em: new Date().toISOString()
+    };
+}
+
+async function salvarLoteSenado(batch: any[]): Promise<void> {
+    if (batch.length === 0) return;
+    const { error } = await supabaseAdmin.from('ceap_despesas_cache').insert(batch);
+    if (error) console.error(`[SENADO SYNC] Erro ao inserir lote:`, error.message);
+}
+
+async function runForYear(ano: number): Promise<{ success: boolean; count: number }> {
+    const csvPath = await downloadCsv(ano);
+    if (!csvPath) return { success: false, count: 0 };
+
+    await prepare(ano);
+    console.log(`[SENADO SYNC] Parseando e inserindo CSV: ${csvPath}`);
+
+    let batch: any[] = [];
+    let count = 0;
+    const records = parsearCsvSenado(csvPath);
 
     for (const record of records) {
-        if (!record['SENADOR']) continue;
-        
-        let valorDespesa = 0;
-        if (record['VALOR_REEMBOLSADO']) {
-            valorDespesa = Number(
-                record['VALOR_REEMBOLSADO'].replace(/\./g, "").replace(",", ".")
-            );
-        }
+        const item = mapearRegistroSenado(record, ano);
+        if (!item) continue;
 
-        const idSenadorStr = record['CODIGO_PARLAMENTAR'] || "0";
-        const idSenador = parseInt(idSenadorStr, 10);
-        
-        if (!idSenador || isNaN(idSenador)) continue;
-
-        batch.push({
-            id_deputado: idSenador, // Reusa a coluna "id_deputado" na tabela para o ID do Senador
-            ano: ano,
-            cnpj_cpf_fornecedor: record['CNPJ_CPF'] ? record['CNPJ_CPF'].replace(/[^\d]/g, "") : null,
-            nome_fornecedor: record['FORNECEDOR'] || 'FORNECEDOR NÃO IDENTIFICADO',
-            tipo_despesa: record['TIPO_DESPESA'] || 'SEM TIPO',
-            valor_documento: valorDespesa,
-            data_documento: record['DATA'] || `${ano}-01-01`,
-            url_documento: record['DOCUMENTO'] || null, // O senado não fornece URL do documento diretamente, às vezes o ID.
-            casa: 'SENADO',
-            atualizado_em: new Date().toISOString()
-        });
-
+        batch.push(item);
         count++;
 
         if (batch.length >= BATCH_SIZE) {
-            const { error } = await supabaseAdmin.from('ceap_despesas_cache').insert(batch);
-            if (error) console.error(`[SENADO SYNC] Erro ao inserir lote:`, error.message);
+            await salvarLoteSenado(batch);
             batch = [];
         }
     }
 
-    // Ultimo lote
-    if (batch.length > 0) {
-        const { error } = await supabaseAdmin.from('ceap_despesas_cache').insert(batch);
-        if (error) console.error(`[SENADO SYNC] Erro ao inserir lote final:`, error.message);
-    }
-
+    await salvarLoteSenado(batch);
     return { success: true, count };
 }
 

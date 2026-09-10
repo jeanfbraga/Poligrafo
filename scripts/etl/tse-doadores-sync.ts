@@ -47,8 +47,14 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 // Diretório temporário para downloads
 const TEMP_DIR = path.join(os.tmpdir(), "politgrafo-etl-tse");
 
+interface FonteTSE {
+	zipUrl: string;
+	csvPattern: RegExp;
+	descricao: string;
+}
+
 // Fontes de dados por eleição
-const FONTES: Record<string, { zipUrl: string; csvPattern: RegExp; descricao: string }[]> = {
+const FONTES: Record<string, FonteTSE[]> = {
 	"2022": [
 		{
 			// Receitas dos candidatos 2022 (Federal + Estadual)
@@ -201,18 +207,62 @@ async function extrairCSVDoZip(
 // PROCESSAMENTO CSV — agrupamento de doadores por candidato
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface EntryDoador {
-	nomeCandidato: string;
-	nomeUrna: string;
-	uf: string;
-	cargo: string;
-	cpfCnpjDoador: string;
+function extrairCargo(record: Record<string, string>): string {
+	return (
+		record["CD_CARGO"] ||
+		record["CD_CARGO_CANDIDATO"] ||
+		record["Código Cargo"] ||
+		record["SG_CARGO"] ||
+		""
+	).trim();
 }
 
-async function processarCSVReceitas(csvPath: string): Promise<Map<string, string[]>> {
-	logStep("CSV", `Processando: ${csvPath}`);
+function extrairNomeUrna(record: Record<string, string>): string {
+	return (
+		record["NM_CANDIDATO"] ||
+		record["NM_URNA_CANDIDATO"] ||
+		record["Nome Urna Candidato"] ||
+		record["SG_UE_SUPERIOR"] ||
+		""
+	).trim();
+}
 
-	// Mapa: "nomeUrna|uf" → Set<cpfCnpj>
+function extrairUf(record: Record<string, string>): string {
+	return (record["SG_UF"] || record["UF"] || record["SG_UE"] || "").trim().toUpperCase();
+}
+
+function extrairCpfCnpjDoador(record: Record<string, string>): string {
+	const val = record["NR_CPF_CNPJ_DOADOR"] || record["CPF/CNPJ do doador"] || record["NR_CPF_CNPJ"] || "";
+	return val.replace(/\D/g, "");
+}
+
+function processarRegistroDoador(record: Record<string, string>, grupos: Map<string, Set<string>>): boolean {
+	const cargo = extrairCargo(record);
+	if (!CARGOS_INCLUIDOS.has(cargo)) {
+		return false;
+	}
+
+	const nomeUrna = extrairNomeUrna(record);
+	const uf = extrairUf(record);
+	const cpfCnpj = extrairCpfCnpjDoador(record);
+
+	if (!nomeUrna || !uf || !cpfCnpj || cpfCnpj.length < 11) {
+		return false;
+	}
+
+	const chave = `${nomeUrna.toLowerCase()}|${uf}`;
+	if (!grupos.has(chave)) {
+		grupos.set(chave, new Set());
+	}
+	grupos.get(chave)!.add(cpfCnpj);
+	return true;
+}
+
+async function processarCSVReceitas(
+	csvPath: string,
+): Promise<Map<string, string[]>> {
+	logStep("CSV", `Processando: ${path.basename(csvPath)}`);
+
 	const grupos = new Map<string, Set<string>>();
 	let linhasProcessadas = 0;
 	let linhasIgnoradas = 0;
@@ -235,49 +285,10 @@ async function processarCSVReceitas(csvPath: string): Promise<Map<string, string
 					logStep("CSV", `${linhasProcessadas.toLocaleString()} linhas processadas...`);
 				}
 
-				// Identifica as colunas do CSV do TSE (podem variar entre anos)
-				const cargo =
-					record["CD_CARGO"] ||
-					record["CD_CARGO_CANDIDATO"] ||
-					record["Código Cargo"] ||
-					record["SG_CARGO"] ||
-					"";
-
-				// Filtra apenas cargos relevantes
-				if (!CARGOS_INCLUIDOS.has(cargo.trim())) {
+				const ok = processarRegistroDoador(record, grupos);
+				if (!ok) {
 					linhasIgnoradas++;
-					continue;
 				}
-
-				const nomeUrna = (
-					record["NM_CANDIDATO"] ||
-					record["NM_URNA_CANDIDATO"] ||
-					record["Nome Urna Candidato"] ||
-					record["SG_UE_SUPERIOR"] || // fallback
-					""
-				).trim();
-
-				const uf =
-					(record["SG_UF"] || record["UF"] || record["SG_UE"] || "").trim().toUpperCase();
-
-				// CPF/CNPJ do doador — coluna varia por ano
-				const cpfCnpj = (
-					record["NR_CPF_CNPJ_DOADOR"] ||
-					record["CPF/CNPJ do doador"] ||
-					record["NR_CPF_CNPJ"] ||
-					""
-				).replace(/\D/g, "");
-
-				if (!nomeUrna || !uf || !cpfCnpj || cpfCnpj.length < 11) {
-					continue;
-				}
-
-				const chave = `${nomeUrna.toLowerCase()}|${uf}`;
-
-				if (!grupos.has(chave)) {
-					grupos.set(chave, new Set());
-				}
-				grupos.get(chave)!.add(cpfCnpj);
 			}
 		});
 
@@ -363,6 +374,68 @@ async function limparTemp(files: string[]) {
 // MAIN
 // ─────────────────────────────────────────────────────────────────────────────
 
+async function extrairCsvsDaFonte(zipPath: string, pattern: RegExp, ano: string): Promise<string[]> {
+	let extraidos = await extrairCSVDoZip(zipPath, pattern, TEMP_DIR);
+	if (extraidos.length === 0) {
+		logStep("EXTRACT", `Padrão principal não encontrado, tentando padrão amplo...`);
+		extraidos = await extrairCSVDoZip(zipPath, /receitas.*candidatos.*\.csv/i, TEMP_DIR);
+	}
+	if (extraidos.length === 0) {
+		logStep("ERRO", `Nenhum CSV encontrado no ZIP de ${ano}. Pulando.`);
+	}
+	return extraidos;
+}
+
+async function agregarDadosDosCSVs(extraidos: string[]): Promise<Map<string, string[]>> {
+	const dadosAgregados = new Map<string, Set<string>>();
+
+	for (const arquivoCsv of extraidos) {
+		const dados = await processarCSVReceitas(arquivoCsv);
+		for (const [chave, doadores] of dados.entries()) {
+			if (!dadosAgregados.has(chave)) {
+				dadosAgregados.set(chave, new Set());
+			}
+			const setAtual = dadosAgregados.get(chave)!;
+			for (const d of doadores) {
+				setAtual.add(d);
+			}
+		}
+	}
+
+	const dadosFinais = new Map<string, string[]>();
+	for (const [chave, doadoresSet] of dadosAgregados.entries()) {
+		dadosFinais.set(chave, Array.from(doadoresSet));
+	}
+	return dadosFinais;
+}
+
+async function processarFonte(fonte: FonteTSE, ano: string) {
+	logStep("START", `=== Processando: ${fonte.descricao} ===`);
+	const zipPath = path.join(TEMP_DIR, `receitas_${ano}.zip`);
+	let tempFiles: string[] = [zipPath];
+
+	try {
+		await downloadFile(fonte.zipUrl, zipPath);
+		const extraidos = await extrairCsvsDaFonte(zipPath, fonte.csvPattern, ano);
+		if (extraidos.length === 0) return;
+
+		tempFiles = tempFiles.concat(extraidos);
+		const dadosFinais = await agregarDadosDosCSVs(extraidos);
+
+		if (dadosFinais.size > 0) {
+			await sincronizarComSupabase(dadosFinais);
+		} else {
+			logStep("AVISO", "Nenhum dado extraído dos CSVs. Verifique o formato das colunas.");
+		}
+	} catch (err) {
+		logStep("ERRO", `Falha ao processar ${ano}: ${err}`);
+	} finally {
+		await limparTemp(tempFiles);
+	}
+
+	logStep("DONE", `=== Concluído: ${fonte.descricao} ===\n`);
+}
+
 async function processarAno(ano: string) {
 	const fontes = FONTES[ano];
 	if (!fontes) {
@@ -371,67 +444,7 @@ async function processarAno(ano: string) {
 	}
 
 	for (const fonte of fontes) {
-		logStep("START", `=== Processando: ${fonte.descricao} ===`);
-
-		const zipPath = path.join(TEMP_DIR, `receitas_${ano}.zip`);
-		let tempFiles: string[] = [zipPath];
-
-		try {
-			// 1. Download
-			await downloadFile(fonte.zipUrl, zipPath);
-
-			// 2. Extrair CSV(s) do ZIP
-			let extraidos = await extrairCSVDoZip(zipPath, fonte.csvPattern, TEMP_DIR);
-
-			if (extraidos.length === 0) {
-				logStep("EXTRACT", `Padrão principal não encontrado, tentando padrão amplo...`);
-				extraidos = await extrairCSVDoZip(zipPath, /receitas.*candidatos.*\.csv/i, TEMP_DIR);
-			}
-
-			if (extraidos.length === 0) {
-				logStep("ERRO", `Nenhum CSV encontrado no ZIP de ${ano}. Pulando.`);
-				continue;
-			}
-
-			tempFiles = tempFiles.concat(extraidos);
-
-			// 3. Processar cada CSV extraído e agregar
-			const dadosAgregados = new Map<string, Set<string>>();
-
-			for (const arquivoCsv of extraidos) {
-				const dados = await processarCSVReceitas(arquivoCsv);
-				
-				// Combina os resultados
-				for (const [chave, doadores] of dados.entries()) {
-					if (!dadosAgregados.has(chave)) {
-						dadosAgregados.set(chave, new Set());
-					}
-					const setAtual = dadosAgregados.get(chave)!;
-					for (const d of doadores) {
-						setAtual.add(d);
-					}
-				}
-			}
-
-			// Converter os Sets para arrays finais
-			const dadosFinais = new Map<string, string[]>();
-			for (const [chave, doadoresSet] of dadosAgregados.entries()) {
-				dadosFinais.set(chave, Array.from(doadoresSet));
-			}
-
-			// 4. Sincronizar com Supabase
-			if (dadosFinais.size > 0) {
-				await sincronizarComSupabase(dadosFinais);
-			} else {
-				logStep("AVISO", "Nenhum dado extraído dos CSVs. Verifique o formato das colunas.");
-			}
-		} catch (err) {
-			logStep("ERRO", `Falha ao processar ${ano}: ${err}`);
-		} finally {
-			await limparTemp(tempFiles);
-		}
-
-		logStep("DONE", `=== Concluído: ${fonte.descricao} ===\n`);
+		await processarFonte(fonte, ano);
 	}
 }
 

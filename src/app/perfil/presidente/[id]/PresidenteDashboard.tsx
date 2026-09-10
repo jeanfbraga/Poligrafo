@@ -11,6 +11,195 @@ import { TerminalWindow } from "@/components/ui/terminal";
 import { useRouter } from "next/navigation";
 import { ScrambleText } from "@/components/ui/scramble-text";
 
+function formatMoney(val: number) {
+	return Number(val).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function agruparDespesasPorAnoMes(topDespesas?: any[]) {
+	const groupedByYear: Record<string, Record<string, any[]>> = {};
+	if (!topDespesas) return groupedByYear;
+	for (const item of topDespesas) {
+		if (!item?.data) continue;
+		const parts = item.data.split("/");
+		if (parts.length === 3) {
+			const year = parts[2];
+			const month = parts[1];
+			groupedByYear[year] = groupedByYear[year] || {};
+			groupedByYear[year][month] = groupedByYear[year][month] || [];
+			groupedByYear[year][month].push(item);
+		}
+	}
+	return groupedByYear;
+}
+
+function PresidenteLoading() {
+	return (
+		<div className="min-h-screen bg-black text-green-500 font-mono flex flex-col items-center justify-center">
+			<div className="animate-pulse flex flex-col items-center">
+				<Lock className="w-12 h-12 mb-4" />
+				<p className="text-base md:text-xl tracking-widest uppercase text-center px-4">
+					<ScrambleText text="Acessando base de dados federal..." duration={1500} />
+				</p>
+				<p className="text-xs md:text-sm mt-2 text-green-700 text-center px-4">
+					<ScrambleText text="Decriptando extratos CPGF" duration={1000} delay={500} />
+				</p>
+			</div>
+		</div>
+	);
+}
+
+function PresidenteError({ error, onBack }: { error: string | null; onBack: () => void }) {
+	return (
+		<div className="min-h-screen bg-black text-green-500 font-mono p-8">
+			<Button variant="cyber" onClick={onBack} className="mb-8">
+				<ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+			</Button>
+			<div className="border border-red-500 bg-red-950/20 p-6 rounded-none max-w-2xl">
+				<h2 className="text-red-500 text-2xl mb-2 flex items-center gap-2 font-bold uppercase">
+					<AlertTriangle /> ACESSO NEGADO / ERRO
+				</h2>
+				<p className="text-red-400">{error}</p>
+			</div>
+		</div>
+	);
+}
+
+function PresidenteFotoCard({ perfil, tse }: { perfil: any; tse: any }) {
+	const fotoUrl = tse?.fotoUrl
+		? `/api/proxy-image?url=${encodeURIComponent(tse.fotoUrl)}&raw=true`
+		: `/api/proxy-image?url=${encodeURIComponent(`https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/img/${tse?.idEleicao}/${tse?.idTse}/${tse?.idUe}`)}&raw=true`;
+
+	const cpfFormatado = tse?.cpf
+		? tse.cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-**")
+		: "RESTRITO";
+
+	return (
+		<TerminalWindow className="bg-green-950/10 p-4 md:p-6 border-green-500" scanline={false}>
+			<div className="absolute top-0 right-0 p-2 text-xs text-green-700 z-20">ID: {perfil.id.toUpperCase()}</div>
+			<div className="w-32 h-40 border-2 border-green-500/50 p-1 relative bg-black/80 mb-4 group overflow-hidden">
+				<div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(34,197,94,0.05)_50%)] bg-size-[100%_4px] pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity z-10" />
+				{tse?.idTse ? (
+					<img
+						src={fotoUrl}
+						alt={perfil.nome}
+						className="w-full h-full object-cover relative z-0"
+						onError={(e) => { e.currentTarget.style.display = 'none'; }}
+					/>
+				) : (
+					<div className="w-full h-full flex items-center justify-center relative z-0">
+						<User className="w-12 h-12 text-green-700" />
+					</div>
+				)}
+				<div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-green-500 z-20" />
+				<div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-green-500 z-20" />
+				<div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-green-500 z-20" />
+				<div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-green-500 z-20" />
+			</div>
+			<h1 className="text-2xl font-bold uppercase mb-1">
+				<ScrambleText text={perfil.nome} duration={1200} />
+			</h1>
+			<p className="text-sm text-green-400 bg-green-900/30 px-2 py-1 inline-block uppercase tracking-wider border border-green-500/50 mb-4">
+				{perfil.cargo}
+			</p>
+
+			<div className="space-y-3 pt-4 border-t border-green-900/50">
+				<div>
+					<p className="text-xs text-green-600 uppercase">Período de Análise</p>
+					<p className="text-sm font-bold">{perfil.mandato}</p>
+				</div>
+				<div>
+					<p className="text-xs text-green-600 uppercase">Documento Principal</p>
+					<p className="text-sm font-bold">{cpfFormatado}</p>
+				</div>
+			</div>
+		</TerminalWindow>
+	);
+}
+
+function PresidentePatrimonioCard({ tse }: { tse: any }) {
+	const bens = tse?.bens || [];
+	return (
+		<TerminalWindow 
+			title="Patrimônio Declarado" 
+			className="bg-green-950/10 p-4 md:p-6 border-green-500"
+			scanline={false}
+		>
+			<p className="text-3xl font-bold text-green-400 mb-2 mt-2">{formatMoney(tse?.patrimonio || 0)}</p>
+			<p className="text-xs text-green-600 uppercase mb-4">Fonte: TSE ({tse?.eleicao})</p>
+
+			{bens.length > 0 && (
+				<div className="space-y-2">
+					{bens.map((b: any, i: number) => (
+						<div key={i} className="text-xs border-l-2 border-green-500 pl-2">
+							<p className="text-green-300" title={b.descricao}>{b.descricao}</p>
+							<p className="text-green-500 font-bold">{formatMoney(b.valor)}</p>
+						</div>
+					))}
+				</div>
+			)}
+		</TerminalWindow>
+	);
+}
+
+function PresidenteTransacaoDrawer({
+	selectedTransaction,
+	onClose,
+}: {
+	selectedTransaction: any;
+	onClose: () => void;
+}) {
+	return (
+		<Drawer open={Boolean(selectedTransaction)} onOpenChange={(open: boolean) => { if (!open) onClose(); }}>
+			<DrawerContent className="bg-black border-green-500/50 max-h-[85vh]">
+				<DrawerHeader>
+					<DrawerTitle className="text-green-500 font-mono tracking-wider">Detalhes da Transação</DrawerTitle>
+					<DrawerDescription className="text-green-600/70 font-mono">
+						Lançamento do Cartão de Pagamento
+					</DrawerDescription>
+				</DrawerHeader>
+				{selectedTransaction && (
+					<div className="p-4 flex flex-col gap-6 font-mono overflow-y-auto">
+						<div className="flex items-center gap-4">
+							<div className="bg-green-900/30 p-4 rounded-full border border-green-900/50">
+								<Landmark className="w-8 h-8 text-green-500" />
+							</div>
+							<div>
+								<p className="text-xs text-green-600 uppercase mb-1">Fornecedor</p>
+								<p className="text-base font-bold text-green-300">{selectedTransaction.nomeFornecedor || "SIGILOSO"}</p>
+							</div>
+						</div>
+						<div className="grid grid-cols-2 gap-6 p-4 bg-green-950/10 border border-green-900/30">
+							<div>
+								<p className="text-xs text-green-600 uppercase mb-1 flex items-center gap-1">
+									<CreditCard className="w-3 h-3" /> Valor
+								</p>
+								<p className="text-xl font-bold text-green-500">{formatMoney(selectedTransaction.valor)}</p>
+							</div>
+							<div>
+								<p className="text-xs text-green-600 uppercase mb-1 flex items-center gap-1">
+									<Calendar className="w-3 h-3" /> Data
+								</p>
+								<p className="text-base text-green-400">{selectedTransaction.data}</p>
+							</div>
+						</div>
+						<div>
+							<p className="text-xs text-green-600 uppercase mb-1">CNPJ / CPF do Favorecido</p>
+							<p className="text-sm text-green-400 font-mono bg-green-950/20 p-2 border border-green-900/30 inline-block">{selectedTransaction.cnpj || "N/A"}</p>
+						</div>
+					</div>
+				)}
+				<DrawerFooter>
+					<DrawerClose asChild>
+						<Button variant="outline" className="border-green-900 text-green-500 hover:bg-green-900/50 hover:text-green-400 w-full rounded-none">
+							Fechar
+						</Button>
+					</DrawerClose>
+				</DrawerFooter>
+			</DrawerContent>
+		</Drawer>
+	);
+}
+
 export default function PresidentePerfilPage(props: { params: Promise<{ id: string }> }) {
 	const params = use(props.params);
 	const router = useRouter();
@@ -29,22 +218,15 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 			if (wrapper) {
 				const inner = wrapper.children[0];
 				const rows = wrapper.querySelectorAll(".transaction-row");
-
-				// Mata animações antigas para evitar bugs se o usuário clicar rápido demais
 				gsap.killTweensOf([wrapper, inner, rows]);
-
 				if (expandedGroup === key) {
-					// Animação de Entrada - Deixa a expansão da altura revelar as linhas naturalmente
 					gsap.to(wrapper, { height: "auto", opacity: 1, duration: 0.35, ease: "power2.out" });
 				} else {
-					// Animação de Saída
 					gsap.to(wrapper, { height: 0, opacity: 0, duration: 0.25, ease: "power2.inOut" });
 				}
 			}
 		});
 	}, [expandedGroup]);
-
-
 
 	useEffect(() => {
 		async function loadPerfil() {
@@ -64,70 +246,17 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 		loadPerfil();
 	}, [params.id]);
 
-	if (loading) {
-		return (
-			<div className="min-h-screen bg-black text-green-500 font-mono flex flex-col items-center justify-center">
-				<div className="animate-pulse flex flex-col items-center">
-					<Lock className="w-12 h-12 mb-4" />
-					<p className="text-base md:text-xl tracking-widest uppercase text-center px-4">
-						<ScrambleText text="Acessando base de dados federal..." duration={1500} />
-					</p>
-					<p className="text-xs md:text-sm mt-2 text-green-700 text-center px-4">
-						<ScrambleText text="Decriptando extratos CPGF" duration={1000} delay={500} />
-					</p>
-				</div>
-			</div>
-		);
-	}
-
-	if (error || !data) {
-		return (
-			<div className="min-h-screen bg-black text-green-500 font-mono p-8">
-				<Button variant="cyber" onClick={() => router.push("/")} className="mb-8">
-					<ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-				</Button>
-				<div className="border border-red-500 bg-red-950/20 p-6 rounded-none max-w-2xl">
-					<h2 className="text-red-500 text-2xl mb-2 flex items-center gap-2 font-bold uppercase">
-						<AlertTriangle /> ACESSO NEGADO / ERRO
-					</h2>
-					<p className="text-red-400">{error}</p>
-				</div>
-			</div>
-		);
-	}
+	if (loading) return <PresidenteLoading />;
+	if (error || !data) return <PresidenteError error={error} onBack={() => router.push("/")} />;
 
 	const { perfil, tse, cpgf } = data;
-	const isBolsonaro = perfil.id === "bolsonaro";
-
-	const formatMoney = (val: number) =>
-		Number(val).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
 	const percentSigiloso = cpgf.countTotal > 0 ? ((cpgf.countSigiloso / cpgf.countTotal) * 100).toFixed(1) : 0;
-
-	// Agrupamento por Ano -> Mês
-	const groupedByYear: Record<string, Record<string, any[]>> = {};
-	if (cpgf?.topDespesas) {
-		cpgf.topDespesas.forEach((item: any) => {
-			if (!item.data) return;
-			const parts = item.data.split("/");
-			if (parts.length === 3) {
-				const year = parts[2];
-				const month = parts[1];
-				if (!groupedByYear[year]) groupedByYear[year] = {};
-				if (!groupedByYear[year][month]) groupedByYear[year][month] = [];
-				groupedByYear[year][month].push(item);
-			}
-		});
-	}
+	const groupedByYear = agruparDespesasPorAnoMes(cpgf?.topDespesas);
 	const sortedYears = Object.keys(groupedByYear).sort((a, b) => b.localeCompare(a));
-
 	const ITEMS_PER_PAGE = 50;
 
-	// Componente adaptativo
 	return (
 		<div className="min-h-screen flex flex-col bg-black text-green-500 font-mono overflow-x-hidden relative">
-			
-			{/* Top Bar padronizada com botão voltar */}
 			<SiteHeader showSearch={false} />
 
 			<div className="p-4 md:p-8">
@@ -146,76 +275,12 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 				</div>
 
 			<div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-				{/* Coluna Esquerda: Info do Presidente */}
 				<div className="md:col-span-1 space-y-6">
-					<TerminalWindow className="bg-green-950/10 p-4 md:p-6 border-green-500" scanline={false}>
-						<div className="absolute top-0 right-0 p-2 text-xs text-green-700 z-20">ID: {perfil.id.toUpperCase()}</div>
-						<div className="w-32 h-40 border-2 border-green-500/50 p-1 relative bg-black/80 mb-4 group overflow-hidden">
-							{/* Scanline effect */}
-							<div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(34,197,94,0.05)_50%)] bg-size-[100%_4px] pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity z-10"></div>
-							
-							{tse?.idTse ? (
-								<img
-									src={tse?.fotoUrl ? `/api/proxy-image?url=${encodeURIComponent(tse.fotoUrl)}&raw=true` : `/api/proxy-image?url=${encodeURIComponent(`https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/img/${tse.idEleicao}/${tse.idTse}/${tse.idUe}`)}&raw=true`}
-									alt={perfil.nome}
-									className="w-full h-full object-cover relative z-0"
-									onError={(e) => (e.currentTarget.style.display = 'none')}
-								/>
-							) : (
-								<div className="w-full h-full flex items-center justify-center relative z-0">
-									<User className="w-12 h-12 text-green-700" />
-								</div>
-							)}
-							{/* Corner accents */}
-							<div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-green-500 z-20"></div>
-							<div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-green-500 z-20"></div>
-							<div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-green-500 z-20"></div>
-							<div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-green-500 z-20"></div>
-						</div>
-						<h1 className="text-2xl font-bold uppercase mb-1">
-							<ScrambleText text={perfil.nome} duration={1200} />
-						</h1>
-						<p className="text-sm text-green-400 bg-green-900/30 px-2 py-1 inline-block uppercase tracking-wider border border-green-500/50 mb-4">
-							{perfil.cargo}
-						</p>
-
-						<div className="space-y-3 pt-4 border-t border-green-900/50">
-							<div>
-								<p className="text-xs text-green-600 uppercase">Período de Análise</p>
-								<p className="text-sm font-bold">{perfil.mandato}</p>
-							</div>
-							<div>
-								<p className="text-xs text-green-600 uppercase">Documento Principal</p>
-								<p className="text-sm font-bold">{tse?.cpf ? tse.cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-**") : "RESTRITO"}</p>
-							</div>
-						</div>
-					</TerminalWindow>
-
-					<TerminalWindow 
-						title="Patrimônio Declarado" 
-						className="bg-green-950/10 p-4 md:p-6 border-green-500"
-						scanline={false}
-					>
-						<p className="text-3xl font-bold text-green-400 mb-2 mt-2">{formatMoney(tse?.patrimonio || 0)}</p>
-						<p className="text-xs text-green-600 uppercase mb-4">Fonte: TSE ({tse?.eleicao})</p>
-
-						{tse?.bens?.length > 0 && (
-							<div className="space-y-2">
-								{tse.bens.map((b: any, i: number) => (
-									<div key={i} className="text-xs border-l-2 border-green-500 pl-2">
-										<p className="text-green-300" title={b.descricao}>{b.descricao}</p>
-										<p className="text-green-500 font-bold">{formatMoney(b.valor)}</p>
-									</div>
-								))}
-							</div>
-						)}
-					</TerminalWindow>
+					<PresidenteFotoCard perfil={perfil} tse={tse} />
+					<PresidentePatrimonioCard tse={tse} />
 				</div>
 
-				{/* Coluna Direita: CPGF e Transações */}
 				<div className="md:col-span-2 space-y-6">
-
-					{/* Métrica de Cartões Corporativos */}
 					<TerminalWindow 
 						title="Extrato Cartão Corporativo (CPGF)"
 						className="bg-black p-4 md:p-6 border-green-500"
@@ -240,7 +305,6 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 							</div>
 						</div>
 
-						{/* Barra de Progresso do Sigilo */}
 						<div className="w-full h-2 bg-green-900/30 mb-2 relative">
 							<div
 								className="h-full bg-red-500 absolute top-0 left-0"
@@ -305,7 +369,6 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 															className="overflow-hidden h-0 opacity-0"
 														>
 															<div className="p-4 border-t border-green-900/50 bg-black/50">
-																{/* Tabela para Desktop */}
 																<div className="hidden md:block overflow-x-auto">
 																	<table className="w-full text-left border-collapse">
 																		<thead>
@@ -329,7 +392,6 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 																	</table>
 																</div>
 
-																{/* Lista com Bottom Sheet para Mobile */}
 																<div className="flex flex-col divide-y divide-green-950 md:hidden">
 																	{shouldRenderContent && currentItems.map((item: any, idx: number) => (
 																		<div
@@ -389,7 +451,6 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 						)}
 					</TerminalWindow>
 
-					{/* Placeholder for future integrations */}
 					<div className="border border-dashed border-green-900/50 p-6 flex flex-col items-center justify-center text-center opacity-50">
 						<AlertTriangle className="w-8 h-8 mb-2" />
 						<p className="text-xs uppercase">Módulos em Desenvolvimento</p>
@@ -398,54 +459,10 @@ export default function PresidentePerfilPage(props: { params: Promise<{ id: stri
 				</div>
 			</div>
 
-			<Drawer open={!!selectedTransaction} onOpenChange={(open: boolean) => !open && setSelectedTransaction(null)}>
-				<DrawerContent className="bg-black border-green-500/50 max-h-[85vh]">
-					<DrawerHeader>
-						<DrawerTitle className="text-green-500 font-mono tracking-wider">Detalhes da Transação</DrawerTitle>
-						<DrawerDescription className="text-green-600/70 font-mono">
-							Lançamento do Cartão de Pagamento
-						</DrawerDescription>
-					</DrawerHeader>
-					{selectedTransaction && (
-						<div className="p-4 flex flex-col gap-6 font-mono overflow-y-auto">
-							<div className="flex items-center gap-4">
-								<div className="bg-green-900/30 p-4 rounded-full border border-green-900/50">
-									<Landmark className="w-8 h-8 text-green-500" />
-								</div>
-								<div>
-									<p className="text-xs text-green-600 uppercase mb-1">Fornecedor</p>
-									<p className="text-base font-bold text-green-300">{selectedTransaction.nomeFornecedor || "SIGILOSO"}</p>
-								</div>
-							</div>
-							<div className="grid grid-cols-2 gap-6 p-4 bg-green-950/10 border border-green-900/30">
-								<div>
-									<p className="text-xs text-green-600 uppercase mb-1 flex items-center gap-1">
-										<CreditCard className="w-3 h-3" /> Valor
-									</p>
-									<p className="text-xl font-bold text-green-500">{formatMoney(selectedTransaction.valor)}</p>
-								</div>
-								<div>
-									<p className="text-xs text-green-600 uppercase mb-1 flex items-center gap-1">
-										<Calendar className="w-3 h-3" /> Data
-									</p>
-									<p className="text-base text-green-400">{selectedTransaction.data}</p>
-								</div>
-							</div>
-							<div>
-								<p className="text-xs text-green-600 uppercase mb-1">CNPJ / CPF do Favorecido</p>
-								<p className="text-sm text-green-400 font-mono bg-green-950/20 p-2 border border-green-900/30 inline-block">{selectedTransaction.cnpj || "N/A"}</p>
-							</div>
-						</div>
-					)}
-					<DrawerFooter>
-						<DrawerClose asChild>
-							<Button variant="outline" className="border-green-900 text-green-500 hover:bg-green-900/50 hover:text-green-400 w-full rounded-none">
-								Fechar
-							</Button>
-						</DrawerClose>
-					</DrawerFooter>
-				</DrawerContent>
-			</Drawer>
+			<PresidenteTransacaoDrawer
+				selectedTransaction={selectedTransaction}
+				onClose={() => setSelectedTransaction(null)}
+			/>
 			</div>
 		</div>
 	);

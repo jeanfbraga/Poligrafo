@@ -34,6 +34,20 @@ import { buscarProxyOsint } from "../proxy_osint";
 import { buscarCpfNoTSE } from "../tse";
 import { buscarDespesasTcmSP } from "./tcm-sp";
 
+type HandlerMunicipal = (nome: string) => Promise<any[]>;
+
+const HANDLERS_MUNICIPAIS: Record<string, HandlerMunicipal> = {
+	SP: (nome) => buscarMunicipalSP(nome),
+	RJ: (nome) => buscarMunicipalRJ(nome),
+	PE: (nome) => buscarMunicipalPE(nome),
+	CE: (nome) => buscarMunicipalCE(nome),
+	RS: (nome) => buscarMunicipalRS(nome),
+	SC: (nome) => buscarMunicipalSC(nome),
+	SE: (nome) => buscarMunicipalSE(nome),
+};
+
+const UFS_GENERICAS_TSE = new Set(["MG", "BA", "PR", "PB", "PI", "PA", "RN", "ES", "TO"]);
+
 /**
  * Orquestrador Geográfico: Decide para qual Tribunal de Contas (TCE)
  * enviar a varredura do político baseado no ufScope ("sp", "pe", "ce").
@@ -44,37 +58,12 @@ export async function buscarMunicipalMestre(uf: string, nomeBuscado: string) {
 		`[>> MUNICIPAL MASTER ROUTER] Direcionando busca para a malha municipal do Estado: ${estado}`,
 	);
 
-	switch (estado) {
-		case "SP":
-			return await buscarMunicipalSP(nomeBuscado);
-		case "RJ":
-			return await buscarMunicipalRJ(nomeBuscado);
-		case "PE":
-			return await buscarMunicipalPE(nomeBuscado);
-		case "CE":
-			return await buscarMunicipalCE(nomeBuscado);
-		case "RS":
-			return await buscarMunicipalRS(nomeBuscado);
-		case "SC":
-			return await buscarMunicipalSC(nomeBuscado);
-		case "SE":
-			return await buscarMunicipalSE(nomeBuscado);
-		case "MG":
-		case "BA":
-		case "PR":
-		case "PB":
-		case "PI":
-		case "PA":
-		case "RN":
-		case "ES":
-		case "TO":
-			return await buscarMunicipalGenericoTSE(estado, nomeBuscado);
-		default:
-			console.warn(
-				`[!] TCE do estado ${estado} não reconhecido no Polígrafo OSINT.`,
-			);
-			return [];
-	}
+	const handler = HANDLERS_MUNICIPAIS[estado];
+	if (handler) return handler(nomeBuscado);
+	if (UFS_GENERICAS_TSE.has(estado)) return buscarMunicipalGenericoTSE(estado, nomeBuscado);
+
+	console.warn(`[!] TCE do estado ${estado} não reconhecido no Polígrafo OSINT.`);
+	return [];
 }
 
 /**
@@ -120,6 +109,60 @@ async function buscarMunicipalGenericoTSE(uf: string, nomeBuscado: string) {
 	return resultados;
 }
 
+type ContextoDespesa = {
+	identificador: string;
+	nomeParaBusca?: string;
+	municipioUri?: string;
+	casa?: string;
+};
+
+async function fallbackProxyFederal(ctx: ContextoDespesa): Promise<any[]> {
+	const res = await buscarProxyOsint(ctx.identificador, ctx.nomeParaBusca);
+	return res.despesasFederais || [];
+}
+
+async function rotearDespesasSP(ctx: ContextoDespesa): Promise<any[]> {
+	if (ctx.municipioUri === "sao-paulo" || ctx.municipioUri === "sao_paulo") {
+		const tcmDespesas = await buscarDespesasTcmSP(ctx.nomeParaBusca);
+		if (tcmDespesas.length > 0) return tcmDespesas;
+	}
+	return buscarDespesasVereadorSP(ctx.identificador, ctx.nomeParaBusca || "");
+}
+
+async function rotearDespesasUri(
+	ctx: ContextoDespesa,
+	consultarNativo: (uri: string, casa: string) => Promise<any[]>,
+): Promise<any[]> {
+	if (ctx.municipioUri) return consultarNativo(ctx.municipioUri, ctx.casa || "PREFEITURA");
+	return fallbackProxyFederal(ctx);
+}
+
+async function rotearDespesasTO(ctx: ContextoDespesa): Promise<any[]> {
+	const despesasTO = await buscarDespesasTO(ctx.identificador, ctx.nomeParaBusca);
+	if (despesasTO.length > 0) return despesasTO;
+	console.log(`[TCE-TO] Sem despesas nativas, fallback para Proxy OSINT Federal.`);
+	return fallbackProxyFederal(ctx);
+}
+
+const ROTEADORES_DESPESA: Record<string, (ctx: ContextoDespesa) => Promise<any[]>> = {
+	SP: rotearDespesasSP,
+	MG: (ctx) => rotearDespesasUri(ctx, buscarDespesasMG),
+	BA: (ctx) => rotearDespesasUri(ctx, buscarDespesasBA),
+	PR: (ctx) => rotearDespesasUri(ctx, buscarDespesasPR),
+	ES: (ctx) => rotearDespesasUri(ctx, buscarDespesasES),
+	PI: (ctx) => rotearDespesasUri(ctx, buscarDespesasPI),
+	RN: (ctx) => rotearDespesasUri(ctx, buscarDespesasRN),
+	PA: (ctx) => (ctx.municipioUri ? buscarDespesasPA(ctx.identificador, ctx.municipioUri, ctx.nomeParaBusca) : fallbackProxyFederal(ctx)),
+	RJ: (ctx) => buscarDespesasVereadorRJ(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
+	PE: (ctx) => buscarDespesasMunicipalPE(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
+	CE: (ctx) => buscarDespesasMunicipalCE(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
+	RS: (ctx) => buscarDespesasMunicipalRS(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
+	SC: (ctx) => buscarDespesasMunicipalSC(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
+	PB: (ctx) => buscarDespesasMunicipalPB(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
+	SE: (ctx) => buscarDespesasAracaju(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
+	TO: rotearDespesasTO,
+};
+
 /**
  * Orquestrador Geográfico: Despesas.
  * Re-roteia despesas para o respectivo estado caso a casa legislativa exija parse nativo do TCE.
@@ -132,136 +175,10 @@ export async function buscarDespesasMunicipalMestre(
 	casa?: string,
 ) {
 	const estado = uf.toUpperCase();
-
-	switch (estado) {
-		case "SP":
-			if (municipioUri === "sao-paulo" || municipioUri === "sao_paulo") {
-				const tcmDespesas = await buscarDespesasTcmSP(nomeParaBusca);
-				if (tcmDespesas.length > 0) return tcmDespesas;
-			}
-			return await buscarDespesasVereadorSP(identificador, nomeParaBusca || "");
-		case "MG": {
-			if (municipioUri)
-				return await buscarDespesasMG(municipioUri, casa || "PREFEITURA");
-			const mgProxy = await buscarProxyOsint(identificador, nomeParaBusca);
-			return mgProxy.despesasFederais;
-		}
-		case "BA": {
-			if (municipioUri)
-				return await buscarDespesasBA(municipioUri, casa || "PREFEITURA");
-			const baProxy = await buscarProxyOsint(identificador, nomeParaBusca);
-			return baProxy.despesasFederais;
-		}
-		case "PR": {
-			if (municipioUri)
-				return await buscarDespesasPR(municipioUri, casa || "PREFEITURA");
-			const prProxy = await buscarProxyOsint(identificador, nomeParaBusca);
-			return prProxy.despesasFederais;
-		}
-		case "RJ":
-			return await buscarDespesasVereadorRJ(
-				identificador,
-				nomeParaBusca,
-				municipioUri,
-				casa,
-			);
-		case "PE":
-			return await buscarDespesasMunicipalPE(
-				identificador,
-				nomeParaBusca,
-				municipioUri,
-				casa,
-			);
-		case "CE":
-			return await buscarDespesasMunicipalCE(
-				identificador,
-				nomeParaBusca,
-				municipioUri,
-				casa,
-			);
-		case "ES": {
-			if (municipioUri)
-				return await buscarDespesasES(municipioUri, casa || "PREFEITURA");
-			console.log(
-				`[TCE-ES] Sem URI geográfica. Redirecionando para Proxy OSINT.`,
-			);
-			const esProxy = await buscarProxyOsint(identificador, nomeParaBusca);
-			return esProxy.despesasFederais;
-		}
-		case "PI": {
-			if (municipioUri)
-				return await buscarDespesasPI(municipioUri, casa || "PREFEITURA");
-			console.log(
-				`[TCE-PI] Sem URI geográfica. Redirecionando para Proxy OSINT.`,
-			);
-			const piProxy = await buscarProxyOsint(identificador, nomeParaBusca);
-			return piProxy.despesasFederais;
-		}
-		case "PA": {
-			if (municipioUri)
-				return await buscarDespesasPA(
-					identificador,
-					municipioUri,
-					nomeParaBusca,
-				);
-			console.log(
-				`[TCE-PA] Sem URI geográfica. Redirecionando para Proxy OSINT.`,
-			);
-			const paProxy = await buscarProxyOsint(identificador, nomeParaBusca);
-			return paProxy.despesasFederais;
-		}
-		case "RN": {
-			if (municipioUri)
-				return await buscarDespesasRN(municipioUri, casa || "PREFEITURA");
-			console.log(
-				`[TCE-RN] Sem URI geográfica. Redirecionando para Proxy OSINT.`,
-			);
-			const rnProxy = await buscarProxyOsint(identificador, nomeParaBusca);
-			return rnProxy.despesasFederais;
-		}
-		case "RS":
-			return await buscarDespesasMunicipalRS(
-				identificador,
-				nomeParaBusca,
-				municipioUri,
-				casa,
-			);
-		case "SC":
-			return await buscarDespesasMunicipalSC(
-				identificador,
-				nomeParaBusca,
-				municipioUri,
-				casa,
-			);
-		case "PB":
-			return await buscarDespesasMunicipalPB(
-				identificador,
-				nomeParaBusca,
-				municipioUri,
-				casa,
-			);
-		case "TO": {
-			const despesasTO = await buscarDespesasTO(identificador, nomeParaBusca);
-			if (despesasTO.length > 0) return despesasTO;
-			console.log(
-				`[TCE-TO] Sem despesas nativas, fallback para Proxy OSINT Federal.`,
-			);
-			const proxyResultTO = await buscarProxyOsint(
-				identificador,
-				nomeParaBusca,
-			);
-			return proxyResultTO.despesasFederais;
-		}
-		case "SE": {
-			return await buscarDespesasAracaju(
-				identificador,
-				nomeParaBusca,
-				municipioUri,
-				casa,
-			);
-		}
-		default:
-			console.warn(`[!] Motor de Despesas do TCE-${estado} não está mapeado.`);
-			return [];
+	const roteador = ROTEADORES_DESPESA[estado];
+	if (roteador) {
+		return roteador({ identificador, nomeParaBusca, municipioUri, casa });
 	}
+	console.warn(`[!] Motor de Despesas do TCE-${estado} não está mapeado.`);
+	return [];
 }

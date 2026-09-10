@@ -142,13 +142,59 @@ export async function extrairDespesasCMA(ano: number = new Date().getFullYear())
 	return registros;
 }
 
-/**
- * Extrai licitações, atas e contratos da Prefeitura Municipal de Aracaju e CMA via API oficial de Compras.
- */
-export async function extrairContratosPrefeitura(ano: number = new Date().getFullYear()): Promise<DespesaAracajuRegistro[]> {
-	const registros: DespesaAracajuRegistro[] = [];
+function verificarSeCma(c: any, orgaoNome: string): boolean {
+	if (orgaoNome.toUpperCase().includes('CÂMARA')) return true;
+	if (c.objeto && c.objeto.toUpperCase().includes('CÂMARA MUNICIPAL')) return true;
+	return false;
+}
 
-	// 1. Consulta API oficial de Contratos Próprios
+function extrairParlamentarEOrgao(c: any, isCma: boolean) {
+	if (isCma) {
+		return {
+			orgao: 'CMA' as const,
+			parlamentar_nome: 'CÂMARA MUNICIPAL DE ARACAJU'
+		};
+	}
+	return {
+		orgao: 'PREFEITURA' as const,
+		parlamentar_nome: c.fiscalGestor || 'PREFEITURA MUNICIPAL DE ARACAJU'
+	};
+}
+
+function extrairDescricaoEDocumento(c: any) {
+	const sigla = c.orgaoSigla || 'PMA';
+	const objeto = c.objeto || 'Contrato de Aquisição/Serviço';
+	const numContrato = c.numeroContrato || `CONT-${c.ID || Date.now()}`;
+	return {
+		descricao: `[${sigla}] ${objeto}`,
+		numero_documento: numContrato
+	};
+}
+
+function mapearContratoProprio(c: any, ano: number): DespesaAracajuRegistro {
+	const valor = parseValorBRL(c.valorContrato || '0');
+	const dataIso = formatarDataISO(c.dataAssinatura) || `${ano}-01-01`;
+	const orgaoNome = c.orgaoNome || c.orgaoSigla || 'Prefeitura de Aracaju';
+	const isCma = verificarSeCma(c, orgaoNome);
+	const { orgao, parlamentar_nome } = extrairParlamentarEOrgao(c, isCma);
+	const { descricao, numero_documento } = extrairDescricaoEDocumento(c);
+
+	return {
+		orgao,
+		parlamentar_nome,
+		fornecedor_nome: (c.contratado || 'FORNECEDOR NÃO INFORMADO').toUpperCase(),
+		fornecedor_cnpj_cpf: '13128784000184',
+		valor,
+		data_despesa: dataIso,
+		categoria_despesa: c.modalidade || 'Contrato Administrativo',
+		descricao,
+		numero_documento,
+		fonte_url: `https://aracajucompras.se.gov.br/api/api/Contratos?ano=${ano}`,
+		extraido_por: 'ETL_ARACAJU_COMPRAS_API'
+	};
+}
+
+async function buscarContratosProprios(ano: number): Promise<DespesaAracajuRegistro[]> {
 	try {
 		const urlContratos = `https://aracajucompras.se.gov.br/api/api/Contratos?ano=${ano}`;
 		const res = await fetch(urlContratos, {
@@ -156,37 +202,36 @@ export async function extrairContratosPrefeitura(ano: number = new Date().getFul
 			signal: AbortSignal.timeout(15000)
 		});
 
-		if (res.ok) {
-			const json = await res.json();
-			if (Array.isArray(json)) {
-				for (const c of json) {
-					const valor = parseValorBRL(c.valorContrato || '0');
-					const dataIso = formatarDataISO(c.dataAssinatura) || `${ano}-01-01`;
-
-					const orgaoNome = c.orgaoNome || c.orgaoSigla || 'Prefeitura de Aracaju';
-					const isCma = orgaoNome.toUpperCase().includes('CÂMARA') || (c.objeto && c.objeto.toUpperCase().includes('CÂMARA MUNICIPAL'));
-
-					registros.push({
-						orgao: isCma ? 'CMA' : 'PREFEITURA',
-						parlamentar_nome: isCma ? 'CÂMARA MUNICIPAL DE ARACAJU' : (c.fiscalGestor || 'PREFEITURA MUNICIPAL DE ARACAJU'),
-						fornecedor_nome: (c.contratado || 'FORNECEDOR NÃO INFORMADO').toUpperCase(),
-						fornecedor_cnpj_cpf: '13128784000184',
-						valor: valor,
-						data_despesa: dataIso,
-						categoria_despesa: c.modalidade || 'Contrato Administrativo',
-						descricao: `[${c.orgaoSigla || 'PMA'}] ${c.objeto || 'Contrato de Aquisição/Serviço'}`,
-						numero_documento: c.numeroContrato || `CONT-${c.ID || Date.now()}`,
-						fonte_url: `https://aracajucompras.se.gov.br/api/api/Contratos?ano=${ano}`,
-						extraido_por: 'ETL_ARACAJU_COMPRAS_API'
-					});
-				}
-			}
-		}
+		if (!res.ok) return [];
+		const json = await res.json();
+		if (!Array.isArray(json)) return [];
+		return json.map(c => mapearContratoProprio(c, ano));
 	} catch (e: any) {
 		console.warn(`[ETL ARACAJU] Aviso ao consultar API de Contratos (${ano}):`, e.message);
+		return [];
 	}
+}
 
-	// 2. Consulta API de Contratos Centralizados
+function mapearContratoCentralizado(c: any, ano: number): DespesaAracajuRegistro {
+	const valor = parseValorBRL(c.valorContrato || '0');
+	const dataIso = formatarDataISO(c.dataAssinatura) || `${ano}-01-01`;
+
+	return {
+		orgao: 'PREFEITURA',
+		parlamentar_nome: c.fiscalGestor || 'PREFEITURA MUNICIPAL DE ARACAJU',
+		fornecedor_nome: (c.contratado || 'FORNECEDOR NÃO INFORMADO').toUpperCase(),
+		fornecedor_cnpj_cpf: '13128784000184',
+		valor: valor,
+		data_despesa: dataIso,
+		categoria_despesa: 'Contrato Centralizado',
+		descricao: `[${c.orgaoSigla || 'SEPLOG'}] ${c.objeto || 'Locação/Serviço Centralizado'}`,
+		numero_documento: c.numeroContrato || `CENT-${c.ID || Date.now()}`,
+		fonte_url: `https://aracajucompras.se.gov.br/api/api/ContratosCentralizados?ano=${ano}`,
+		extraido_por: 'ETL_ARACAJU_CENTRALIZADOS_API'
+	};
+}
+
+async function buscarContratosCentralizados(ano: number): Promise<DespesaAracajuRegistro[]> {
 	try {
 		const urlCentralizados = `https://aracajucompras.se.gov.br/api/api/ContratosCentralizados?ano=${ano}`;
 		const resCent = await fetch(urlCentralizados, {
@@ -194,34 +239,25 @@ export async function extrairContratosPrefeitura(ano: number = new Date().getFul
 			signal: AbortSignal.timeout(15000)
 		});
 
-		if (resCent.ok) {
-			const jsonCent = await resCent.json();
-			if (Array.isArray(jsonCent)) {
-				for (const c of jsonCent) {
-					const valor = parseValorBRL(c.valorContrato || '0');
-					const dataIso = formatarDataISO(c.dataAssinatura) || `${ano}-01-01`;
-
-					registros.push({
-						orgao: 'PREFEITURA',
-						parlamentar_nome: c.fiscalGestor || 'PREFEITURA MUNICIPAL DE ARACAJU',
-						fornecedor_nome: (c.contratado || 'FORNECEDOR NÃO INFORMADO').toUpperCase(),
-						fornecedor_cnpj_cpf: '13128784000184',
-						valor: valor,
-						data_despesa: dataIso,
-						categoria_despesa: 'Contrato Centralizado',
-						descricao: `[${c.orgaoSigla || 'SEPLOG'}] ${c.objeto || 'Locação/Serviço Centralizado'}`,
-						numero_documento: c.numeroContrato || `CENT-${c.ID || Date.now()}`,
-						fonte_url: `https://aracajucompras.se.gov.br/api/api/ContratosCentralizados?ano=${ano}`,
-						extraido_por: 'ETL_ARACAJU_CENTRALIZADOS_API'
-					});
-				}
-			}
-		}
+		if (!resCent.ok) return [];
+		const jsonCent = await resCent.json();
+		if (!Array.isArray(jsonCent)) return [];
+		return jsonCent.map(c => mapearContratoCentralizado(c, ano));
 	} catch (e: any) {
 		console.warn(`[ETL ARACAJU] Aviso ao consultar API de Contratos Centralizados (${ano}):`, e.message);
+		return [];
 	}
+}
 
-	return registros;
+/**
+ * Extrai licitações, atas e contratos da Prefeitura Municipal de Aracaju e CMA via API oficial de Compras.
+ */
+export async function extrairContratosPrefeitura(ano: number = new Date().getFullYear()): Promise<DespesaAracajuRegistro[]> {
+	const [proprios, centralizados] = await Promise.all([
+		buscarContratosProprios(ano),
+		buscarContratosCentralizados(ano)
+	]);
+	return [...proprios, ...centralizados];
 }
 
 /**

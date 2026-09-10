@@ -75,18 +75,338 @@ const formatPartido = (p?: string): string => {
 	return map[normalized] || normalized;
 };
 
-const formatAutoRef = (p: any): string | undefined => {
-	if (!p.id) return undefined;
+function formatCasaLegislativa(p: any): string | undefined {
 	if (p.casa === "CAMARA") return `FEDERAL:CAMARA:${p.id}`;
 	if (p.casa === "SENADO") return `FEDERAL:SENADO:${p.id}`;
-	if (p.casa === "GOVERNO_ESTADUAL" || p.casa === "GOVERNADOR")
-		return `GOVERNADOR:${p.uf || "BR"}:${p.id || p.nome}`;
-	if (p.casa === "PREFEITO" || p.casa === "PREFEITURA")
-		return `PREFEITO:${p.uf || "BR"}:${p.id || p.nome}`;
-	if (p.casa === "CAMARA_MUNICIPAL" || p.casa === "VEREADOR")
-		return `${p.uf || "SE"}:VEREADOR:${p.municipio || "aracaju"}:${p.id || p.nome}`;
 	return undefined;
+}
+
+function formatCasaMunicipal(p: any): string | undefined {
+	if (p.casa === "CAMARA_MUNICIPAL" || p.casa === "VEREADOR") {
+		const uf = p.uf || "SE";
+		const mun = p.municipio || "aracaju";
+		const idOuNome = p.id || p.nome;
+		return `${uf}:VEREADOR:${mun}:${idOuNome}`;
+	}
+	return undefined;
+}
+
+function formatCasaExecutiva(p: any): string | undefined {
+	const uf = p.uf || "BR";
+	const idOuNome = p.id || p.nome;
+	if (p.casa === "GOVERNO_ESTADUAL" || p.casa === "GOVERNADOR") {
+		return `GOVERNADOR:${uf}:${idOuNome}`;
+	}
+	if (p.casa === "PREFEITO" || p.casa === "PREFEITURA") {
+		return `PREFEITO:${uf}:${idOuNome}`;
+	}
+	return undefined;
+}
+
+const formatAutoRef = (p: any): string | undefined => {
+	if (!p?.id) return undefined;
+	return formatCasaLegislativa(p) ?? formatCasaExecutiva(p) ?? formatCasaMunicipal(p);
 };
+
+function matchPoliticoPorAlcada(p: any, selectedUf: string): boolean {
+	if (!selectedUf || selectedUf === "FEDERAL") return true;
+	if (p.isPresidente) return false;
+	return p.uf === selectedUf;
+}
+
+function buscarPoliticosIndexados(searchTerms: string[], selectedUf: string) {
+	const all = [...EXTRA_VIP_INDEX, ...congressoIndex, ...municipaisIndex];
+	const matches = all.filter((p: any) => {
+		const nameNorm = p.nome
+			.toLowerCase()
+			.normalize("NFD")
+			.replace(/[\u0300-\u036f]/g, "");
+		const nameMatch = searchTerms.every((term: string) => nameNorm.includes(term));
+		if (!nameMatch) return false;
+		return matchPoliticoPorAlcada(p, selectedUf);
+	});
+	return Array.from(
+		new Map(matches.map((m: any) => [String(m.id || m.nome), m])).values(),
+	).slice(0, 8);
+}
+
+function tratarNavegacaoTeclas(
+	key: string,
+	setAutocompleteIdx: React.Dispatch<React.SetStateAction<number>>,
+	total: number,
+): boolean {
+	if (key === "ArrowDown") {
+		setAutocompleteIdx((prev) => Math.min(prev + 1, total - 1));
+		return true;
+	}
+	if (key === "ArrowUp") {
+		setAutocompleteIdx((prev) => Math.max(prev - 1, -1));
+		return true;
+	}
+	return false;
+}
+
+const AutocompleteDropdown = ({
+	suggestions,
+	activeIdx,
+	onSelect,
+	isMobile,
+}: {
+	suggestions: any[];
+	activeIdx: number;
+	onSelect: (p: any) => void;
+	isMobile?: boolean;
+}) => {
+	const containerClass = isMobile
+		? "w-full max-h-[40vh] overflow-y-auto custom-scrollbar border border-green-500/50 bg-black/95 backdrop-blur-sm z-60 font-mono divide-y divide-green-900/30 shadow-[0_4px_20px_rgba(34,197,94,0.2)] rounded-none"
+		: "absolute top-14 left-0 w-full border border-green-500/50 bg-black/95 backdrop-blur-sm z-60 font-mono divide-y divide-green-900/30 shadow-[0_4px_20px_rgba(34,197,94,0.2)]";
+
+	return (
+		<div className={containerClass}>
+			{suggestions.map((p: any, i: number) => (
+				<button
+					key={`${p.casa}-${p.id}-${i}`}
+					className={`w-full text-left px-4 ${isMobile ? "py-3" : "py-2.5"} text-sm flex items-center justify-between transition-colors cursor-pointer ${
+						i === activeIdx
+							? "bg-green-900/40 text-green-400"
+							: "text-green-500/80 hover:bg-green-950/40 hover:text-green-400"
+					}`}
+					onMouseDown={(e) => {
+						e.preventDefault();
+						onSelect(p);
+					}}
+				>
+					<span className="flex items-center gap-2">
+						<span className="w-10 shrink-0 text-center truncate px-1 text-[10px] font-bold text-green-700 border border-green-900/50 bg-green-950/20 py-1 rounded-none">
+							{formatPartido(p.partido)}
+						</span>
+						<span className="font-bold">{p.nome}</span>
+					</span>
+					<span className="flex items-center gap-1.5 text-xs opacity-75">
+						{p.orgao && (
+							<span className="text-[10px] text-green-400 font-mono border border-green-800/60 bg-green-950/40 px-1 py-0.5">
+								{p.orgao}
+							</span>
+						)}
+						<span>{p.uf}</span>
+					</span>
+				</button>
+			))}
+		</div>
+	);
+};
+
+const SearchBarMobileView = ({
+	selectedUf,
+	setSelectedUf,
+	isLoading,
+	showAlcadaError,
+	alcadas,
+	searchTerm,
+	handleSearchTermChange,
+	handleKeyDown,
+	setShowAutocomplete,
+	showAutocomplete,
+	autocompleteSuggestions,
+	autocompleteIdx,
+	handleSelectCandidate,
+	onCancel,
+	triggerSearch,
+}: any) => (
+	<div className="w-full relative max-w-sm mx-auto z-20">
+		<div className="flex flex-col gap-3 w-full">
+			<div className="relative">
+				<select
+					value={selectedUf}
+					onChange={(e) => setSelectedUf(e.target.value)}
+					disabled={isLoading}
+					className={`w-full h-12 bg-green-950/30 border ${showAlcadaError ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'border-green-500'} text-green-400 font-mono text-sm rounded-none appearance-none px-4 pr-10 cursor-pointer focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50 transition-all duration-300`}
+					style={{ WebkitAppearance: "none" }}
+					aria-label="Selecione a alçada"
+				>
+					<option value="" disabled className="bg-black text-green-500">
+						Selecione a alçada
+					</option>
+					<option value="FEDERAL" className="bg-black text-green-400 font-bold">
+						🏛  Governo Federal
+					</option>
+					<option disabled className="bg-black text-green-700">
+						──────────────────
+					</option>
+					<optgroup label="Governo Estadual" className="bg-black text-green-600 text-xs">
+						{alcadas
+							.filter((e: any) => e.sigla !== "FEDERAL" && e.sigla !== "_SEP_")
+							.map((uf: any) => (
+								<option key={uf.sigla} value={uf.sigla} className="bg-black text-green-400">
+									{uf.sigla} — {uf.nome}
+								</option>
+							))}
+					</optgroup>
+				</select>
+				<div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+					<svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+					</svg>
+				</div>
+			</div>
+
+			<Input
+				placeholder="Nome do político"
+				value={searchTerm}
+				onChange={(e) => handleSearchTermChange(e.target.value)}
+				onKeyDown={handleKeyDown}
+				onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
+				onFocus={() => {
+					if (autocompleteSuggestions.length > 0) setShowAutocomplete(true);
+				}}
+				disabled={isLoading}
+				autoComplete="off"
+				className={`transition-all duration-300 ${showAlcadaError ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : ''}`}
+			/>
+
+			{showAlcadaError && (
+				<div className="text-xs text-red-500 font-mono -mt-1 px-1">
+					&gt; Selecione uma alçada (Estado)
+				</div>
+			)}
+
+			{showAutocomplete && autocompleteSuggestions.length > 0 && !isLoading && (
+				<AutocompleteDropdown
+					suggestions={autocompleteSuggestions}
+					activeIdx={autocompleteIdx}
+					onSelect={handleSelectCandidate}
+					isMobile
+				/>
+			)}
+
+			{isLoading && onCancel ? (
+				<Button
+					variant="cyber-destructive"
+					onClick={onCancel}
+					className="w-full h-12 relative overflow-hidden"
+				>
+					Cancelar
+				</Button>
+			) : (
+				<Button
+					variant="cyber"
+					onClick={triggerSearch}
+					disabled={!searchTerm.trim()}
+					className="w-full h-12 relative overflow-hidden"
+				>
+					<Search className="mr-2 h-4 w-4" />
+					Procurar
+				</Button>
+			)}
+		</div>
+	</div>
+);
+
+const SearchBarDesktopView = ({
+	selectedUf,
+	setSelectedUf,
+	isLoading,
+	showAlcadaError,
+	alcadas,
+	searchTerm,
+	handleSearchTermChange,
+	handleKeyDown,
+	setShowAutocomplete,
+	showAutocomplete,
+	autocompleteSuggestions,
+	autocompleteIdx,
+	handleSelectCandidate,
+	onCancel,
+	triggerSearch,
+}: any) => (
+	<div className="w-full relative z-20">
+		<div className={`flex w-full h-12 items-center bg-black/80 border ${showAlcadaError ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'border-green-500/50'} relative overflow-visible z-50 transition-all duration-300`}>
+			<div className="relative h-full flex items-center bg-black border border-r-0 border-green-500/50 hover:border-green-400 focus-within:border-green-500 transition-colors w-1/3 lg:w-auto max-w-55">
+				<select
+					id="select-alcada"
+					value={selectedUf}
+					onChange={(e) => setSelectedUf(e.target.value)}
+					disabled={isLoading}
+					className="h-full w-full bg-green-950/30 border border-green-500 text-green-400 font-mono text-sm rounded-none appearance-none px-2 lg:px-3 pr-6 lg:pr-8 cursor-pointer focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50 min-w-0"
+					style={{ WebkitAppearance: "none" }}
+					aria-label="Selecione a alçada"
+				>
+					<option value="" disabled className="bg-black text-green-500">
+						Selecione a alçada
+					</option>
+					<option value="FEDERAL" className="bg-black text-green-400 font-bold">
+						🏛  Governo Federal
+					</option>
+					<option disabled className="bg-black text-green-700">
+						──────────────────
+					</option>
+					<optgroup label="Governo Estadual" className="bg-black text-green-600 text-xs">
+						{alcadas
+							.filter((e: any) => e.sigla !== "FEDERAL" && e.sigla !== "_SEP_")
+							.map((uf: any) => (
+								<option key={uf.sigla} value={uf.sigla} className="bg-black text-green-400">
+									{uf.sigla} — {uf.nome}
+								</option>
+							))}
+					</optgroup>
+				</select>
+				<div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+					<svg className="w-3 h-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+					</svg>
+				</div>
+			</div>
+
+			<Input
+				className="flex-1 h-full"
+				placeholder="ALVO: NOME DO POLÍTICO"
+				value={searchTerm}
+				onChange={(e) => handleSearchTermChange(e.target.value)}
+				onKeyDown={handleKeyDown}
+				onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
+				onFocus={() => {
+					if (autocompleteSuggestions.length > 0) setShowAutocomplete(true);
+				}}
+				disabled={isLoading}
+				autoComplete="off"
+			/>
+
+			{isLoading && onCancel ? (
+				<Button
+					variant="cyber-destructive"
+					onClick={onCancel}
+					className="h-full px-8 relative overflow-hidden group shrink-0"
+				>
+					<span className="relative z-10 w-24 text-center">CANCELAR</span>
+				</Button>
+			) : (
+				<Button
+					variant="cyber"
+					onClick={triggerSearch}
+					disabled={!searchTerm.trim()}
+					className="h-full px-8 relative overflow-hidden group shrink-0"
+				>
+					<Search className="mr-2 h-4 w-4 relative z-10" />
+					<span className="relative z-10 w-20 text-center">Procurar</span>
+				</Button>
+			)}
+		</div>
+
+		{showAlcadaError && (
+			<div className="absolute -bottom-6 left-2 text-xs text-red-500 font-mono z-50 animate-in fade-in slide-in-from-top-1">
+				&gt; Selecione uma alçada (Estado) para realizar a busca.
+			</div>
+		)}
+
+		{showAutocomplete && autocompleteSuggestions.length > 0 && !isLoading && (
+			<AutocompleteDropdown
+				suggestions={autocompleteSuggestions}
+				activeIdx={autocompleteIdx}
+				onSelect={handleSelectCandidate}
+			/>
+		)}
+	</div>
+);
 
 export default function SearchBar({
 	searchTerm,
@@ -122,380 +442,76 @@ export default function SearchBar({
 			.normalize("NFD")
 			.replace(/[\u0300-\u036f]/g, "");
 		const searchTerms = termoNorm.split(/\s+/).filter(Boolean);
-		const matches = [...EXTRA_VIP_INDEX, ...congressoIndex, ...municipaisIndex].filter((p: any) => {
-			const nameNorm = p.nome
-				.toLowerCase()
-				.normalize("NFD")
-				.replace(/[\u0300-\u036f]/g, "");
-			const nameMatch = searchTerms.every((term: string) => nameNorm.includes(term));
-			if (!nameMatch) return false;
-
-			// Filtro por Alçada se não for FEDERAL
-			if (selectedUf && selectedUf !== "FEDERAL") {
-				if (p.isPresidente) return false; // VIPs só aparecem no FEDERAL ou sem filtro
-				return p.uf === selectedUf;
-			}
-			return true;
-		});
-		const uniqueMatches = Array.from(
-			new Map(matches.map((m: any) => [String(m.id || m.nome), m])).values(),
-		).slice(0, 8);
+		const uniqueMatches = buscarPoliticosIndexados(searchTerms, selectedUf);
 
 		setAutocompleteSuggestions(uniqueMatches);
 		setAutocompleteIdx(-1);
 		setShowAutocomplete(uniqueMatches.length > 0);
 	};
 
+	const handleSelectCandidate = (selected: any) => {
+		setSearchTerm(selected.nome);
+		setShowAutocomplete(false);
+		setAutocompleteSuggestions([]);
+		if (selected.isPresidente) {
+			router.push(`/perfil/presidente/${selected.id}`);
+		} else {
+			onSearch(formatAutoRef(selected), selected.nome);
+		}
+	};
+
+	const triggerSearch = () => {
+		if (!selectedUf) {
+			setShowAlcadaError(true);
+			return;
+		}
+		setShowAlcadaError(false);
+		setShowAutocomplete(false);
+		onSearch();
+	};
+
 	const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
 		if (showAutocomplete && autocompleteSuggestions.length > 0) {
-			if (e.key === "ArrowDown") {
+			if (tratarNavegacaoTeclas(e.key, setAutocompleteIdx, autocompleteSuggestions.length)) {
 				e.preventDefault();
-				setAutocompleteIdx((prev) =>
-					Math.min(prev + 1, autocompleteSuggestions.length - 1),
-				);
 				return;
-			} else if (e.key === "ArrowUp") {
+			}
+			if (e.key === "Enter" && autocompleteIdx >= 0) {
 				e.preventDefault();
-				setAutocompleteIdx((prev) => Math.max(prev - 1, -1));
+				handleSelectCandidate(autocompleteSuggestions[autocompleteIdx]);
 				return;
-			} else if (e.key === "Enter" && autocompleteIdx >= 0) {
-				e.preventDefault();
-				const selected = autocompleteSuggestions[autocompleteIdx];
-				setSearchTerm(selected.nome);
-				setShowAutocomplete(false);
-				setAutocompleteSuggestions([]);
-				if (selected.isPresidente) {
-					router.push(`/perfil/presidente/${selected.id}`);
-				} else {
-					onSearch(formatAutoRef(selected), selected.nome);
-				}
-				return;
-			} else if (e.key === "Escape") {
+			}
+			if (e.key === "Escape") {
 				setShowAutocomplete(false);
 				return;
 			}
 		}
 		if (e.key === "Enter") {
-			if (!selectedUf) {
-				setShowAlcadaError(true);
-				return;
-			}
-			setShowAlcadaError(false);
-			setShowAutocomplete(false);
-			onSearch();
+			triggerSearch();
 		}
 	};
 
+	const commonProps = {
+		selectedUf,
+		setSelectedUf,
+		isLoading,
+		showAlcadaError,
+		alcadas,
+		searchTerm,
+		handleSearchTermChange,
+		handleKeyDown,
+		setShowAutocomplete,
+		showAutocomplete,
+		autocompleteSuggestions,
+		autocompleteIdx,
+		handleSelectCandidate,
+		onCancel,
+		triggerSearch,
+	};
+
 	if (isMobile) {
-		return (
-			<div className="w-full relative max-w-sm mx-auto z-20">
-				<div className="flex flex-col gap-3 w-full">
-					{/* SELETOR DE ALÇADA MOBILE */}
-					<div className="relative">
-						<select
-							value={selectedUf}
-							onChange={(e) => setSelectedUf(e.target.value)}
-							disabled={isLoading}
-							className={`w-full h-12 bg-green-950/30 border ${showAlcadaError ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'border-green-500'} text-green-400 font-mono text-sm rounded-none appearance-none px-4 pr-10 cursor-pointer focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50 transition-all duration-300`}
-							style={{ WebkitAppearance: "none" }}
-							aria-label="Selecione a alçada"
-						>
-							<option value="" disabled className="bg-black text-green-500">
-								Selecione a alçada
-							</option>
-							<option
-								value="FEDERAL"
-								className="bg-black text-green-400 font-bold"
-							>
-								🏛  Governo Federal
-							</option>
-							<option disabled className="bg-black text-green-700">
-								──────────────────
-							</option>
-							<optgroup
-								label="Governo Estadual"
-								className="bg-black text-green-600 text-xs"
-							>
-								{alcadas
-									.filter((e) => e.sigla !== "FEDERAL" && e.sigla !== "_SEP_")
-									.map((uf) => (
-										<option
-											key={uf.sigla}
-											value={uf.sigla}
-											className="bg-black text-green-400"
-										>
-											{uf.sigla} — {uf.nome}
-										</option>
-									))}
-							</optgroup>
-						</select>
-						{/* Chevron custom */}
-						<div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-							<svg
-								className="w-4 h-4 text-green-500"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M19 9l-7 7-7-7"
-								/>
-							</svg>
-						</div>
-					</div>
-
-					<Input
-						placeholder="Nome do político"
-						value={searchTerm}
-						onChange={(e) => handleSearchTermChange(e.target.value)}
-						onKeyDown={handleKeyDown}
-						onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
-						onFocus={() => {
-							if (autocompleteSuggestions.length > 0) setShowAutocomplete(true);
-						}}
-						disabled={isLoading}
-						autoComplete="off"
-						className={`transition-all duration-300 ${showAlcadaError ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : ''}`}
-					/>
-
-					{showAlcadaError && (
-						<div className="text-xs text-red-500 font-mono -mt-1 px-1">
-							&gt; Selecione uma alçada (Estado)
-						</div>
-					)}
-
-				{/* AUTOCOMPLETE DROPDOWN - mobile */}
-				{showAutocomplete &&
-					autocompleteSuggestions.length > 0 &&
-					!isLoading && (
-						<div className="w-full max-h-[40vh] overflow-y-auto custom-scrollbar border border-green-500/50 bg-black/95 backdrop-blur-sm z-60 font-mono divide-y divide-green-900/30 shadow-[0_4px_20px_rgba(34,197,94,0.2)] rounded-none">
-							{autocompleteSuggestions.map((p: any, i: number) => (
-								<button
-									key={`${p.casa}-${p.id}-${i}`}
-									className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between transition-colors ${
-										i === autocompleteIdx
-											? "bg-green-900/40 text-green-400"
-											: "text-green-500/80 hover:bg-green-950/40 hover:text-green-400"
-									}`}
-									onMouseDown={(e) => {
-										e.preventDefault();
-										setSearchTerm(p.nome);
-										setShowAutocomplete(false);
-										setAutocompleteSuggestions([]);
-										if (p.isPresidente) {
-											router.push(`/perfil/presidente/${p.id}`);
-										} else {
-											onSearch(formatAutoRef(p), p.nome);
-										}
-									}}
-								>
-									<span className="flex items-center gap-2">
-										<span className="w-10 shrink-0 text-center truncate px-1 text-[10px] font-bold text-green-700 border border-green-900/50 bg-green-950/20 py-1 rounded-none">
-											{formatPartido(p.partido)}
-										</span>
-										<span className="font-bold">{p.nome}</span>
-									</span>
-									<span className="flex items-center gap-1.5 text-xs opacity-75">
-										{p.orgao && (
-											<span className="text-[10px] text-green-400 font-mono border border-green-800/60 bg-green-950/40 px-1 py-0.5">
-												{p.orgao}
-											</span>
-										)}
-										<span>{p.uf}</span>
-									</span>
-								</button>
-							))}
-						</div>
-					)}
-
-					{/* BOTÃO PROCURAR/CANCELAR MOBILE */}
-					{isLoading && onCancel ? (
-						<Button
-							variant="cyber-destructive"
-							onClick={onCancel}
-							className="w-full h-12 relative overflow-hidden"
-						>
-							Cancelar
-						</Button>
-					) : (
-						<Button
-							variant="cyber"
-							onClick={() => {
-								if (!selectedUf) {
-									setShowAlcadaError(true);
-									return;
-								}
-								setShowAlcadaError(false);
-								setShowAutocomplete(false);
-								onSearch();
-							}}
-							disabled={!searchTerm.trim()}
-							className="w-full h-12 relative overflow-hidden"
-						>
-							<Search className="mr-2 h-4 w-4" />
-							Procurar
-						</Button>
-					)}
-				</div>
-			</div>
-		);
+		return <SearchBarMobileView {...commonProps} />;
 	}
 
-	// DESKTOP
-	return (
-		<div className="w-full relative z-20">
-			<div className={`flex w-full h-12 items-center bg-black/80 border ${showAlcadaError ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'border-green-500/50'} relative overflow-visible z-50 transition-all duration-300`}>
-				{/* SELETOR DE ALÇADA DESKTOP */}
-				<div className="relative h-full flex items-center bg-black border border-r-0 border-green-500/50 hover:border-green-400 focus-within:border-green-500 transition-colors w-1/3 lg:w-auto max-w-55">
-					<select
-						id="select-alcada"
-						value={selectedUf}
-						onChange={(e) => setSelectedUf(e.target.value)}
-						disabled={isLoading}
-						className="h-full w-full bg-green-950/30 border border-green-500 text-green-400 font-mono text-sm rounded-none appearance-none px-2 lg:px-3 pr-6 lg:pr-8 cursor-pointer focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50 min-w-0"
-						style={{ WebkitAppearance: "none" }}
-						aria-label="Selecione a alçada"
-					>
-						<option value="" disabled className="bg-black text-green-500">
-							Selecione a alçada
-						</option>
-						<option
-							value="FEDERAL"
-							className="bg-black text-green-400 font-bold"
-						>
-							🏛  Governo Federal
-						</option>
-						<option disabled className="bg-black text-green-700">
-							──────────────────
-						</option>
-						<optgroup
-							label="Governo Estadual"
-							className="bg-black text-green-600 text-xs"
-						>
-							{alcadas
-								.filter((e) => e.sigla !== "FEDERAL" && e.sigla !== "_SEP_")
-								.map((uf) => (
-									<option
-										key={uf.sigla}
-										value={uf.sigla}
-										className="bg-black text-green-400"
-									>
-										{uf.sigla} — {uf.nome}
-									</option>
-								))}
-						</optgroup>
-					</select>
-					{/* Chevron custom */}
-					<div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
-						<svg
-							className="w-3 h-3 text-green-500"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M19 9l-7 7-7-7"
-							/>
-						</svg>
-					</div>
-				</div>
-
-				<Input
-					className="flex-1 h-full"
-					placeholder="ALVO: NOME DO POLÍTICO"
-					value={searchTerm}
-					onChange={(e) => handleSearchTermChange(e.target.value)}
-					onKeyDown={handleKeyDown}
-					onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
-					onFocus={() => {
-						if (autocompleteSuggestions.length > 0) setShowAutocomplete(true);
-					}}
-					disabled={isLoading}
-					autoComplete="off"
-				/>
-
-				{isLoading && onCancel ? (
-					<Button
-						variant="cyber-destructive"
-						onClick={onCancel}
-						className="h-full px-8 relative overflow-hidden group shrink-0"
-					>
-						<span className="relative z-10 w-24 text-center">CANCELAR</span>
-					</Button>
-				) : (
-					<Button
-						variant="cyber"
-						onClick={() => {
-							if (!selectedUf) {
-								setShowAlcadaError(true);
-								return;
-							}
-							setShowAlcadaError(false);
-							setShowAutocomplete(false);
-							onSearch();
-						}}
-						disabled={!searchTerm.trim()}
-						className="h-full px-8 relative overflow-hidden group shrink-0"
-					>
-						<Search className="mr-2 h-4 w-4 relative z-10" />
-						<span className="relative z-10 w-20 text-center">Procurar</span>
-					</Button>
-				)}
-			</div>
-
-			{showAlcadaError && (
-				<div className="absolute -bottom-6 left-2 text-xs text-red-500 font-mono z-50 animate-in fade-in slide-in-from-top-1">
-					&gt; Selecione uma alçada (Estado) para realizar a busca.
-				</div>
-			)}
-
-			{/* AUTOCOMPLETE DROPDOWN */}
-			{showAutocomplete && autocompleteSuggestions.length > 0 && !isLoading && (
-				<div className="absolute top-14 left-0 w-full border border-green-500/50 bg-black/95 backdrop-blur-sm z-60 font-mono divide-y divide-green-900/30 shadow-[0_4px_20px_rgba(34,197,94,0.2)]">
-					{autocompleteSuggestions.map((p: any, i: number) => (
-						<button
-							key={`${p.casa}-${p.id}-${i}`}
-							className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors cursor-pointer ${
-								i === autocompleteIdx
-									? "bg-green-900/40 text-green-400"
-									: "text-green-500/80 hover:bg-green-950/40 hover:text-green-400"
-							}`}
-							onMouseDown={(e) => {
-								e.preventDefault();
-								setSearchTerm(p.nome);
-								setShowAutocomplete(false);
-								setAutocompleteSuggestions([]);
-								if (p.isPresidente) {
-									router.push(`/perfil/presidente/${p.id}`);
-								} else {
-									onSearch(formatAutoRef(p), p.nome);
-								}
-							}}
-						>
-							<span className="flex items-center gap-2">
-								<span className="w-10 shrink-0 text-center truncate px-1 text-[10px] font-bold text-green-700 border border-green-900/50 bg-green-950/20 py-1 rounded-none">
-									{formatPartido(p.partido)}
-								</span>
-								<span className="font-bold">{p.nome}</span>
-							</span>
-							<span className="flex items-center gap-2 text-xs opacity-75">
-								{p.orgao && (
-									<span className="text-[10px] text-green-400 font-mono border border-green-800/60 bg-green-950/40 px-1.5 py-0.5">
-										{p.orgao}
-									</span>
-								)}
-								<span>{p.uf}</span>
-							</span>
-						</button>
-					))}
-				</div>
-			)}
-		</div>
-	);
+	return <SearchBarDesktopView {...commonProps} />;
 }

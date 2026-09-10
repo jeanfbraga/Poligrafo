@@ -76,6 +76,23 @@ async function testarGabinete() {
     }
 }
 
+function processarGastosMes(gastos: any[], mesAtual: number) {
+    let valorGasto = 0;
+    const fatias: Record<string, number> = {};
+
+    for (const g of gastos) {
+        if (g.data_documento) {
+            const docMonth = new Date(g.data_documento).getMonth() + 1;
+            if (docMonth !== mesAtual) continue;
+        }
+        const val = Number(g.valor_documento);
+        valorGasto += val;
+        const tipo = g.tipo_despesa ?? 'Outros';
+        fatias[tipo] = (fatias[tipo] ?? 0) + val;
+    }
+    return { valorGasto, fatias };
+}
+
 async function testarCota() {
     console.log(`\n--- Testando Cota CEAP para ${DEPUTADO_TESTE.nome} (${DEPUTADO_TESTE.id}) ---`);
     const anoAtual = 2024; // Usando 2024 para ter dados
@@ -96,42 +113,30 @@ async function testarCota() {
         return;
     }
 
-    let valorGasto = 0;
-    const fatias: Record<string, number> = {};
-
-    if (gastos && gastos.length > 0) {
-        for (const g of gastos) {
-            // Filtrar pelo mês
-            if (g.data_documento) {
-                const docMonth = new Date(g.data_documento).getMonth() + 1;
-                if (docMonth !== mesAtual) continue;
-            }
-            
-            valorGasto += Number(g.valor_documento);
-            const tipo = g.tipo_despesa || 'Outros';
-            fatias[tipo] = (fatias[tipo] || 0) + Number(g.valor_documento);
-        }
-        console.log(`Total gasto: R$ ${valorGasto.toFixed(2)}`);
-        console.log("Fatias de gasto:", JSON.stringify(fatias, null, 2));
-        
-        console.log("\nSalvando resumo no banco de testes (Perfil)...");
-        const { error: saveError } = await supabasePerfil.from('camara_cota_resumo_cache').upsert(
-            {
-                deputado_id: DEPUTADO_TESTE.id,
-                mes_referencia: mesAtual,
-                ano_referencia: anoAtual,
-                valor_teto: teto,
-                valor_gasto: valorGasto,
-                fatias_json: fatias,
-                atualizado_em: new Date().toISOString()
-            },
-            { onConflict: 'deputado_id' }
-        );
-        if (saveError) console.error("Erro ao salvar cota:", saveError.message);
-        else console.log("Salvo com sucesso!");
-    } else {
+    if (!gastos || gastos.length === 0) {
         console.log("Nenhum gasto encontrado no mês atual para este deputado no banco Principal.");
+        return;
     }
+
+    const { valorGasto, fatias } = processarGastosMes(gastos, mesAtual);
+    console.log(`Total gasto: R$ ${valorGasto.toFixed(2)}`);
+    console.log("Fatias de gasto:", JSON.stringify(fatias, null, 2));
+    
+    console.log("\nSalvando resumo no banco de testes (Perfil)...");
+    const { error: saveError } = await supabasePerfil.from('camara_cota_resumo_cache').upsert(
+        {
+            deputado_id: DEPUTADO_TESTE.id,
+            mes_referencia: mesAtual,
+            ano_referencia: anoAtual,
+            valor_teto: teto,
+            valor_gasto: valorGasto,
+            fatias_json: fatias,
+            atualizado_em: new Date().toISOString()
+        },
+        { onConflict: 'deputado_id' }
+    );
+    if (saveError) console.error("Erro ao salvar cota:", saveError.message);
+    else console.log("Salvo com sucesso!");
 }
 
 async function runTests() {

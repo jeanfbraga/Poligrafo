@@ -48,203 +48,155 @@ ${JSON.stringify(
 `;
 }
 
+async function consultarGroqLicitacoes(prompt: string, groqKey: string): Promise<any | null> {
+	for (const model of GROQ_MODELS) {
+		try {
+			const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+				method: "POST",
+				headers: { Authorization: `Bearer ${groqKey}`, "Content-Type": "application/json" },
+				body: JSON.stringify({
+					model,
+					messages: [
+						{ role: "system", content: "You MUST reply ONLY with a valid JSON OBJECT." },
+						{ role: "user", content: prompt },
+					],
+					temperature: 0.1,
+					response_format: { type: "json_object" },
+				}),
+				signal: AbortSignal.timeout(12000),
+			});
+			if (res.ok) {
+				const data = await res.json();
+				const payload = JSON.parse(data.choices[0].message.content);
+				if (payload.contratos_avaliados) return payload;
+			}
+		} catch (_e) {}
+	}
+	return null;
+}
+
+async function consultarOpenRouterLicitacoes(prompt: string, key: string): Promise<any | null> {
+	for (const model of OPENROUTER_MODELS) {
+		try {
+			const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${key}`,
+					"HTTP-Referer": "https://poligrafo.app.br",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					model,
+					messages: [
+						{ role: "system", content: "You MUST reply ONLY with a valid JSON OBJECT." },
+						{ role: "user", content: prompt },
+					],
+					temperature: 0.1,
+					response_format: { type: "json_object" },
+				}),
+				signal: AbortSignal.timeout(10000),
+			});
+			if (res.ok) {
+				const data = await res.json();
+				const textResult = data.choices[0]?.message?.content;
+				if (textResult) {
+					const parsed = JSON.parse(textResult.replace(/```json/g, "").replace(/```/g, "").trim());
+					if (parsed.contratos_avaliados) return parsed;
+				}
+			}
+		} catch (_e) {}
+	}
+	return null;
+}
+
+async function consultarGeminiLicitacoes(prompt: string, key: string): Promise<any | null> {
+	console.log(`[PNCP L3 GEMINI] Fallback L3 acionado...`);
+	for (const model of GEMINI_MODELS) {
+		try {
+			const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+			const res = await fetch(endpoint, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					contents: [{ parts: [{ text: "You MUST reply ONLY with a valid JSON OBJECT.\n" + prompt }] }],
+					generationConfig: { responseMimeType: "application/json", temperature: 0.1 },
+				}),
+				signal: AbortSignal.timeout(20000),
+			});
+			if (res.ok) {
+				const data = await res.json();
+				const textResult = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+				if (textResult) {
+					const parsed = JSON.parse(textResult.replace(/```json/g, "").replace(/```/g, "").trim());
+					if (parsed.contratos_avaliados) return parsed;
+				}
+			}
+		} catch (_e) {
+			console.warn(`[PNCP L3 GEMINI] Falhou no modelo ${model}. Tentando o próximo.`);
+		}
+	}
+	return null;
+}
+
+function avaliarContratoHeuristico(c: PNCPContract, fraudeLabel: string) {
+	let isLetal = false;
+	let pScore = 20;
+	let motivo = "Processamento automático heurístico: Nada grave detectado no limiar numérico.";
+	const valor = c.valorInicial || 0;
+
+	if (valor < 100000 && valor > 30000) {
+		isLetal = true;
+		pScore = 70;
+		motivo = "ALERTA L4: Valor perigosamente num limiar de dispensa de licitação (Lei 14.133). Smurfing?";
+	} else if (valor > 1000000) {
+		isLetal = true;
+		pScore = 85;
+		motivo = "ALERTA L4: Contrato com teto Milionário num curto espaço de tempo. Auditoria manual Requerida.";
+	}
+
+	return {
+		numeroControlePNCP: c.numeroControlePNCP,
+		classificacao: isLetal ? fraudeLabel : "REGULAR_L4",
+		motivo_ia: motivo,
+		score_letalidade: pScore,
+		enquadramento_normativo: "Heurística Sistema Matemático L4",
+	};
+}
+
+function avaliarContratosHeuristicaLocal(contratos: PNCPContract[]) {
+	console.warn(`[PNCP L4 HEURISTICA] APIs Neurais indisponíveis. Modulando aproximação L4...`);
+	const riscoScore = contratos.length > 5 ? 75 : 20;
+	const fraudeLabel = contratos.length > 5 ? "CONCENTRAÇÃO_SUSPEITA_NO_ORGAO" : "AUSTERIDADE_ALIDA";
+
+	return {
+		conclusao_geral: "Análise realizada via contingência analítica por quebra nas APIs IAs.",
+		score_letalidade_geral: riscoScore,
+		contratos_avaliados: contratos.map((c) => avaliarContratoHeuristico(c, fraudeLabel)),
+	};
+}
+
 export async function analisarComIAPNCP(
 	cnpj: string,
 	politico: string,
 	contratos: PNCPContract[],
 ) {
 	const prompt = construirPromptLicitacoes(cnpj, politico, contratos);
-
-	// NÍVEL 1: GROQ (Velocidade e Precisão Primária)
-	const groqKey = process.env.GROQ_API_KEY;
 	const isDev = process.env.NODE_ENV === "development";
 
-	if (groqKey && !isDev) {
-		for (const model of GROQ_MODELS) {
-			try {
-				const res = await fetch(
-					"https://api.groq.com/openai/v1/chat/completions",
-					{
-						method: "POST",
-						headers: {
-							Authorization: `Bearer ${groqKey}`,
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({
-							model: model,
-							messages: [
-								{
-									role: "system",
-									content: "You MUST reply ONLY with a valid JSON OBJECT.",
-								},
-								{ role: "user", content: prompt },
-							],
-							temperature: 0.1,
-							response_format: { type: "json_object" },
-						}),
-						signal: AbortSignal.timeout(12000),
-					},
-				);
-
-				if (res.ok) {
-					const data = await res.json();
-					const payload = JSON.parse(data.choices[0].message.content);
-					if (payload.contratos_avaliados) return payload;
-				}
-			} catch (e) {
-				// Tenta próximo modelo do Groq
-			}
-		}
+	if (process.env.GROQ_API_KEY && !isDev) {
+		const resGroq = await consultarGroqLicitacoes(prompt, process.env.GROQ_API_KEY);
+		if (resGroq) return resGroq;
 	}
 
-	// NÍVEL 2: OPENROUTER (Modelos Gratuitos e openrouter/free)
-	const openRouterKey = process.env.OPENROUTER_API_KEY;
-	if (openRouterKey && !isDev) {
-		for (const model of OPENROUTER_MODELS) {
-			try {
-				const res = await fetch(
-					"https://openrouter.ai/api/v1/chat/completions",
-					{
-						method: "POST",
-						headers: {
-							Authorization: `Bearer ${openRouterKey}`,
-							"HTTP-Referer": "https://poligrafo.app.br",
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({
-							model: model,
-							messages: [
-								{
-									role: "system",
-									content: "You MUST reply ONLY with a valid JSON OBJECT.",
-								},
-								{ role: "user", content: prompt },
-							],
-							temperature: 0.1,
-							response_format: { type: "json_object" },
-						}),
-						signal: AbortSignal.timeout(10000),
-					},
-				);
-
-				if (res.ok) {
-					const data = await res.json();
-					const textResult = data.choices[0]?.message?.content;
-					if (textResult) {
-						const parsedObj = JSON.parse(
-							textResult
-								.replace(/```json/g, "")
-								.replace(/```/g, "")
-								.trim(),
-						);
-						if (parsedObj.contratos_avaliados) return parsedObj;
-					}
-				}
-			} catch (_e) {
-				// Tenta próximo modelo do OpenRouter
-			}
-		}
+	if (process.env.OPENROUTER_API_KEY && !isDev) {
+		const resOR = await consultarOpenRouterLicitacoes(prompt, process.env.OPENROUTER_API_KEY);
+		if (resOR) return resOR;
 	}
 
-	// NÍVEL 3: GEMINI (Fallback Neural Cognitivo)
-	const geminiKey = process.env.GEMINI_API_KEY;
-	if (geminiKey && !isDev) {
-		console.log(`[PNCP L3 GEMINI] Fallback L3 acionado...`);
-		for (const model of GEMINI_MODELS) {
-			try {
-				const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
-				const res = await fetch(endpoint, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						contents: [
-							{
-								parts: [
-									{
-										text:
-											"You MUST reply ONLY with a valid JSON OBJECT.\n" +
-											prompt,
-									},
-								],
-							},
-						],
-						generationConfig: {
-							responseMimeType: "application/json",
-							temperature: 0.1,
-						},
-					}),
-					signal: AbortSignal.timeout(20000),
-				});
-
-				if (res.ok) {
-					const data = await res.json();
-					const textResult = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-					if (textResult) {
-						const parsedObj = JSON.parse(
-							textResult
-								.replace(/```json/g, "")
-								.replace(/```/g, "")
-								.trim(),
-						);
-						if (parsedObj.contratos_avaliados) return parsedObj;
-					}
-				}
-			} catch (_e) {
-				console.warn(
-					`[PNCP L3 GEMINI] Falhou no modelo ${model}. Tentando o próximo.`,
-				);
-			}
-		}
+	if (process.env.GEMINI_API_KEY && !isDev) {
+		const resGemini = await consultarGeminiLicitacoes(prompt, process.env.GEMINI_API_KEY);
+		if (resGemini) return resGemini;
 	}
 
-	// NÍVEL 4: HEURÍSTICA MATEMÁTICA PURA (Circuit Breaker L4)
-	console.warn(
-		`[PNCP L4 HEURISTICA] APIs Neurais indisponíveis. Modulando aproximação L4...`,
-	);
-	let riscoScore = 20;
-	let fraudeLabel = "AUSTERIDADE_ALIDA";
-
-	if (contratos.length > 5) {
-		riscoScore = 75;
-		fraudeLabel = "CONCENTRAÇÃO_SUSPEITA_NO_ORGAO";
-	}
-
-	const contratosAvaliadosFallback = contratos.map((c) => {
-		let isLetal = false;
-		let pScore = 20;
-		let motivo =
-			"Processamento automático heurístico: Nada grave detectado no limiar numérico.";
-		const valor = c.valorInicial || 0;
-
-		// Smurfing Simples (Dispensa < 100.000)
-		if (valor < 100000 && valor > 30000) {
-			isLetal = true;
-			pScore = 70;
-			motivo =
-				"ALERTA L4: Valor perigosamente num limiar de dispensa de licitação (Lei 14.133). Smurfing?";
-		}
-
-		// Milionário
-		if (valor > 1000000) {
-			isLetal = true;
-			pScore = 85;
-			motivo =
-				"ALERTA L4: Contrato com teto Milionário num curto espaço de tempo. Auditoria manual Requerida.";
-		}
-
-		return {
-			numeroControlePNCP: c.numeroControlePNCP,
-			classificacao: isLetal ? fraudeLabel : "REGULAR_L4",
-			motivo_ia: motivo,
-			score_letalidade: pScore,
-			enquadramento_normativo: "Heurística Sistema Matemático L4",
-		};
-	});
-
-	return {
-		conclusao_geral:
-			"Análise realizada via contingência analítica por quebra nas APIs IAs.",
-		score_letalidade_geral: riscoScore,
-		contratos_avaliados: contratosAvaliadosFallback,
-	};
+	return avaliarContratosHeuristicaLocal(contratos);
 }

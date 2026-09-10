@@ -41,6 +41,51 @@ async function downloadData() {
     }
 }
 
+function extrairProprietario(propsRaw: string): { documento: string; nome: string } | null {
+    try {
+        const props = JSON.parse(propsRaw.replace(/""/g, '"'));
+        if (!Array.isArray(props) || props.length === 0) return null;
+        const documento = (props[0].DOCUMENTO || '').replace(/\D/g, '');
+        const nome = props[0].NOME || '';
+        if (!documento || !nome) return null;
+        return { documento, nome };
+    } catch {
+        return null;
+    }
+}
+
+function mapearLinhaAnac(row: any) {
+    const prefixo = row['MARCAS'];
+    const propsRaw = row['PROPRIETARIOS'];
+    if (!prefixo || !propsRaw) return null;
+
+    const prop = extrairProprietario(propsRaw);
+    if (!prop) return null;
+
+    const dtCanc = row['DT_CANC'];
+    const situacao = dtCanc && dtCanc.trim() !== '' ? 'CANCELADA' : 'REGULAR';
+
+    return {
+        prefixo,
+        proprietario_documento: prop.documento,
+        proprietario_nome: prop.nome,
+        modelo: row['DS_MODELO'] || 'DESCONHECIDO',
+        fabricante: row['NM_FABRICANTE'] || 'DESCONHECIDO',
+        situacao
+    };
+}
+
+async function salvarLoteAnac(lote: any[]): Promise<number> {
+    const { error } = await supabase
+        .from('anac_rab')
+        .upsert(lote, { onConflict: 'prefixo', ignoreDuplicates: false });
+    if (error) {
+        console.error('[ANAC] Erro no lote:', error.message);
+        return 0;
+    }
+    return lote.length;
+}
+
 async function processData() {
     console.log(`[ANAC] Processando CSV...`);
     
@@ -66,61 +111,19 @@ async function processData() {
             if (rowCount === 0) { console.log('DEBUG ROW:', Object.keys(row)); }
             rowCount++;
             try {
-                const prefixo = row['MARCAS'];
-                const propsRaw = row['PROPRIETARIOS'];
-                const modelo = row['DS_MODELO'];
-                const fabricante = row['NM_FABRICANTE'];
-                const dtCanc = row['DT_CANC'];
-                
-                if (!prefixo || !propsRaw) return;
+                const item = mapearLinhaAnac(row);
+                if (!item) return;
 
-                let propDocumento = '';
-                let propNome = '';
-                
-                try {
-                    // O campo PROPRIETARIOS é um array JSON stringificado
-                    const props = JSON.parse(propsRaw.replace(/""/g, '"'));
-                    if (Array.isArray(props) && props.length > 0) {
-                        propDocumento = props[0].DOCUMENTO || '';
-                        propNome = props[0].NOME || '';
-                    }
-                } catch (e) {
-                    // Ignora erros de parse do JSON localizados e usa string bruta se possível
-                }
-                
-                // Normaliza documento
-                propDocumento = propDocumento.replace(/\D/g, '');
-                
-                if (!propDocumento || !propNome) return;
-
-                const situacao = dtCanc && dtCanc.trim() !== '' ? 'CANCELADA' : 'REGULAR';
-
-                batch.push({
-                    prefixo,
-                    proprietario_documento: propDocumento,
-                    proprietario_nome: propNome,
-                    modelo: modelo || 'DESCONHECIDO',
-                    fabricante: fabricante || 'DESCONHECIDO',
-                    situacao
-                });
+                batch.push(item);
 
                 if (batch.length >= BATCH_SIZE) {
                     stream.pause();
                     const currentBatch = [...batch];
                     batch = [];
-                    
-                    const { error } = await supabase
-                        .from('anac_rab')
-                        .upsert(currentBatch, { onConflict: 'prefixo', ignoreDuplicates: false });
-                        
-                    if (error) {
-                        console.error('[ANAC] Erro no lote:', error.message);
-                    } else {
-                        totalInseridos += currentBatch.length;
-                    }
+                    totalInseridos += await salvarLoteAnac(currentBatch);
                     stream.resume();
                 }
-            } catch (err) {
+            } catch {
                 // Ignore single row errors
             }
         });

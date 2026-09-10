@@ -15,31 +15,45 @@ export interface NepotismoCamaraMatch {
  * @param nomePesquisado Nome da pessoa física a verificar
  * @param idDeputadoAlvo ID do deputado atualmente sob investigação
  */
+function ehNomeInvalidoParaPessoa(nome: string): boolean {
+	if (!nome || nome.trim().length < 5) return true;
+	return /S\/?A$|LTDA|MEI|EIRELI|ASSOCIACAO|INSTITUTO/i.test(nome.trim());
+}
+
+async function buscarServidorGabinete(nome: string, idDeputado?: number) {
+	let query = supabasePerfilAdmin
+		.from("camara_servidores_gabinete")
+		.select("*")
+		.ilike("nome", nome)
+		.limit(1);
+
+	if (idDeputado) {
+		query = query.eq("deputado_id", idDeputado);
+	}
+
+	const { data, error } = await query.maybeSingle();
+	return !error && data ? data : null;
+}
+
+/**
+ * Verifica se um nome pesquisado (sócio de fornecedor ou doador)
+ * consta na folha de servidores/comissionados da Câmara dos Deputados.
+ * 
+ * @param nomePesquisado Nome da pessoa física a verificar
+ * @param idDeputadoAlvo ID do deputado atualmente sob investigação
+ */
 export async function checkNepotismoCamara(
 	nomePesquisado: string,
 	idDeputadoAlvo?: number,
 ): Promise<NepotismoCamaraMatch | null> {
-	if (!nomePesquisado || nomePesquisado.trim().length < 5) return null;
+	if (ehNomeInvalidoParaPessoa(nomePesquisado)) return null;
 
 	const nomeLimpo = nomePesquisado.trim();
 
-	// Evitar falsos positivos com termos corporativos
-	if (/S\/?A$|LTDA|MEI|EIRELI|ASSOCIACAO|INSTITUTO/i.test(nomeLimpo)) {
-		return null;
-	}
-
 	try {
-		// 1. Prioridade: verificar se está no gabinete do PRÓPRIO deputado investigado
 		if (idDeputadoAlvo) {
-			const { data: direto, error: errDireto } = await supabasePerfilAdmin
-				.from("camara_servidores_gabinete")
-				.select("*")
-				.eq("deputado_id", idDeputadoAlvo)
-				.ilike("nome", nomeLimpo)
-				.limit(1)
-				.maybeSingle();
-
-			if (!errDireto && direto) {
+			const direto = await buscarServidorGabinete(nomeLimpo, idDeputadoAlvo);
+			if (direto) {
 				return {
 					deputado_id: direto.deputado_id,
 					nome: direto.nome,
@@ -50,23 +64,15 @@ export async function checkNepotismoCamara(
 			}
 		}
 
-		// 2. Consulta em toda a base da Câmara (outros gabinetes ou geral)
-		const { data: geral, error: errGeral } = await supabasePerfilAdmin
-			.from("camara_servidores_gabinete")
-			.select("*")
-			.ilike("nome", nomeLimpo)
-			.limit(1)
-			.maybeSingle();
-
-		if (!errGeral && geral) {
+		const geral = await buscarServidorGabinete(nomeLimpo);
+		if (geral) {
+			const ehDireto = Boolean(idDeputadoAlvo && geral.deputado_id === idDeputadoAlvo);
 			return {
 				deputado_id: geral.deputado_id,
 				nome: geral.nome,
 				cargo: geral.cargo || "Secretário Parlamentar",
 				periodo: geral.periodo,
-				tipoVinculo: idDeputadoAlvo && geral.deputado_id === idDeputadoAlvo
-					? "GABINETE_DIRETO"
-					: "CAMARA_GERAL",
+				tipoVinculo: ehDireto ? "GABINETE_DIRETO" : "CAMARA_GERAL",
 			};
 		}
 

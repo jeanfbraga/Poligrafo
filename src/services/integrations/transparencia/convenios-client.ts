@@ -19,6 +19,46 @@ export interface ConvenioFederal {
 
 const BASE_URL = "https://api.portaldatransparencia.gov.br/api-de-dados/convenios";
 
+function extractOrgaoNome(val: any, fallback: string): string {
+	if (typeof val === "object" && val?.nome) return val.nome;
+	if (typeof val === "string" && val.trim()) return val;
+	return fallback;
+}
+
+function pickVal<T>(fallback: T, ...values: (T | null | undefined)[]): T {
+	for (const v of values) {
+		if (v !== undefined && v !== null && v !== "") return v;
+	}
+	return fallback;
+}
+
+function parseConvenioItem(
+	item: any,
+	termoSanitizado: string,
+	cnpjLimpo: string | null,
+): ConvenioFederal {
+	const num = pickVal("N/A", item.numero, item.numeroConvenio, item.id);
+	const urlDetalhe = item.numero
+		? `https://portaldatransparencia.gov.br/convenios/${item.numero}`
+		: undefined;
+
+	return {
+		numeroConvenio: String(num),
+		objeto: pickVal("Objeto não informado", item.objeto),
+		orgaoSuperior: extractOrgaoNome(item.orgaoSuperior, "Órgão Concedente Federal"),
+		orgaoConcedente: extractOrgaoNome(pickVal(undefined, item.orgaoConcedente, item.concedente), "União Federal"),
+		concedenteNome: extractOrgaoNome(item.concedente, "União Federal"),
+		convenenteNome: extractOrgaoNome(pickVal(undefined, item.convenente, item.proponente), termoSanitizado),
+		convenenteCnpj: pickVal("", item.convenente?.cnpj, cnpjLimpo),
+		valorGlobal: Number(pickVal(0, item.valorGlobal, item.valorTotal)),
+		valorLiberado: Number(pickVal(0, item.valorLiberado, item.valorPago)),
+		situacao: pickVal("EM EXECUÇÃO", item.situacao, item.situacaoConvenio),
+		dataInicioVigencia: pickVal(undefined, item.dataInicioVigencia, item.dataInicio),
+		dataFimVigencia: pickVal(undefined, item.dataFimVigencia, item.dataFim),
+		urlDetalhe,
+	};
+}
+
 /**
  * Busca convênios federais firmados com entidades sem fins lucrativos (ONGs, OSCs, Institutos)
  * ou prefeituras através da API de Dados Abertos da CGU / Portal da Transparência.
@@ -61,23 +101,7 @@ export async function buscarConveniosEntidade(
 		const dados = await res.json();
 		if (!Array.isArray(dados)) return [];
 
-		return dados.map((item: any) => ({
-			numeroConvenio: String(item.numero || item.numeroConvenio || item.id || "N/A"),
-			objeto: item.objeto || "Objeto não informado",
-			orgaoSuperior: item.orgaoSuperior?.nome || item.orgaoSuperior || "Órgão Concedente Federal",
-			orgaoConcedente: item.orgaoConcedente?.nome || item.concedente || "União Federal",
-			concedenteNome: item.concedente?.nome || "União Federal",
-			convenenteNome: item.convenente?.nome || item.proponente || termoSanitizado,
-			convenenteCnpj: item.convenente?.cnpj || cnpjLimpo || "",
-			valorGlobal: Number(item.valorGlobal || item.valorTotal || 0),
-			valorLiberado: Number(item.valorLiberado || item.valorPago || 0),
-			situacao: item.situacao || item.situacaoConvenio || "EM EXECUÇÃO",
-			dataInicioVigencia: item.dataInicioVigencia || item.dataInicio,
-			dataFimVigencia: item.dataFimVigencia || item.dataFim,
-			urlDetalhe: item.numero
-				? `https://portaldatransparencia.gov.br/convenios/${item.numero}`
-				: undefined,
-		}));
+		return dados.map((item: any) => parseConvenioItem(item, termoSanitizado, cnpjLimpo));
 	} catch (err: any) {
 		console.warn("[CGU CONVÊNIOS] Erro na consulta:", err.message);
 		return [];

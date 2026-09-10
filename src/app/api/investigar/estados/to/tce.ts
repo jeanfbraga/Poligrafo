@@ -66,20 +66,56 @@ export async function buscarProcessosTceTo(
  * Busca despesas financeiras vinculadas a uma pessoa/empresa no TCE-TO.
  * Extensão do extrator que antes era apenas processual.
  */
-export async function buscarDespesasTO(
+function extrairCamposDocumentoTO(d: any) {
+	return {
+		ano: d.ano ?? "N/I",
+		valor: d.valor_pago ?? d.valor_empenho ?? 0,
+		objeto: d.historico ?? d.objeto ?? "N/I",
+	};
+}
+
+function extrairMetadadosTO(d: any) {
+	return {
+		codigo: d.numero_empenho ?? d.numero_contrato ?? "N/I",
+		data: d.data_pagamento ?? d.data_empenho ?? "N/I",
+	};
+}
+
+function extrairFavorecidoTO(
+	d: any,
+	nomeParaBusca?: string,
+	identificador?: string,
+): string {
+	if (d.credor) return d.credor;
+	if (nomeParaBusca) return nomeParaBusca;
+	return identificador ?? "N/I";
+}
+
+function parseDespesaItemTO(
+	d: any,
+	nomeParaBusca?: string,
+	identificador?: string,
+) {
+	const doc = extrairCamposDocumentoTO(d);
+	const meta = extrairMetadadosTO(d);
+	const fav = extrairFavorecidoTO(d, nomeParaBusca, identificador);
+
+	return {
+		label: `Despesa e-Contas - ${doc.ano}`,
+		valor: doc.valor,
+		objeto: doc.objeto,
+		codigo: meta.codigo,
+		data: meta.data,
+		favorecido: fav,
+	};
+}
+
+export async function extrairDespesasNativasTO(
 	identificador: string,
 	nomeParaBusca?: string,
-) {
-	console.log(
-		`[TCE-TO] Iniciando busca de despesas para o alvo: ${identificador}`,
-	);
-
+): Promise<any[]> {
 	const despesas: any[] = [];
-
 	try {
-		// Tentativa heurística baseada no portal e-Contas
-		// Se a API não disponibilizar endpoints públicos de despesa, este será
-		// o ponto de captura após farejamento do tráfego do portal.
 		const url = `${API_BASE}/fornecedores?cnpjCpf=${identificador}`;
 		const res = await fetchWithTimeout(url, {
 			timeout: TIMEOUT_TO,
@@ -89,16 +125,9 @@ export async function buscarDespesasTO(
 		if (res.ok) {
 			const data = await res.json();
 			if (Array.isArray(data)) {
-				data.forEach((d: any) => {
-					despesas.push({
-						label: `Despesa e-Contas - ${d.ano || "N/I"}`,
-						valor: d.valor_pago || d.valor_empenho || 0,
-						objeto: d.historico || d.objeto || "N/I",
-						codigo: d.numero_empenho || d.numero_contrato || "N/I",
-						data: d.data_pagamento || d.data_empenho || "N/I",
-						favorecido: d.credor || nomeParaBusca || identificador,
-					});
-				});
+				for (const d of data) {
+					despesas.push(parseDespesaItemTO(d, nomeParaBusca, identificador));
+				}
 			}
 		} else {
 			console.warn(
@@ -108,6 +137,19 @@ export async function buscarDespesasTO(
 	} catch (e) {
 		console.warn(`[TCE-TO] Falha ao extrair despesas nativas:`, e);
 	}
-
 	return despesas;
+}
+
+/**
+ * Busca despesas financeiras vinculadas a uma pessoa/empresa no TCE-TO.
+ * Extensão do extrator que antes era apenas processual.
+ */
+export async function buscarDespesasTO(
+	identificador: string,
+	nomeParaBusca?: string,
+) {
+	console.log(
+		`[TCE-TO] Iniciando busca de despesas para o alvo: ${identificador}`,
+	);
+	return extrairDespesasNativasTO(identificador, nomeParaBusca);
 }

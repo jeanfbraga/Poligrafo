@@ -25,6 +25,7 @@ const supabasePerfil = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 // Banco Principal (OSINT) - Origem da Cota (CEAP)
+
 const supabasePrincipal = createClient(supabasePrincipalUrl, supabasePrincipalKey, {
     auth: { autoRefreshToken: false, persistSession: false }
 });
@@ -79,6 +80,44 @@ async function scrapeGabinete(idDeputado: number) {
     }
 }
 
+function calcularGastoMes(gastos: any[] | null, mes: number): { valorGasto: number; fatias: Record<string, number> } {
+    let valorGasto = 0;
+    const fatias: Record<string, number> = {};
+    if (!gastos || gastos.length === 0) return { valorGasto, fatias };
+
+    for (const g of gastos) {
+        if (!g.data_documento) continue;
+        const docMonth = new Date(g.data_documento).getMonth() + 1;
+        if (docMonth !== mes) continue;
+
+        const val = Number(g.valor_documento) || 0;
+        valorGasto += val;
+        const tipo = g.tipo_despesa || 'Outros';
+        fatias[tipo] = (fatias[tipo] || 0) + val;
+    }
+    return { valorGasto, fatias };
+}
+
+function montarLoteMesesCEAP(depId: number, teto: number, gastos: any[] | null, anoAtual: number, mesAtual: number) {
+    const batch = [];
+    for (let m = 1; m <= 12; m++) {
+        if (anoAtual === new Date().getFullYear() && m > mesAtual) break;
+        const { valorGasto, fatias } = calcularGastoMes(gastos, m);
+        if (valorGasto > 0 || m === mesAtual) {
+            batch.push({
+                deputado_id: depId,
+                mes_referencia: m,
+                ano_referencia: anoAtual,
+                valor_teto: teto,
+                valor_gasto: valorGasto,
+                fatias_json: fatias,
+                atualizado_em: new Date().toISOString()
+            });
+        }
+    }
+    return batch;
+}
+
 async function processarCotaCEAP(dep: any, anoAtual: number, mesAtual: number) {
     const teto = COTA_POR_UF[dep.siglaUf] || 40000;
     
@@ -92,57 +131,69 @@ async function processarCotaCEAP(dep: any, anoAtual: number, mesAtual: number) {
         throw new Error(`Erro ao buscar CEAP no DB Principal: ${error.message}`);
     }
 
-    const batch = [];
-    for (let m = 1; m <= 12; m++) {
-        // Ignora meses futuros do ano atual
-        if (anoAtual === new Date().getFullYear() && m > mesAtual) break;
-        
-        let valorGasto = 0;
-        const fatias: Record<string, number> = {};
-        
-        if (gastos && gastos.length > 0) {
-            for (const g of gastos) {
-                if (g.data_documento) {
-                    const docMonth = new Date(g.data_documento).getMonth() + 1;
-                    if (docMonth === m) {
-                        valorGasto += Number(g.valor_documento);
-                        const tipo = g.tipo_despesa || 'Outros';
-                        fatias[tipo] = (fatias[tipo] || 0) + Number(g.valor_documento);
-                    }
-                }
-            }
-        }
-
-        // Para evitar encher o banco de perfis com meses zerados de anos anteriores,
-        // só adicionamos ao batch se houver gasto OU se for o mês corrente (para pelo menos mostrar algo no mês atual)
-        if (valorGasto > 0 || m === mesAtual) {
-            batch.push({
-                deputado_id: dep.id,
-                mes_referencia: m,
-                ano_referencia: anoAtual,
-                valor_teto: teto,
-                valor_gasto: valorGasto,
-                fatias_json: fatias,
-                atualizado_em: new Date().toISOString()
-            });
-        }
-    }
+    const batch = montarLoteMesesCEAP(dep.id, teto, gastos, anoAtual, mesAtual);
 
     if (batch.length > 0) {
-        const { error } = await supabasePerfil.from('camara_cota_resumo_cache').upsert(
+        const { error: upsertError } = await supabasePerfil.from('camara_cota_resumo_cache').upsert(
             batch,
             { onConflict: 'deputado_id, ano_referencia, mes_referencia' }
         );
-        if (error) throw new Error(`Erro ao salvar resumo CEAP: ${error.message}`);
+        if (upsertError) throw new Error(`Erro ao salvar resumo CEAP: ${upsertError.message}`);
     }
 }
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+async function sincronizarPerfilDeputado(dep: any) {
+    const depDetailReq = await fetchJson(`${API_BASE}/deputados/${dep.id}`);
+    if (!depDetailReq?.dados) throw new Error(`Detalhes do deputado ${dep.id} indisponíveis; perfil preservado.`);
+    const nomeCivil = depDetailReq?.dados?.nomeCivil || dep.nome;
+    const nomeEleitoral = depDetailReq?.dados?.ultimoStatus?.nomeEleitoral || dep.nome;
+
+    const frentesReq = await fetchJson(`${API_BASE}/deputados/${dep.id}/frentes`);
+    const frentes = frentesReq?.dados?.map((f: any) => f.titulo) || [];
+    
+    const orgaosReq = await fetchJson(`${API_BASE}/deputados/${dep.id}/orgaos`);
+    const comissoes = orgaosReq?.dados?.map((o: any) => o.nomeOrgao) || [];
+
+    const profsReq = await fetchJson(`${API_BASE}/deputados/${dep.id}/profissoes`);
+    const profissoes = profsReq?.dados?.map((p: any) => p.titulo) || [];
+
+    const { error: perfilError } = await supabasePerfil.from('camara_perfil_politico_cache').upsert(
+        {
+            id_deputado: dep.id,
+            nome_civil: nomeCivil,
+            nome_eleitoral: nomeEleitoral,
+            partido: dep.siglaPartido,
+            uf: dep.siglaUf,
+            frentes,
+            comissoes,
+            profissoes,
+            data_atualizacao: new Date().toISOString()
+        },
+        { onConflict: 'id_deputado' }
+    );
+    if (perfilError) throw new Error(`Erro ao salvar perfil ${dep.id}: ${perfilError.message}`);
+}
+
+async function sincronizarGabinete(depId: number) {
+    console.log(`  - Extraindo servidores do gabinete (Scraping)...`);
+    const servidores = await scrapeGabinete(depId);
+    if (servidores.length === 0) {
+        console.log(`  - Nenhum servidor encontrado.`);
+        return;
+    }
+
+    const { error: deleteError } = await supabasePerfil.from('camara_servidores_gabinete').delete().eq('deputado_id', depId);
+    if (deleteError) throw new Error(`Erro ao limpar gabinete ${depId}: ${deleteError.message}`);
+
+    const { error: insertError } = await supabasePerfil.from('camara_servidores_gabinete').insert(servidores);
+    if (insertError) throw new Error(`Erro ao salvar gabinete ${depId}: ${insertError.message}`);
+    console.log(`  - ${servidores.length} servidores inseridos.`);
+}
+
 export async function run() {
     console.log("[PERFIL SYNC] Iniciando sincronização de perfil completa...");
-    
-    // Código original mantido limpo
 
     try {
         console.log("[PERFIL SYNC] Buscando lista de deputados...");
@@ -159,47 +210,8 @@ export async function run() {
             count++;
             console.log(`[${count}/${deputados.length}] Sincronizando deputado ID ${dep.id} (${dep.nome})...`);
             
-            const depDetailReq = await fetchJson(`${API_BASE}/deputados/${dep.id}`);
-            if (!depDetailReq?.dados) throw new Error(`Detalhes do deputado ${dep.id} indisponíveis; perfil preservado.`);
-            const nomeCivil = depDetailReq?.dados?.nomeCivil || dep.nome;
-            const nomeEleitoral = depDetailReq?.dados?.ultimoStatus?.nomeEleitoral || dep.nome;
-
-            const frentesReq = await fetchJson(`${API_BASE}/deputados/${dep.id}/frentes`);
-            const frentes = frentesReq?.dados?.map((f: any) => f.titulo) || [];
-            
-            const orgaosReq = await fetchJson(`${API_BASE}/deputados/${dep.id}/orgaos`);
-            const comissoes = orgaosReq?.dados?.map((o: any) => o.nomeOrgao) || [];
-
-            const profsReq = await fetchJson(`${API_BASE}/deputados/${dep.id}/profissoes`);
-            const profissoes = profsReq?.dados?.map((p: any) => p.titulo) || [];
-
-            const { error: perfilError } = await supabasePerfil.from('camara_perfil_politico_cache').upsert(
-                {
-                    id_deputado: dep.id,
-                    nome_civil: nomeCivil,
-                    nome_eleitoral: nomeEleitoral,
-                    partido: dep.siglaPartido,
-                    uf: dep.siglaUf,
-                    frentes,
-                    comissoes,
-                    profissoes,
-                    data_atualizacao: new Date().toISOString()
-                },
-                { onConflict: 'id_deputado' }
-            );
-            if (perfilError) throw new Error(`Erro ao salvar perfil ${dep.id}: ${perfilError.message}`);
-
-            console.log(`  - Extraindo servidores do gabinete (Scraping)...`);
-            const servidores = await scrapeGabinete(dep.id);
-            if (servidores.length > 0) {
-                const { error: deleteError } = await supabasePerfil.from('camara_servidores_gabinete').delete().eq('deputado_id', dep.id);
-                if (deleteError) throw new Error(`Erro ao limpar gabinete ${dep.id}: ${deleteError.message}`);
-                const { error: insertError } = await supabasePerfil.from('camara_servidores_gabinete').insert(servidores);
-                if (insertError) throw new Error(`Erro ao salvar gabinete ${dep.id}: ${insertError.message}`);
-                console.log(`  - ${servidores.length} servidores inseridos.`);
-            } else {
-                console.log(`  - Nenhum servidor encontrado.`);
-            }
+            await sincronizarPerfilDeputado(dep);
+            await sincronizarGabinete(dep.id);
 
             console.log(`  - Processando resumo da CEAP do DB Principal...`);
             await processarCotaCEAP(dep, anoAtual, mesAtual);

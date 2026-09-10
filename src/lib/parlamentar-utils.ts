@@ -63,31 +63,17 @@ function normalizarTexto(txt: string): string {
 		.trim();
 }
 
-/**
- * Formata e limpa o nome da frente parlamentar removendo prefixos burocráticos
- */
-export function formatarNomeFrente(frenteInput: string | any): FrenteFormatada {
-	const raw = typeof frenteInput === "string" ? frenteInput : frenteInput?.titulo || frenteInput?.nome || String(frenteInput || "");
-	
-	if (!raw || raw.trim() === "") {
-		return { raw: "", label: "Frente Parlamentar", isMista: false, tema: "Outras Pautas" };
-	}
-
-	const isMista = /mista/i.test(raw);
-
-	// Extrai sigla entre parênteses ou após hífen (ex: "FPA", "FRENCOOP")
-	let sigla: string | undefined;
+function extrairSiglaFrente(raw: string): string | undefined {
 	const matchParen = raw.match(/\((?:FRENTE\s+)?([A-Z0-9\-_]{2,12})\)/i);
-	if (matchParen && matchParen[1]) {
-		sigla = matchParen[1].toUpperCase();
-	} else {
-		const matchHifen = raw.match(/-\s*([A-Z0-9\-_]{2,10})$/);
-		if (matchHifen && matchHifen[1]) {
-			sigla = matchHifen[1].toUpperCase();
-		}
-	}
+	if (matchParen?.[1]) return matchParen[1].toUpperCase();
 
-	// Remove prefixos burocráticos repetitivos
+	const matchHifen = raw.match(/-\s*([A-Z0-9\-_]{2,10})$/);
+	if (matchHifen?.[1]) return matchHifen[1].toUpperCase();
+
+	return undefined;
+}
+
+function limparLabelFrente(raw: string): string {
 	let label = raw
 		.replace(/\([A-Z0-9\-_]+\)/gi, "")
 		.replace(/-\s*[A-Z0-9\-_]+$/gi, "")
@@ -99,18 +85,25 @@ export function formatarNomeFrente(frenteInput: string | any): FrenteFormatada {
 		label = raw.replace(/^Frente\s+Parlamentar\s+/i, "").trim() || raw;
 	}
 
-	// Capitalização da primeira letra
-	label = label.charAt(0).toUpperCase() + label.slice(1);
+	return label.charAt(0).toUpperCase() + label.slice(1);
+}
 
-	// Classificação temática
-	const tema = identificarTemaFrente(raw);
+/**
+ * Formata e limpa o nome da frente parlamentar removendo prefixos burocráticos
+ */
+export function formatarNomeFrente(frenteInput: string | any): FrenteFormatada {
+	const raw = typeof frenteInput === "string" ? frenteInput : frenteInput?.titulo || frenteInput?.nome || String(frenteInput || "");
+	
+	if (!raw || raw.trim() === "") {
+		return { raw: "", label: "Frente Parlamentar", isMista: false, tema: "Outras Pautas" };
+	}
 
 	return {
 		raw,
-		label,
-		sigla,
-		isMista,
-		tema,
+		label: limparLabelFrente(raw),
+		sigla: extrairSiglaFrente(raw),
+		isMista: /mista/i.test(raw),
+		tema: identificarTemaFrente(raw),
 	};
 }
 
@@ -185,6 +178,55 @@ export function agruparFrentesPorTema(frentes: (string | any)[]): Record<string,
 	return resultado;
 }
 
+function determinarSiglaComissao(comissaoInput: any, norm: string): string | undefined {
+	if (typeof comissaoInput === "object" && comissaoInput?.siglaOrgao) {
+		return comissaoInput.siglaOrgao;
+	}
+	for (const [termo, s] of Object.entries(SIGLAS_COMISSOES_CONHECIDAS)) {
+		if (norm.includes(termo)) return s;
+	}
+	return undefined;
+}
+
+function determinarTipoComissao(norm: string): ComissaoFormatada["tipo"] {
+	if (/cpi\b|comissao parlamentar de inquerito/i.test(norm)) return "CPI";
+	if (/especial/i.test(norm)) return "Especial";
+	if (/externa/i.test(norm)) return "Externa";
+	if (/conselho de etica/i.test(norm)) return "Conselho";
+	if (/mista/i.test(norm)) return "Mista";
+	if (!/comissao\s+(de|do|da|permanente)?/i.test(norm)) return "Outro";
+	return "Permanente";
+}
+
+function determinarCargoComissao(comissaoInput: any, raw: string): ComissaoFormatada["cargo"] {
+	const fonte = typeof comissaoInput === "object" && comissaoInput?.titulo ? comissaoInput.titulo : raw;
+	const norm = normalizarTexto(fonte);
+
+	if (norm.includes("vice")) return "Vice-Presidente";
+	if (norm.includes("presidente")) return "Presidente";
+	if (norm.includes("relator")) return "Relator";
+	if (norm.includes("suplente")) return "Suplente";
+	return "Titular";
+}
+
+function limparNomeComissao(raw: string): string {
+	const limpo = raw
+		.replace(/^\[.*?\]\s*/, "")
+		.replace(/^Comiss[aã]o\s+(Permanente\s+|Especial\s+|Externa\s+|Mista\s+)?(destinada\s+a\s+|de\s+|do\s+|da\s+)?/i, "")
+		.replace(/^CPI\s*-\s*/i, "")
+		.trim();
+
+	const final = limpo.charAt(0).toUpperCase() + limpo.slice(1);
+	return final || raw;
+}
+
+const CARGOS_DESTAQUE = new Set(["Presidente", "Vice-Presidente", "Relator"]);
+const TIPOS_DESTAQUE = new Set(["CPI", "Conselho"]);
+
+function isComissaoDestaque(cargo?: string, tipo?: string) {
+	return CARGOS_DESTAQUE.has(cargo || "") || TIPOS_DESTAQUE.has(tipo || "");
+}
+
 /**
  * Formata e normaliza os dados de comissões legislativas
  */
@@ -196,69 +238,17 @@ export function formatarComissao(comissaoInput: string | any): ComissaoFormatada
 	}
 
 	const norm = normalizarTexto(raw);
-
-	// 1. Determina Sigla
-	let sigla: string | undefined = typeof comissaoInput === "object" ? comissaoInput?.siglaOrgao : undefined;
-	if (!sigla) {
-		for (const [termo, s] of Object.entries(SIGLAS_COMISSOES_CONHECIDAS)) {
-			if (norm.includes(termo)) {
-				sigla = s;
-				break;
-			}
-		}
-	}
-
-	// 2. Determina Tipo
-	let tipo: ComissaoFormatada["tipo"] = "Permanente";
-	if (/cpi\b|comissao parlamentar de inquerito/i.test(norm)) {
-		tipo = "CPI";
-	} else if (/especial/i.test(norm)) {
-		tipo = "Especial";
-	} else if (/externa/i.test(norm)) {
-		tipo = "Externa";
-	} else if (/conselho de etica/i.test(norm)) {
-		tipo = "Conselho";
-	} else if (/mista/i.test(norm)) {
-		tipo = "Mista";
-	} else if (!/comissao\s+(de|do|da|permanente)?/i.test(norm)) {
-		tipo = "Outro";
-	}
-
-	// 3. Determina Cargo/Papel
-	let cargo: ComissaoFormatada["cargo"] | undefined;
-	if (typeof comissaoInput === "object" && comissaoInput?.titulo) {
-		const tit = normalizarTexto(comissaoInput.titulo);
-		if (tit.includes("presidente")) cargo = "Presidente";
-		else if (tit.includes("vice")) cargo = "Vice-Presidente";
-		else if (tit.includes("relator")) cargo = "Relator";
-		else if (tit.includes("titular")) cargo = "Titular";
-		else if (tit.includes("suplente")) cargo = "Suplente";
-		else cargo = "Membro";
-	} else {
-		// Tenta inferir se houver no texto (ex: "[Titular] Comissão de...")
-		if (/presidente/i.test(raw)) cargo = "Presidente";
-		else if (/vice-?presidente/i.test(raw)) cargo = "Vice-Presidente";
-		else if (/titular/i.test(raw)) cargo = "Titular";
-		else if (/suplente/i.test(raw)) cargo = "Suplente";
-	}
-
-	// 4. Limpa Nome para leitura fluida
-	let nomeLimpo = raw
-		.replace(/^\[.*?\]\s*/, '')
-		.replace(/^Comiss[aã]o\s+(Permanente\s+|Especial\s+|Externa\s+|Mista\s+)?(destinada\s+a\s+|de\s+|do\s+|da\s+)?/i, '')
-		.replace(/^CPI\s*-\s*/i, '')
-		.trim();
-
-	nomeLimpo = nomeLimpo.charAt(0).toUpperCase() + nomeLimpo.slice(1);
-
-	const destaque = cargo === "Presidente" || cargo === "Vice-Presidente" || cargo === "Relator" || tipo === "CPI" || tipo === "Conselho";
+	const sigla = determinarSiglaComissao(comissaoInput, norm);
+	const tipo = determinarTipoComissao(norm);
+	const cargo = determinarCargoComissao(comissaoInput, raw);
+	const destaque = isComissaoDestaque(cargo, tipo);
 
 	return {
 		raw,
-		nome: nomeLimpo || raw,
+		nome: limparNomeComissao(raw),
 		sigla,
 		tipo,
-		cargo: cargo || "Titular",
+		cargo,
 		destaque,
 	};
 }

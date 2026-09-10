@@ -120,6 +120,68 @@ async function extractRsData(url: string, orgaoCodigo?: string): Promise<any> {
 	}
 }
 
+function formatarItemIndicador(tipo: string, orgao: string, municipio: string, valor: number, ano: number, desc: string): any {
+	return {
+		tipoDespesa: tipo,
+		nomeFornecedor: orgao || `Prefeitura Municipal de ${municipio.toUpperCase()}`,
+		cnpjCpfFornecedor: "",
+		valorDocumento: valor,
+		dataDocumento: `${ano}-12-31`,
+		descricao: desc,
+		urlDocumento: "https://dados.tce.rs.gov.br",
+	};
+}
+
+function formatarEducacao(educacao: any, municipioNome: string, ano: number): any | null {
+	if (!educacao) return null;
+	return formatarItemIndicador(
+		"Índice de Educação (TCE-RS)",
+		educacao.NM_Orgao,
+		municipioNome,
+		parseFloat(educacao.VL_Despesa || "0"),
+		ano,
+		`Índice de Aplicação em Educação (Mínimo Constitucional 25%): ${educacao.VL_IndiceEducacao || 0}% aplicado. Receita: R$ ${educacao.VL_Receita}.`,
+	);
+}
+
+function formatarSaude(saude: any, municipioNome: string, ano: number): any | null {
+	if (!saude) return null;
+	return formatarItemIndicador(
+		"Índice de Saúde (TCE-RS)",
+		saude.NM_Orgao,
+		municipioNome,
+		parseFloat(saude.VL_Despesa || "0"),
+		ano,
+		`Índice de Aplicação em Saúde (Mínimo Constitucional 15%): ${saude.VL_IndiceSaude || 0}% aplicado. Receita: R$ ${saude.VL_Receita}.`,
+	);
+}
+
+function formatarGestao(gestao: any, municipioNome: string, ano: number): any | null {
+	if (!gestao) return null;
+	const rcl = parseFloat(gestao.VL_ReceitaCorrenteLiquida || "0");
+	const despPessoal = parseFloat(gestao.VL_DespesaPessoal || "0");
+	const percentual = rcl > 0 ? ((despPessoal / rcl) * 100).toFixed(2) : "0";
+	return formatarItemIndicador(
+		"Gestão Fiscal LRF (TCE-RS)",
+		gestao.NM_Orgao,
+		municipioNome,
+		despPessoal,
+		ano,
+		`Receita Corrente Líquida: R$ ${rcl}. Despesa com Pessoal: R$ ${despPessoal} (${percentual}% da RCL). Dívida Consolidada: R$ ${gestao.VL_DividaConsolidada || 0}.`,
+	);
+}
+
+function formatarIndicadoresRs(ano: number, municipioNome: string, educacao: any, saude: any, gestao: any): any[] {
+	const itens: any[] = [];
+	const ed = formatarEducacao(educacao, municipioNome, ano);
+	if (ed) itens.push(ed);
+	const sd = formatarSaude(saude, municipioNome, ano);
+	if (sd) itens.push(sd);
+	const gt = formatarGestao(gestao, municipioNome, ano);
+	if (gt) itens.push(gt);
+	return itens;
+}
+
 export async function buscarDespesasMunicipalRS(
 	identificador: string,
 	nomeParaBusca?: string,
@@ -127,104 +189,34 @@ export async function buscarDespesasMunicipalRS(
 	casa?: string,
 ): Promise<any[]> {
 	if (!municipioUri) {
-		console.log(
-			`[TCE-RS] Redirecionando ${identificador} para Proxy OSINT (Faltou URI Geográfica).`,
-		);
+		console.log(`[TCE-RS] Redirecionando ${identificador} para Proxy OSINT (Faltou URI Geográfica).`);
 		const payload = await buscarProxyOsint(identificador, nomeParaBusca);
 		return payload.despesasFederais;
 	}
 
-	console.log(
-		`[TCE-RS] Iniciando extração nativa para ${casa} de ${municipioUri}`,
-	);
-
+	console.log(`[TCE-RS] Iniciando extração nativa para ${casa} de ${municipioUri}`);
 	const municipioNomeLimpo = municipioUri.replace(/-/g, " ");
 	const codigoMunicipio = await buscarCodigoMunicipioRS(municipioNomeLimpo);
 	if (!codigoMunicipio) {
-		console.warn(
-			`[TCE-RS] Município ${municipioUri} não localizado. Caindo pro Proxy.`,
-		);
+		console.warn(`[TCE-RS] Município ${municipioUri} não localizado. Caindo pro Proxy.`);
 		const payload = await buscarProxyOsint(identificador, nomeParaBusca);
 		return payload.despesasFederais;
 	}
 
-	// O TCE-RS não tem endpoints diretos de empenhos ou contratos individuais em formato estruturado fácil.
-	// Usamos os relatórios consolidados de Educação, Saúde e Gestão Fiscal para enriquecer o dossiê.
 	const anoAtual = new Date().getFullYear();
-	const anosBusca = [anoAtual - 1, anoAtual - 2]; // Geralmente dados fechados são do ano anterior
-
+	const anosBusca = [anoAtual - 1, anoAtual - 2];
 	const formatados: any[] = [];
 
 	for (const ano of anosBusca) {
 		const [educacao, saude, gestao] = await Promise.all([
-			extractRsData(
-				`${API_BASE}/municipal/educacao-indice/${ano}.json`,
-				codigoMunicipio,
-			),
-			extractRsData(
-				`${API_BASE}/municipal/saude-indice/${ano}.json`,
-				codigoMunicipio,
-			),
-			extractRsData(
-				`${API_BASE}/municipal/gastos-lrf-mde-asps/${ano}.json`,
-				codigoMunicipio,
-			),
+			extractRsData(`${API_BASE}/municipal/educacao-indice/${ano}.json`, codigoMunicipio),
+			extractRsData(`${API_BASE}/municipal/saude-indice/${ano}.json`, codigoMunicipio),
+			extractRsData(`${API_BASE}/municipal/gastos-lrf-mde-asps/${ano}.json`, codigoMunicipio),
 		]);
-
-		if (educacao) {
-			formatados.push({
-				tipoDespesa: "Índice de Educação (TCE-RS)",
-				nomeFornecedor:
-					educacao.NM_Orgao ||
-					`Prefeitura Municipal de ${municipioNomeLimpo.toUpperCase()}`,
-				cnpjCpfFornecedor: "",
-				valorDocumento: parseFloat(educacao.VL_Despesa || "0"),
-				dataDocumento: `${ano}-12-31`,
-				descricao: `Índice de Aplicação em Educação (Mínimo Constitucional 25%): ${educacao.VL_IndiceEducacao || 0}% aplicado. Receita: R$ ${educacao.VL_Receita}.`,
-				urlDocumento: `https://dados.tce.rs.gov.br`,
-			});
-		}
-
-		if (saude) {
-			formatados.push({
-				tipoDespesa: "Índice de Saúde (TCE-RS)",
-				nomeFornecedor:
-					saude.NM_Orgao ||
-					`Prefeitura Municipal de ${municipioNomeLimpo.toUpperCase()}`,
-				cnpjCpfFornecedor: "",
-				valorDocumento: parseFloat(saude.VL_Despesa || "0"),
-				dataDocumento: `${ano}-12-31`,
-				descricao: `Índice de Aplicação em Saúde (Mínimo Constitucional 15%): ${saude.VL_IndiceSaude || 0}% aplicado. Receita: R$ ${saude.VL_Receita}.`,
-				urlDocumento: `https://dados.tce.rs.gov.br`,
-			});
-		}
-
-		if (gestao) {
-			const rcl = parseFloat(gestao.VL_ReceitaCorrenteLiquida || "0");
-			const despPessoal = parseFloat(gestao.VL_DespesaPessoal || "0");
-			const percentualPessoal =
-				rcl > 0 ? ((despPessoal / rcl) * 100).toFixed(2) : "0";
-
-			formatados.push({
-				tipoDespesa: "Gestão Fiscal LRF (TCE-RS)",
-				nomeFornecedor:
-					gestao.NM_Orgao ||
-					`Prefeitura Municipal de ${municipioNomeLimpo.toUpperCase()}`,
-				cnpjCpfFornecedor: "",
-				valorDocumento: despPessoal,
-				dataDocumento: `${ano}-12-31`,
-				descricao: `Receita Corrente Líquida: R$ ${rcl}. Despesa com Pessoal: R$ ${despPessoal} (${percentualPessoal}% da RCL). Dívida Consolidada: R$ ${gestao.VL_DividaConsolidada || 0}.`,
-				urlDocumento: `https://dados.tce.rs.gov.br`,
-			});
-		}
+		formatados.push(...formatarIndicadoresRs(ano, municipioNomeLimpo, educacao, saude, gestao));
 	}
 
-	// Mesmo com dados locais informativos, combinamos com os empenhos federais que houver via proxy,
-	// garantindo que não falte a listagem real de despesas e notas se existirem em âmbito federal.
-	console.log(
-		`[TCE-RS] Dados consolidados gerados. Somando com o Proxy OSINT...`,
-	);
+	console.log(`[TCE-RS] Dados consolidados gerados. Somando com o Proxy OSINT...`);
 	const payload = await buscarProxyOsint(identificador, nomeParaBusca);
-
 	return [...formatados, ...(payload.despesasFederais || [])];
 }

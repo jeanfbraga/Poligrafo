@@ -834,14 +834,18 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				cargo: cargoDisplay,
 				idLegislatura: deputadoBasico.idLegislatura,
 				casa: deputadoBasico.casa,
-				patrimonio: fichaPolitico.patrimonioTotal,
-				anoPatrimonio: tseData?.anoEleicao || fichaPolitico.anoPatrimonio || 2026,
-				patrimonioAnterior: tseData?.patrimonioAnterior || fichaPolitico.patrimonioAnterior,
-				anoPatrimonioAnterior: tseData?.anoPatrimonioAnterior || fichaPolitico.anoPatrimonioAnterior,
-				variacaoPatrimonio: tseData?.variacaoPatrimonio || fichaPolitico.variacaoPatrimonio,
-				variacaoPatrimonioPercentual: tseData?.variacaoPatrimonioPercentual || fichaPolitico.variacaoPatrimonioPercentual,
-				historicoPatrimonio: tseData?.historicoPatrimonio || fichaPolitico.historicoPatrimonio || [],
-				bensDeclarados: tseData?.bensDeclarados || fichaPolitico.bensDeclarados || [],
+				patrimonio: fichaPolitico.patrimonioTotal ?? tseData?.patrimonioTotal ?? 0,
+				anoPatrimonio: fichaPolitico.anoPatrimonio || tseData?.anoEleicao || 2026,
+				patrimonioAnterior: fichaPolitico.patrimonioAnterior ?? tseData?.patrimonioAnterior,
+				anoPatrimonioAnterior: fichaPolitico.anoPatrimonioAnterior || tseData?.anoPatrimonioAnterior,
+				variacaoPatrimonio: fichaPolitico.variacaoPatrimonio ?? tseData?.variacaoPatrimonio,
+				variacaoPatrimonioPercentual: fichaPolitico.variacaoPatrimonioPercentual ?? tseData?.variacaoPatrimonioPercentual,
+				historicoPatrimonio: (fichaPolitico.historicoPatrimonio && fichaPolitico.historicoPatrimonio.length > 0)
+					? fichaPolitico.historicoPatrimonio
+					: (tseData?.historicoPatrimonio || []),
+				bensDeclarados: (fichaPolitico.bensDeclarados && fichaPolitico.bensDeclarados.length > 0)
+					? fichaPolitico.bensDeclarados
+					: (tseData?.bensDeclarados || []),
 				alertasPessoais: fichaPolitico.alertasPessoais,
 				afastamento: deputadoBasico.afastamento,
 				urlFoto: deputadoBasico.urlFoto || (deputadoBasico as any)._tseResult?.urlFoto,
@@ -1561,6 +1565,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				};
 				let confirmadas = 0;
 				for (const emp of empresasPorNome) {
+					if (!emp) continue;
 					const cnpjEmp = (emp.cnpj || "").replace(/\D/g, "");
 					if (!cnpjEmp || empresasRelacionadasCNPJs.includes(cnpjEmp))
 						continue;

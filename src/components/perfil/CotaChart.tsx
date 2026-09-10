@@ -9,6 +9,44 @@ const VERBA_GABINETE_TETO = 125734.51; // Valor aproximado atual
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
+function montarDadosGrafico(cota: any[], tetoCEAP: number) {
+  return MESES.map((nomeMes, index) => {
+    const mesNum = index + 1;
+    const registro = cota.find((c: any) => c.mes_referencia === mesNum);
+    return {
+      name: nomeMes,
+      gasto: registro ? registro.valor_gasto : 0,
+      teto: tetoCEAP,
+      mesNum,
+    };
+  });
+}
+
+function obterConfigMobile(isMobile: boolean) {
+  if (isMobile) {
+    return {
+      margin: { top: 20, right: 0, left: -25, bottom: 0 },
+      xAxisFontSize: 10,
+      xAxisTickMargin: 5,
+      yAxisWidth: 45,
+      tooltipFontSize: "10px",
+      tooltipPadding: "4px 8px",
+      formatXAxis: (v: string) => v.substring(0, 1),
+      formatYAxis: (v: number) => `${(v / 1000).toFixed(0)}k`,
+    };
+  }
+  return {
+    margin: { top: 20, right: 10, left: 10, bottom: 5 },
+    xAxisFontSize: 12,
+    xAxisTickMargin: 10,
+    yAxisWidth: 55,
+    tooltipFontSize: "12px",
+    tooltipPadding: "10px",
+    formatXAxis: (v: string) => v,
+    formatYAxis: (v: number) => `R$ ${(v / 1000).toFixed(0)}k`,
+  };
+}
+
 export default function CotaChart({ cota }: { cota: any[] }) {
   const isMobile = useIsMobile();
 
@@ -22,20 +60,10 @@ export default function CotaChart({ cota }: { cota: any[] }) {
     );
   }
 
-  // Prepara os dados do gráfico para os 12 meses
   const anoReferencia = cota[0]?.ano_referencia || new Date().getFullYear();
   const tetoCEAP = cota[0]?.valor_teto || 0;
-
-  const chartData = MESES.map((nomeMes, index) => {
-    const mesNum = index + 1;
-    const registro = cota.find((c: any) => c.mes_referencia === mesNum);
-    return {
-      name: nomeMes,
-      gasto: registro ? registro.valor_gasto : 0,
-      teto: tetoCEAP,
-      mesNum
-    };
-  });
+  const chartData = montarDadosGrafico(cota, tetoCEAP);
+  const cfg = obterConfigMobile(isMobile);
 
   return (
     <TerminalWindow 
@@ -47,35 +75,34 @@ export default function CotaChart({ cota }: { cota: any[] }) {
           Evolução de Gastos vs Limites (R$)
         </div>
 
-        {/* Gráfico de Barras */}
         <div className="h-64 sm:h-72 w-full mt-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
-              margin={isMobile ? { top: 20, right: 0, left: -25, bottom: 0 } : { top: 20, right: 10, left: 10, bottom: 5 }}
+              margin={cfg.margin}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#15803d" vertical={false} opacity={0.3} />
               <XAxis 
                 dataKey="name" 
                 stroke="#22c55e" 
-                fontSize={isMobile ? 10 : 12} 
-                tickMargin={isMobile ? 5 : 10}
-                tickFormatter={(value) => isMobile ? value.substring(0, 1) : value}
+                fontSize={cfg.xAxisFontSize} 
+                tickMargin={cfg.xAxisTickMargin}
+                tickFormatter={cfg.formatXAxis}
                 axisLine={{ stroke: '#15803d' }}
                 tickLine={false}
               />
               <YAxis 
                 stroke="#22c55e" 
-                fontSize={isMobile ? 10 : 10} 
-                width={isMobile ? 45 : 55}
-                tickFormatter={(value) => isMobile ? `${(value / 1000).toFixed(0)}k` : `R$ ${(value / 1000).toFixed(0)}k`}
+                fontSize={10} 
+                width={cfg.yAxisWidth}
+                tickFormatter={cfg.formatYAxis}
                 axisLine={{ stroke: '#15803d' }}
                 tickLine={false}
               />
               <Tooltip
                 formatter={(value: number, name: string) => [formatCurrency(value), name === 'gasto' ? 'Gasto CEAP' : name]}
                 labelStyle={{ color: '#22c55e', fontWeight: 'bold' }}
-                contentStyle={{ backgroundColor: 'black', border: '1px solid #22c55e', color: '#22c55e', fontFamily: 'monospace', fontSize: isMobile ? '10px' : '12px', padding: isMobile ? '4px 8px' : '10px' }}
+                contentStyle={{ backgroundColor: 'black', border: '1px solid #22c55e', color: '#22c55e', fontFamily: 'monospace', fontSize: cfg.tooltipFontSize, padding: cfg.tooltipPadding }}
                 cursor={{ fill: 'rgba(34, 197, 94, 0.1)' }}
               />
               <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
@@ -88,7 +115,6 @@ export default function CotaChart({ cota }: { cota: any[] }) {
                 maxBarSize={40}
               />
 
-              {/* Linha de referência Teto CEAP */}
               <ReferenceLine 
                 y={tetoCEAP} 
                 stroke="#3b82f6" 
@@ -96,7 +122,6 @@ export default function CotaChart({ cota }: { cota: any[] }) {
                 label={{ position: 'top', value: 'Teto CEAP', fill: '#3b82f6', fontSize: 10 }} 
               />
               
-              {/* Linha de referência Teto Verba Gabinete */}
               <ReferenceLine 
                 y={VERBA_GABINETE_TETO} 
                 stroke="#eab308" 
@@ -107,7 +132,6 @@ export default function CotaChart({ cota }: { cota: any[] }) {
           </ResponsiveContainer>
         </div>
 
-        {/* Resumo Rodapé */}
         <div className="mt-6 pt-4 border-t border-green-500/20 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-center">
             <div className="flex flex-row sm:flex-col justify-between sm:justify-center items-center">
                 <p className="text-[10px] md:text-xs text-blue-400/80 uppercase tracking-widest">Teto Mensal CEAP</p>

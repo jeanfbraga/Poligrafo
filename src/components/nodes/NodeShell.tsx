@@ -20,7 +20,237 @@ import { getVisual } from "./node-theme";
  * Toques experimentais: linha de acento no topo com glow e corner brackets
  * (enquadramento de "mira" nos 4 cantos).
  */
-export const NodeShell = ({
+const INTERACTIVE_TYPES = new Set([
+	"PESSOA",
+	"DESPESA",
+	"CONTRATO",
+	"EMENDA",
+	"EMENDA_RESUMO",
+	"EMPRESA",
+	"SOCIO",
+	"RESUMO_GASTOS",
+]);
+
+function checkInteractive(type: string, onClick?: (e: React.MouseEvent) => void): boolean {
+	return Boolean(onClick) || INTERACTIVE_TYPES.has(type);
+}
+
+function isHighRisk(risk: string): boolean {
+	return risk === "ATENCAO" || risk === "CRITICO" || risk === "FANTASMA";
+}
+
+function shouldGlow(risk: string, alwaysGlow?: boolean, isSearching?: boolean): boolean {
+	return risk !== "NORMAL" || Boolean(alwaysGlow) || Boolean(isSearching);
+}
+
+interface NodeShellProps {
+	type: string;
+	data: any;
+	badge?: ReactNode;
+	title?: ReactNode;
+	titleIcon?: ReactNode;
+	width?: string;
+	children?: ReactNode;
+	footer?: ReactNode;
+	onClick?: (e: React.MouseEvent) => void;
+	loadingLabel?: string;
+	currentStatus?: string;
+	isMobile?: boolean;
+}
+
+const MobileShareButton = ({ onShare, data, type, colors }: any) => (
+	<button
+		onClick={(e) => {
+			e.stopPropagation();
+			onShare(data, type);
+		}}
+		className={`p-1.5 flex items-center justify-center shrink-0 ${colors.text} opacity-70 hover:opacity-100 transition-opacity`}
+		title="Compartilhar"
+	>
+		<Share2 className="w-4 h-4" />
+	</button>
+);
+
+const NodeShellMobileHeader = ({
+	displayBadge,
+	badgeVariant,
+	score,
+	colorsText,
+	canShare,
+	onShare,
+	data,
+	type,
+	colors,
+	titleIcon,
+	Icon,
+	displayTitle,
+}: any) => (
+	<>
+		<div className="flex justify-between items-center mb-3 gap-2">
+			<Badge
+				variant={badgeVariant}
+				className="rounded-none text-[10px] sm:text-xs uppercase font-bold border-inherit bg-transparent truncate max-w-[55%]"
+			>
+				{displayBadge}
+			</Badge>
+			<div className="flex items-center gap-2 shrink-0">
+				{Number(score) > 0 && (
+					<span className={`text-[10px] font-bold tracking-widest opacity-80 ${colorsText}`}>
+						SCORE {Number(score)}
+					</span>
+				)}
+				{canShare && (
+					<MobileShareButton
+						onShare={onShare}
+						data={data}
+						type={type}
+						colors={colors}
+					/>
+				)}
+			</div>
+		</div>
+		<div className="flex items-start gap-2 mb-2">
+			{titleIcon ?? <Icon className={`w-5 h-5 mt-0.5 ${colorsText} shrink-0`} />}
+			<h3 className={`text-base font-bold leading-tight line-clamp-3 ${colorsText}`}>
+				{displayTitle}
+			</h3>
+		</div>
+	</>
+);
+
+const NodeShellMobileFooter = ({
+	footerContent,
+	isInteractive,
+	colorsText,
+}: any) => (
+	<div className="mt-auto pt-3 border-t border-inherit/30 flex flex-col gap-2">
+		{footerContent}
+		{isInteractive && (
+			<span className={`text-xs font-bold opacity-50 ${colorsText} text-center w-full block mt-1`}>
+				[ TOCAR PARA DETALHES ]
+			</span>
+		)}
+	</div>
+);
+
+const NodeShellMobile = ({
+	type,
+	data,
+	badge,
+	title,
+	titleIcon,
+	children,
+	footer,
+	onClick,
+	colors,
+	theme,
+	isInteractive,
+	score,
+}: any) => {
+	const displayTitle = title ?? data.label ?? "Sem título";
+	const displayBadge = badge ?? theme.typeLabel;
+	const canShare = Boolean(data.onShare && theme.canShare);
+	const footerContent = data.mobileFooter || footer;
+
+	return (
+		<div
+			className={`w-full border ${colors.border} bg-black p-4 flex flex-col justify-between active:scale-[0.97] transition-transform duration-200 uppercase font-mono min-h-[42vh] max-h-[52vh] ${isInteractive ? "cursor-pointer" : ""}`}
+			onClick={data.mobileOnClick || onClick}
+		>
+			<div>
+				<NodeShellMobileHeader
+					displayBadge={displayBadge}
+					badgeVariant={colors.badgeVariant}
+					score={score}
+					colorsText={colors.text}
+					canShare={canShare}
+					onShare={data.onShare}
+					data={data}
+					type={type}
+					colors={colors}
+					titleIcon={titleIcon}
+					Icon={theme.icon}
+					displayTitle={displayTitle}
+				/>
+				{children}
+			</div>
+			<NodeShellMobileFooter
+				footerContent={footerContent}
+				isInteractive={isInteractive}
+				colorsText={colors.text}
+			/>
+		</div>
+	);
+};
+
+const NodeShellDesktopHeader = ({
+	type,
+	data,
+	badge,
+	title,
+	titleIcon,
+	colors,
+	theme,
+	score,
+	suspicious,
+	hasAlert,
+	risk,
+}: any) => {
+	const Icon = theme.icon;
+	return (
+		<CardHeader
+			className={`flex flex-col gap-2 pb-2 space-y-0 border-b ${suspicious ? "border-red-900/50" : colors.borderSoft}`}
+		>
+			<div className="flex items-center justify-between gap-2">
+				<Badge
+					variant="outline"
+					className={`w-fit ${colors.badge} rounded-none text-xs uppercase`}
+				>
+					{badge ?? theme.typeLabel}
+				</Badge>
+				<div className="flex items-center gap-2 shrink-0">
+					{score !== undefined && score !== null && (
+						<span
+							className={`text-[10px] font-bold tracking-widest opacity-80 ${colors.text}`}
+						>
+							SCORE {Number(score)}
+						</span>
+					)}
+					{hasAlert && (
+						<ShieldAlert
+							className={`h-4 w-4 shrink-0 animate-pulse ${risk === "ATENCAO" ? "text-yellow-500" : "text-red-500"}`}
+						/>
+					)}
+					{data.onShare && (
+						<button
+							onClick={(e) => {
+								e.stopPropagation();
+								data.onShare(data, type);
+							}}
+							className={`p-1 flex items-center justify-center ${colors.text} hover:opacity-100 opacity-70 transition-opacity rounded-none shrink-0`}
+							title="Compartilhar"
+						>
+							<Share2 className="h-4 w-4 shrink-0" />
+						</button>
+					)}
+				</div>
+			</div>
+			<div className="flex items-center gap-2">
+				{titleIcon ?? (
+					<Icon className={`h-5 w-5 shrink-0 ${colors.text}`} />
+				)}
+				<CardTitle
+					className={`text-sm font-bold uppercase tracking-wider line-clamp-2 ${colors.text}`}
+					title={data.label}
+				>
+					{title ?? data.label}
+				</CardTitle>
+			</div>
+		</CardHeader>
+	);
+};
+
+const NodeShellDesktop = ({
 	type,
 	data,
 	badge,
@@ -32,49 +262,19 @@ export const NodeShell = ({
 	onClick,
 	loadingLabel,
 	currentStatus,
-	isMobile = false,
-}: {
-	type: string;
-	data: any;
-	/** Sobrescreve o typeLabel do tema (ex.: tipo dinâmico de emenda) */
-	badge?: ReactNode;
-	/** Sobrescreve data.label como título */
-	title?: ReactNode;
-	/** Substitui o ícone do tema na linha do título (ex.: foto do político) */
-	titleIcon?: ReactNode;
-	width?: string;
-	children?: ReactNode;
-	/** Slot de ações no rodapé do conteúdo (CTAs, botões) */
-	footer?: ReactNode;
-	onClick?: (e: React.MouseEvent) => void;
-	loadingLabel?: string;
-	currentStatus?: string;
-	isMobile?: boolean;
-}) => {
+}: NodeShellProps) => {
 	const nodeRef = useRef<HTMLDivElement>(null);
 	const { theme, risk, colors } = getVisual(type, data);
-	const Icon = theme.icon;
 	const suspicious = data.metrics?.suspicious;
 	const scale = 1 + (data.metrics?.pagerank || 0) * 0.3;
 	const score = data.score_letalidade ?? data.score;
-	const hasAlert =
-		risk === "ATENCAO" || risk === "CRITICO" || risk === "FANTASMA";
-	const showGlow =
-		risk !== "NORMAL" || theme.alwaysGlow || data.isSearching;
-	const isInteractive = !!onClick || [
-		"PESSOA",
-		"DESPESA",
-		"CONTRATO",
-		"EMENDA",
-		"EMENDA_RESUMO",
-		"EMPRESA",
-		"SOCIO",
-		"RESUMO_GASTOS",
-	].includes(type);
+	const hasAlert = isHighRisk(risk);
+	const showGlow = shouldGlow(risk, theme.alwaysGlow, data.isSearching);
+	const isInteractive = checkInteractive(type, onClick);
 
 	useGSAP(
 		() => {
-			if (!isMobile && nodeRef.current) {
+			if (nodeRef.current) {
 				gsap.from(nodeRef.current, {
 					scale: 0.9,
 					opacity: 0,
@@ -83,45 +283,8 @@ export const NodeShell = ({
 				});
 			}
 		},
-		{ scope: nodeRef, dependencies: [isMobile] },
+		{ scope: nodeRef },
 	);
-
-	if (isMobile) {
-		return (
-			<div className={`w-full border ${colors.border} bg-black p-4 flex flex-col justify-between active:scale-[0.97] transition-transform duration-200 uppercase font-mono min-h-[42vh] max-h-[52vh] ${isInteractive ? "cursor-pointer" : ""}`} onClick={data.mobileOnClick || onClick}>
-				<div>
-					<div className="flex justify-between items-center mb-3 gap-2">
-						<Badge variant={colors.badgeVariant as any} className="rounded-none text-[10px] sm:text-xs uppercase font-bold border-inherit bg-transparent truncate max-w-[55%]">
-							{badge ?? theme.typeLabel}
-						</Badge>
-						<div className="flex items-center gap-2 shrink-0">
-							{score !== undefined && score !== null && score > 0 && (
-								<span className={`text-[10px] font-bold tracking-widest opacity-80 ${colors.text}`}>
-									SCORE {Number(score)}
-								</span>
-							)}
-							{data.onShare && theme.canShare && (
-								<button onClick={(e) => { e.stopPropagation(); data.onShare(data, type); }} className={`p-1.5 flex items-center justify-center shrink-0 ${colors.text} opacity-70 hover:opacity-100 transition-opacity`} title="Compartilhar">
-									<Share2 className="w-4 h-4" />
-								</button>
-							)}
-						</div>
-					</div>
-					<div className="flex items-start gap-2 mb-2">
-						{titleIcon ?? <Icon className={`w-5 h-5 mt-0.5 ${colors.text} shrink-0`} />}
-						<h3 className={`text-base font-bold leading-tight line-clamp-3 ${colors.text}`}>{title ?? data.label ?? "Sem título"}</h3>
-					</div>
-					{children}
-				</div>
-				<div className="mt-auto pt-3 border-t border-inherit/30 flex flex-col gap-2">
-					{data.mobileFooter || footer}
-					{isInteractive && (
-						<span className={`text-xs font-bold opacity-50 ${colors.text} text-center w-full block mt-1`}>[ TOCAR PARA DETALHES ]</span>
-					)}
-				</div>
-			</div>
-		);
-	}
 
 	const corner = `absolute w-2 h-2 ${colors.border} opacity-50 pointer-events-none z-10`;
 
@@ -140,65 +303,28 @@ export const NodeShell = ({
 					zIndex: suspicious ? 10 : 1,
 				}}
 			>
-				{/* Linha de acento no topo */}
 				<span
 					className={`absolute top-0 left-0 right-0 h-0.5 ${colors.bar} opacity-70 pointer-events-none`}
 				/>
-				{/* Corner brackets */}
 				<span className={`${corner} top-0 left-0 border-t border-l`} />
 				<span className={`${corner} top-0 right-0 border-t border-r`} />
 				<span className={`${corner} bottom-0 left-0 border-b border-l`} />
 				<span className={`${corner} bottom-0 right-0 border-b border-r`} />
 
-				<CardHeader
-					className={`flex flex-col gap-2 pb-2 space-y-0 border-b ${suspicious ? "border-red-900/50" : colors.borderSoft}`}
-				>
-					<div className="flex items-center justify-between gap-2">
-						<Badge
-							variant="outline"
-							className={`w-fit ${colors.badge} rounded-none text-xs uppercase`}
-						>
-							{badge ?? theme.typeLabel}
-						</Badge>
-						<div className="flex items-center gap-2 shrink-0">
-							{score !== undefined && score !== null && (
-								<span
-									className={`text-[10px] font-bold tracking-widest opacity-80 ${colors.text}`}
-								>
-									SCORE {Number(score)}
-								</span>
-							)}
-							{hasAlert && (
-								<ShieldAlert
-									className={`h-4 w-4 shrink-0 animate-pulse ${risk === "ATENCAO" ? "text-yellow-500" : "text-red-500"}`}
-								/>
-							)}
-							{data.onShare && (
-								<button
-									onClick={(e) => {
-										e.stopPropagation();
-										data.onShare(data, type);
-									}}
-									className={`p-1 flex items-center justify-center ${colors.text} hover:opacity-100 opacity-70 transition-opacity rounded-none shrink-0`}
-									title="Compartilhar"
-								>
-									<Share2 className="h-4 w-4 shrink-0" />
-								</button>
-							)}
-						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						{titleIcon ?? (
-							<Icon className={`h-5 w-5 shrink-0 ${colors.text}`} />
-						)}
-						<CardTitle
-							className={`text-sm font-bold uppercase tracking-wider line-clamp-2 ${colors.text}`}
-							title={data.label}
-						>
-							{title ?? data.label}
-						</CardTitle>
-					</div>
-				</CardHeader>
+				<NodeShellDesktopHeader
+					type={type}
+					data={data}
+					badge={badge}
+					title={title}
+					titleIcon={titleIcon}
+					colors={colors}
+					theme={theme}
+					score={score}
+					suspicious={suspicious}
+					hasAlert={hasAlert}
+					risk={risk}
+				/>
+
 				<CardContent className="pt-3 space-y-2">
 					{children}
 					{footer}
@@ -218,4 +344,32 @@ export const NodeShell = ({
 			/>
 		</div>
 	);
+};
+
+export const NodeShell = (props: NodeShellProps) => {
+	if (props.isMobile) {
+		const { theme, colors } = getVisual(props.type, props.data);
+		const score = props.data.score_letalidade ?? props.data.score;
+		const isInteractive = checkInteractive(props.type, props.onClick);
+
+		return (
+			<NodeShellMobile
+				type={props.type}
+				data={props.data}
+				badge={props.badge}
+				title={props.title}
+				titleIcon={props.titleIcon}
+				footer={props.footer}
+				onClick={props.onClick}
+				colors={colors}
+				theme={theme}
+				isInteractive={isInteractive}
+				score={score}
+			>
+				{props.children}
+			</NodeShellMobile>
+		);
+	}
+
+	return <NodeShellDesktop {...props} />;
 };

@@ -14,6 +14,32 @@ const supabase = createClient(
 
 const BASE_URL = 'https://transparencia.camara.rj.gov.br/vereadores/cota-de-gabinete';
 
+function isLinkInvalido(href: string): boolean {
+    return !href || href.includes('?format=') || href.includes('search?') || href.endsWith('#');
+}
+
+function isLinkArquivo(href: string): boolean {
+    return href.endsWith('/file') || /\.(pdf|xls|xlsx|csv)$/i.test(href) || href.includes('download');
+}
+
+function classificarLinks(links: { href: string; text: string }[], url: string) {
+    const files: { href: string; text: string }[] = [];
+    const subcats: string[] = [];
+
+    for (const l of links) {
+        if (isLinkInvalido(l.href)) continue;
+
+        if (isLinkArquivo(l.href)) {
+            if (!files.some(f => f.href === l.href)) {
+                files.push({ href: l.href, text: l.text });
+            }
+        } else if (l.href.startsWith(url) && l.href.length > url.length + 1) {
+            if (!subcats.includes(l.href)) subcats.push(l.href);
+        }
+    }
+    return { files, subcats };
+}
+
 // Crawls the DOCman tree recursivamente, igual ao ETL principal
 async function crawlCategory(page: Page, url: string, visited = new Set<string>()): Promise<{ href: string; text: string }[]> {
     if (visited.has(url)) return [];
@@ -27,20 +53,7 @@ async function crawlCategory(page: Page, url: string, visited = new Set<string>(
         anchors.map(a => ({ href: (a as HTMLAnchorElement).href, text: (a.textContent || '').trim() }))
     );
 
-    const files: { href: string; text: string }[] = [];
-    const subcats: string[] = [];
-
-    for (const l of links) {
-        if (!l.href || l.href.includes('?format=') || l.href.includes('search?') || l.href.endsWith('#')) continue;
-
-        if (l.href.endsWith('/file') || /\.(pdf|xls|xlsx|csv)$/i.test(l.href) || l.href.includes('download')) {
-            if (!files.some(f => f.href === l.href)) {
-                files.push({ href: l.href, text: l.text });
-            }
-        } else if (l.href.startsWith(url) && l.href.length > url.length + 1) {
-            if (!subcats.includes(l.href)) subcats.push(l.href);
-        }
-    }
+    const { files, subcats } = classificarLinks(links, url);
 
     for (const subcat of subcats.slice(0, 5)) {
         const sub = await crawlCategory(page, subcat, visited);
@@ -64,26 +77,31 @@ async function downloadViaPlaywright(page: Page, url: string): Promise<{ buffer:
     } catch { return null; }
 }
 
+function parseLinhaDespesa(linha: string, vereadorNome: string, categoria: string, fonte: string) {
+    const cols = linha.split(';').map(c => c.trim().replace(/^"|"$/g, ''));
+    if (cols.length < 3) return null;
+    const valorStr = (cols[cols.length - 1] || '0').replace(/R\$/g, '').replace(/\./g, '').replace(',', '.').trim();
+    const valor = parseFloat(valorStr);
+    if (isNaN(valor) || valor <= 0) return null;
+    return {
+        vereador_nome: vereadorNome,
+        fornecedor_nome: cols[1] || null,
+        fornecedor_cnpj_cpf: (cols[0] || '').replace(/\D/g, '') || null,
+        valor,
+        data_despesa: cols[cols.length - 2] || null,
+        categoria_despesa: categoria,
+        descricao: cols[2] || null,
+        fonte_arquivo: fonte,
+        extraido_por: 'playwright-seed-v2',
+    };
+}
+
 function parseCsv(csv: string, vereadorNome: string, categoria: string, fonte: string) {
     const linhas = csv.split('\n').filter(l => l.trim());
     const despesas: any[] = [];
     for (let i = 1; i < linhas.length; i++) {
-        const cols = linhas[i].split(';').map(c => c.trim().replace(/^"|"$/g, ''));
-        if (cols.length < 3) continue;
-        const valorStr = (cols[cols.length - 1] || '0').replace(/R\$/g, '').replace(/\./g, '').replace(',', '.').trim();
-        const valor = parseFloat(valorStr);
-        if (isNaN(valor) || valor <= 0) continue;
-        despesas.push({
-            vereador_nome: vereadorNome,
-            fornecedor_nome: cols[1] || null,
-            fornecedor_cnpj_cpf: (cols[0] || '').replace(/\D/g, '') || null,
-            valor,
-            data_despesa: cols[cols.length - 2] || null,
-            categoria_despesa: categoria,
-            descricao: cols[2] || null,
-            fonte_arquivo: fonte,
-            extraido_por: 'playwright-seed-v2',
-        });
+        const d = parseLinhaDespesa(linhas[i], vereadorNome, categoria, fonte);
+        if (d) despesas.push(d);
     }
     return despesas;
 }
@@ -105,6 +123,54 @@ const VEREADORES = [
     { nome: 'Dr. Marcos Paulo', primeiro: 'marcos' }
 ];
 
+async function processarLinkArquivo(page: Page, link: { href: string; text: string }, vereador: any, cat: any): Promise<number> {
+    console.log(`  ⬇ ${link.text.slice(0, 60) || link.href.slice(-50)}`);
+    const dl = await downloadViaPlaywright(page, link.href);
+    if (!dl) { console.log('    ⚠ Download vazio'); return 0; }
+
+    const textContent = dl.buffer.toString('utf-8');
+    const isCsv = textContent.includes(';') && textContent.split('\n').length > 2;
+    if (!isCsv) { console.log(`    📄 Não CSV (${dl.type})`); return 0; }
+
+    const despesas = parseCsv(textContent, vereador.nome, cat.label, link.href);
+    if (!despesas.length) { console.log('    ⏭ Nenhuma despesa válida'); return 0; }
+
+    const { error } = await supabase.from('cmrj_despesas').upsert(despesas, {
+        onConflict: 'vereador_nome,fornecedor_cnpj_cpf,valor,data_despesa,categoria_despesa',
+        ignoreDuplicates: true,
+    });
+    if (error) {
+        console.warn(`    ⚠ Upsert: ${error.message}`);
+        return 0;
+    }
+    console.log(`    ✅ ${despesas.length} salvas`);
+    return despesas.length;
+}
+
+async function processarCategoriaVereador(browser: Browser, vereador: any, cat: any): Promise<number> {
+    const catUrl = `${BASE_URL}/${cat.slug}`;
+    const page = await browser.newPage();
+    let salvas = 0;
+
+    try {
+        const todosLinks = await crawlCategory(page, catUrl);
+        const linksVer = todosLinks.filter(l =>
+            l.text.toLowerCase().includes(vereador.primeiro) ||
+            l.href.toLowerCase().includes(vereador.primeiro)
+        );
+        console.log(`  📂 ${cat.slug}: ${todosLinks.length} total → ${linksVer.length} para "${vereador.primeiro}"`);
+
+        for (const link of linksVer.slice(0, 5)) {
+            salvas += await processarLinkArquivo(page, link, vereador, cat);
+        }
+    } catch (e: any) {
+        console.warn(`  ❌ Erro categoria ${cat.slug}: ${e.message}`);
+    } finally {
+        await page.close();
+    }
+    return salvas;
+}
+
 async function main() {
     console.log('🚀 Seed Real CMRJ (v2 com networkidle)\n');
 
@@ -119,40 +185,7 @@ async function main() {
         for (const vereador of VEREADORES) {
             console.log(`\n👤 ${vereador.nome}`);
             for (const cat of CATEGORIAS) {
-                const catUrl = `${BASE_URL}/${cat.slug}`;
-                const page = await browser.newPage();
-                try {
-                    const todosLinks = await crawlCategory(page, catUrl);
-                    const linksVer = todosLinks.filter(l =>
-                        l.text.toLowerCase().includes(vereador.primeiro) ||
-                        l.href.toLowerCase().includes(vereador.primeiro)
-                    );
-                    console.log(`  📂 ${cat.slug}: ${todosLinks.length} total → ${linksVer.length} para "${vereador.primeiro}"`);
-
-                    for (const { href, text } of linksVer.slice(0, 5)) {
-                        console.log(`  ⬇ ${text.slice(0, 60) || href.slice(-50)}`);
-                        const dl = await downloadViaPlaywright(page, href);
-                        if (!dl) { console.log('    ⚠ Download vazio'); continue; }
-
-                        const textContent = dl.buffer.toString('utf-8');
-                        const isCsv = textContent.includes(';') && textContent.split('\n').length > 2;
-                        if (!isCsv) { console.log(`    📄 Não CSV (${dl.type})`); continue; }
-
-                        const despesas = parseCsv(textContent, vereador.nome, cat.label, href);
-                        if (!despesas.length) { console.log('    ⏭ Nenhuma despesa válida'); continue; }
-
-                        const { error } = await supabase.from('cmrj_despesas').upsert(despesas, {
-                            onConflict: 'vereador_nome,fornecedor_cnpj_cpf,valor,data_despesa,categoria_despesa',
-                            ignoreDuplicates: true,
-                        });
-                        if (error) console.warn(`    ⚠ Upsert: ${error.message}`);
-                        else { totalSalvas += despesas.length; console.log(`    ✅ ${despesas.length} salvas`); }
-                    }
-                } catch (e: any) {
-                    console.warn(`  ❌ Erro categoria ${cat.slug}: ${e.message}`);
-                } finally {
-                    await page.close();
-                }
+                totalSalvas += await processarCategoriaVereador(browser, vereador, cat);
                 await new Promise(r => setTimeout(r, 800));
             }
         }

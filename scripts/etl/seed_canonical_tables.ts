@@ -196,35 +196,55 @@ const PRESIDENTES_EXTRA = [
 	}
 ];
 
-async function seed() {
-	console.log('====================================================');
-	console.log('🚀 SEED DO MODELO CANÔNICO UNIFICADO');
-	console.log('====================================================\n');
+const ORGAO_POR_TIPO: Record<string, Record<string, string>> = {
+	PREFEITURA: {
+		SE: 'PMA',
+		RJ: 'PCRJ',
+		SP: 'PMSP'
+	},
+	GOVERNO_ESTADUAL: {
+		SE: 'GOV_SE',
+		RJ: 'GOV_RJ',
+		SP: 'GOV_SP'
+	}
+};
 
-	// 1. Popula orgaos_publicos
+async function popularOrgaoItem(
+	supabaseClient: SupabaseClient,
+	org: (typeof ORGAOS_BASE)[0]
+): Promise<{ sigla: string; id: string } | null> {
+	const { data, error } = await supabaseClient
+		.from('orgaos_publicos')
+		.upsert(org, { onConflict: 'esfera,poder,uf,municipio,sigla' })
+		.select('id, sigla')
+		.single();
+
+	if (error) {
+		console.warn(`   ⚠️ Erro ao inserir órgão ${org.sigla}:`, error.message);
+		return null;
+	}
+	return data ? { sigla: data.sigla, id: data.id } : null;
+}
+
+async function popularOrgaos(supabaseClient: SupabaseClient): Promise<Map<string, string>> {
 	console.log('1. Populando orgaos_publicos...');
-	const orgaosMap = new Map<string, string>(); // sigla -> id
+	const orgaosMap = new Map<string, string>();
 
 	for (const org of ORGAOS_BASE) {
-		const { data, error } = await supabase
-			.from('orgaos_publicos')
-			.upsert(org, { onConflict: 'esfera,poder,uf,municipio,sigla' })
-			.select('id, sigla')
-			.single();
-
-		if (error) {
-			console.warn(`   ⚠️ Erro ao inserir órgão ${org.sigla}:`, error.message);
-		} else if (data) {
-			orgaosMap.set(data.sigla, data.id);
+		const res = await popularOrgaoItem(supabaseClient, org);
+		if (res) {
+			orgaosMap.set(res.sigla, res.id);
 		}
 	}
 	console.log(`   ✅ ${orgaosMap.size} órgãos cadastrados/atualizados.\n`);
+	return orgaosMap;
+}
 
-	// 2. Carrega cadastro rico de deputados do camara_perfil_politico_cache se disponível
+async function carregarPerfisRicos(supabaseClient: SupabaseClient): Promise<Map<string, any>> {
 	console.log('2. Consultando camara_perfil_politico_cache para metadados ricos...');
 	const perfilMap = new Map<string, any>();
 	try {
-		const { data: perfis } = await supabase
+		const { data: perfis } = await supabaseClient
 			.from('camara_perfil_politico_cache')
 			.select('id_deputado, nome, cpf, data_nascimento, uf, url_foto');
 
@@ -239,173 +259,239 @@ async function seed() {
 	} catch (e: any) {
 		console.log('   (Perfis ricos indisponíveis no banco principal, usando dados dos índices locais).');
 	}
+	return perfilMap;
+}
 
-	// 3. Constrói lista unificada de políticos
-	console.log('\n3. Construindo cadastro unificado de políticos...');
-	const politicosToInsert: any[] = [];
-	const mandatosToInsert: any[] = [];
+function encontrarPerfilRico(p: any, perfilMap: Map<string, any>) {
+	const peloId = perfilMap.get(String(p.id));
+	if (peloId) return peloId;
+	return perfilMap.get(p.nome.trim().toLowerCase()) ?? null;
+}
 
-	// A. Congresso Nacional (Deputados e Senadores)
-	for (const p of congressoIndex as any[]) {
-		const orgaoSigla = p.casa === 'CAMARA' ? 'CAMARA' : 'SENADO';
-		const orgaoId = orgaosMap.get(orgaoSigla);
-		const cargo = p.casa === 'CAMARA' ? 'DEPUTADO_FEDERAL' : 'SENADOR';
-		const perfilRico = perfilMap.get(String(p.id)) || perfilMap.get(p.nome.trim().toLowerCase());
+function extrairCpfCongresso(perfilRico: any): string | undefined {
+	if (!perfilRico?.cpf) return undefined;
+	const clean = String(perfilRico.cpf).replace(/\D/g, '');
+	return clean.length > 0 ? clean : undefined;
+}
 
-		const cpf = perfilRico?.cpf ? String(perfilRico.cpf).replace(/\D/g, '') : null;
-		const foto = p.id
-			? `https://uvzynmgwfmdsdrwvgbsy.supabase.co/storage/v1/object/public/fotos-politicos/${p.id}.jpg`
-			: null;
+function extrairFotoCongresso(id: any): string | null {
+	return id ? `https://uvzynmgwfmdsdrwvgbsy.supabase.co/storage/v1/object/public/fotos-politicos/${id}.jpg` : null;
+}
 
-		politicosToInsert.push({
-			cpf: cpf || undefined,
-			nome_civil: perfilRico?.nome || p.nome,
-			nome_urna: p.nome,
-			data_nascimento: perfilRico?.data_nascimento || null,
-			uf_naturalidade: p.uf || null,
-			foto_url: foto,
-			biografia: `Parlamentar em exercício: ${cargo} por ${p.uf} (${p.partido || 'Sem Partido'})`,
-			_meta: {
-				orgaoId,
-				cargo,
-				partido: p.partido,
-				anoInicio: 2023,
-				anoFim: 2026,
-				idOriginal: p.id
-			}
-		});
-	}
+function mapearParlamentarCongresso(
+	p: any,
+	orgaosMap: Map<string, string>,
+	perfilMap: Map<string, any>
+) {
+	const isCamara = p.casa === 'CAMARA';
+	const orgaoSigla = isCamara ? 'CAMARA' : 'SENADO';
+	const cargo = isCamara ? 'DEPUTADO_FEDERAL' : 'SENADOR';
+	const perfilRico = encontrarPerfilRico(p, perfilMap);
 
-	// B. Presidentes
-	for (const pres of PRESIDENTES_EXTRA) {
-		const orgaoId = orgaosMap.get(pres.orgaoSigla);
-		politicosToInsert.push({
-			nome_civil: pres.nome,
-			nome_urna: pres.nomeUrna,
-			uf_naturalidade: pres.uf,
-			foto_url: pres.foto,
-			biografia: `Presidente da República do Brasil (${pres.partido})`,
-			_meta: {
-				orgaoId,
-				cargo: pres.cargo,
-				partido: pres.partido,
-				anoInicio: pres.anoInicio,
-				anoFim: pres.anoFim || null
-			}
-		});
-	}
-
-	// C. Municipais e Estaduais Integrados (Aracaju, RJ, SP, Governadores)
-	for (const mun of municipaisIndex as any[]) {
-		let orgaoSigla = 'CMA';
-		if (mun.orgao === 'CMA') orgaoSigla = 'CMA';
-		else if (mun.orgao === 'CMRJ') orgaoSigla = 'CMRJ';
-		else if (mun.orgao === 'CMSP') orgaoSigla = 'CMSP';
-		else if (mun.casa === 'PREFEITURA') {
-			if (mun.uf === 'SE') orgaoSigla = 'PMA';
-			else if (mun.uf === 'RJ') orgaoSigla = 'PCRJ';
-			else if (mun.uf === 'SP') orgaoSigla = 'PMSP';
-		} else if (mun.casa === 'GOVERNO_ESTADUAL') {
-			if (mun.uf === 'SE') orgaoSigla = 'GOV_SE';
-			else if (mun.uf === 'RJ') orgaoSigla = 'GOV_RJ';
-			else if (mun.uf === 'SP') orgaoSigla = 'GOV_SP';
+	return {
+		cpf: extrairCpfCongresso(perfilRico),
+		nome_civil: perfilRico?.nome ?? p.nome,
+		nome_urna: p.nome,
+		data_nascimento: perfilRico?.data_nascimento ?? null,
+		uf_naturalidade: p.uf ?? null,
+		foto_url: extrairFotoCongresso(p.id),
+		biografia: `Parlamentar em exercício: ${cargo} por ${p.uf} (${p.partido || 'Sem Partido'})`,
+		_meta: {
+			orgaoId: orgaosMap.get(orgaoSigla),
+			cargo,
+			partido: p.partido,
+			anoInicio: 2023,
+			anoFim: 2026,
+			idOriginal: p.id
 		}
+	};
+}
 
-		const orgaoId = orgaosMap.get(orgaoSigla);
-		const cargoNorm = (mun.cargo || 'Vereador').toUpperCase().replace(/\s+/g, '_');
+function mapearPresidente(pres: (typeof PRESIDENTES_EXTRA)[0], orgaosMap: Map<string, string>) {
+	const orgaoId = orgaosMap.get(pres.orgaoSigla);
+	return {
+		nome_civil: pres.nome,
+		nome_urna: pres.nomeUrna,
+		uf_naturalidade: pres.uf,
+		foto_url: pres.foto,
+		biografia: `Presidente da República do Brasil (${pres.partido})`,
+		_meta: {
+			orgaoId,
+			cargo: pres.cargo,
+			partido: pres.partido,
+			anoInicio: pres.anoInicio,
+			anoFim: pres.anoFim || null
+		}
+	};
+}
 
-		politicosToInsert.push({
-			nome_civil: mun.nome,
-			nome_urna: mun.nome,
-			uf_naturalidade: mun.uf,
-			biografia: `${mun.cargo || 'Agente Público'} em ${mun.municipio || mun.uf} (${mun.orgao || mun.partido})`,
-			_meta: {
-				orgaoId,
-				cargo: cargoNorm,
-				partido: mun.partido,
-				anoInicio: 2025,
-				anoFim: 2028
-			}
-		});
+function resolverSiglaOrgaoMunicipalEstadual(mun: any): string {
+	if (mun.orgao === 'CMA' || mun.orgao === 'CMRJ' || mun.orgao === 'CMSP') {
+		return mun.orgao;
+	}
+	const mapaCasa = ORGAO_POR_TIPO[mun.casa];
+	if (mapaCasa && mun.uf && mapaCasa[mun.uf]) {
+		return mapaCasa[mun.uf];
+	}
+	return 'CMA';
+}
+
+function mapearMunicipalEstadual(mun: any, orgaosMap: Map<string, string>) {
+	const orgaoSigla = resolverSiglaOrgaoMunicipalEstadual(mun);
+	const orgaoId = orgaosMap.get(orgaoSigla);
+	const cargoNorm = (mun.cargo || 'Vereador').toUpperCase().replace(/\s+/g, '_');
+
+	return {
+		nome_civil: mun.nome,
+		nome_urna: mun.nome,
+		uf_naturalidade: mun.uf,
+		biografia: `${mun.cargo || 'Agente Público'} em ${mun.municipio || mun.uf} (${mun.orgao || mun.partido})`,
+		_meta: {
+			orgaoId,
+			cargo: cargoNorm,
+			partido: mun.partido,
+			anoInicio: 2025,
+			anoFim: 2028
+		}
+	};
+}
+
+function construirPoliticosParaInsercao(
+	orgaosMap: Map<string, string>,
+	perfilMap: Map<string, any>
+): any[] {
+	console.log('\n3. Construindo cadastro unificado de políticos...');
+	const lista: any[] = [];
+
+	for (const p of congressoIndex as any[]) {
+		lista.push(mapearParlamentarCongresso(p, orgaosMap, perfilMap));
+	}
+	for (const pres of PRESIDENTES_EXTRA) {
+		lista.push(mapearPresidente(pres, orgaosMap));
+	}
+	for (const mun of municipaisIndex as any[]) {
+		lista.push(mapearMunicipalEstadual(mun, orgaosMap));
 	}
 
-	console.log(`   📦 Total de ${politicosToInsert.length} agentes políticos estruturados para inserção.`);
+	console.log(`   📦 Total de ${lista.length} agentes políticos estruturados para inserção.`);
+	return lista;
+}
 
-	// 4. Inserção em lotes de politicos e geração de mandatos
+function extrairPayloadPolitico(item: any) {
+	return {
+		cpf: item.cpf || null,
+		nome_civil: item.nome_civil,
+		nome_urna: item.nome_urna,
+		data_nascimento: item.data_nascimento || null,
+		uf_naturalidade: item.uf_naturalidade || null,
+		foto_url: item.foto_url || null,
+		biografia: item.biografia || null
+	};
+}
+
+async function obterOuInserirPolitico(
+	supabaseClient: SupabaseClient,
+	payload: any
+): Promise<{ politicoId: string | null; inserido: boolean }> {
+	let query = supabaseClient.from('politicos').select('id');
+	if (payload.cpf) {
+		query = query.eq('cpf', payload.cpf);
+	} else {
+		query = query.eq('nome_civil', payload.nome_civil);
+	}
+
+	const { data: existente } = await query.limit(1).maybeSingle();
+	if (existente?.id) {
+		await supabaseClient.from('politicos').update(payload).eq('id', existente.id);
+		return { politicoId: existente.id, inserido: false };
+	}
+
+	const { data: novo, error: errNovo } = await supabaseClient
+		.from('politicos')
+		.insert(payload)
+		.select('id')
+		.single();
+
+	if (novo?.id) {
+		return { politicoId: novo.id, inserido: true };
+	}
+
+	if (errNovo) {
+		const { data: recuperado } = await supabaseClient
+			.from('politicos')
+			.select('id')
+			.eq('nome_civil', payload.nome_civil)
+			.maybeSingle();
+		if (recuperado?.id) {
+			return { politicoId: recuperado.id, inserido: false };
+		}
+	}
+
+	return { politicoId: null, inserido: false };
+}
+
+async function vincularMandatoPolitico(
+	supabaseClient: SupabaseClient,
+	politicoId: string,
+	meta: any
+): Promise<boolean> {
+	if (!meta?.orgaoId) return false;
+
+	const mandatoPayload = {
+		politico_id: politicoId,
+		orgao_id: meta.orgaoId,
+		cargo: meta.cargo,
+		partido: meta.partido || null,
+		ano_inicio: meta.anoInicio || 2023,
+		ano_fim: meta.anoFim || null,
+		situacao: 'TITULAR'
+	};
+
+	const { error } = await supabaseClient
+		.from('mandatos')
+		.upsert(mandatoPayload, {
+			onConflict: 'politico_id,orgao_id,cargo,ano_inicio'
+		});
+
+	return !error;
+}
+
+async function sincronizarPoliticosEMandatos(
+	supabaseClient: SupabaseClient,
+	politicosToInsert: any[]
+): Promise<{ totalPoliticos: number; totalMandatos: number }> {
 	console.log('\n4. Gravando politicos e mandatos no Supabase...');
 	let totalPoliticos = 0;
 	let totalMandatos = 0;
 
 	for (const item of politicosToInsert) {
-		const meta = item._meta;
-		const payload = {
-			cpf: item.cpf || null,
-			nome_civil: item.nome_civil,
-			nome_urna: item.nome_urna,
-			data_nascimento: item.data_nascimento || null,
-			uf_naturalidade: item.uf_naturalidade || null,
-			foto_url: item.foto_url || null,
-			biografia: item.biografia || null
-		};
+		const payload = extrairPayloadPolitico(item);
+		const { politicoId, inserido } = await obterOuInserirPolitico(supabaseClient, payload);
 
-		// Tenta buscar se já existe por nome ou CPF
-		let politicoId: string | null = null;
-		let query = supabase.from('politicos').select('id');
-		if (payload.cpf) {
-			query = query.eq('cpf', payload.cpf);
-		} else {
-			query = query.eq('nome_civil', payload.nome_civil);
-		}
+		if (inserido) totalPoliticos++;
 
-		const { data: existente } = await query.limit(1).maybeSingle();
-
-		if (existente?.id) {
-			politicoId = existente.id;
-			await supabase.from('politicos').update(payload).eq('id', politicoId);
-		} else {
-			const { data: novo, error: errNovo } = await supabase
-				.from('politicos')
-				.insert(payload)
-				.select('id')
-				.single();
-
-			if (novo?.id) {
-				politicoId = novo.id;
-				totalPoliticos++;
-			} else if (errNovo) {
-				// Se deu conflito de CPF, tenta recuperar
-				const { data: recuperado } = await supabase
-					.from('politicos')
-					.select('id')
-					.eq('nome_civil', payload.nome_civil)
-					.maybeSingle();
-				if (recuperado?.id) politicoId = recuperado.id;
-			}
-		}
-
-		// Cria/atualiza o mandato
-		if (politicoId && meta?.orgaoId) {
-			const mandatoPayload = {
-				politico_id: politicoId,
-				orgao_id: meta.orgaoId,
-				cargo: meta.cargo,
-				partido: meta.partido || null,
-				ano_inicio: meta.anoInicio || 2023,
-				ano_fim: meta.anoFim || null,
-				situacao: 'TITULAR'
-			};
-
-			const { error: errMandato } = await supabase
-				.from('mandatos')
-				.upsert(mandatoPayload, {
-					onConflict: 'politico_id,orgao_id,cargo,ano_inicio'
-				});
-
-			if (!errMandato) {
-				totalMandatos++;
-			}
+		if (politicoId) {
+			const vinculado = await vincularMandatoPolitico(supabaseClient, politicoId, item._meta);
+			if (vinculado) totalMandatos++;
 		}
 	}
+
+	return { totalPoliticos, totalMandatos };
+}
+
+async function seed() {
+	console.log('====================================================');
+	console.log('🚀 SEED DO MODELO CANÔNICO UNIFICADO');
+	console.log('====================================================\n');
+
+	const orgaosMap = await popularOrgaos(supabase);
+	const perfilMap = await carregarPerfisRicos(supabase);
+	const politicosToInsert = construirPoliticosParaInsercao(orgaosMap, perfilMap);
+
+	const { totalPoliticos, totalMandatos } = await sincronizarPoliticosEMandatos(
+		supabase,
+		politicosToInsert
+	);
 
 	console.log(`\n====================================================`);
 	console.log(`✅ SEED CONCLUÍDO COM SUCESSO!`);

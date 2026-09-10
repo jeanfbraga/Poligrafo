@@ -272,6 +272,28 @@ describe('🚫 E2E — Proteção contra Falsos Positivos', () => {
             expect(pessoa.length).toBeGreaterThan(0);
         }
     }, 200000);
+function checarMatchEderMauro(pessoa: any[], candidatos: any[]): boolean {
+    if (pessoa.length > 0) {
+        const nomePessoa = pessoa[0].payload?.data?.label || '';
+        const cargo = pessoa[0].payload?.data?.cargo || '';
+        console.log(`   [ÉDER MAURO] Pessoa retornada: ${nomePessoa} | ${cargo}`);
+        expect(nomePessoa.toLowerCase()).toContain('mauro');
+        return true;
+    }
+    if (candidatos.length > 0) {
+        const lista = candidatos[0]?.payload?.candidatos || [];
+        console.log(`   [ÉDER MAURO] Candidatos retornados: ${lista.length}`);
+        return lista.some((c: any) => {
+            console.log(`     - ${c.nome} | ${c.cargo} | ref: ${c.ref}`);
+            return (
+                normalizeString(c.nome).includes('mauro') &&
+                c.ref.includes('FEDERAL:CAMARA')
+            );
+        });
+    }
+    return false;
+}
+
     it('[FEATURE] Selecionar uma UF (PA) deve encontrar o Deputado Federal (Éder Mauro) usando o escopo correto', async () => {
         // Envia com uf=PA e nome=Delegado Éder Mauro
         const eventos = await consumeStream(
@@ -285,24 +307,7 @@ describe('🚫 E2E — Proteção contra Falsos Positivos', () => {
         const candidatos = getEventsByType(eventos, 'CANDIDATOS_ENCONTRADOS');
         const pessoa = extractNodes(eventos, 'PESSOA');
         
-        let found = false;
-
-        if (pessoa.length > 0) {
-            const nomePessoa = pessoa[0].payload?.data?.label || '';
-            const cargo = pessoa[0].payload?.data?.cargo || '';
-            console.log(`   [ÉDER MAURO] Pessoa retornada: ${nomePessoa} | ${cargo}`);
-            expect(nomePessoa.toLowerCase()).toContain('mauro');
-            found = true;
-        } else if (candidatos.length > 0) {
-            const lista = candidatos[0]?.payload?.candidatos || [];
-            console.log(`   [ÉDER MAURO] Candidatos retornados: ${lista.length}`);
-            for (const c of lista) {
-                console.log(`     - ${c.nome} | ${c.cargo} | ref: ${c.ref}`);
-                if (normalizeString(c.nome).includes('mauro') && c.ref.includes('FEDERAL:CAMARA')) {
-                    found = true;
-                }
-            }
-        }
+        const found = checarMatchEderMauro(pessoa, candidatos);
         
         if (!found) {
             const errors = getEventsByType(eventos, 'ERROR');

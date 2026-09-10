@@ -84,42 +84,94 @@ async function prepare(baseName: string) {
 // PROCESSAMENTO
 // ============================================================================
 
-async function processBase(baseName: string) {
-    const result = await downloadZipForBase(baseName);
-    if (!result) return;
-
-    const { zipPath, dateStr } = result;
-    const tipo = baseName.toUpperCase();
-    
+function extrairArquivoZipCgu(zipPath: string, tipo: string): boolean {
     console.log(`[CGU SYNC] Extraindo ${tipo}...`);
     try {
-        // CGU Zips usually contain a single CSV inside, we extract all to TEMP_DIR
         try {
             execSync(`tar -xf "${zipPath}" -C "${TEMP_DIR}"`, { stdio: 'ignore' });
         } catch {
             execSync(`unzip -o "${zipPath}" -d "${TEMP_DIR}"`, { stdio: 'ignore' });
         }
-    } catch (e) {
+        return true;
+    } catch {
         console.error(`[CGU SYNC] Erro ao extrair ZIP do ${tipo}.`);
-        return;
+        return false;
     }
+}
 
-    // Procura o arquivo CSV extraído (o nome varia, ex: 20241031_CEIS.csv)
+function encontrarCsvExtraido(tipo: string): string | null {
     const files = fs.readdirSync(TEMP_DIR);
     const csvFile = files.find(f => f.toUpperCase().includes(tipo) && f.endsWith('.csv'));
-    
     if (!csvFile) {
         console.error(`[CGU SYNC] Arquivo CSV não encontrado dentro do ZIP de ${tipo}.`);
-        return;
+        return null;
     }
+    return path.join(TEMP_DIR, csvFile);
+}
 
-    const csvPath = path.join(TEMP_DIR, csvFile);
+function extrairIdentificacaoCgu(record: any): { cpfCnpj: string; nome: string | null } | null {
+    const rawDoc = record['CPF OU CNPJ DO SANCIONADO'] || record['CPF'] || record['CPF/CNPJ'];
+    if (!rawDoc) return null;
+
+    const cpfCnpj = rawDoc.replace(/[^\d]/g, "");
+    if (cpfCnpj.length < 11) return null;
+
+    const rawNome = record['NOME DO SANCIONADO'] || record['NOME'] || record['NOME DA PESSOA'];
+    return {
+        cpfCnpj,
+        nome: rawNome ? rawNome.toUpperCase() : null
+    };
+}
+
+function extrairDatasCgu(record: any) {
+    const dataInicio = record['DATA INÍCIO SANÇÃO'] || record['DATA DE INÍCIO DA SANÇÃO'] || null;
+    const dataFim = record['DATA FINAL SANÇÃO'] || record['DATA DE FIM DA SANÇÃO'] || null;
+    return { dataInicio, dataFim };
+}
+
+function extrairDescricaoCgu(record: any): string | null {
+    return record['FUNDAMENTAÇÃO LEGAL'] || record['DESCRIÇÃO DA FUNÇÃO'] || record['MOTIVO'] || null;
+}
+
+function mapearRegistroCgu(record: any, tipo: string) {
+    const ident = extrairIdentificacaoCgu(record);
+    if (!ident) return null;
+
+    const { dataInicio, dataFim } = extrairDatasCgu(record);
+    const orgao = record['ÓRGÃO SANCIONADOR'] || record['ÓRGÃO'] || null;
+
+    return {
+        cpf_cnpj: ident.cpfCnpj,
+        nome: ident.nome,
+        tipo_sancao: tipo,
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        orgao,
+        descricao: extrairDescricaoCgu(record),
+        created_at: new Date().toISOString()
+    };
+}
+
+async function salvarLoteCgu(batch: any[], tipo: string): Promise<void> {
+    if (batch.length === 0) return;
+    const { error } = await supabaseAdmin.from('cgu_sancoes_cache').insert(batch);
+    if (error) console.error(`[CGU SYNC] Erro ao inserir lote de ${tipo}:`, error.message);
+}
+
+async function processBase(baseName: string) {
+    const result = await downloadZipForBase(baseName);
+    if (!result) return;
+
+    const tipo = baseName.toUpperCase();
+    if (!extrairArquivoZipCgu(result.zipPath, tipo)) return;
+
+    const csvPath = encontrarCsvExtraido(tipo);
+    if (!csvPath) return;
+
     await prepare(baseName);
-
     console.log(`[CGU SYNC] Parseando e inserindo CSV: ${csvPath}`);
     
     const fileContent = fs.readFileSync(csvPath, 'latin1'); 
-    
     const records: any[] = parse(fileContent, {
         columns: true,
         skip_empty_lines: true,
@@ -133,47 +185,19 @@ async function processBase(baseName: string) {
     let count = 0;
 
     for (const record of records) {
-        // As chaves dependem do arquivo:
-        // CEIS/CNEP/CEAF: CPF OU CNPJ DO SANCIONADO, NOME DO SANCIONADO
-        // PEP: CPF, Nome
-        let cpfCnpj = record['CPF OU CNPJ DO SANCIONADO'] || record['CPF'] || record['CPF/CNPJ'];
-        let nome = record['NOME DO SANCIONADO'] || record['NOME'] || record['NOME DA PESSOA'];
-        
-        if (!cpfCnpj) continue;
-        
-        cpfCnpj = cpfCnpj.replace(/[^\d]/g, ""); // Apenas números
-        if (cpfCnpj.length < 11) continue;
+        const item = mapearRegistroCgu(record, tipo);
+        if (!item) continue;
 
-        let dataInicio = record['DATA INÍCIO SANÇÃO'] || record['DATA DE INÍCIO DA SANÇÃO'] || null;
-        let dataFim = record['DATA FINAL SANÇÃO'] || record['DATA DE FIM DA SANÇÃO'] || null;
-        let orgao = record['ÓRGÃO SANCIONADOR'] || record['ÓRGÃO'] || null;
-        let descricao = record['FUNDAMENTAÇÃO LEGAL'] || record['DESCRIÇÃO DA FUNÇÃO'] || record['MOTIVO'] || null;
-
-        batch.push({
-            cpf_cnpj: cpfCnpj,
-            nome: nome ? nome.toUpperCase() : null,
-            tipo_sancao: tipo,
-            data_inicio: dataInicio,
-            data_fim: dataFim,
-            orgao: orgao,
-            descricao: descricao,
-            created_at: new Date().toISOString()
-        });
-
+        batch.push(item);
         count++;
 
         if (batch.length >= BATCH_SIZE) {
-            const { error } = await supabaseAdmin.from('cgu_sancoes_cache').insert(batch);
-            if (error) console.error(`[CGU SYNC] Erro ao inserir lote de ${tipo}:`, error.message);
+            await salvarLoteCgu(batch, tipo);
             batch = [];
         }
     }
 
-    if (batch.length > 0) {
-        const { error } = await supabaseAdmin.from('cgu_sancoes_cache').insert(batch);
-        if (error) console.error(`[CGU SYNC] Erro ao inserir lote final de ${tipo}:`, error.message);
-    }
-
+    await salvarLoteCgu(batch, tipo);
     console.log(`✅ [CGU SYNC] ${tipo} concluído! Registros: ${count}`);
 }
 

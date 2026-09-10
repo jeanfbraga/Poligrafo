@@ -57,6 +57,45 @@ export async function buscarPolitico(
 	}
 }
 
+function extrairAfastamento(mandato: any) {
+	const exercicios = Array.isArray(mandato?.Exercicios?.Exercicio)
+		? mandato.Exercicios.Exercicio
+		: [mandato?.Exercicios?.Exercicio];
+	const afastado = exercicios.find(
+		(ex: any) => ex?.SiglaCausaAfastamento && !ex?.DataFim,
+	);
+	if (!afastado) return undefined;
+	const suplentes = Array.isArray(mandato?.Suplentes?.Suplente)
+		? mandato.Suplentes.Suplente
+		: [mandato?.Suplentes?.Suplente];
+	return {
+		motivo: afastado.DescricaoCausaAfastamento || "Afastado",
+		suplente: suplentes[0]?.NomeParlamentar || null,
+	};
+}
+
+function extrairDadosSenador(match: any, supabaseUrl: string): ParlamentarBasico {
+	const mandatos = Array.isArray(match.Mandatos?.Mandato)
+		? match.Mandatos.Mandato
+		: [match.Mandatos?.Mandato];
+	const primeiroMandato = mandatos[0];
+	const uf = primeiroMandato?.UfParlamentar || "DF";
+	const afastamento = extrairAfastamento(primeiroMandato);
+	const cod = match.IdentificacaoParlamentar.CodigoParlamentar;
+
+	return {
+		id: cod,
+		uri: match.IdentificacaoParlamentar.UrlPaginaParlamentar,
+		nome: match.IdentificacaoParlamentar.NomeParlamentar,
+		uf,
+		idLegislatura: 57,
+		casa: "SENADO",
+		urlFoto: `${supabaseUrl}/storage/v1/object/public/fotos-politicos/${cod}.jpg`,
+		urlFotoFallback: match.IdentificacaoParlamentar.UrlFotoParlamentar || `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${cod}.jpg`,
+		...(afastamento && { afastamento }),
+	};
+}
+
 export async function buscarSenador(
 	query: string,
 ): Promise<ParlamentarBasico | null> {
@@ -78,55 +117,16 @@ export async function buscarSenador(
 			? listaSenadores
 			: [listaSenadores];
 
-		const match = senadoresArray.find(
-			(s: any) =>
-				normalizeString(s.IdentificacaoParlamentar.NomeParlamentar).includes(
-					termoBusca,
-				) ||
-				normalizeString(
-					s.IdentificacaoParlamentar.NomeCompletoParlamentar,
-				).includes(termoBusca),
-		);
+		const match = senadoresArray.find((s: any) => {
+			const idParl = s.IdentificacaoParlamentar;
+			return normalizeString(idParl?.NomeParlamentar || "").includes(termoBusca) ||
+				normalizeString(idParl?.NomeCompletoParlamentar || "").includes(termoBusca);
+		});
 
 		if (!match) return null;
 
-		const mandatos = Array.isArray(match.Mandatos?.Mandato)
-			? match.Mandatos.Mandato
-			: [match.Mandatos?.Mandato];
-		const uf = mandatos[0]?.UfParlamentar || "DF";
-
-		const exercicios = Array.isArray(mandatos[0]?.Exercicios?.Exercicio)
-			? mandatos[0].Exercicios.Exercicio
-			: [mandatos[0]?.Exercicios?.Exercicio];
-		const afastado = exercicios.find(
-			(ex: any) => ex?.SiglaCausaAfastamento && !ex?.DataFim,
-		);
-		let afastamentoDados;
-
-		if (afastado) {
-			const suplentes = Array.isArray(mandatos[0]?.Suplentes?.Suplente)
-				? mandatos[0].Suplentes.Suplente
-				: [mandatos[0]?.Suplentes?.Suplente];
-			const suplenteNome = suplentes[0]?.NomeParlamentar || null;
-			afastamentoDados = {
-				motivo: afastado.DescricaoCausaAfastamento || "Afastado",
-				suplente: suplenteNome,
-			};
-		}
-
 		const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://uvzynmgwfmdsdrwvgbsy.supabase.co";
-
-		return {
-			id: match.IdentificacaoParlamentar.CodigoParlamentar,
-			uri: match.IdentificacaoParlamentar.UrlPaginaParlamentar,
-			nome: match.IdentificacaoParlamentar.NomeParlamentar,
-			uf: uf,
-			idLegislatura: 57,
-			casa: "SENADO",
-			urlFoto: `${SUPABASE_URL}/storage/v1/object/public/fotos-politicos/${match.IdentificacaoParlamentar.CodigoParlamentar}.jpg`,
-			urlFotoFallback: match.IdentificacaoParlamentar.UrlFotoParlamentar || `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${match.IdentificacaoParlamentar.CodigoParlamentar}.jpg`,
-			...(afastamentoDados && { afastamento: afastamentoDados }),
-		};
+		return extrairDadosSenador(match, SUPABASE_URL);
 	} catch (_e) {
 		return null;
 	}
@@ -214,44 +214,8 @@ export async function buscarSenadoresLista(
 			}
 			return true;
 		});
-		return matches.slice(0, 5).map((m: any) => {
-			const mandatos = Array.isArray(m.Mandatos?.Mandato)
-				? m.Mandatos.Mandato
-				: [m.Mandatos?.Mandato];
-			const uf = mandatos[0]?.UfParlamentar || "DF";
-
-			const exercicios = Array.isArray(mandatos[0]?.Exercicios?.Exercicio)
-				? mandatos[0].Exercicios.Exercicio
-				: [mandatos[0]?.Exercicios?.Exercicio];
-			const afastado = exercicios.find(
-				(ex: any) => ex?.SiglaCausaAfastamento && !ex?.DataFim,
-			);
-			let afastamentoDados;
-
-			if (afastado) {
-				const suplentes = Array.isArray(mandatos[0]?.Suplentes?.Suplente)
-					? mandatos[0].Suplentes.Suplente
-					: [mandatos[0]?.Suplentes?.Suplente];
-				const suplenteNome = suplentes[0]?.NomeParlamentar || null;
-				afastamentoDados = {
-					motivo: afastado.DescricaoCausaAfastamento || "Afastado",
-					suplente: suplenteNome,
-				};
-			}
-
-			const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://uvzynmgwfmdsdrwvgbsy.supabase.co";
-			return {
-				id: m.IdentificacaoParlamentar.CodigoParlamentar,
-				uri: m.IdentificacaoParlamentar.UrlPaginaParlamentar,
-				nome: m.IdentificacaoParlamentar.NomeParlamentar,
-				uf: uf,
-				idLegislatura: 57,
-				casa: "SENADO" as const,
-				urlFoto: `${SUPABASE_URL}/storage/v1/object/public/fotos-politicos/${m.IdentificacaoParlamentar.CodigoParlamentar}.jpg`,
-				urlFotoFallback: m.IdentificacaoParlamentar.UrlFotoParlamentar || `https://www.senado.leg.br/senadores/img/fotos-oficiais/senador${m.IdentificacaoParlamentar.CodigoParlamentar}.jpg`,
-				...(afastamentoDados && { afastamento: afastamentoDados }),
-			};
-		});
+		const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://uvzynmgwfmdsdrwvgbsy.supabase.co";
+		return matches.slice(0, 5).map((m: any) => extrairDadosSenador(m, SUPABASE_URL));
 	} catch (_e) {
 		return [];
 	}

@@ -16,25 +16,32 @@ const DEFAULT_TIMEOUT = 12000;
 // Helpers
 // ==========================================
 
+function getRawVal(raw: Record<string, any>, key: string) {
+	const v = raw[key];
+	return v !== undefined && v !== null ? v : null;
+}
+
 /** Parseia um item raw da API PostgREST para nosso tipo */
 export function parseTransferencia(
 	raw: Record<string, any>,
 ): TransferenciaEspecial {
 	return {
-		idPlanoAcao: raw.id_plano_acao ?? null,
-		codigoPlanoAcao: raw.codigo_plano_acao ?? null,
-		ano: raw.ano_plano_acao ?? null,
-		situacao: raw.situacao_plano_acao ?? null,
-		nomeParlamentar: raw.nome_parlamentar_emenda_plano_acao ?? null,
-		numeroEmenda: raw.numero_emenda_parlamentar_plano_acao ?? null,
-		anoEmenda: raw.ano_emenda_parlamentar_plano_acao ?? null,
-		valorCusteio: raw.valor_custeio_plano_acao ?? null,
-		valorInvestimento: raw.valor_investimento_plano_acao ?? null,
-		cnpjBeneficiario: raw.cnpj_beneficiario_plano_acao ?? null,
-		nomeBeneficiario: raw.nome_beneficiario_plano_acao ?? null,
-		ufBeneficiario: raw.uf_beneficiario_plano_acao ?? null,
-		areaPoliticaPublica:
-			raw.codigo_descricao_areas_politicas_publicas_plano_acao ?? null,
+		idPlanoAcao: getRawVal(raw, "id_plano_acao"),
+		codigoPlanoAcao: getRawVal(raw, "codigo_plano_acao"),
+		ano: getRawVal(raw, "ano_plano_acao"),
+		situacao: getRawVal(raw, "situacao_plano_acao"),
+		nomeParlamentar: getRawVal(raw, "nome_parlamentar_emenda_plano_acao"),
+		numeroEmenda: getRawVal(raw, "numero_emenda_parlamentar_plano_acao"),
+		anoEmenda: getRawVal(raw, "ano_emenda_parlamentar_plano_acao"),
+		valorCusteio: getRawVal(raw, "valor_custeio_plano_acao"),
+		valorInvestimento: getRawVal(raw, "valor_investimento_plano_acao"),
+		cnpjBeneficiario: getRawVal(raw, "cnpj_beneficiario_plano_acao"),
+		nomeBeneficiario: getRawVal(raw, "nome_beneficiario_plano_acao"),
+		ufBeneficiario: getRawVal(raw, "uf_beneficiario_plano_acao"),
+		areaPoliticaPublica: getRawVal(
+			raw,
+			"codigo_descricao_areas_politicas_publicas_plano_acao",
+		),
 	};
 }
 
@@ -50,6 +57,23 @@ function buildQuery(
 	params.set("offset", String(offset));
 	if (order) params.set("order", order);
 	return params;
+}
+
+async function requestTransferenciasComTimeout(url: string, timeout: number) {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeout);
+	try {
+		return await fetch(url, {
+			signal: controller.signal,
+			headers: {
+				"User-Agent":
+					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+				Accept: "application/json",
+			},
+		});
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 /** Executa GET na API PostgREST com filtros e retry */
@@ -68,60 +92,30 @@ async function fetchTransferencias(
 	);
 	const url = `${PLANO_ACAO_URL}?${params.toString()}`;
 
-	let attempt = 0;
-	while (attempt <= retries) {
+	for (let attempt = 0; attempt <= retries; attempt++) {
 		try {
-			const controller = new AbortController();
-			const timer = setTimeout(() => controller.abort(), timeout);
+			const response = await requestTransferenciasComTimeout(url, timeout);
 
-			const response = await fetch(url, {
-				signal: controller.signal,
-				headers: {
-					"User-Agent":
-						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-					Accept: "application/json",
-				},
-			});
-			clearTimeout(timer);
-
-			if (!response?.ok) {
-				if (response && response.status >= 500 && attempt < retries) {
+			if (!response.ok) {
+				if (response.status >= 500 && attempt < retries) {
 					console.warn(
 						`[TransfereGov] HTTP ${response.status} para ${url}. Tentativa ${attempt + 1}/${retries + 1}...`,
 					);
-					attempt++;
-					await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt)); // Exponential backoff
+					await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt));
 					continue;
 				}
-				throw new Error(
-					response
-						? `HTTP ${response.status}: ${response.statusText}`
-						: "fetch retornou undefined",
-				);
+				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 			}
 
 			const data = await response.json();
-			if (!Array.isArray(data)) return [];
-
-			return data.map(parseTransferencia);
+			return Array.isArray(data) ? data.map(parseTransferencia) : [];
 		} catch (e: any) {
-			if (e.name === "AbortError") {
-				console.warn(
-					`[TransfereGov] Timeout (${timeout}ms) na tentativa ${attempt + 1}`,
-				);
-			} else {
-				console.warn(
-					`[TransfereGov] Erro na tentativa ${attempt + 1}:`,
-					e.message,
-				);
-			}
+			const msg = e.name === "AbortError" ? `Timeout (${timeout}ms)` : e.message;
+			console.warn(`[TransfereGov] Falha na tentativa ${attempt + 1}:`, msg);
 
 			if (attempt < retries) {
-				attempt++;
 				await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt));
-				continue;
 			}
-			return [];
 		}
 	}
 	return [];
@@ -214,23 +208,7 @@ export async function detalheEmenda(
 	}
 }
 
-/**
- * Gera um resumo totalizado das emendas PIX de um parlamentar.
- * Busca todas as páginas disponíveis (até 5) e agrega os dados.
- */
-export async function gerarResumoEmendasPIX(
-	nomeAutor: string,
-): Promise<ResumoEmendasPIX> {
-	const todasEmendas: TransferenciaEspecial[] = [];
-	const MAX_PAGINAS = 5;
-
-	for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
-		const batch = await buscarEmendasPorAutor(nomeAutor, undefined, pagina);
-		if (batch.length === 0) break;
-		todasEmendas.push(...batch);
-		if (batch.length < DEFAULT_PAGE_SIZE) break;
-	}
-
+function agregarEmendasPIX(todasEmendas: TransferenciaEspecial[]): ResumoEmendasPIX {
 	const municipiosSet = new Set<string>();
 	const areasSet = new Set<string>();
 	const ufCount: Record<string, number> = {};
@@ -262,4 +240,24 @@ export async function gerarResumoEmendasPIX(
 		areasPoliticas: [...areasSet],
 		ufsMaisAtendidas,
 	};
+}
+
+/**
+ * Gera um resumo totalizado das emendas PIX de um parlamentar.
+ * Busca todas as páginas disponíveis (até 5) e agrega os dados.
+ */
+export async function gerarResumoEmendasPIX(
+	nomeAutor: string,
+): Promise<ResumoEmendasPIX> {
+	const todasEmendas: TransferenciaEspecial[] = [];
+	const MAX_PAGINAS = 5;
+
+	for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
+		const batch = await buscarEmendasPorAutor(nomeAutor, undefined, pagina);
+		if (batch.length === 0) break;
+		todasEmendas.push(...batch);
+		if (batch.length < DEFAULT_PAGE_SIZE) break;
+	}
+
+	return agregarEmendasPIX(todasEmendas);
 }

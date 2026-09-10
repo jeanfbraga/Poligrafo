@@ -73,139 +73,131 @@ export async function buscarMunicipalSE(
  * 2. Se não houver dados no banco, faz fallback para extração live
  * 3. Se necessário, consolida com TCE-SE e Proxy OSINT
  */
+function montarCondicoesBuscaNome(nomeLimpo: string): string[] {
+	if (!nomeLimpo) return [];
+	const tokens = nomeLimpo
+		.replace(/\([^)]*\)/g, " ")
+		.split(/\s+/)
+		.map((t) => t.trim())
+		.filter((t) => t.length >= 3);
+	return tokens.flatMap((t) => [
+		`parlamentar_nome.ilike.%${t}%`,
+		`fornecedor_nome.ilike.%${t}%`,
+	]);
+}
+
+async function buscarRegistrosDiretos(nomeLimpo: string): Promise<any[]> {
+	const orConds = montarCondicoesBuscaNome(nomeLimpo);
+	if (orConds.length === 0) return [];
+	const { data } = await supabaseAdmin
+		.from("aracaju_despesas")
+		.select("*")
+		.or(orConds.join(","))
+		.gt("valor", 0)
+		.order("valor", { ascending: false })
+		.limit(40);
+	return data || [];
+}
+
+async function buscarContratosCma(): Promise<any[]> {
+	const { data } = await supabaseAdmin
+		.from("aracaju_despesas")
+		.select("*")
+		.eq("orgao", "CMA")
+		.gt("valor", 0)
+		.order("valor", { ascending: false })
+		.limit(30);
+	return data || [];
+}
+
+function fallbackString(val: any, def: string): string {
+	return val ? String(val) : def;
+}
+
+function extrairFonteUrl(fonteUrl: any): string | null {
+	if (!fonteUrl || typeof fonteUrl !== "string") return null;
+	return fonteUrl.includes("/api/api/") ? null : fonteUrl;
+}
+
+function formatarRegistroAracaju(r: any): any | null {
+	const valorNum = Number(r.valor) || 0;
+	if (valorNum <= 0) return null;
+	const cat = fallbackString(r.categoria_despesa, "Contrato");
+	const org = fallbackString(r.orgao, "CMA");
+	const forn = fallbackString(r.fornecedor_nome, "FORNECEDOR ARACAJU");
+	const doc = fallbackString(r.fornecedor_cnpj_cpf, "13149954000185");
+	const num = r.numero_documento || null;
+	const desc = r.descricao || `[${org}] Documento: ${num || "N/A"}`;
+	return {
+		tipoDespesa: `${cat} (${org})`,
+		nomeFornecedor: forn,
+		fornecedor: forn,
+		cnpjCpfFornecedor: doc,
+		cnpjFornecedor: doc,
+		valorDocumento: valorNum,
+		valorLiquido: valorNum,
+		dataDocumento: r.data_despesa || "",
+		numeroDocumento: num,
+		orgao: org,
+		modalidade: cat,
+		descricao: desc,
+		urlDocumento: extrairFonteUrl(r.fonte_url),
+	};
+}
+
+async function buscarDespesasSupabaseAracaju(nomeLimpo: string, casa?: string): Promise<any[]> {
+	if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
+	try {
+		const registros = await buscarRegistrosDiretos(nomeLimpo);
+		const isVereadorOuCMA = !casa || casa.includes("CAMARA") || casa.includes("VEREADOR");
+		if (isVereadorOuCMA && registros.length < 20) {
+			const cmaContratos = await buscarContratosCma();
+			for (const c of cmaContratos) {
+				if (!registros.some((r) => r.id === c.id)) registros.push(c);
+			}
+		}
+		return registros.map(formatarRegistroAracaju).filter((item): item is NonNullable<typeof item> => item !== null);
+	} catch (e: any) {
+		console.warn(`[ARACAJU / SE] Falha ao consultar Supabase (degradando para live):`, e.message);
+		return [];
+	}
+}
+
+async function buscarFallbackLiveAracaju(identificador: string, nomeParaBusca?: string, municipioUri?: string, casa?: string): Promise<any[]> {
+	try {
+		const municipioAlvo = municipioUri || "aracaju";
+		const resultados = await Promise.allSettled([
+			buscarDespesasSE(municipioAlvo, casa || "CMA"),
+			buscarProxyOsint(identificador, nomeParaBusca),
+		]);
+		const despesas: any[] = [];
+		for (const res of resultados) {
+			if (res.status !== "fulfilled") continue;
+			if (Array.isArray(res.value)) {
+				despesas.push(...res.value);
+			} else if (Array.isArray(res.value?.despesasFederais)) {
+				despesas.push(...res.value.despesasFederais);
+			}
+		}
+		return despesas;
+	} catch (e: any) {
+		console.warn(`[ARACAJU / SE] Erro no fallback live:`, e.message);
+		return [];
+	}
+}
+
 export async function buscarDespesasAracaju(
 	identificador: string,
 	nomeParaBusca?: string,
 	municipioUri?: string,
 	casa?: string,
 ): Promise<any[]> {
-	console.log(
-		`[ARACAJU / SE] Buscando despesas para ${nomeParaBusca || identificador} (${casa || "CMA / PREFEITURA"})`,
-	);
-
-	const despesasFormatadas: any[] = [];
+	console.log(`[ARACAJU / SE] Buscando despesas para ${nomeParaBusca || identificador} (${casa || "CMA / PREFEITURA"})`);
 	const nomeLimpo = (nomeParaBusca || "").trim();
-
-	// ─── 1. Consulta no Supabase (Cache / ETL do GitHub Actions) ───
-	if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-		try {
-			const registrosEncontrados: any[] = [];
-
-			// A. Busca direta por tokens do nome do parlamentar com valor > 0
-			if (nomeLimpo) {
-				const tokens = nomeLimpo
-					.replace(/\([^)]*\)/g, " ")
-					.split(/\s+/)
-					.map((t) => t.trim())
-					.filter((t) => t.length >= 3);
-
-				const orConds = tokens.flatMap((t) => [
-					`parlamentar_nome.ilike.%${t}%`,
-					`fornecedor_nome.ilike.%${t}%`,
-				]);
-
-				if (orConds.length > 0) {
-					const { data: diretos } = await supabaseAdmin
-						.from("aracaju_despesas")
-						.select("*")
-						.or(orConds.join(","))
-						.gt("valor", 0)
-						.order("valor", { ascending: false })
-						.limit(40);
-
-					if (diretos && diretos.length > 0) {
-						registrosEncontrados.push(...diretos);
-					}
-				}
-			}
-
-			// B. Se for vereador/CMA ou se tiver poucos registros diretos, agrega os contratos da Câmara Municipal de Aracaju (CMA)
-			const isVereadorOuCMA = !casa || casa.includes("CAMARA") || casa.includes("VEREADOR");
-			if (isVereadorOuCMA && registrosEncontrados.length < 20) {
-				const { data: cmaContratos } = await supabaseAdmin
-					.from("aracaju_despesas")
-					.select("*")
-					.eq("orgao", "CMA")
-					.gt("valor", 0)
-					.order("valor", { ascending: false })
-					.limit(30);
-
-				if (cmaContratos && cmaContratos.length > 0) {
-					for (const c of cmaContratos) {
-						if (!registrosEncontrados.some((r) => r.id === c.id)) {
-							registrosEncontrados.push(c);
-						}
-					}
-				}
-			}
-
-			if (registrosEncontrados.length > 0) {
-				console.log(
-					`[ARACAJU / SE] Cache Hit no Supabase: ${registrosEncontrados.length} registros com valor > 0 encontrados.`,
-				);
-				for (const r of registrosEncontrados) {
-					const valorNum = parseFloat(String(r.valor || "0")) || 0;
-					if (valorNum <= 0) continue;
-
-					despesasFormatadas.push({
-						tipoDespesa: `${r.categoria_despesa || "Contrato"} (${r.orgao})`,
-						nomeFornecedor: r.fornecedor_nome || "FORNECEDOR ARACAJU",
-						fornecedor: r.fornecedor_nome || "FORNECEDOR ARACAJU",
-						cnpjCpfFornecedor: r.fornecedor_cnpj_cpf || "13149954000185",
-						cnpjFornecedor: r.fornecedor_cnpj_cpf || "13149954000185",
-						valorDocumento: valorNum,
-						valorLiquido: valorNum,
-						dataDocumento: r.data_despesa || "",
-						numeroDocumento: r.numero_documento || null,
-						orgao: r.orgao || "CMA",
-						modalidade: r.categoria_despesa || "Contrato",
-						descricao: r.descricao || `[${r.orgao}] Documento: ${r.numero_documento || "N/A"}`,
-						urlDocumento:
-							r.fonte_url && !r.fonte_url.includes("/api/api/")
-								? r.fonte_url
-								: null,
-					});
-				}
-
-				if (despesasFormatadas.length > 0) {
-					return despesasFormatadas;
-				}
-			}
-		} catch (e: any) {
-			console.warn(
-				`[ARACAJU / SE] Falha ao consultar Supabase (degradando para live):`,
-				e.message,
-			);
-		}
+	const cacheSupabase = await buscarDespesasSupabaseAracaju(nomeLimpo, casa);
+	if (cacheSupabase.length > 0) {
+		console.log(`[ARACAJU / SE] Cache Hit no Supabase: ${cacheSupabase.length} registros com valor > 0.`);
+		return cacheSupabase;
 	}
-
-	// ─── 2. Fallback Live: APIs de Aracaju e CMA ───
-	try {
-		const promessas: Promise<any>[] = [];
-
-		// Se o município for Aracaju ou escopo geral de SE, consulta TCE-SE
-		const municipioAlvo = municipioUri || "aracaju";
-		promessas.push(buscarDespesasSE(municipioAlvo, casa || "CMA"));
-
-		// Consulta ao Proxy OSINT para cruzamento com bases federais
-		promessas.push(buscarProxyOsint(identificador, nomeParaBusca));
-
-		const resultados = await Promise.allSettled(promessas);
-
-		for (const res of resultados) {
-			if (res.status === "fulfilled" && Array.isArray(res.value)) {
-				despesasFormatadas.push(...res.value);
-			} else if (
-				res.status === "fulfilled" &&
-				res.value?.despesasFederais &&
-				Array.isArray(res.value.despesasFederais)
-			) {
-				despesasFormatadas.push(...res.value.despesasFederais);
-			}
-		}
-	} catch (e: any) {
-		console.warn(`[ARACAJU / SE] Erro no fallback live:`, e.message);
-	}
-
-	return despesasFormatadas;
+	return buscarFallbackLiveAracaju(identificador, nomeParaBusca, municipioUri, casa);
 }
