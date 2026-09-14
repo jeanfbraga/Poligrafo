@@ -8,7 +8,7 @@ export async function GET() {
 > Plataforma aberta de inteligência de dados, OSINT e auditoria pública para monitoramento de agentes políticos brasileiros.
 
 ## Visão Geral
-O **Polígrafo** cruza dados públicos de fontes oficiais (Câmara dos Deputados, Senado Federal, TSE, CGU, DataJud/CNJ, IBAMA, ANAC, SPU, BNDES, FNDE, TransfereGov e Diários Oficiais) e utiliza uma pipeline de IA em cascata (4 níveis) para classificar despesas públicas (CEAP, cotas, emendas PIX) e identificar notas suspeitas, empresas de fachada e conflitos de interesse.
+O **Polígrafo** cruza dados públicos de fontes oficiais (Câmara dos Deputados, Senado Federal, TSE, CGU, DataJud/CNJ, ANAC, SPU, BNDES, FNDE, TransfereGov e Diários Oficiais) e utiliza uma pipeline de IA em cascata (4 níveis) para classificar despesas públicas (CEAP, cotas, emendas PIX) e identificar notas suspeitas, empresas de fachada e conflitos de interesse.
 
 ## Principais Recursos & Endpoints de Consulta
 
@@ -36,7 +36,7 @@ O **Polígrafo** cruza dados públicos de fontes oficiais (Câmara dos Deputados
 - **TSE (Tribunal Superior Eleitoral)**: DivulgaCandContas — Bens declarados e doadores de campanha.
 - **CGU (Portal da Transparência)**: Emendas PIX, CEIS/CNEP (empresas inidôneas) e CPGF.
 - **DataJud (CNJ)**: Processos judiciais de Improbidade Administrativa.
-- **IBAMA & ANAC**: Infrações ambientais e Registro Aeronáutico Brasileiro (RAB).
+- **ANAC**: Registro Aeronáutico Brasileiro (RAB).
 - **SPU (SEGES)**: Imóveis da União.
 
 ## Especificação Técnica

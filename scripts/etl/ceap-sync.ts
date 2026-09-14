@@ -53,8 +53,16 @@ export async function downloadAndExtractForYear(
 				'--output', zipPath, url,
 			], { stdio: 'inherit' });
 			if (fs.statSync(zipPath).size < 10_000) throw new Error('ZIP menor que 10 KB');
-			// unzip valida o CRC; somente o membro esperado é extraído, sem curingas.
-			execFileSync('unzip', ['-o', zipPath, `Ano-${ano}.csv`, '-d', directory], { stdio: 'inherit' });
+			// unzip valida o CRC; caso indisponível no sistema (ex: Windows), recorre ao tar.
+			try {
+				execFileSync('unzip', ['-o', zipPath, `Ano-${ano}.csv`, '-d', directory], { stdio: 'inherit' });
+			} catch (erroUnzip: any) {
+				if (erroUnzip?.code === 'ENOENT') {
+					execFileSync('tar', ['-xf', zipPath, '-C', directory, `Ano-${ano}.csv`], { stdio: 'inherit' });
+				} else {
+					throw erroUnzip;
+				}
+			}
 			if (!fs.existsSync(csvPath)) throw new Error('CSV esperado ausente no ZIP');
 			return csvPath;
 		} catch (error) {

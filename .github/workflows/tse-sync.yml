@@ -7,11 +7,12 @@ on:
       ano:
         description: 'Ano eleitoral a sincronizar (ex: 2026, 2024, 2022, todos)'
         required: false
-        default: '2026'
+        default: 'todos'
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
@@ -25,6 +26,6 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/etl/tse-sync-real.ts --ano=${{ github.event.inputs.ano || '2026' }}
+        run: npx tsx scripts/etl/tse-sync-real.ts --ano=${{ github.event.inputs.ano || 'todos' }}
 
 

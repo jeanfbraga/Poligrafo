@@ -21,26 +21,38 @@ import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import fs from "fs";
 import { parse } from "csv-parse";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import path from "path";
 
 dotenv.config({ path: ".env.local" });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-	console.error("ERRO: Faltando credenciais administrativas do Supabase.");
-	process.exit(1);
-}
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-	auth: { autoRefreshToken: false, persistSession: false },
-});
-
 const BATCH_SIZE = 1000;
 const TEMP_DIR = path.join(process.cwd(), ".tmp_tse");
 const ANOS_DISPONIVEIS = ["2026", "2024", "2022"];
+const DOWNLOAD_DELAYS_MS = [15_000, 45_000, 90_000];
+
+const MIN_REGISTROS_TSE: Record<number, number> = {
+	2022: 10_000,
+	2024: 1_000,
+	2026: 500,
+};
+
+export function getSupabaseAdmin() {
+	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+	const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+	if (!supabaseUrl || !supabaseServiceKey) {
+		throw new Error("Faltando credenciais administrativas do Supabase.");
+	}
+
+	return createClient(supabaseUrl, supabaseServiceKey, {
+		auth: { autoRefreshToken: false, persistSession: false },
+	});
+}
+
+export function minimoRegistrosTse(ano: number): number {
+	return MIN_REGISTROS_TSE[ano] ?? 500;
+}
 
 export function parseAnoFiltro(args: string[]): string[] {
 	const anoArg = args.find((a) => a.startsWith("--ano"));
@@ -58,61 +70,175 @@ export function parseAnoFiltro(args: string[]): string[] {
 	return ANOS_DISPONIVEIS.includes(valor) ? [valor] : ["2026"];
 }
 
-function downloadZipComCurl(url: string, zipPath: string): void {
-	if (fs.existsSync(zipPath) && fs.statSync(zipPath).size > 1024) {
-		console.log(`[TSE SYNC] Arquivo ZIP já em cache local: ${zipPath}`);
-		return;
+export function listarArquivosZip(zipPath: string): string[] {
+	let output = "";
+	try {
+		output = execFileSync("tar", ["-tf", zipPath], {
+			encoding: "utf8",
+			stdio: ["pipe", "pipe", "pipe"],
+			maxBuffer: 50 * 1024 * 1024,
+		});
+	} catch {
+		try {
+			output = execFileSync("unzip", ["-Z1", zipPath], {
+				encoding: "utf8",
+				stdio: ["pipe", "pipe", "pipe"],
+				maxBuffer: 50 * 1024 * 1024,
+			});
+		} catch {
+			const raw = execFileSync("unzip", ["-l", zipPath], {
+				encoding: "utf8",
+				stdio: ["pipe", "pipe", "pipe"],
+				maxBuffer: 50 * 1024 * 1024,
+			});
+			const lines = raw.split(/\r?\n/);
+			return lines
+				.map((line) => line.trim().split(/\s+/).pop() || "")
+				.filter((name) => name && !name.startsWith("---") && !name.endsWith("/") && !name.includes("Archive:"));
+		}
 	}
 
-	console.log(`[TSE SYNC] Baixando ${url}...`);
-	execSync(
-		`curl -f -sS -L -A "Poligrafo-Bot/1.0 (Auditoria Publica)" --retry 3 --retry-delay 2 -o "${zipPath}" "${url}"`,
-		{ stdio: "inherit" }
-	);
+	return output
+		.split(/\r?\n/)
+		.map((f) => f.trim())
+		.filter((f) => f.length > 0 && !f.endsWith("/"));
+}
 
-	if (!fs.existsSync(zipPath) || fs.statSync(zipPath).size < 1024) {
-		throw new Error(`[TSE SYNC] Download falhou ou arquivo inválido: ${zipPath}`);
+export function encontrarArquivoNoZip(arquivos: string[], padrao: RegExp): string {
+	const matchBrasil = arquivos.find((f) => padrao.test(f) && /BRASIL/i.test(f));
+	if (matchBrasil) return matchBrasil;
+
+	const matchCsv = arquivos.find((f) => padrao.test(f) && /\.csv$/i.test(f));
+	if (matchCsv) return matchCsv;
+
+	const match = arquivos.find((f) => padrao.test(f));
+	if (match) return match;
+
+	throw new Error(
+		`[TSE SYNC] Nenhum arquivo correspondente ao padrão ${padrao.source} foi encontrado no ZIP. Arquivos presentes: ${arquivos.slice(0, 5).join(", ")}`
+	);
+}
+
+function resolverNomeArquivo(padraoOuNome: RegExp | string, arquivos: string[]): string {
+	if (typeof padraoOuNome === "string" && arquivos.includes(padraoOuNome)) {
+		return padraoOuNome;
+	}
+	const padrao = typeof padraoOuNome === "string"
+		? new RegExp(padraoOuNome.replace(/_BRASIL/i, ".*").replace(/\.csv$/i, "\\.csv$"), "i")
+		: padraoOuNome;
+	return encontrarArquivoNoZip(arquivos, padrao);
+}
+
+function descompactarComCli(zipPath: string, destDir: string, fileName: string): boolean {
+	try {
+		execFileSync("tar", ["-xf", zipPath, "-C", destDir, fileName], { stdio: "pipe" });
+		return true;
+	} catch {
+		try {
+			execFileSync("unzip", ["-o", zipPath, fileName, "-d", destDir], { stdio: "pipe" });
+			return true;
+		} catch {
+			try {
+				execFileSync("unzip", ["-j", "-o", zipPath, fileName, "-d", destDir], { stdio: "pipe" });
+				return true;
+			} catch {
+				return false;
+			}
+		}
 	}
 }
 
-function extrairArquivoZip(zipPath: string, fileName: string, destDir: string): string {
-	const outPath = path.join(destDir, fileName);
+export function extrairArquivoZip(
+	zipPath: string,
+	padraoOuNome: RegExp | string,
+	destDir: string
+): string {
+	const arquivos = listarArquivosZip(zipPath);
+	const fileName = resolverNomeArquivo(padraoOuNome, arquivos);
+	const outPath = path.join(destDir, path.basename(fileName));
+
 	if (fs.existsSync(outPath) && fs.statSync(outPath).size > 1024) {
 		return outPath;
 	}
 
-	console.log(`[TSE SYNC] Extraindo ${fileName}...`);
-	try {
-		execSync(`tar -xf "${zipPath}" -C "${destDir}" ${fileName}`, { stdio: "pipe" });
-	} catch {
-		execSync(`unzip -o "${zipPath}" "${fileName}" -d "${destDir}"`, { stdio: "pipe" });
-	}
+	console.log(`[TSE SYNC] Extraindo ${fileName} de ${path.basename(zipPath)}...`);
+	const extraiu = descompactarComCli(zipPath, destDir, fileName);
 
-	if (!fs.existsSync(outPath) || fs.statSync(outPath).size < 100) {
+	if (!extraiu || !fs.existsSync(outPath) || fs.statSync(outPath).size < 100) {
 		throw new Error(`[TSE SYNC] Falha crítica na extração de ${fileName} a partir de ${zipPath}`);
 	}
 	return outPath;
 }
 
-function downloadAndExtract(ano: string): { csvCand: string; csvBens: string } {
-	if (!fs.existsSync(TEMP_DIR)) {
-		fs.mkdirSync(TEMP_DIR, { recursive: true });
+function executarCurlDownload(url: string, zipPath: string): void {
+	const curlBin = process.platform === "win32" ? "curl.exe" : "curl";
+	if (fs.existsSync(zipPath)) {
+		fs.rmSync(zipPath, { force: true });
 	}
+	execFileSync(
+		curlBin,
+		[
+			"-f",
+			"-sS",
+			"-L",
+			"-A",
+			"Poligrafo-Bot/1.0 (Auditoria Publica)",
+			"--connect-timeout",
+			"30",
+			"--max-time",
+			"300",
+			"-o",
+			zipPath,
+			url,
+		],
+		{ stdio: ["pipe", "inherit", "pipe"] }
+	);
 
-	const zipCand = path.join(TEMP_DIR, `consulta_cand_${ano}.zip`);
-	const urlCand = `https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_${ano}.zip`;
-	downloadZipComCurl(urlCand, zipCand);
-	const csvCand = extrairArquivoZip(zipCand, `consulta_cand_${ano}_BRASIL.csv`, TEMP_DIR);
-
-	const zipBens = path.join(TEMP_DIR, `bem_candidato_${ano}.zip`);
-	const urlBens = `https://cdn.tse.jus.br/estatistica/sead/odsele/bem_candidato/bem_candidato_${ano}.zip`;
-	downloadZipComCurl(urlBens, zipBens);
-	const csvBens = extrairArquivoZip(zipBens, `bem_candidato_${ano}_BRASIL.csv`, TEMP_DIR);
-
-	return { csvCand, csvBens };
+	if (!fs.existsSync(zipPath) || fs.statSync(zipPath).size <= 1024) {
+		throw new Error("Arquivo ZIP baixado é menor que 1KB ou inexistente");
+	}
 }
 
-function parseItemBem(record: any) {
+export async function downloadZipComCurl(
+	url: string,
+	zipPath: string,
+	maxTentativas = 4,
+	delays = DOWNLOAD_DELAYS_MS,
+	waitFn: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+): Promise<void> {
+	if (fs.existsSync(zipPath) && fs.statSync(zipPath).size > 1024) {
+		console.log(`[TSE SYNC] Arquivo ZIP já em cache local: ${zipPath}`);
+		return;
+	}
+
+	for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {
+		console.log(`[TSE SYNC] Baixando ${url} (tentativa ${tentativa}/${maxTentativas})...`);
+		try {
+			executarCurlDownload(url, zipPath);
+			console.log(
+				`[TSE SYNC] Download concluído com sucesso: ${(fs.statSync(zipPath).size / 1024 / 1024).toFixed(1)}MB`
+			);
+			return;
+		} catch (err: any) {
+			const errMsg = err?.stderr?.toString() || err?.message || String(err);
+			console.warn(`[TSE SYNC] Falha no download (tentativa ${tentativa}/${maxTentativas}): ${errMsg}`);
+
+			if (fs.existsSync(zipPath)) {
+				fs.rmSync(zipPath, { force: true });
+			}
+
+			if (tentativa === maxTentativas) {
+				throw new Error(`[TSE SYNC] Download falhou após ${maxTentativas} tentativas para ${url}: ${errMsg}`);
+			}
+
+			const delay = delays[tentativa - 1] ?? 15_000;
+			console.log(`[TSE SYNC] Aguardando ${delay / 1000}s antes da tentativa ${tentativa + 1}...`);
+			await waitFn(delay);
+		}
+	}
+}
+
+export function parseItemBem(record: any) {
 	const sqCandidato = record["SQ_CANDIDATO"];
 	if (!sqCandidato) return null;
 
@@ -132,7 +258,7 @@ function parseItemBem(record: any) {
 	};
 }
 
-async function processarBensCsv(
+export async function processarBensCsv(
 	csvBensPath: string
 ): Promise<Map<string, { valorTotal: number; bens: any[] }>> {
 	const bensMap = new Map<string, { valorTotal: number; bens: any[] }>();
@@ -172,7 +298,7 @@ async function processarBensCsv(
 	return bensMap;
 }
 
-function parseCandidato(record: any, ano: number, bensMap: Map<string, any>) {
+export function parseCandidato(record: any, ano: number, bensMap: Map<string, any>) {
 	const cpfRaw = record["NR_CPF_CANDIDATO"];
 	const nomeRaw = record["NM_CANDIDATO"];
 	if (!cpfRaw || !nomeRaw) return null;
@@ -192,9 +318,9 @@ function parseCandidato(record: any, ano: number, bensMap: Map<string, any>) {
 	};
 }
 
-async function insertBatch(batch: any[]) {
+async function insertBatch(batch: any[], client = getSupabaseAdmin()) {
 	if (batch.length === 0) return;
-	const { error } = await supabaseAdmin
+	const { error } = await client
 		.from("tse_bens_historico")
 		.upsert(batch, { onConflict: "cpf_candidato,ano_eleicao" });
 
@@ -203,11 +329,12 @@ async function insertBatch(batch: any[]) {
 	}
 }
 
-async function processarCandidatosCsv(
+export async function processarCandidatosCsv(
 	csvCandPath: string,
 	bensMap: Map<string, any>,
-	ano: number
-) {
+	ano: number,
+	client = getSupabaseAdmin()
+): Promise<number> {
 	if (!fs.existsSync(csvCandPath)) {
 		throw new Error(`[TSE SYNC] Arquivo de candidatos não encontrado: ${csvCandPath}`);
 	}
@@ -235,41 +362,108 @@ async function processarCandidatosCsv(
 		batch.push(cand);
 
 		if (batch.length >= BATCH_SIZE) {
-			await insertBatch(batch);
+			await insertBatch(batch, client);
 			count += batch.length;
 			batch = [];
 		}
 	}
 
 	if (batch.length > 0) {
-		await insertBatch(batch);
+		await insertBatch(batch, client);
 		count += batch.length;
 	}
 
 	console.log(`[TSE SYNC ${ano}] Concluído! ${count} candidatos sincronizados no Supabase.`);
+	return count;
 }
 
-async function main() {
+export async function downloadAndExtract(
+	ano: string,
+	tempDir = TEMP_DIR,
+	waitFn?: (ms: number) => Promise<void>
+): Promise<{ csvCand: string; csvBens: string }> {
+	if (!fs.existsSync(tempDir)) {
+		fs.mkdirSync(tempDir, { recursive: true });
+	}
+
+	const zipCand = path.join(tempDir, `consulta_cand_${ano}.zip`);
+	const urlCand = `https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_${ano}.zip`;
+	await downloadZipComCurl(urlCand, zipCand, 4, undefined, waitFn);
+	const csvCand = extrairArquivoZip(zipCand, new RegExp(`consulta_cand_${ano}.*\\.csv$`, "i"), tempDir);
+
+	const zipBens = path.join(tempDir, `bem_candidato_${ano}.zip`);
+	const urlBens = `https://cdn.tse.jus.br/estatistica/sead/odsele/bem_candidato/bem_candidato_${ano}.zip`;
+	await downloadZipComCurl(urlBens, zipBens, 4, undefined, waitFn);
+	const csvBens = extrairArquivoZip(zipBens, new RegExp(`bem_candidato_${ano}.*\\.csv$`, "i"), tempDir);
+
+	return { csvCand, csvBens };
+}
+
+export async function sincronizarAno(
+	anoStr: string,
+	client = getSupabaseAdmin(),
+	waitFn?: (ms: number) => Promise<void>,
+	tempDir = TEMP_DIR
+): Promise<number> {
+	const ano = parseInt(anoStr, 10);
+	console.log(`\n========================================`);
+	console.log(`[TSE SYNC] PROCESSANDO ELEIÇÃO ${ano}`);
+	console.log(`========================================`);
+
+	const { csvCand, csvBens } = await downloadAndExtract(anoStr, tempDir, waitFn);
+	const bensMap = await processarBensCsv(csvBens);
+	const count = await processarCandidatosCsv(csvCand, bensMap, ano, client);
+
+	const minEsperado = minimoRegistrosTse(ano);
+	if (count < minEsperado) {
+		throw new Error(
+			`[TSE SYNC ${ano}] Quantidade de registros (${count}) inferior ao mínimo esperado (${minEsperado}). Abortando para integridade.`
+		);
+	}
+
+	console.log(`[TSE SYNC ${ano}] Sincronização concluída com sucesso (${count} registros).`);
+	return count;
+}
+
+export async function main(client = getSupabaseAdmin(), waitFn?: (ms: number) => Promise<void>): Promise<void> {
 	const anos = parseAnoFiltro(process.argv.slice(2));
 	console.log(`[TSE SYNC] Iniciando sincronização para os anos: ${anos.join(", ")}`);
 
-	for (const anoStr of anos) {
-		const ano = parseInt(anoStr, 10);
-		console.log(`\n========================================`);
-		console.log(`[TSE SYNC] PROCESSANDO ELEIÇÃO ${ano}`);
-		console.log(`========================================`);
+	let sucessos = 0;
+	let falhas = 0;
+	const erros: Record<string, string> = {};
 
-		const { csvCand, csvBens } = downloadAndExtract(anoStr);
-		const bensMap = await processarBensCsv(csvBens);
-		await processarCandidatosCsv(csvCand, bensMap, ano);
+	for (const anoStr of anos) {
+		try {
+			await sincronizarAno(anoStr, client, waitFn);
+			sucessos++;
+		} catch (err: any) {
+			falhas++;
+			erros[anoStr] = err?.message || String(err);
+			console.error(`[TSE SYNC ${anoStr}] ERRO ao processar eleição ${anoStr}:`, err?.message || err);
+		}
 	}
 
-	console.log(`\n[TSE SYNC] Todas as sincronizações foram concluídas com sucesso!`);
+	console.log(`\n========================================`);
+	console.log(`[TSE SYNC] RESUMO DA EXECUÇÃO:`);
+	console.log(`Sucessos: ${sucessos} | Falhas: ${falhas}`);
+	if (falhas > 0) {
+		console.error("Detalhes das falhas:", erros);
+	}
+	console.log(`========================================`);
+
+	if (sucessos === 0) {
+		throw new Error(`[TSE SYNC] Todos os anos processados (${anos.join(", ")}) falharam.`);
+	}
 }
 
-if (process.env.NODE_ENV !== "test") {
+const isDirectRun =
+	process.argv[1] &&
+	(process.argv[1].endsWith("tse-sync-real.ts") || process.argv[1].endsWith("tse-sync-real.js"));
+
+if (process.env.NODE_ENV !== "test" && isDirectRun) {
 	main().catch((err) => {
-		console.error("[TSE SYNC FATAL]:", err);
+		console.error("[TSE SYNC FATAL]:", err?.message || err);
 		process.exit(1);
 	});
 }

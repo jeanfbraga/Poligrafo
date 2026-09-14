@@ -12,7 +12,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 60 # Downloads com retry e carga de todos os anos
+    timeout-minutes: 90 # Downloads com retry e carga de todos os anos
     permissions:
       contents: read
     steps:
@@ -26,10 +26,35 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
+      - name: Verificar conexao com a Camara (Preflight)
+        id: preflight
+        continue-on-error: true
+        run: node scripts/etl/camara-preflight.mjs
+
+      - name: Aguardar recuperacao de rede da Camara
+        if: steps.preflight.outcome == 'failure' && steps.preflight.outputs.retryable == 'true'
+        run: |
+          echo "[PREFLIGHT] Falha temporária de rede detectada com a Câmara. Aguardando 5 minutos antes da re-tentativa..."
+          sleep 300
+
+      - name: Segunda verificacao de conexao (Preflight Retry)
+        if: steps.preflight.outcome == 'failure' && steps.preflight.outputs.retryable == 'true'
+        id: preflight_retry
+        continue-on-error: true
+        run: node scripts/etl/camara-preflight.mjs
+
+      - name: Reprovar execucao se a Camara permanecer inacessivel
+        if: steps.preflight.outcome == 'failure' && steps.preflight_retry.outcome != 'success'
+        run: |
+          echo "::error::Preflight da Câmara falhou. A API dos Dados Abertos da Câmara está inacessível."
+          exit 1
+
       - name: Install dependencies
+        if: steps.preflight.outcome == 'success' || steps.preflight_retry.outcome == 'success'
         run: npm ci
 
       - name: Run CEAP Sync
+        if: steps.preflight.outcome == 'success' || steps.preflight_retry.outcome == 'success'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
