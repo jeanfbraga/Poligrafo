@@ -22,9 +22,9 @@ describe('Decisão de trocar o runner antes das gravações', () => {
 
 	it('não inicia dependências nem ETLs quando o preflight falha e reprova HTTP/dados inválidos', () => {
 		const [reprovar, ...gravar] = condicoesPreflight;
-		expect(gravar).toHaveLength(4);
+		expect(gravar).toHaveLength(5);
 		for (const retryable of ['true', 'false', '']) {
-			const contexto = { steps: { preflight: { outcome: 'failure', outputs: { retryable } } } };
+			const contexto = { steps: { preflight: { outcome: 'failure', outputs: { retryable } }, producao: { outcome: 'skipped' } } };
 			expect(runInNewContext(reprovar, contexto)).toBe(retryable !== 'true');
 			for (const condicao of gravar) expect(runInNewContext(condicao, contexto)).toBe(false);
 		}
@@ -37,7 +37,7 @@ describe('Decisão de trocar o runner antes das gravações', () => {
 		expect(workflow).toContain('  cancel-in-progress: false');
 		expect(workflow.match(/allow-runner-retry: 'true'/g)).toHaveLength(1);
 		expect(composite).toContain("    default: 'false'");
-		expect(composite.match(/continue-on-error:/g)).toHaveLength(1);
+		expect(composite.match(/continue-on-error:/g)).toHaveLength(2);
 		expect(composite).toContain("      continue-on-error: ${{ inputs.allow-runner-retry == 'true' }}");
 		expect(workflow).toContain('      retryable: ${{ steps.sync.outputs.retryable }}');
 		expect(composite).toContain('    value: ${{ steps.preflight.outputs.retryable }}');

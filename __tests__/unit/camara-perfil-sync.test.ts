@@ -40,12 +40,14 @@ describe('Falhas na listagem dos ETLs de perfil e produção', () => {
         expect(from).not.toHaveBeenCalled();
     });
 
-    it('sinaliza falha parcial na produção em vez de registrar zero proposições', async () => {
+    it('tolera falha parcial na produção quando dentro do limite e emite aviso', async () => {
         fetchJson.mockResolvedValueOnce({ dados: [{ id: 1, nome: 'Deputado' }] })
             .mockRejectedValueOnce(new Error('Câmara indisponível'));
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
         const { run } = await import('../../scripts/etl/producao-legislativa-sync');
-        await expect(run()).rejects.toThrow('1 deputados com falha');
+        await expect(run()).resolves.not.toThrow();
         expect(from).not.toHaveBeenCalled();
+        expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('1 falha(s) tolerada(s)'));
     });
 
     it('interrompe quando a gravação do perfil é rejeitada pelo banco', async () => {

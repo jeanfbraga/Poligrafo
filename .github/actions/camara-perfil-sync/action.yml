@@ -40,6 +40,8 @@ runs:
 
     - name: Sincronizar produção legislativa
       if: steps.preflight.outcome == 'success'
+      id: producao
+      continue-on-error: true
       shell: bash
       run: npm run sync:producao
 
@@ -47,3 +49,10 @@ runs:
       if: steps.preflight.outcome == 'success'
       shell: bash
       run: npx tsx scripts/etl/proposicoes-detalhes-sync.ts
+
+    - name: Reportar falha na produção legislativa
+      if: steps.producao.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "::warning::O ETL de produção legislativa falhou, mas os demais ETLs continuaram. Verifique os logs acima."
+        exit 1

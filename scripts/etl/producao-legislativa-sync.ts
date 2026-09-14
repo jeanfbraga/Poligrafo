@@ -92,6 +92,7 @@ export async function run() {
 
                         if (error) {
                             falhas++;
+                            console.error(`  [${depIndex}/${deputados.length}] ⚠️ Erro ao gravar ${dep.nome}: ${error.message}`);
                         }
                     } else {
                         console.log(`  [${depIndex}/${deputados.length}] ℹ️ ${dep.nome}: 0 proposições.`);
@@ -105,8 +106,15 @@ export async function run() {
             await delay(300); // Rate limit suave entre lotes
         }
 
-        if (falhas > 0) throw new Error(`Produção legislativa incompleta: ${falhas} deputados com falha.`);
-        console.log("[PRODUCAO LEGISLATIVA SYNC] Finalizado com sucesso!");
+        const limiteToleravel = Math.max(10, Math.ceil(deputados.length * 0.02));
+        if (falhas > limiteToleravel) {
+            throw new Error(`Produção legislativa incompleta: ${falhas} deputados com falha (limite tolerável: ${limiteToleravel}).`);
+        }
+        if (falhas > 0) {
+            console.warn(`[PRODUCAO LEGISLATIVA SYNC] Finalizado com ${falhas} falha(s) tolerada(s) de ${deputados.length} deputados.`);
+        } else {
+            console.log("[PRODUCAO LEGISLATIVA SYNC] Finalizado com sucesso!");
+        }
     } catch (error) {
         console.error("[PRODUCAO LEGISLATIVA SYNC] Erro fatal:", error);
         throw error;
