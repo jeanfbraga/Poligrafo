@@ -47,15 +47,33 @@ async function buscarEventosDeliberativos(dataInicio: string, dataFim: string): 
 }
 
 function inicializarEstatisticas(ativos: any[]) {
-	const stats: Record<number, { id_deputado: number; presencas: number; ausencias_nao_justificadas: number }> = {};
+	const stats: Record<number, { id_deputado: number; presencas: number; ausencias_nao_justificadas: number; condicao_eleitoral: string; situacao: string }> = {};
 	for (const dep of ativos) {
 		stats[dep.id] = {
 			id_deputado: dep.id,
 			presencas: 0,
-			ausencias_nao_justificadas: 0
+			ausencias_nao_justificadas: 0,
+			condicao_eleitoral: 'Titular',
+			situacao: 'Exercício'
 		};
 	}
 	return stats;
+}
+
+async function enriquecerCondicaoSituacao(stats: Record<number, any>) {
+	console.log("[FREQUENCIA SYNC] Verificando condição eleitoral e situação dos deputados com baixa presença...");
+	const candidatos = Object.values(stats).filter(s => s.presencas < 40);
+	for (const dep of candidatos) {
+		try {
+			const res = await fetchJson(`${API_BASE}/deputados/${dep.id_deputado}`);
+			const status = res.dados?.ultimoStatus;
+			dep.condicao_eleitoral = status?.condicaoEleitoral || "Titular";
+			dep.situacao = status?.situacao || "Exercício";
+			await new Promise(r => setTimeout(r, 60));
+		} catch (e: any) {
+			console.warn(`[FREQUENCIA SYNC] Aviso ao buscar status de ${dep.id_deputado}: ${e.message}`);
+		}
+	}
 }
 
 async function processarPresencasEvento(evento: any, ativos: any[], stats: Record<number, any>) {
@@ -114,6 +132,8 @@ async function run() {
 		for (const evento of todosEventos) {
 			await processarPresencasEvento(evento, ativos, stats);
 		}
+
+		await enriquecerCondicaoSituacao(stats);
 
 		const anoAtual = today.getFullYear();
 		const batch = Object.values(stats).map(s => ({ ...s, ano: anoAtual }));

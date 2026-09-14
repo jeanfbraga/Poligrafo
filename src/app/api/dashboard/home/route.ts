@@ -141,7 +141,13 @@ async function consultarViewsDashboard(supabase: any) {
 		supabase.from("dashboard_ceap_top10").select("*"),
 		supabase.from("dashboard_ceap_total").select("*"),
 		supabase.from("dashboard_ceap_categorias").select("*"),
-		supabase.from("camara_frequencia").select("*").order("presencas", { ascending: true }).limit(10),
+		supabase
+			.from("camara_frequencia")
+			.select("*")
+			.eq("condicao_eleitoral", "Titular")
+			.eq("situacao", "Exercício")
+			.order("presencas", { ascending: true })
+			.limit(10),
 		supabase.from("camara_votacoes").select("*").order("votos_registrados", { ascending: false }).limit(10),
 		supabase.from("dashboard_emendas_top10").select("*"),
 		supabase.from("dashboard_emendas_uf").select("*"),

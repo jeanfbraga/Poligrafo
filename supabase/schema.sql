@@ -489,10 +489,13 @@ CREATE TABLE IF NOT EXISTS public.camara_frequencia (
     presencas                   INTEGER NOT NULL DEFAULT 0,
     ausencias_nao_justificadas  INTEGER NOT NULL DEFAULT 0,
     ausencias_justificadas      INTEGER NOT NULL DEFAULT 0,
+    condicao_eleitoral          TEXT DEFAULT 'Titular',
+    situacao                    TEXT DEFAULT 'Exercício',
     ano                         INTEGER NOT NULL,
 
     CONSTRAINT uq_frequencia UNIQUE (id_deputado, ano)
 );
+CREATE INDEX IF NOT EXISTS idx_frequencia_condicao_situacao ON public.camara_frequencia (condicao_eleitoral, situacao);
 
 ALTER TABLE public.camara_frequencia ENABLE ROW LEVEL SECURITY;
 

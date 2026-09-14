@@ -251,7 +251,7 @@ export function HomeDashboard() {
 							loading={loading}
 						>
 							<div className="mb-3">
-								<HybridTooltip content="Conta as presenças registradas em sessões deliberativas do Plenário da Câmara (votações, debates e deliberações) nos últimos 90 dias. Os dados vêm da API oficial da Câmara dos Deputados. Deputados licenciados, em missão oficial ou com mandato em exercício podem ter presenças baixas sem que isso signifique ausência injustificada.">
+								<HybridTooltip content="Conta as presenças registradas em sessões deliberativas do Plenário da Câmara nos últimos 90 dias. Os dados vêm da API oficial da Câmara dos Deputados. Este ranking considera exclusivamente deputados titulares em efetivo exercício no período, expurgando suplentes com mandatos temporários/fracionados e parlamentares licenciados por motivos de saúde ou missão oficial para garantir integridade estatística.">
 									<span className="inline-flex items-center gap-1 text-[11px] text-green-700 cursor-help border-b border-dashed border-green-800/60 hover:text-green-500 transition-colors">
 										O que são sessões deliberativas?
 										<span className="text-[10px] text-green-800">[?]</span>
