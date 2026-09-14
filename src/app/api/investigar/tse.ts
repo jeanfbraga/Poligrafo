@@ -7,14 +7,25 @@ export function normalizeString(str: string): string {
 		.trim();
 }
 
+export function cleanPunctuation(str: string): string {
+	if (!str) return "";
+	return str.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+const PREFIXOS_TITULOS = new Set([
+	"dr", "dra", "prof", "profa", "professor", "professora",
+	"pastor", "pastora", "padre", "bispo", "delegado", "delegada",
+	"coronel", "capitao", "major", "sargento", "general", "irmao", "irma"
+]);
+
 /**
  * Verifica se `palavra` existe como palavra INTEIRA dentro de `texto`.
- * Evita falsos positivos como "marotto" matchando dentro de "camarotto".
+ * Aceita pontuação e espaços como delimitadores.
  */
 export function matchPalavraInteira(texto: string, palavra: string): boolean {
 	if (!texto || !palavra) return false;
 	const regex = new RegExp(
-		`(?:^|\\s|-)${palavra.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s|-|$)`,
+		`(?:^|[\\s.,\\-_/])${palavra.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[\\s.,\\-_/]|$|$)`,
 	);
 	return regex.test(texto);
 }
@@ -97,26 +108,67 @@ export function isCandidatoEleitoOuValido(c: any): boolean {
 	return !REGEX_SITUACAO_INVALIDA.test(sit);
 }
 
-function encontrarCandidatoPorNome(candidatos: any[], nomePolitico: string): any {
-	const termoNorm = normalizeString(nomePolitico);
-	const matchExato = candidatos.find((c: any) => {
-		const cUrna = normalizeString(c.nomeUrna || "");
-		const cNome = normalizeString(c.nomeCompleto || "");
-		return cUrna === termoNorm || cNome === termoNorm;
-	});
-	if (matchExato) return matchExato;
-
-	const parts = termoNorm
+function extrairTokensValidos(termo: string): string[] {
+	return cleanPunctuation(normalizeString(termo))
 		.split(/\s+/)
-		.filter((p: string) => !["de", "da", "do", "dos", "das"].includes(p));
+		.filter((p) => p.length >= 2 && !["de", "da", "do", "dos", "das"].includes(p));
+}
 
-	return candidatos.find((c: any) => {
-		const cUrna = normalizeString(c.nomeUrna || "");
-		const cNome = normalizeString(c.nomeCompleto || "");
-		return parts.every(
-			(p: string) => matchPalavraInteira(cUrna, p) || matchPalavraInteira(cNome, p),
-		);
-	});
+function candidatoMatchTokens(c: any, tokens: string[]): boolean {
+	if (tokens.length === 0) return false;
+	const cUrna = normalizeString(c.nomeUrna || "");
+	const cNome = normalizeString(c.nomeCompleto || "");
+	return tokens.every((p) => matchPalavraInteira(cUrna, p) || matchPalavraInteira(cNome, p));
+}
+
+function candidatoMatchExatoOuPunct(c: any, termoNorm: string, termoClean: string): boolean {
+	const cUrnaNorm = normalizeString(c.nomeUrna || "");
+	const cNomeNorm = normalizeString(c.nomeCompleto || "");
+	if (cUrnaNorm === termoNorm || cNomeNorm === termoNorm) return true;
+
+	const cUrnaClean = cleanPunctuation(cUrnaNorm);
+	const cNomeClean = cleanPunctuation(cNomeNorm);
+	return cUrnaClean === termoClean || cNomeClean === termoClean;
+}
+
+function removerPrefixoSeHouver(tokens: string[]): string[] {
+	if (tokens.length > 1 && PREFIXOS_TITULOS.has(tokens[0])) {
+		return tokens.slice(1);
+	}
+	return tokens;
+}
+
+function encontrarPorTermo(candidatos: any[], termo: string): any {
+	if (!termo) return null;
+	const termoNorm = normalizeString(termo);
+	const termoClean = cleanPunctuation(termoNorm);
+
+	const exato = candidatos.find((c: any) => candidatoMatchExatoOuPunct(c, termoNorm, termoClean));
+	if (exato) return exato;
+
+	const tokens = extrairTokensValidos(termo);
+	const porTokens = candidatos.find((c: any) => candidatoMatchTokens(c, tokens));
+	if (porTokens) return porTokens;
+
+	const tokensSemPrefixo = removerPrefixoSeHouver(tokens);
+	if (tokensSemPrefixo.length < tokens.length) {
+		return candidatos.find((c: any) => candidatoMatchTokens(c, tokensSemPrefixo));
+	}
+	return null;
+}
+
+export function encontrarCandidatoPorNome(
+	candidatos: any[],
+	nomePolitico: string,
+	nomeSecundario?: string,
+): any {
+	const matchPrincipal = encontrarPorTermo(candidatos, nomePolitico);
+	if (matchPrincipal) return matchPrincipal;
+
+	if (nomeSecundario && nomeSecundario !== nomePolitico) {
+		return encontrarPorTermo(candidatos, nomeSecundario);
+	}
+	return null;
 }
 
 async function fetchCandidatosEleicao(url: string, timeout = 6000) {
@@ -136,12 +188,13 @@ async function buscarCandidatoEleicaoGeral(
 	uf: string,
 	cargoCodigo: string,
 	nomePolitico: string,
+	nomeSecundario?: string,
 ): Promise<TseCandidateResult | null> {
 	const urlListagem = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${eleicao.ano}/${uf}/${eleicao.idEleicao}/${cargoCodigo}/candidatos`;
 	const candidatos = await fetchCandidatosEleicao(urlListagem, 6000);
 	if (candidatos.length === 0) return null;
 
-	const match = encontrarCandidatoPorNome(candidatos, nomePolitico);
+	const match = encontrarCandidatoPorNome(candidatos, nomePolitico, nomeSecundario);
 	if (!match?.id) return null;
 
 	return extrairDetalhesDoTSE(eleicao, uf, match, uf, nomePolitico);
@@ -169,11 +222,12 @@ async function buscarCandidatoNoLocal(
 	cargoCodigo: string,
 	nomePolitico: string,
 	timeout = 3500,
+	nomeSecundario?: string,
 ) {
 	const urlListagem = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${eleicao.ano}/${localidade}/${eleicao.idEleicao}/${cargoCodigo}/candidatos`;
 	const candidatos = await fetchCandidatosEleicao(urlListagem, timeout);
 	if (candidatos.length === 0) return null;
-	const match = encontrarCandidatoPorNome(candidatos, nomePolitico);
+	const match = encontrarCandidatoPorNome(candidatos, nomePolitico, nomeSecundario);
 	if (!match?.id) return null;
 	return { match, localidade };
 }
@@ -183,13 +237,14 @@ async function buscarCandidatoEleicaoMunicipal(
 	uf: string,
 	cargoCodigo: string,
 	nomePolitico: string,
+	nomeSecundario?: string,
 ): Promise<TseCandidateResult | null> {
 	const locais = await buscarLocaisMunicipais(uf, eleicao.idEleicao);
 	if (locais.length === 0) return null;
 
 	const capitalLocal = locais[0];
 	if (capitalLocal) {
-		const achouCapital = await buscarCandidatoNoLocal(eleicao, capitalLocal, cargoCodigo, nomePolitico, 15000);
+		const achouCapital = await buscarCandidatoNoLocal(eleicao, capitalLocal, cargoCodigo, nomePolitico, 15000, nomeSecundario);
 		if (achouCapital) {
 			const res = await extrairDetalhesDoTSE(eleicao, capitalLocal, achouCapital.match, uf, nomePolitico);
 			if (res) return res;
@@ -200,7 +255,7 @@ async function buscarCandidatoEleicaoMunicipal(
 	const chunkSize = 20;
 	for (let i = 0; i < locaisRestantes.length; i += chunkSize) {
 		const chunk = locaisRestantes.slice(i, i + chunkSize);
-		const chunkPromises = chunk.map((loc) => buscarCandidatoNoLocal(eleicao, loc, cargoCodigo, nomePolitico));
+		const chunkPromises = chunk.map((loc) => buscarCandidatoNoLocal(eleicao, loc, cargoCodigo, nomePolitico, 3500, nomeSecundario));
 		const chunkResults = await Promise.all(chunkPromises);
 		const resultFound = chunkResults.find(Boolean);
 		if (resultFound) {
@@ -215,6 +270,7 @@ export async function buscarCpfNoTSE(
 	nomePolitico: string,
 	uf: string,
 	cargoCodigo: string = "5",
+	nomeSecundario?: string,
 ): Promise<TseCandidateResult | null> {
 	const isMunicipal = ["11", "12", "13"].includes(cargoCodigo);
 	const campanhas = isMunicipal ? CAMPANHAS_MUNICIPAIS : CAMPANHAS_GERAIS;
@@ -222,8 +278,8 @@ export async function buscarCpfNoTSE(
 	for (const eleicao of campanhas) {
 		try {
 			const resultado = isMunicipal
-				? await buscarCandidatoEleicaoMunicipal(eleicao, uf, cargoCodigo, nomePolitico)
-				: await buscarCandidatoEleicaoGeral(eleicao, uf, cargoCodigo, nomePolitico);
+				? await buscarCandidatoEleicaoMunicipal(eleicao, uf, cargoCodigo, nomePolitico, nomeSecundario)
+				: await buscarCandidatoEleicaoGeral(eleicao, uf, cargoCodigo, nomePolitico, nomeSecundario);
 
 			if (resultado) return resultado;
 		} catch (e) {

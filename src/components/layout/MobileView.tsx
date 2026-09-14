@@ -951,42 +951,71 @@ function VariacaoPatrimonialBadge({ variacao }: { variacao: number }) {
 	);
 }
 
+function formatarValorMobile(patrimonio: any, temBens: boolean): string {
+	const num = Number(patrimonio);
+	if (patrimonio !== null && num > 0) {
+		return `R$ ${num.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+	}
+	if (temBens) return "R$ 0,00";
+	return "NÃO LOCALIZADO";
+}
+
+function formatarAnoMobile(ano?: number, temPatrimonioPositivo?: boolean): string {
+	if (ano) return `(${ano})`;
+	if (temPatrimonioPositivo) return "(2026)";
+	return "";
+}
+
+function MobilePatrimonioComparativo({ data }: { data: any }) {
+	const temComparativo = data?.variacaoPatrimonioPercentual !== undefined && data?.anoPatrimonioAnterior !== undefined;
+	if (!temComparativo) return null;
+
+	const antFmt = Number(data.patrimonioAnterior || 0).toLocaleString("pt-BR", {
+		minimumFractionDigits: 2,
+	});
+
+	return (
+		<div className="pt-2 border-t border-yellow-900/40 flex items-center justify-between gap-2">
+			<span className="text-[10px] uppercase font-bold text-yellow-600 flex items-center gap-1">
+				<History className="w-3.5 h-3.5 text-yellow-400" />
+				vs {data.anoPatrimonioAnterior} (R$ {antFmt})
+			</span>
+			<VariacaoPatrimonialBadge variacao={data.variacaoPatrimonioPercentual} />
+		</div>
+	);
+}
+
 function MobileHeroPatrimonio({ rootNode, onSelectRoot }: { rootNode: any; onSelectRoot: () => void }) {
-	if (rootNode.data.patrimonio === undefined) return null;
-	const valorFormatado = rootNode.data.patrimonio > 0
-		? `R$ ${Number(rootNode.data.patrimonio).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-		: "R$ 0,00";
-	const temComparativo = rootNode.data.variacaoPatrimonioPercentual !== undefined && rootNode.data.anoPatrimonioAnterior !== undefined;
+	if (rootNode?.data?.patrimonio === undefined) return null;
+	const bens = Array.isArray(rootNode.data.bensDeclarados) ? rootNode.data.bensDeclarados : [];
+	const temPatrimonioPositivo = rootNode.data.patrimonio !== null && Number(rootNode.data.patrimonio) > 0;
+	const valorFormatado = formatarValorMobile(rootNode.data.patrimonio, bens.length > 0);
+	const anoTexto = formatarAnoMobile(rootNode.data.anoPatrimonio, temPatrimonioPositivo);
 
 	return (
 		<div className="mt-3 p-3 bg-yellow-950/15 border border-yellow-900/40 cursor-pointer space-y-2" onClick={onSelectRoot}>
 			<div className="flex items-center justify-between">
 				<p className="text-[10px] uppercase font-bold text-yellow-500 flex items-center gap-1.5">
 					<DollarSign className="w-3.5 h-3.5 text-yellow-400" />
-					PATRIMÔNIO DECLARADO ({rootNode.data.anoPatrimonio || 2026})
+					PATRIMÔNIO DECLARADO {anoTexto}
 				</p>
-				{rootNode.data.partido && (
-					<span className="text-[10px] px-1.5 py-0.5 bg-yellow-950/40 border border-yellow-500/40 text-yellow-400 font-bold uppercase font-mono">
-						{rootNode.data.partido}
-					</span>
-				)}
+				<div className="flex items-center gap-1.5">
+					{bens.length > 0 && (
+						<span className="text-[9px] px-1.5 py-0.5 bg-yellow-950/50 border border-yellow-800 text-yellow-400 font-bold font-mono">
+							{bens.length} BENS
+						</span>
+					)}
+					{rootNode.data.partido && (
+						<span className="text-[10px] px-1.5 py-0.5 bg-yellow-950/40 border border-yellow-500/40 text-yellow-400 font-bold uppercase font-mono">
+							{rootNode.data.partido}
+						</span>
+					)}
+				</div>
 			</div>
 			<p className="text-xl font-bold tracking-widest text-yellow-400 font-mono">
 				{valorFormatado}
 			</p>
-			{temComparativo && (
-				<div className="pt-2 border-t border-yellow-900/40 flex items-center justify-between gap-2">
-					<span className="text-[10px] uppercase font-bold text-yellow-600 flex items-center gap-1">
-						<History className="w-3.5 h-3.5 text-yellow-400" />
-						vs {rootNode.data.anoPatrimonioAnterior} (R${" "}
-						{Number(rootNode.data.patrimonioAnterior || 0).toLocaleString("pt-BR", {
-							minimumFractionDigits: 2,
-						})}
-						)
-					</span>
-					<VariacaoPatrimonialBadge variacao={rootNode.data.variacaoPatrimonioPercentual} />
-				</div>
-			)}
+			<MobilePatrimonioComparativo data={rootNode.data} />
 		</div>
 	);
 }

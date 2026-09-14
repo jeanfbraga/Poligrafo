@@ -231,6 +231,100 @@ async function buscarCotaDeputado(supabase: any, idDeputadoNum: number) {
   return buscarCotaFallback(idDeputadoNum);
 }
 
+function montarRespostaBensHistorico(bens: any[]) {
+  const maisRecente = bens[0];
+  const anterior = bens.length > 1 ? bens[1] : null;
+  const patrimonioTotal = Number(maisRecente.valor_total || 0);
+  const patrimonioAnterior = anterior ? Number(anterior.valor_total || 0) : undefined;
+  const variacao = patrimonioAnterior !== undefined ? patrimonioTotal - patrimonioAnterior : undefined;
+  const variacaoPercentual = (patrimonioAnterior && patrimonioAnterior > 0 && variacao !== undefined)
+    ? (variacao / patrimonioAnterior) * 100
+    : undefined;
+
+  return {
+    patrimonioTotal,
+    anoEleicao: maisRecente.ano_eleicao,
+    bensDeclarados: maisRecente.descricao_bens || [],
+    patrimonioAnterior,
+    anoPatrimonioAnterior: anterior?.ano_eleicao,
+    variacaoPatrimonio: variacao,
+    variacaoPatrimonioPercentual: variacaoPercentual,
+    historicoPatrimonio: bens.map((b: any) => ({
+      ano: b.ano_eleicao,
+      cargo: "Candidato",
+      patrimonioTotal: Number(b.valor_total || 0),
+      bensDeclarados: b.descricao_bens || [],
+    })),
+  };
+}
+
+async function buscarBensBancoPerfil(perfil: any): Promise<any[]> {
+  const { buscarBensHistoricoTSE, buscarBensPorNomeTSE } = await import(
+    "@/services/integrations/tse/bens"
+  );
+  const cpf = perfil?.cpf ? String(perfil.cpf).replace(/\D/g, "") : null;
+  if (cpf && cpf.length === 11 && cpf !== "00000000000") {
+    const porCpf = await buscarBensHistoricoTSE(cpf);
+    if (porCpf.length > 0) return porCpf;
+  }
+  if (perfil?.nome_civil) {
+    const porCivil = await buscarBensPorNomeTSE(perfil.nome_civil);
+    if (porCivil.length > 0) return porCivil;
+  }
+  if (perfil?.nome_eleitoral) {
+    return buscarBensPorNomeTSE(perfil.nome_eleitoral);
+  }
+  return [];
+}
+
+function extrairCpfPerfil(perfil: any, liveTse: any): string | null {
+  const raw = perfil?.cpf || liveTse?.documentoPrincipal;
+  const clean = raw ? String(raw).replace(/\D/g, "") : "";
+  return clean && clean.length === 11 && clean !== "00000000000" ? clean : null;
+}
+
+function montarRespostaTseLivePerfil(liveTse: any) {
+  return {
+    patrimonioTotal: liveTse.patrimonioTotal,
+    anoEleicao: liveTse.anoEleicao || 2026,
+    bensDeclarados: liveTse.bensDeclarados || [],
+    patrimonioAnterior: liveTse.patrimonioAnterior,
+    anoPatrimonioAnterior: liveTse.anoPatrimonioAnterior,
+    variacaoPatrimonio: liveTse.variacaoPatrimonio,
+    variacaoPatrimonioPercentual: liveTse.variacaoPatrimonioPercentual,
+    historicoPatrimonio: liveTse.historicoPatrimonio || [],
+  };
+}
+
+async function consultarTseLiveParaPerfil(perfil: any): Promise<any | null> {
+  const { buscarCpfNoTSE } = await import("@/app/api/investigar/tse");
+  const { persistirBensHistoricosTSE } = await import("@/services/integrations/tse/bens");
+  const nomeBusca = perfil?.nome_eleitoral || perfil?.nome_civil || "";
+  const nomeSecundario = perfil?.nome_civil || undefined;
+  const uf = perfil?.uf || "BR";
+
+  const liveTse = await buscarCpfNoTSE(nomeBusca, uf, "6", nomeSecundario);
+  if (!liveTse?.patrimonioTotal || liveTse.patrimonioTotal <= 0) return null;
+
+  const cpf = extrairCpfPerfil(perfil, liveTse);
+  if (cpf) {
+    void persistirBensHistoricosTSE(cpf, nomeBusca, liveTse);
+  }
+
+  return montarRespostaTseLivePerfil(liveTse);
+}
+
+async function buscarPatrimonioTseDeputado(perfil: any): Promise<any | null> {
+  try {
+    const bens = await buscarBensBancoPerfil(perfil);
+    if (bens.length > 0) return montarRespostaBensHistorico(bens);
+    return await consultarTseLiveParaPerfil(perfil);
+  } catch (err) {
+    console.warn("[API Perfil Deputado] Erro ao buscar dados do TSE:", err);
+    return null;
+  }
+}
+
 export async function GET(
   request: Request,
   props: { params: Promise<{ id: string }> }
@@ -258,11 +352,12 @@ export async function GET(
       );
     }
 
-    const [votos, producao, servidores, cota] = await Promise.all([
+    const [votos, producao, servidores, cota, tse] = await Promise.all([
       buscarVotosDeputado(supabase, parsed.idNum),
       buscarProducaoDeputado(supabase, parsed.idNum),
       buscarServidoresDeputado(supabase, parsed.idNum),
       buscarCotaDeputado(supabase, parsed.idNum),
+      buscarPatrimonioTseDeputado(perfil),
     ]);
 
     return NextResponse.json({
@@ -270,7 +365,8 @@ export async function GET(
       votos,
       producao,
       servidores,
-      cota
+      cota,
+      tse,
     });
   } catch (error: any) {
     console.error("[API Perfil Deputado] Erro ao buscar dados:", error);

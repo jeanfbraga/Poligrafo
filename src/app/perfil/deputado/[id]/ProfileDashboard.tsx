@@ -6,6 +6,7 @@ import VotingHistory from "@/components/perfil/VotingHistory";
 import LegislativeProduction from "@/components/perfil/LegislativeProduction";
 import GabineteList from "@/components/perfil/GabineteList";
 import CotaChart from "@/components/perfil/CotaChart";
+import PerfilPatrimonioCard from "@/components/perfil/PerfilPatrimonioCard";
 import { Lock, AlertTriangle, ArrowLeft } from "lucide-react";
 import { ScrambleText } from "@/components/ui/scramble-text";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -152,6 +153,12 @@ export default function ProfileDashboard({
               idDeputado={idDeputado} 
               fotoUrl={typeof searchParams?.foto === "string" ? searchParams.foto : undefined} 
             />
+          )}
+
+          {data.tse && (
+            <div className="mt-8">
+              <PerfilPatrimonioCard tse={data.tse} />
+            </div>
           )}
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">

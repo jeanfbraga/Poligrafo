@@ -167,23 +167,53 @@ function aplicarBensCacheNaFicha(
 	});
 }
 
-async function persistirBensHistoricosTSE(cpfLimpo: string, nomePolitico: string, tseData: any): Promise<void> {
+function isCpfValidoParaPersistencia(cpf: string): boolean {
+	const limpo = cpf.replace(/\D/g, "");
+	return Boolean(limpo && limpo.length === 11 && limpo !== "00000000000");
+}
+
+function montarRegistroPrincipal(docLimpo: string, nomePolitico: string, tseData: any) {
+	if (!tseData?.patrimonioTotal || tseData.patrimonioTotal <= 0) return null;
+	return {
+		cpf_candidato: docLimpo,
+		nome_candidato: nomePolitico,
+		ano_eleicao: tseData.anoEleicao || 2026,
+		valor_total: tseData.patrimonioTotal,
+		descricao_bens: tseData.bensDeclarados || [],
+	};
+}
+
+function montarRegistrosHistoricos(docLimpo: string, nomePolitico: string, tseData: any) {
+	if (!Array.isArray(tseData?.historicoPatrimonio)) return [];
+	return tseData.historicoPatrimonio
+		.filter((h: any) => h?.patrimonioTotal > 0 && h.ano !== tseData.anoEleicao)
+		.map((h: any) => ({
+			cpf_candidato: docLimpo,
+			nome_candidato: h.nomeCompleto || nomePolitico,
+			ano_eleicao: h.ano,
+			valor_total: h.patrimonioTotal,
+			descricao_bens: h.bensDeclarados || [],
+		}));
+}
+
+export async function persistirBensHistoricosTSE(
+	cpfLimpo: string,
+	nomePolitico: string,
+	tseData: any,
+): Promise<void> {
+	if (!isCpfValidoParaPersistencia(cpfLimpo)) return;
 	const docLimpo = cpfLimpo.replace(/\D/g, "");
-	if (!docLimpo || docLimpo.length !== 11 || docLimpo === "00000000000") return;
 
 	try {
+		const regPrincipal = montarRegistroPrincipal(docLimpo, nomePolitico, tseData);
+		const regHistoricos = montarRegistrosHistoricos(docLimpo, nomePolitico, tseData);
+		const registros = regPrincipal ? [regPrincipal, ...regHistoricos] : regHistoricos;
+
+		if (registros.length === 0) return;
+
 		const { error } = await supabaseAdmin
 			.from("tse_bens_historico")
-			.upsert(
-				{
-					cpf_candidato: docLimpo,
-					nome_candidato: nomePolitico,
-					ano_eleicao: tseData.anoEleicao || 2026,
-					valor_total: tseData.patrimonioTotal,
-					descricao_bens: tseData.bensDeclarados || [],
-				},
-				{ onConflict: "cpf_candidato,ano_eleicao" },
-			);
+			.upsert(registros, { onConflict: "cpf_candidato,ano_eleicao" });
 		if (error) console.warn("[TSE] Erro ao persistir bens históricos no Supabase:", error.message);
 	} catch (e: any) {
 		console.warn("[TSE] Falha ao persistir bens históricos:", e?.message || e);
@@ -195,7 +225,8 @@ export async function resolverPatrimonioTSE(
 	tseData: any,
 	cpfLimpo: string,
 	nomePolitico: string,
-	sendEvent?: (tipo: string, payload: any) => void
+	sendEvent?: (tipo: string, payload: any) => void,
+	nomeCivil?: string,
 ): Promise<void> {
 	if (tseData?.patrimonioTotal !== undefined && tseData.patrimonioTotal > 0) {
 		aplicarDadosTseNaFicha(fichaPolitico, tseData);
@@ -207,6 +238,10 @@ export async function resolverPatrimonioTSE(
 		cpfLimpo && cpfLimpo !== "00000000000"
 			? await buscarBensHistoricoTSE(cpfLimpo)
 			: [];
+
+	if (bens.length === 0 && nomeCivil) {
+		bens = await buscarBensPorNomeTSE(nomeCivil);
+	}
 
 	if (bens.length === 0 && nomePolitico) {
 		bens = await buscarBensPorNomeTSE(nomePolitico);

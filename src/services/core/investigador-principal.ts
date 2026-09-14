@@ -92,7 +92,7 @@ function isNodeBemLegado(node: any): boolean {
 	return objeto.startsWith("Total de Bens");
 }
 
-async function consultarBensTSEParaReidratacao(pessoa: any): Promise<any[]> {
+async function consultarBensLocaisParaReidratacao(pessoa: any): Promise<any[]> {
 	const { buscarBensHistoricoTSE, buscarBensPorNomeTSE } = await import(
 		"@/services/integrations/tse/bens"
 	);
@@ -101,27 +101,113 @@ async function consultarBensTSEParaReidratacao(pessoa: any): Promise<any[]> {
 		const bensCpf = await buscarBensHistoricoTSE(cpf);
 		if (bensCpf.length > 0) return bensCpf;
 	}
+	if (pessoa.data?.nomeCivil) {
+		const bensCivil = await buscarBensPorNomeTSE(pessoa.data.nomeCivil);
+		if (bensCivil.length > 0) return bensCivil;
+	}
 	if (pessoa.data?.label) {
-		return buscarBensPorNomeTSE(pessoa.data.label);
+		const bensLabel = await buscarBensPorNomeTSE(pessoa.data.label);
+		if (bensLabel.length > 0) return bensLabel;
 	}
 	return [];
 }
 
-function aplicarBensNoPessoaNode(pessoa: any, bens: any[]): void {
-	if (!bens || bens.length === 0 || !bens[0].valor_total) return;
-	pessoa.data.patrimonio = Number(bens[0].valor_total) || 0;
-	pessoa.data.anoPatrimonio = bens[0].ano_eleicao;
-	pessoa.data.bensDeclarados = bens[0].descricao_bens || [];
+function extrairCpfValidoParaReidratacao(pessoa: any, tseLive: any): string | null {
+	const raw = pessoa.data?.cpf || tseLive?.documentoPrincipal;
+	const clean = raw ? String(raw).replace(/\D/g, "") : "";
+	return clean && clean.length === 11 && clean !== "00000000000" ? clean : null;
 }
 
-async function reidratarPessoaCacheSeNecessario(cachedNodes: any[]): Promise<void> {
+function montarItemBensLive(tseLive: any) {
+	return {
+		ano_eleicao: tseLive.anoEleicao || 2026,
+		valor_total: tseLive.patrimonioTotal,
+		descricao_bens: tseLive.bensDeclarados || [],
+		historico: tseLive.historicoPatrimonio || [],
+		tseLive,
+	};
+}
+
+async function consultarBensLiveParaReidratacao(pessoa: any): Promise<any[]> {
+	try {
+		const { buscarCpfNoTSE } = await import("@/app/api/investigar/tse");
+		const { persistirBensHistoricosTSE } = await import("@/services/integrations/tse/bens");
+		const uf = pessoa.data?.uf || "BR";
+		const cargoCod = pessoa.data?.casa === "SENADO" ? "5" : "6";
+		const nomeBusca = pessoa.data?.label || pessoa.data?.nomeCivil || "";
+		const nomeCivil = pessoa.data?.nomeCivil || undefined;
+
+		const tseLive = await buscarCpfNoTSE(nomeBusca, uf, cargoCod, nomeCivil);
+		if (!tseLive?.patrimonioTotal || tseLive.patrimonioTotal <= 0) return [];
+
+		const cpf = extrairCpfValidoParaReidratacao(pessoa, tseLive);
+		if (cpf) {
+			void persistirBensHistoricosTSE(cpf, nomeBusca, tseLive);
+		}
+
+		return [montarItemBensLive(tseLive)];
+	} catch (err) {
+		console.warn("[TSE Reidratacao Live Fallback Error]", err);
+		return [];
+	}
+}
+
+async function consultarBensTSEParaReidratacao(pessoa: any): Promise<any[]> {
+	const bensLocais = await consultarBensLocaisParaReidratacao(pessoa);
+	if (bensLocais.length > 0) return bensLocais;
+	return consultarBensLiveParaReidratacao(pessoa);
+}
+
+function aplicarMetricasHistoricoNoNode(targetData: any, live: any): void {
+	if (!live) return;
+	if (live.historicoPatrimonio) targetData.historicoPatrimonio = live.historicoPatrimonio;
+	if (live.patrimonioAnterior !== undefined) targetData.patrimonioAnterior = live.patrimonioAnterior;
+	if (live.anoPatrimonioAnterior !== undefined) targetData.anoPatrimonioAnterior = live.anoPatrimonioAnterior;
+	if (live.variacaoPatrimonio !== undefined) targetData.variacaoPatrimonio = live.variacaoPatrimonio;
+	if (live.variacaoPatrimonioPercentual !== undefined) targetData.variacaoPatrimonioPercentual = live.variacaoPatrimonioPercentual;
+}
+
+function aplicarBensNoPessoaNode(pessoa: any, bens: any[]): void {
+	if (!bens || bens.length === 0 || !bens[0].valor_total) return;
+	const principal = bens[0];
+	pessoa.data.patrimonio = Number(principal.valor_total) || 0;
+	pessoa.data.anoPatrimonio = principal.ano_eleicao;
+	pessoa.data.bensDeclarados = principal.descricao_bens || [];
+	aplicarMetricasHistoricoNoNode(pessoa.data, principal.tseLive);
+}
+
+async function reidratarPessoaCacheSeNecessario(cachedNodes: any[], chaveCache?: string): Promise<void> {
 	const pessoa = cachedNodes.find((n: any) => n.type === "PESSOA");
-	if (!pessoa || (pessoa.data?.patrimonio && pessoa.data.patrimonio > 0)) return;
+	const precisaReidratar =
+		!pessoa?.data?.patrimonio ||
+		pessoa.data.patrimonio === 0 ||
+		!pessoa.data?.bensDeclarados ||
+		pessoa.data.bensDeclarados.length === 0;
+
+	if (!pessoa || !precisaReidratar) return;
 
 	try {
 		const bens = await consultarBensTSEParaReidratacao(pessoa);
-		aplicarBensNoPessoaNode(pessoa, bens);
-	} catch {}
+		if (bens.length > 0) {
+			aplicarBensNoPessoaNode(pessoa, bens);
+
+			if (chaveCache) {
+				const { supabaseAdmin } = await import("@/lib/supabase-admin");
+				await supabaseAdmin
+					.from("pesquisas")
+					.update({
+						grafo_dados: {
+							nodes: cachedNodes,
+							timestamp: new Date().toISOString(),
+						},
+						atualizado_em: new Date().toISOString(),
+					})
+					.eq("termo_busca", chaveCache);
+			}
+		}
+	} catch (err) {
+		console.warn("[Self-Healing Cache Error]", err);
+	}
 }
 
 // eslint-disable-next-line complexity
@@ -501,7 +587,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 							return true;
 						});
 
-						await reidratarPessoaCacheSeNecessario(cachedNodes);
+						await reidratarPessoaCacheSeNecessario(cachedNodes, chaveCacheDeLeitura);
 
 						for (const node of cachedNodes) {
 							sendEvent("NODE_NOVO", node);
@@ -765,6 +851,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			nomeParaTSE,
 			deputadoBasico.uf,
 			codigoCargoTse,
+			detalhes?.nomeCivil,
 		);
 
 		// Se não tínhamos o documento, ou se herdamos um CNPJ e queremos tentar extrair o CPF real:
@@ -834,6 +921,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			cpfLimpo,
 			deputadoBasico.nome,
 			sendEvent,
+			detalhes?.nomeCivil,
 		);
 
 		if (documentoIsCnpj && fichaPolitico.patrimonioTotal === 0) {
@@ -873,7 +961,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 					: (tseData?.patrimonioTotal && tseData.patrimonioTotal > 0)
 						? tseData.patrimonioTotal
 						: (fichaPolitico.patrimonioTotal ?? tseData?.patrimonioTotal ?? 0),
-				anoPatrimonio: fichaPolitico.anoPatrimonio || tseData?.anoEleicao || 2026,
+				anoPatrimonio: fichaPolitico.anoPatrimonio || tseData?.anoEleicao || undefined,
 				patrimonioAnterior: fichaPolitico.patrimonioAnterior ?? tseData?.patrimonioAnterior,
 				anoPatrimonioAnterior: fichaPolitico.anoPatrimonioAnterior || tseData?.anoPatrimonioAnterior,
 				variacaoPatrimonio: fichaPolitico.variacaoPatrimonio ?? tseData?.variacaoPatrimonio,
