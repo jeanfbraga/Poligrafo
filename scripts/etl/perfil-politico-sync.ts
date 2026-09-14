@@ -196,8 +196,8 @@ export async function run() {
     console.log("[PERFIL SYNC] Iniciando sincronização de perfil completa...");
 
     try {
-        console.log("[PERFIL SYNC] Buscando lista de deputados...");
-        const depsReq = await fetchJson(`${API_BASE}/deputados`);
+        console.log("[PERFIL SYNC] Buscando lista completa de deputados da 57ª Legislatura...");
+        const depsReq = await fetchJson(`${API_BASE}/deputados?idLegislatura=57&itens=1000`);
         const deputados = exigirDeputados(depsReq);
         console.log(`[PERFIL SYNC] Encontrados ${deputados.length} deputados.`);
 

@@ -53,8 +53,8 @@ export async function run() {
     const anoAtual = new Date().getFullYear();
     
     try {
-        console.log("[PRODUCAO LEGISLATIVA SYNC] Buscando lista de deputados...");
-        const depsReq = await fetchJson(`${API_BASE}/deputados`);
+        console.log("[PRODUCAO LEGISLATIVA SYNC] Buscando lista completa de deputados da 57ª Legislatura...");
+        const depsReq = await fetchJson(`${API_BASE}/deputados?idLegislatura=57&itens=1000`);
         const deputados = exigirDeputados(depsReq);
 
         console.log(`[PRODUCAO LEGISLATIVA SYNC] Encontrados ${deputados.length} deputados.`);

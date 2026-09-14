@@ -5,7 +5,13 @@ import { Users, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { TerminalWindow, TerminalBadge } from "@/components/ui/terminal";
 
-export default function GabineteList({ servidores }: { servidores: any[] }) {
+export default function GabineteList({
+  servidores,
+  perfil,
+}: {
+  servidores: any[];
+  perfil?: any;
+}) {
   const [filter, setFilter] = useState<"TODOS" | "ATIVOS" | "EXONERADOS">("TODOS");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -32,12 +38,17 @@ export default function GabineteList({ servidores }: { servidores: any[] }) {
   }) || [];
 
   if (!servidores || servidores.length === 0) {
+    const ehSuplente = perfil?.situacao?.toLowerCase().includes("supl");
+    const mensagem = ehSuplente
+      ? "Gabinete inativo (parlamentar em suplência / sem exercício ativo no ano corrente)."
+      : "Nenhum servidor encontrado na base de dados.";
+
     return (
       <TerminalWindow 
         title="Servidores do Gabinete"
         icon={<Users className="w-5 h-5" />}
       >
-        <p className="text-green-400/80">Nenhum servidor encontrado na base de dados.</p>
+        <p className="text-green-400/80">{mensagem}</p>
       </TerminalWindow>
     );
   }

@@ -101,18 +101,47 @@ interface DialogSharedProps {
 	uf?: string;
 }
 
+function getMandatoBadgeStyle(situacao?: string): string {
+	const sit = (situacao || "").toLowerCase();
+	if (sit.includes("supl")) return "bg-amber-950/40 border-amber-600/60 text-amber-400";
+	if (sit.includes("licen")) return "bg-blue-950/40 border-blue-600/60 text-blue-400";
+	return "bg-green-950/40 border-green-600/60 text-green-400";
+}
+
+function ProfileMandatoBadge({ situacao, mandatoTexto }: { situacao?: string; mandatoTexto?: string }) {
+	if (!mandatoTexto && !situacao) return null;
+	const badgeClass = getMandatoBadgeStyle(situacao);
+
+	return (
+		<div className="flex items-center justify-center md:justify-start gap-2 mt-2.5 flex-wrap">
+			<span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider font-mono border ${badgeClass}`}>
+				{situacao || "MANDATO"}
+			</span>
+			{mandatoTexto && (
+				<span className="text-xs text-yellow-400/90 font-mono font-medium">
+					{mandatoTexto}
+				</span>
+			)}
+		</div>
+	);
+}
+
 function ProfileIdentityInfo({
 	nomeExibicao,
 	nomeCivil,
 	partido,
 	uf,
 	idDeputado,
+	situacao,
+	mandatoTexto,
 }: {
 	nomeExibicao: string;
 	nomeCivil?: string;
 	partido?: string;
 	uf?: string;
 	idDeputado: string;
+	situacao?: string;
+	mandatoTexto?: string;
 }) {
 	const exibeNomeCivil = Boolean(nomeCivil && nomeCivil !== nomeExibicao);
 	const partidoFormatado = partido || "S/PARTIDO";
@@ -139,6 +168,7 @@ function ProfileIdentityInfo({
 					ID CÂMARA: {idDeputado}
 				</span>
 			</div>
+			<ProfileMandatoBadge situacao={situacao} mandatoTexto={mandatoTexto} />
 		</div>
 	);
 }
@@ -363,6 +393,8 @@ export default function ProfileHeader({
 							partido={perfil.partido}
 							uf={perfil.uf}
 							idDeputado={idDeputado}
+							situacao={perfil.situacao}
+							mandatoTexto={perfil.mandato_texto}
 						/>
 
 						{/* Ações Táticas Responsivas */}

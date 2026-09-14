@@ -162,13 +162,13 @@ export default function ProfileDashboard({
           )}
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-            <VotingHistory votos={data.votos} idDeputado={idDeputado} />
+            <VotingHistory votos={data.votos} idDeputado={idDeputado} perfil={data.perfil} />
             <LegislativeProduction producao={data.producao} idDeputado={idDeputado} />
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
             <CotaChart cota={data.cota} />
-            <GabineteList servidores={data.servidores} />
+            <GabineteList servidores={data.servidores} perfil={data.perfil} />
           </div>
         </div>
       </div>

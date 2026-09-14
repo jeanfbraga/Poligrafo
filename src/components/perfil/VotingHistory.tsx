@@ -5,18 +5,31 @@ import { useState } from "react";
 import { Check, X, MinusCircle, AlertCircle, ArrowRight, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { TerminalWindow, TerminalCard, TerminalBadge } from "@/components/ui/terminal";
 
-export default function VotingHistory({ votos, idDeputado }: { votos: any[], idDeputado: string }) {
+export default function VotingHistory({
+  votos,
+  idDeputado,
+  perfil,
+}: {
+  votos: any[];
+  idDeputado: string;
+  perfil?: any;
+}) {
   const [filter, setFilter] = useState<"TODOS" | "SIM" | "NÃO">("TODOS");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   if (!votos || votos.length === 0) {
+    const ehSuplente = perfil?.situacao?.toLowerCase().includes("supl");
+    const mensagem = ehSuplente
+      ? "Nenhum voto nominal registrado em plenário durante o período de exercício (Suplente)."
+      : "Nenhum voto registrado no período atual.";
+
     return (
       <TerminalWindow 
         title="Registro_de_Votos" 
         icon={<span className="text-green-500">&gt;</span>}
       >
-        <p className="text-green-400/80 text-sm">Nenhum voto registrado no período atual.</p>
+        <p className="text-green-400/80 text-sm">{mensagem}</p>
       </TerminalWindow>
     );
   }

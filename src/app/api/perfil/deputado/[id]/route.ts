@@ -54,6 +54,232 @@ function obterFallbackClient(primaryClient: any) {
   return null;
 }
 
+import { fetchWithTimeout } from "@/app/api/investigar/tse";
+
+function formatarDataSimples(dataHora?: string): string {
+  if (!dataHora) return "";
+  const match = dataHora.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const [, ano, mes, dia] = match;
+    return `${dia}/${mes}/${ano}`;
+  }
+  return "";
+}
+
+function filtrarEventosLegislatura(historico: any[]) {
+  if (!Array.isArray(historico)) return [];
+  const leg57 = historico.filter((h: any) => h.idLegislatura === 57 || !h.idLegislatura);
+  const eventos = leg57.length > 0 ? leg57 : historico;
+  return [...eventos].sort((a, b) => (a.dataHora || "").localeCompare(b.dataHora || ""));
+}
+
+function isEventoEntrada(desc: string, sit: string): boolean {
+  return desc.includes("entrada") || sit === "exercício" || sit === "exercicio";
+}
+
+function isEventoSaida(desc: string, sit: string): boolean {
+  return desc.includes("saída") || desc.includes("saida") || sit.includes("supl") || sit.includes("licen");
+}
+
+function extrairUltimasMovimentacoes(ordenados: any[]) {
+  let entrada: any = null;
+  let saida: any = null;
+  for (const ev of ordenados) {
+    const desc = (ev.descricaoStatus || "").toLowerCase();
+    const sit = (ev.situacao || "").toLowerCase();
+    if (isEventoEntrada(desc, sit)) entrada = ev;
+    if (isEventoSaida(desc, sit)) saida = ev;
+  }
+  return { entrada, saida };
+}
+
+function montarTextoSuplente(entrada: any, saida: any, ultimoStatus: any): string {
+  const dtEntrada = formatarDataSimples(entrada?.dataHora);
+  const dtSaida = formatarDataSimples(saida?.dataHora || ultimoStatus?.data);
+  if (dtEntrada && dtSaida) return `Exerceu mandato como Suplente de ${dtEntrada} a ${dtSaida}`;
+  if (dtSaida) return `Suplente fora de exercício desde ${dtSaida}`;
+  return "Parlamentar em suplência";
+}
+
+function extrairMotivoLicenca(saida: any): string {
+  const desc = (saida?.descricaoStatus || "").toLowerCase();
+  if (desc.includes("ministro")) return "exercer o cargo de Ministro de Estado";
+  if (desc.includes("saúde") || desc.includes("saude")) return "tratamento de saúde";
+  return "afastamento temporário";
+}
+
+function montarRetornoSuplente(entrada: any, saida: any, ultimoStatus: any) {
+  return {
+    situacao: "Suplência",
+    condicaoEleitoral: "Suplente",
+    mandatoTexto: montarTextoSuplente(entrada, saida, ultimoStatus),
+    dataPosse: formatarDataSimples(entrada?.dataHora),
+    dataSaida: formatarDataSimples(saida?.dataHora || ultimoStatus?.data),
+  };
+}
+
+function montarRetornoLicenca(entrada: any, saida: any, condicaoEleitoral: string, ultimoStatus: any) {
+  const dtSaida = formatarDataSimples(saida?.dataHora || ultimoStatus?.data);
+  const motivo = extrairMotivoLicenca(saida);
+  return {
+    situacao: "Licença",
+    condicaoEleitoral,
+    mandatoTexto: `Licenciado desde ${dtSaida} para ${motivo}`,
+    dataPosse: formatarDataSimples(entrada?.dataHora),
+    dataSaida: dtSaida,
+  };
+}
+
+function montarRetornoExercicio(entrada: any, condicaoEleitoral: string) {
+  const dtPosse = formatarDataSimples(entrada?.dataHora);
+  return {
+    situacao: "Exercício",
+    condicaoEleitoral,
+    mandatoTexto: dtPosse ? `Em exercício parlamentar desde ${dtPosse}` : "Em exercício parlamentar",
+    dataPosse: dtPosse,
+    dataSaida: undefined,
+  };
+}
+
+function processarHistoricoMandato(historico: any[], ultimoStatus: any) {
+  const situacaoAtual = ultimoStatus?.situacao || "Exercício";
+  const condicaoEleitoral = ultimoStatus?.condicaoEleitoral || "Titular";
+  const ordenados = filtrarEventosLegislatura(historico);
+  const { entrada, saida } = extrairUltimasMovimentacoes(ordenados);
+
+  if (situacaoAtual.toLowerCase().includes("supl")) {
+    return montarRetornoSuplente(entrada, saida, ultimoStatus);
+  }
+
+  const ehLicenca = situacaoAtual.toLowerCase().includes("licen") ||
+    Boolean(saida && (!entrada || (saida.dataHora || "") > (entrada.dataHora || "")));
+
+  if (ehLicenca) {
+    return montarRetornoLicenca(entrada, saida, condicaoEleitoral, ultimoStatus);
+  }
+
+  return montarRetornoExercicio(entrada, condicaoEleitoral);
+}
+
+async function persistirPerfilNoBanco(perfil: any) {
+  try {
+    const targetClient = supabasePerfilAdmin || supabaseAdmin;
+    if (!targetClient) return;
+    await targetClient.from("camara_perfil_politico_cache").upsert({
+      id_deputado: perfil.id_deputado,
+      nome_civil: perfil.nome_civil,
+      nome_eleitoral: perfil.nome_eleitoral,
+      partido: perfil.partido,
+      uf: perfil.uf,
+      frentes: perfil.frentes || [],
+      comissoes: perfil.comissoes || [],
+      profissoes: perfil.profissoes || [],
+      data_atualizacao: new Date().toISOString(),
+    }, { onConflict: "id_deputado" });
+  } catch (err) {
+    console.warn("[Perfil Auto-Persist Erro]", err);
+  }
+}
+
+function extrairListaTitulos(res: PromiseSettledResult<any>): string[] {
+  if (res.status !== "fulfilled" || !Array.isArray(res.value?.dados)) return [];
+  return res.value.dados.map((item: any) => item.titulo || item.nomeOrgao).filter(Boolean);
+}
+
+function montarObjetoPerfilCompleto(params: {
+  idDeputadoNum: number;
+  depData: any;
+  frentes: string[];
+  comissoes: string[];
+  profissoes: string[];
+  mandato: any;
+  info: any;
+}) {
+  const { idDeputadoNum, depData, frentes, comissoes, profissoes, mandato, info } = params;
+  const ultimoStatus = depData?.ultimoStatus;
+  const nomeCivil = depData?.nomeCivil || info?.nome || `Deputado ${idDeputadoNum}`;
+  const nomeEleitoral = ultimoStatus?.nomeEleitoral || info?.nome || nomeCivil;
+  const partido = ultimoStatus?.siglaPartido || info?.partido || "N/A";
+  const uf = ultimoStatus?.siglaUf || info?.uf || "BR";
+
+  return {
+    id_deputado: idDeputadoNum,
+    nome_civil: nomeCivil,
+    nome_eleitoral: nomeEleitoral,
+    partido,
+    uf,
+    frentes,
+    comissoes,
+    profissoes,
+    situacao: mandato.situacao,
+    condicao_eleitoral: mandato.condicaoEleitoral,
+    mandato_texto: mandato.mandatoTexto,
+    data_posse: mandato.dataPosse,
+    data_saida: mandato.dataSaida,
+  };
+}
+
+async function buscarPerfilLiveCamara(idDeputadoNum: number, info: any) {
+  const API_BASE = "https://dadosabertos.camara.leg.br/api/v2";
+  try {
+    const [depRes, frentesRes, orgaosRes, profRes, histRes] = await Promise.allSettled([
+      fetchWithTimeout(`${API_BASE}/deputados/${idDeputadoNum}`, { timeout: 6000 }).then(r => r.json()),
+      fetchWithTimeout(`${API_BASE}/deputados/${idDeputadoNum}/frentes`, { timeout: 6000 }).then(r => r.json()),
+      fetchWithTimeout(`${API_BASE}/deputados/${idDeputadoNum}/orgaos`, { timeout: 6000 }).then(r => r.json()),
+      fetchWithTimeout(`${API_BASE}/deputados/${idDeputadoNum}/profissoes`, { timeout: 6000 }).then(r => r.json()),
+      fetchWithTimeout(`${API_BASE}/deputados/${idDeputadoNum}/historico`, { timeout: 6000 }).then(r => r.json()),
+    ]);
+
+    const depData = depRes.status === "fulfilled" ? depRes.value?.dados : null;
+    const histData = histRes.status === "fulfilled" ? histRes.value?.dados : [];
+    const frentes = extrairListaTitulos(frentesRes);
+    const comissoes = extrairListaTitulos(orgaosRes);
+    const profissoes = extrairListaTitulos(profRes);
+
+    const mandato = processarHistoricoMandato(histData, depData?.ultimoStatus);
+    const perfilCompleto = montarObjetoPerfilCompleto({
+      idDeputadoNum,
+      depData,
+      frentes,
+      comissoes,
+      profissoes,
+      mandato,
+      info,
+    });
+
+    void persistirPerfilNoBanco(perfilCompleto);
+    return perfilCompleto;
+  } catch (e) {
+    console.warn(`[Perfil Live Câmara] Falha ao consultar deputado ${idDeputadoNum}:`, e);
+    return montarPerfilFallback(info, idDeputadoNum);
+  }
+}
+
+async function enriquecerMandatoSeNecessario(perfil: any, idDeputadoNum: number) {
+  if (!perfil) return null;
+  if (perfil.mandato_texto) return perfil;
+  try {
+    const API_BASE = "https://dadosabertos.camara.leg.br/api/v2";
+    const [depRes, histRes] = await Promise.allSettled([
+      fetchWithTimeout(`${API_BASE}/deputados/${idDeputadoNum}`, { timeout: 4000 }).then(r => r.json()),
+      fetchWithTimeout(`${API_BASE}/deputados/${idDeputadoNum}/historico`, { timeout: 4000 }).then(r => r.json()),
+    ]);
+    const depData = depRes.status === "fulfilled" ? depRes.value?.dados : null;
+    const histData = histRes.status === "fulfilled" ? histRes.value?.dados : [];
+    const mandato = processarHistoricoMandato(histData, depData?.ultimoStatus);
+    return {
+      ...perfil,
+      situacao: mandato.situacao,
+      condicao_eleitoral: mandato.condicaoEleitoral,
+      mandato_texto: mandato.mandatoTexto,
+      data_posse: mandato.dataPosse,
+      data_saida: mandato.dataSaida,
+    };
+  } catch {
+    return perfil;
+  }
+}
+
 async function buscarPerfilBasico(supabase: any, idDeputadoNum: number, idDeputado: string) {
   let { data: perfilData } = await supabase
     .from("camara_perfil_politico_cache")
@@ -74,10 +300,15 @@ async function buscarPerfilBasico(supabase: any, idDeputadoNum: number, idDeputa
   }
 
   const info = (congressoIndex as any[]).find((p: any) => String(p.id) === idDeputado);
-  if (!perfilData && !info) return null;
-  if (!perfilData) return montarPerfilFallback(info, idDeputadoNum);
+  
+  // Se o perfil não existe ou está com listas vazias no banco, recorre ao Live Fallback da Câmara
+  const precisaLive = !perfilData || (!perfilData.frentes || perfilData.frentes.length === 0);
+  if (precisaLive) {
+    return buscarPerfilLiveCamara(idDeputadoNum, info);
+  }
 
-  return mesclarPerfilComIndex(perfilData, info);
+  const mesclado = mesclarPerfilComIndex(perfilData, info);
+  return enriquecerMandatoSeNecessario(mesclado, idDeputadoNum);
 }
 
 function formatarVotosDeputado(data: any[]) {
@@ -121,7 +352,56 @@ async function buscarVotosDeputado(supabase: any, idDeputadoNum: number) {
   return formatarVotosDeputado(data);
 }
 
-async function buscarProducaoDeputado(supabase: any, idDeputadoNum: number) {
+async function persistirProducaoNoBanco(producao: any[]) {
+  try {
+    const targetClient = supabasePerfilAdmin || supabaseAdmin;
+    if (!targetClient || producao.length === 0) return;
+    await targetClient.from("camara_producao_legislativa").upsert(
+      producao,
+      { onConflict: "id_deputado,id_proposicao" }
+    );
+  } catch (err) {
+    console.warn("[Producao Auto-Persist Erro]", err);
+  }
+}
+
+function mapearProposicaoCamara(p: any, idDeputadoNum: number) {
+  const tipo = p.siglaTipo || "PROP";
+  const num = p.numero || 0;
+  const ano = p.ano || 2024;
+  return {
+    id_deputado: idDeputadoNum,
+    id_proposicao: String(p.id),
+    tipo,
+    numero: num,
+    ano,
+    titulo: `${tipo} ${num}/${ano}`,
+    ementa: p.ementa || "Sem ementa informada",
+    texto_integral: p.urlInteiroTeor || p.uri || null,
+    data_apresentacao: p.dataApresentacao || null,
+  };
+}
+
+async function buscarProducaoLiveCamara(idDeputadoNum: number) {
+  const API_BASE = "https://dadosabertos.camara.leg.br/api/v2";
+  try {
+    const url = `${API_BASE}/proposicoes?idDeputadoAutor=${idDeputadoNum}&itens=100&ordem=DESC&ordenarPor=ano`;
+    const res = await fetchWithTimeout(url, { timeout: 8000 });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const dados = json?.dados || [];
+    if (!Array.isArray(dados) || dados.length === 0) return [];
+
+    const producao = dados.map((p: any) => mapearProposicaoCamara(p, idDeputadoNum));
+    void persistirProducaoNoBanco(producao);
+    return producao;
+  } catch (e) {
+    console.warn(`[Producao Live Câmara] Falha ao consultar deputado ${idDeputadoNum}:`, e);
+    return [];
+  }
+}
+
+async function buscarProducaoBanco(supabase: any, idDeputadoNum: number) {
   let { data, error } = await supabase
     .from("camara_producao_legislativa")
     .select("*")
@@ -137,12 +417,16 @@ async function buscarProducaoDeputado(supabase: any, idDeputadoNum: number) {
       .order("ano", { ascending: false });
     if (!res.error && res.data && res.data.length > 0) {
       data = res.data;
-      error = null;
     }
   }
 
-  if (error || !data) return [];
-  return data;
+  return data || [];
+}
+
+async function buscarProducaoDeputado(supabase: any, idDeputadoNum: number) {
+  const data = await buscarProducaoBanco(supabase, idDeputadoNum);
+  if (data.length > 0) return data;
+  return buscarProducaoLiveCamara(idDeputadoNum);
 }
 
 async function buscarServidoresDeputado(supabase: any, idDeputadoNum: number) {
