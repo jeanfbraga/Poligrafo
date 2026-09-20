@@ -205,6 +205,62 @@ function executarCurlDownload(url: string, zipPath: string): void {
 	}
 }
 
+async function executarFetchDownload(url: string, zipPath: string): Promise<void> {
+	if (fs.existsSync(zipPath)) {
+		fs.rmSync(zipPath, { force: true });
+	}
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), 300_000); // 5 min timeout
+	try {
+		const res = await fetch(url, {
+			signal: controller.signal,
+			headers: {
+				"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+				"Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+				"Referer": "https://dadosabertos.tse.jus.br/",
+			},
+		});
+
+		if (!res.ok) {
+			throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+		}
+
+		const fileStream = fs.createWriteStream(zipPath);
+		const body = res.body;
+		if (!body) throw new Error("Corpo da resposta HTTP nulo");
+
+		const reader = body.getReader();
+		await new Promise<void>((resolve, reject) => {
+			fileStream.on("error", reject);
+			fileStream.on("finish", resolve);
+
+			const pump = async () => {
+				try {
+					while (true) {
+						const { done, value } = await reader.read();
+						if (done) {
+							fileStream.end();
+							break;
+						}
+						fileStream.write(value);
+					}
+				} catch (e) {
+					fileStream.destroy();
+					reject(e);
+				}
+			};
+			void pump();
+		});
+
+		if (!fs.existsSync(zipPath) || fs.statSync(zipPath).size <= 1024) {
+			throw new Error("Arquivo ZIP baixado via fetch é menor que 1KB ou inexistente");
+		}
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
 export async function downloadZipComCurl(
 	url: string,
 	zipPath: string,
@@ -220,11 +276,20 @@ export async function downloadZipComCurl(
 	for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {
 		console.log(`[TSE SYNC] Baixando ${url} (tentativa ${tentativa}/${maxTentativas})...`);
 		try {
-			executarCurlDownload(url, zipPath);
-			console.log(
-				`[TSE SYNC] Download concluído com sucesso: ${(fs.statSync(zipPath).size / 1024 / 1024).toFixed(1)}MB`
-			);
-			return;
+			try {
+				await executarFetchDownload(url, zipPath);
+				console.log(
+					`[TSE SYNC] Download concluído via fetch: ${(fs.statSync(zipPath).size / 1024 / 1024).toFixed(1)}MB`
+				);
+				return;
+			} catch (fetchErr: any) {
+				console.warn(`[TSE SYNC] Fetch falhou (${fetchErr.message}). Tentando via curl...`);
+				executarCurlDownload(url, zipPath);
+				console.log(
+					`[TSE SYNC] Download concluído via curl: ${(fs.statSync(zipPath).size / 1024 / 1024).toFixed(1)}MB`
+				);
+				return;
+			}
 		} catch (err: any) {
 			const errMsg = err?.stderr?.toString() || err?.message || String(err);
 			console.warn(`[TSE SYNC] Falha no download (tentativa ${tentativa}/${maxTentativas}): ${errMsg}`);
