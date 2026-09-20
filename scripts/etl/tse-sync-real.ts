@@ -261,6 +261,21 @@ async function executarFetchDownload(url: string, zipPath: string): Promise<void
 	}
 }
 
+async function tentarDownloadZip(url: string, zipPath: string): Promise<void> {
+	try {
+		await executarFetchDownload(url, zipPath);
+		console.log(
+			`[TSE SYNC] Download concluído via fetch: ${(fs.statSync(zipPath).size / 1024 / 1024).toFixed(1)}MB`
+		);
+	} catch (fetchErr: any) {
+		console.warn(`[TSE SYNC] Fetch falhou (${fetchErr.message}). Tentando via curl...`);
+		executarCurlDownload(url, zipPath);
+		console.log(
+			`[TSE SYNC] Download concluído via curl: ${(fs.statSync(zipPath).size / 1024 / 1024).toFixed(1)}MB`
+		);
+	}
+}
+
 export async function downloadZipComCurl(
 	url: string,
 	zipPath: string,
@@ -276,20 +291,8 @@ export async function downloadZipComCurl(
 	for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {
 		console.log(`[TSE SYNC] Baixando ${url} (tentativa ${tentativa}/${maxTentativas})...`);
 		try {
-			try {
-				await executarFetchDownload(url, zipPath);
-				console.log(
-					`[TSE SYNC] Download concluído via fetch: ${(fs.statSync(zipPath).size / 1024 / 1024).toFixed(1)}MB`
-				);
-				return;
-			} catch (fetchErr: any) {
-				console.warn(`[TSE SYNC] Fetch falhou (${fetchErr.message}). Tentando via curl...`);
-				executarCurlDownload(url, zipPath);
-				console.log(
-					`[TSE SYNC] Download concluído via curl: ${(fs.statSync(zipPath).size / 1024 / 1024).toFixed(1)}MB`
-				);
-				return;
-			}
+			await tentarDownloadZip(url, zipPath);
+			return;
 		} catch (err: any) {
 			const errMsg = err?.stderr?.toString() || err?.message || String(err);
 			console.warn(`[TSE SYNC] Falha no download (tentativa ${tentativa}/${maxTentativas}): ${errMsg}`);
