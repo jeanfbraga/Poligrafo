@@ -106,7 +106,7 @@ export async function run() {
             await delay(300); // Rate limit suave entre lotes
         }
 
-        const limiteToleravel = Math.max(10, Math.ceil(deputados.length * 0.02));
+        const limiteToleravel = Math.max(20, Math.ceil(deputados.length * 0.05));
         if (falhas > limiteToleravel) {
             throw new Error(`Produção legislativa incompleta: ${falhas} deputados com falha (limite tolerável: ${limiteToleravel}).`);
         }

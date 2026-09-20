@@ -206,18 +206,25 @@ export async function run() {
         const mesAtual = dataAtual.getMonth() + 1;
 
         let count = 0;
-        for (const dep of deputados) {
-            count++;
-            console.log(`[${count}/${deputados.length}] Sincronizando deputado ID ${dep.id} (${dep.nome})...`);
-            
-            await sincronizarPerfilDeputado(dep);
-            await sincronizarGabinete(dep.id);
+        const CONCORRENCIA = 4;
+        for (let i = 0; i < deputados.length; i += CONCORRENCIA) {
+            const chunk = deputados.slice(i, i + CONCORRENCIA);
+            await Promise.all(chunk.map(async (dep: any) => {
+                count++;
+                const depIdx = count;
+                console.log(`[${depIdx}/${deputados.length}] Sincronizando deputado ID ${dep.id} (${dep.nome})...`);
 
-            console.log(`  - Processando resumo da CEAP do DB Principal...`);
-            await processarCotaCEAP(dep, anoAtual, mesAtual);
-            console.log(`  - Cota CEAP consolidada.`);
+                await sincronizarPerfilDeputado(dep);
+                await sincronizarGabinete(dep.id);
 
-            await delay(500); 
+                console.log(`  - [ID ${dep.id}] Processando resumo da CEAP do DB Principal...`);
+                await processarCotaCEAP(dep, anoAtual, mesAtual);
+                console.log(`  - [ID ${dep.id}] Cota CEAP consolidada.`);
+            }));
+
+            if (i + CONCORRENCIA < deputados.length) {
+                await delay(250);
+            }
         }
 
         console.log("[PERFIL SYNC] Finalizado com sucesso!");

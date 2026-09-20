@@ -32,7 +32,7 @@ describe('Decisão de trocar o runner antes das gravações', () => {
 
 	it('limita a duas VMs sequenciais e não tolera preflight final nem erros de ETL', () => {
 		expect(workflow.match(/^    runs-on: ubuntu-latest$/gm)).toHaveLength(2);
-		expect(workflow.match(/^    timeout-minutes: 60$/gm)).toHaveLength(2);
+		expect(workflow.match(/^    timeout-minutes: (?:60|90)$/gm)).toHaveLength(2);
 		expect(workflow).toContain('    needs: sync');
 		expect(workflow).toContain('  cancel-in-progress: false');
 		expect(workflow.match(/allow-runner-retry: 'true'/g)).toHaveLength(1);

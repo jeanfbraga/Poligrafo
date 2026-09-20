@@ -19,6 +19,7 @@ import { parse } from 'csv-parse';
 import dotenv from 'dotenv';
 import path from 'path';
 import { execSync } from 'child_process';
+import { fetchCamaraJson } from './camara-http';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
@@ -287,9 +288,8 @@ async function resolverMetadadosVotacao(votacao: any) {
     let id_proposicao: number | null = null;
 
     try {
-        const detRes = await fetchWithRetry(`${API_BASE}/votacoes/${votacao.id}`);
-        if (detRes.ok) {
-            const detJson = await detRes.json();
+        const detJson = await fetchCamaraJson(`${API_BASE}/votacoes/${votacao.id}`);
+        if (detJson?.dados) {
             const info = extrairInfoProposicao(detJson.dados);
             if (info) {
                 projeto_nome = info.nome;
@@ -306,9 +306,14 @@ async function resolverMetadadosVotacao(votacao: any) {
 
 async function processarVotacaoPendenteApi(votacao: any, validDeputados: Set<number>): Promise<boolean> {
     const meta = await resolverMetadadosVotacao(votacao);
-    const votosRes = await fetchWithRetry(`${API_BASE}/votacoes/${votacao.id}/votos`);
-    const votosJson = votosRes.ok ? await votosRes.json() : null;
-    const votosLista = votosJson?.dados || [];
+    let votosLista: any[] = [];
+    try {
+        const votosJson = await fetchCamaraJson(`${API_BASE}/votacoes/${votacao.id}/votos`);
+        votosLista = votosJson?.dados || [];
+    } catch (err: any) {
+        console.warn(`  - [Votação ${votacao.id}] Aviso ao buscar votos: ${err.message}`);
+        return false;
+    }
 
     if (votosLista.length === 0) return false;
 
@@ -358,10 +363,14 @@ async function executarDeltaIncremental(validDeputados: Set<number>, diasAtras =
     try {
         while (urlVotacoes) {
             console.log(`[VOTOS SYNC API] Consultando: ${urlVotacoes}`);
-            const res = await fetchWithRetry(urlVotacoes);
-            if (!res.ok) break;
-            const data = await res.json();
-            const votacoes = data.dados || [];
+            let data: any = null;
+            try {
+                data = await fetchCamaraJson(urlVotacoes);
+            } catch (err: any) {
+                console.warn(`[VOTOS SYNC API] Aviso na consulta de votações: ${err.message}`);
+                break;
+            }
+            const votacoes = data?.dados || [];
 
             if (votacoes.length === 0) break;
 
@@ -382,11 +391,11 @@ async function executarDeltaIncremental(validDeputados: Set<number>, diasAtras =
                 await new Promise(r => setTimeout(r, 200));
             }
 
-            const nextLink = data.links?.find((l: any) => l.rel === 'next');
+            const nextLink = data?.links?.find((l: any) => l.rel === 'next');
             urlVotacoes = nextLink ? nextLink.href : null;
         }
 
-        console.log(`[VOTOS SYNC API] ✅ Delta concluído: ${votacoesNovasProcessadas} novas votações capturadas.`);
+        console.log(`[VOTOS SYNC API] ✅ Delta concluído: ${votacoesNovasProcessadas} novas votações capturadas e gravadas no Banco 2.`);
     } catch (e: any) {
         console.warn(`[VOTOS SYNC API] Aviso no delta incremental: ${e.message}`);
     }
