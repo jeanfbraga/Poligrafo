@@ -181,6 +181,10 @@ describe("TSE Sync Real - ETL & Resiliência", () => {
 	});
 
 	describe("downloadZipComCurl", () => {
+		beforeEach(() => {
+			vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("fetch desabilitado no teste unitario")));
+		});
+
 		it("reutiliza cache se arquivo existir com mais de 1KB", async () => {
 			const zipFile = path.join(tempDir, "teste.zip");
 			fs.writeFileSync(zipFile, Buffer.alloc(2048));

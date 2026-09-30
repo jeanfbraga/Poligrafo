@@ -1456,27 +1456,44 @@ function DashboardArea() {
 								if (STRUCTURAL_TYPES.includes(nodeParams.type)) {
 									if (nodeParams.type === "PESSOA") {
 										// Apenas atualiza o nó de loading para o nó real em vez de deletar
-										setNodes((nds) =>
-											nds.map((n) => {
-												if (n.id === "loading-pessoa") {
-													return {
-														...n,
-														id: nodeParams.id, // Atualiza para o ID real (ex: pessoa-1234)
-														data: {
-															...n.data,
-															...nodeParams.data,
-															isSearching: true,
-														},
-														position: {
-															x: (window.innerWidth - 320) / 2 - 144,
-															y: 150,
-														},
-														className: "animate-[customFadeIn_0.5s_ease-out]",
-													};
-												}
-												return n;
-											}),
-										);
+										setNodes((nds) => {
+											const hasPessoa = nds.some(
+												(n) => n.id === "loading-pessoa" || n.id === nodeParams.id || n.type === "PESSOA",
+											);
+											if (hasPessoa) {
+												return nds.map((n) => {
+													if (n.id === "loading-pessoa" || n.id === nodeParams.id || n.type === "PESSOA") {
+														return {
+															...n,
+															id: nodeParams.id,
+															data: {
+																...n.data,
+																...nodeParams.data,
+																isSearching: true,
+															},
+															position: n.position || {
+																x: (window.innerWidth - 320) / 2 - 144,
+																y: 150,
+															},
+															className: "animate-[customFadeIn_0.5s_ease-out]",
+														};
+													}
+													return n;
+												});
+											}
+											return [
+												...nds,
+												{
+													...nodeParams,
+													data: { ...nodeParams.data, isSearching: true },
+													position: {
+														x: (window.innerWidth - 320) / 2 - 144,
+														y: 150,
+													},
+													className: "animate-[customFadeIn_0.5s_ease-out]",
+												},
+											];
+										});
 
 										pessoaNodeIdRef.current = nodeParams.id;
 										// Adiciona no buffer também para garantir que futuros updates achem o nó pelo ID real

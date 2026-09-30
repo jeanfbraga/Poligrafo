@@ -92,24 +92,44 @@ function isNodeBemLegado(node: any): boolean {
 	return objeto.startsWith("Total de Bens");
 }
 
+async function resolverNomeCivilReidratacao(data: any): Promise<string | undefined> {
+	const nomeCivilAtual = String(data.nomeCivil || "").toLowerCase().trim();
+	const labelAtual = String(data.label || "").toLowerCase().trim();
+	const eIgualAoLabel = !data.nomeCivil || nomeCivilAtual === labelAtual;
+
+	if (eIgualAoLabel && data.casa === "CAMARA" && data.idPoliticoOriginal) {
+		try {
+			const { buscarDetalhesPolitico } = await import("@/app/api/investigar/scrapers/legislativo");
+			const det = await buscarDetalhesPolitico(Number(data.idPoliticoOriginal));
+			if (det?.nomeCivil) return det.nomeCivil;
+		} catch {
+			// Ignora falha de detalhe
+		}
+	}
+	return data.nomeCivil || undefined;
+}
+
+async function buscarBensPorNomesCandidato(nomes: (string | undefined)[]): Promise<any[]> {
+	const { buscarBensPorNomeTSE } = await import("@/services/integrations/tse/bens");
+	const nomesValidos = Array.from(new Set(nomes.filter((n): n is string => Boolean(n))));
+	for (const nome of nomesValidos) {
+		const bens = await buscarBensPorNomeTSE(nome);
+		if (bens.length > 0) return bens;
+	}
+	return [];
+}
+
 async function consultarBensLocaisParaReidratacao(pessoa: any): Promise<any[]> {
-	const { buscarBensHistoricoTSE, buscarBensPorNomeTSE } = await import(
-		"@/services/integrations/tse/bens"
-	);
-	const cpf = pessoa.data?.cpf?.replace(/\D/g, "");
-	if (cpf && cpf.length === 11 && cpf !== "00000000000") {
+	const data = pessoa.data ?? {};
+	const cpf = String(data.cpf || "").replace(/\D/g, "");
+	if (cpf.length === 11 && cpf !== "00000000000") {
+		const { buscarBensHistoricoTSE } = await import("@/services/integrations/tse/bens");
 		const bensCpf = await buscarBensHistoricoTSE(cpf);
 		if (bensCpf.length > 0) return bensCpf;
 	}
-	if (pessoa.data?.nomeCivil) {
-		const bensCivil = await buscarBensPorNomeTSE(pessoa.data.nomeCivil);
-		if (bensCivil.length > 0) return bensCivil;
-	}
-	if (pessoa.data?.label) {
-		const bensLabel = await buscarBensPorNomeTSE(pessoa.data.label);
-		if (bensLabel.length > 0) return bensLabel;
-	}
-	return [];
+
+	const nomeCivilExtra = await resolverNomeCivilReidratacao(data);
+	return buscarBensPorNomesCandidato([data.nomeCivil, nomeCivilExtra, data.label]);
 }
 
 function extrairCpfValidoParaReidratacao(pessoa: any, tseLive: any): string | null {
@@ -153,7 +173,7 @@ async function consultarBensLiveParaReidratacao(pessoa: any): Promise<any[]> {
 		const uf = data.uf || "BR";
 		const cargoCod = resolverCargoCodParaCasa(data.casa);
 		const nomeBusca = data.label || data.nomeCivil || "";
-		const nomeCivil = data.nomeCivil || undefined;
+		const nomeCivil = await resolverNomeCivilReidratacao(data);
 
 		const tseLive = await buscarCpfNoTSE(nomeBusca, uf, cargoCod, nomeCivil);
 		if (!tseLive?.patrimonioTotal || tseLive.patrimonioTotal <= 0) return [];
@@ -205,7 +225,9 @@ function reidratarDocumentoNodeSeAusente(pessoaData: any, principal: any): void 
 }
 
 function reidratarNomeCivilNodeSeAusente(pessoaData: any, principal: any): void {
-	const precisaNome = !pessoaData.nomeCivil || pessoaData.nomeCivil === pessoaData.label;
+	const nomeAtual = String(pessoaData.nomeCivil || "").toLowerCase().trim();
+	const labelAtual = String(pessoaData.label || "").toLowerCase().trim();
+	const precisaNome = !pessoaData.nomeCivil || nomeAtual === labelAtual;
 	const nomeLive = principal.tseLive?.nome;
 	if (precisaNome && nomeLive) {
 		pessoaData.nomeCivil = nomeLive;
@@ -245,6 +267,7 @@ async function reidratarPessoaCacheSeNecessario(cachedNodes: any[], chaveCache?:
 				await supabaseAdmin
 					.from("pesquisas")
 					.update({
+						cpf_raiz: pessoa.data.cpf || null,
 						grafo_dados: {
 							nodes: cachedNodes,
 							timestamp: new Date().toISOString(),
@@ -930,7 +953,10 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		if (documentoIsCnpj || !cpfLimpo) {
 			try {
 				const { buscarBensPorNomeTSE } = await import("@/services/integrations/tse/bens");
-				const candidatosBens = await buscarBensPorNomeTSE(deputadoBasico.nome);
+				let candidatosBens = await buscarBensPorNomeTSE(deputadoBasico.nome);
+				if (candidatosBens.length === 0 && detalhes?.nomeCivil) {
+					candidatosBens = await buscarBensPorNomeTSE(detalhes.nomeCivil);
+				}
 				if (candidatosBens.length > 0 && candidatosBens[0].cpf_candidato) {
 					cpfLimpo = candidatosBens[0].cpf_candidato;
 					documentoIsCnpj = false;
