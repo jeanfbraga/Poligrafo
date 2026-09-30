@@ -128,14 +128,32 @@ function montarItemBensLive(tseLive: any) {
 	};
 }
 
+const MAPA_CARGO_COD_REIDRATACAO: Record<string, string> = {
+	SENADO: "5",
+	GOVERNO_ESTADUAL: "3",
+	ALERJ: "7",
+	ALESP: "7",
+	ASSEMBLEIA_LEGISLATIVA: "7",
+	PREFEITURA: "11",
+	PRESIDENCIA_DA_REPUBLICA: "1",
+};
+
+function resolverCargoCodParaCasa(casa?: string): string {
+	if (!casa) return "6";
+	if (MAPA_CARGO_COD_REIDRATACAO[casa]) return MAPA_CARGO_COD_REIDRATACAO[casa];
+	if (casa.startsWith("CAMARA_MUNICIPAL")) return "13";
+	return "6";
+}
+
 async function consultarBensLiveParaReidratacao(pessoa: any): Promise<any[]> {
 	try {
 		const { buscarCpfNoTSE } = await import("@/app/api/investigar/tse");
 		const { persistirBensHistoricosTSE } = await import("@/services/integrations/tse/bens");
-		const uf = pessoa.data?.uf || "BR";
-		const cargoCod = pessoa.data?.casa === "SENADO" ? "5" : "6";
-		const nomeBusca = pessoa.data?.label || pessoa.data?.nomeCivil || "";
-		const nomeCivil = pessoa.data?.nomeCivil || undefined;
+		const data = pessoa?.data ?? {};
+		const uf = data.uf || "BR";
+		const cargoCod = resolverCargoCodParaCasa(data.casa);
+		const nomeBusca = data.label || data.nomeCivil || "";
+		const nomeCivil = data.nomeCivil || undefined;
 
 		const tseLive = await buscarCpfNoTSE(nomeBusca, uf, cargoCod, nomeCivil);
 		if (!tseLive?.patrimonioTotal || tseLive.patrimonioTotal <= 0) return [];
@@ -167,13 +185,44 @@ function aplicarMetricasHistoricoNoNode(targetData: any, live: any): void {
 	if (live.variacaoPatrimonioPercentual !== undefined) targetData.variacaoPatrimonioPercentual = live.variacaoPatrimonioPercentual;
 }
 
+function extrairDocumentoValidoParaNode(principal: any): string | null {
+	const docLive = principal.tseLive?.documentoPrincipal || principal.tseLive?.cpf || principal.cpf_candidato;
+	if (!docLive) return null;
+	const docLimpo = String(docLive).replace(/\D/g, "");
+	return docLimpo.length >= 11 && docLimpo !== "00000000000" ? docLimpo : null;
+}
+
+function reidratarDocumentoNodeSeAusente(pessoaData: any, principal: any): void {
+	const precisaCpf = !pessoaData.cpf || pessoaData.cpf === "00000000000";
+	if (!precisaCpf) return;
+
+	const docLimpo = extrairDocumentoValidoParaNode(principal);
+	if (docLimpo) {
+		pessoaData.cpf = docLimpo;
+		pessoaData.documentoPrincipal = docLimpo;
+		pessoaData.isCnpj = docLimpo.length === 14;
+	}
+}
+
+function reidratarNomeCivilNodeSeAusente(pessoaData: any, principal: any): void {
+	const precisaNome = !pessoaData.nomeCivil || pessoaData.nomeCivil === pessoaData.label;
+	const nomeLive = principal.tseLive?.nome;
+	if (precisaNome && nomeLive) {
+		pessoaData.nomeCivil = nomeLive;
+	}
+}
+
 function aplicarBensNoPessoaNode(pessoa: any, bens: any[]): void {
-	if (!bens || bens.length === 0 || !bens[0].valor_total) return;
-	const principal = bens[0];
+	const principal = bens?.[0];
+	if (!principal?.valor_total) return;
+
 	pessoa.data.patrimonio = Number(principal.valor_total) || 0;
 	pessoa.data.anoPatrimonio = principal.ano_eleicao;
 	pessoa.data.bensDeclarados = principal.descricao_bens || [];
 	aplicarMetricasHistoricoNoNode(pessoa.data, principal.tseLive);
+
+	reidratarDocumentoNodeSeAusente(pessoa.data, principal);
+	reidratarNomeCivilNodeSeAusente(pessoa.data, principal);
 }
 
 async function reidratarPessoaCacheSeNecessario(cachedNodes: any[], chaveCache?: string): Promise<void> {
