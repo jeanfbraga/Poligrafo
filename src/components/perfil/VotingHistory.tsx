@@ -1,174 +1,89 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Check, X, MinusCircle, AlertCircle, ArrowRight, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
-import { TerminalWindow, TerminalCard, TerminalBadge } from "@/components/ui/terminal";
+import { useMemo, useState } from "react";
+import { FilterChip, Panel } from "@/components/ds";
+import { Paginador, usePagina } from "@/components/ds/Paginador";
+import { PixelIcon } from "@/components/pixel/PixelIcon";
 
-export default function VotingHistory({
-  votos,
-  idDeputado,
-  perfil,
-}: {
-  votos: any[];
-  idDeputado: string;
-  perfil?: any;
-}) {
-  const [filter, setFilter] = useState<"TODOS" | "SIM" | "NÃO">("TODOS");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+type Dados = Record<string, any>;
+type Filtro = "TODOS" | "SIM" | "NÃO";
 
-  if (!votos || votos.length === 0) {
-    const ehSuplente = perfil?.situacao?.toLowerCase().includes("supl");
-    const mensagem = ehSuplente
-      ? "Nenhum voto nominal registrado em plenário durante o período de exercício (Suplente)."
-      : "Nenhum voto registrado no período atual.";
+export function limparNomeProjeto(nome?: string): string {
+	if (!nome) return "Votação sem nome";
+	return nome.split(/\.\s*Sim:/i)[0];
+}
 
-    return (
-      <TerminalWindow 
-        title="Registro_de_Votos" 
-        icon={<span className="text-green-500">&gt;</span>}
-      >
-        <p className="text-green-400/80 text-sm">{mensagem}</p>
-      </TerminalWindow>
-    );
-  }
+/** Classe e rótulo do voto: sim (fósforo), não (aço), abstenção/outros (neutro). */
+export function estiloDoVoto(voto?: string): { cls: string; texto: string } {
+	const v = voto?.toLowerCase();
+	if (v === "sim") return { cls: "pg-vote--sim", texto: "✓ SIM" };
+	if (v === "não") return { cls: "pg-vote--nao", texto: "✕ NÃO" };
+	return { cls: "pg-vote--abs", texto: v === "abstenção" ? "ABST." : (voto ?? "—").toUpperCase().slice(0, 7) };
+}
 
-  const getVoteColor = (voto: string) => {
-    switch (voto?.toLowerCase()) {
-      case "sim": return "green";
-      case "não": return "red";
-      case "abstenção": return "yellow";
-      default: return "neutral";
-    }
-  };
+function LinhaVoto({ v, idDeputado }: { v: Dados; idDeputado: string }) {
+	const e = estiloDoVoto(v.voto);
+	const tema = v.projeto_tema && v.projeto_tema !== "Não especificado" ? v.projeto_tema : "";
+	const corpo = (
+		<>
+			<span className={`pg-vote ${e.cls}`}>{e.texto}</span>
+			<div className="pg-lrow__main">
+				<b>{limparNomeProjeto(v.projeto_nome)}</b>
+				<span>{tema || "Plenário"}</span>
+			</div>
+			<span className="pg-lrow__meta">
+				{new Date(v.data_votacao).toLocaleDateString("pt-BR")}
+				{v.id_proposicao ? <PixelIcon name="chev" size={12} /> : null}
+			</span>
+		</>
+	);
+	if (!v.id_proposicao) return <div className="pg-lrow">{corpo}</div>;
+	return (
+		<Link href={`/perfil/deputado/${idDeputado}/projeto/${v.id_proposicao}`} className="pg-lrow">
+			{corpo}
+		</Link>
+	);
+}
 
-  const getVoteIcon = (voto: string) => {
-    switch (voto?.toLowerCase()) {
-      case "sim": return <Check className="w-4 h-4" />;
-      case "não": return <X className="w-4 h-4" />;
-      case "abstenção": return <MinusCircle className="w-4 h-4" />;
-      default: return <AlertCircle className="w-4 h-4" />;
-    }
-  };
+export default function VotingHistory({ votos, idDeputado, perfil }: { votos: Dados[]; idDeputado: string; perfil?: Dados }) {
+	const [filtro, setFiltro] = useState<Filtro>("TODOS");
+	const filtrados = useMemo(
+		() => (votos ?? []).filter((v) => filtro === "TODOS" || v.voto?.toLowerCase() === filtro.toLowerCase()),
+		[votos, filtro],
+	);
+	const pag = usePagina(filtrados, 8);
 
-  const cleanProjetoNome = (nome: string) => {
-    if (!nome) return "Votação sem nome";
-    // Limpa a string "Sim: 148; não: 292; total: 440."
-    return nome.split(/\.\s*Sim:/i)[0];
-  };
+	if (!votos || votos.length === 0) {
+		const suplente = perfil?.situacao?.toLowerCase().includes("supl");
+		return (
+			<Panel title="Registro de votos" id="votos">
+				<p className="pg-note">
+					{suplente
+						? "Nenhum voto nominal registrado em plenário durante o período de exercício (suplente)."
+						: "Nenhum voto registrado no período atual."}
+				</p>
+			</Panel>
+		);
+	}
 
-  const filteredVotos = votos.filter((v: any) => {
-    if (filter === "TODOS") return true;
-    return v.voto?.toLowerCase() === filter.toLowerCase();
-  });
+	const escolher = (f: Filtro) => {
+		setFiltro(f);
+		pag.reset();
+	};
 
-  return (
-    <TerminalWindow 
-      title="Registro_de_Votos"
-      icon={<span className="text-green-500">&gt;</span>}
-      badge={`${filteredVotos.length} registros`}
-      className="flex flex-col max-h-150"
-    >
-      <div className="flex flex-wrap items-center gap-2 mb-4 border-b border-green-500/20 pb-4">
-        <button 
-          onClick={() => { setFilter("TODOS"); setCurrentPage(1); }}
-          className={`px-3 py-1 text-xs font-bold uppercase border transition-colors ${filter === "TODOS" ? "bg-green-500 text-black border-green-500" : "bg-transparent text-green-400 border-green-500/30 hover:border-green-500"}`}
-        >
-          Todos
-        </button>
-        <button 
-          onClick={() => { setFilter("SIM"); setCurrentPage(1); }}
-          className={`px-3 py-1 text-xs font-bold uppercase border transition-colors ${filter === "SIM" ? "bg-green-500 text-black border-green-500" : "bg-transparent text-green-400 border-green-500/30 hover:border-green-500"}`}
-        >
-          Sim
-        </button>
-        <button 
-          onClick={() => { setFilter("NÃO"); setCurrentPage(1); }}
-          className={`px-3 py-1 text-xs font-bold uppercase border transition-colors ${filter === "NÃO" ? "bg-red-500 text-black border-red-500" : "bg-transparent text-red-400 border-red-500/30 hover:border-red-500"}`}
-        >
-          Não
-        </button>
-      </div>
-
-      <div className="overflow-y-auto pr-2 space-y-3 custom-scrollbar flex-1">
-        {filteredVotos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((v: any) => {
-          const content = (
-            <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-3 sm:gap-4">
-              <div className="flex-1 w-full">
-                <div className="flex items-center gap-2 mb-2">
-                  <p className="text-sm font-bold text-green-300">{cleanProjetoNome(v.projeto_nome)}</p>
-                </div>
-                {v.projeto_tema && v.projeto_tema !== "Não especificado" && (
-                  <p className="text-xs text-green-400 line-clamp-2 leading-relaxed">
-                    {v.projeto_tema}
-                  </p>
-                )}
-                <p className="text-[10px] text-green-500/70 mt-3 font-mono">
-                  {new Date(v.data_votacao).toLocaleString("pt-BR")}
-                </p>
-              </div>
-              
-              <div className="shrink-0 flex items-center gap-3">
-                <TerminalBadge color={getVoteColor(v.voto) as any} className="shrink-0">
-                  {getVoteIcon(v.voto)}
-                  {v.voto}
-                </TerminalBadge>
-                {v.id_proposicao && (
-                  <div className="flex items-center justify-center w-8 h-8 rounded-none bg-green-500/10 group-hover:bg-green-500 group-hover:text-black transition-colors">
-                    <ArrowRight className="w-4 h-4" />
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-
-          if (v.id_proposicao) {
-            return (
-              <Link 
-                href={`/perfil/deputado/${idDeputado}/projeto/${v.id_proposicao}`}
-                key={v.id_votacao}
-                className="block p-4 border border-green-500/20 bg-black/60 hover:bg-green-950/20 hover:border-green-500/50 transition-all group"
-              >
-                {content}
-              </Link>
-            );
-          }
-
-          return (
-            <div key={v.id_votacao} className="block p-4 border border-green-500/20 bg-black/60">
-              {content}
-            </div>
-          );
-        })}
-        {filteredVotos.length === 0 && (
-          <p className="text-green-400/80 text-xs text-center mt-4">Nenhum voto {filter.toLowerCase()} encontrado neste período.</p>
-        )}
-      </div>
-
-      {filteredVotos.length > itemsPerPage && (
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-green-500/20">
-          <p className="text-xs text-green-400/80 hidden sm:block">
-            Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredVotos.length)} de {filteredVotos.length}
-          </p>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-1 border border-green-500/30 text-green-500 hover:bg-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed rounded-none transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button 
-              onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredVotos.length / itemsPerPage), p + 1))}
-              disabled={currentPage === Math.ceil(filteredVotos.length / itemsPerPage)}
-              className="p-1 border border-green-500/30 text-green-500 hover:bg-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed rounded-none transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-    </TerminalWindow>
-  );
+	return (
+		<Panel title="Registro de votos" sub={`Plenário · ${filtrados.length} registros`} flush id="votos">
+			<div className="pg-chiprow" style={{ padding: "12px 12px 8px" }}>
+				<FilterChip pressed={filtro === "TODOS"} onClick={() => escolher("TODOS")}>Todos</FilterChip>
+				<FilterChip pressed={filtro === "SIM"} onClick={() => escolher("SIM")}>Sim</FilterChip>
+				<FilterChip pressed={filtro === "NÃO"} onClick={() => escolher("NÃO")}>Não</FilterChip>
+			</div>
+			{pag.fatia.map((v) => (
+				<LinhaVoto key={v.id_votacao} v={v} idDeputado={idDeputado} />
+			))}
+			{filtrados.length === 0 ? <p className="pg-empty">Nenhum voto {filtro.toLowerCase()} encontrado neste período.</p> : null}
+			<Paginador p={pag} />
+		</Panel>
+	);
 }

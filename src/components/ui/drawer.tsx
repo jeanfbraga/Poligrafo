@@ -6,7 +6,7 @@ import { Drawer as DrawerPrimitive } from "vaul";
 import { cn } from "@/lib/utils";
 
 const Drawer = ({
-	shouldScaleBackground = true,
+	shouldScaleBackground = false,
 	...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
 	<DrawerPrimitive.Root
@@ -28,7 +28,7 @@ const DrawerOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
 	<DrawerPrimitive.Overlay
 		ref={ref}
-		className={cn("fixed inset-0 z-50 bg-black/80", className)}
+		className={cn("pg-overlay", className)}
 		{...props}
 	/>
 ));
@@ -42,13 +42,12 @@ const DrawerContent = React.forwardRef<
 		<DrawerOverlay />
 		<DrawerPrimitive.Content
 			ref={ref}
-			className={cn(
-				"fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-none border-t border-green-500 bg-black font-mono",
-				className,
-			)}
+			className={cn("pg-drawer", className)}
 			{...props}
 		>
-			<div className="mx-auto mt-4 h-1.5 w-20 bg-green-500/50 rounded-none" />
+			<div className="pg-drawer__grab">
+				<i />
+			</div>
 			{children}
 		</DrawerPrimitive.Content>
 	</DrawerPortal>
@@ -59,10 +58,7 @@ const DrawerHeader = ({
 	className,
 	...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
-	<div
-		className={cn("grid gap-1.5 p-4 text-center sm:text-left", className)}
-		{...props}
-	/>
+	<div className={cn("grid gap-1.5 px-4 pb-2 text-left", className)} {...props} />
 );
 DrawerHeader.displayName = "DrawerHeader";
 
@@ -83,10 +79,7 @@ const DrawerTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
 	<DrawerPrimitive.Title
 		ref={ref}
-		className={cn(
-			"text-lg font-semibold leading-none tracking-tight",
-			className,
-		)}
+		className={cn("pg-modal__title", className)}
 		{...props}
 	/>
 ));
@@ -98,7 +91,7 @@ const DrawerDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
 	<DrawerPrimitive.Description
 		ref={ref}
-		className={cn("text-sm text-muted-foreground", className)}
+		className={cn("pg-modal__desc", className)}
 		{...props}
 	/>
 ));

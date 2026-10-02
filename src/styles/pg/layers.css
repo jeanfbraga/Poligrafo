@@ -1,0 +1,227 @@
+/* ==========================================================================
+   POLÍGRAFO — CAMPOS E CAMADAS
+   Input, modal, sheet lateral, drawer (bottom sheet), tooltip e toast.
+   ========================================================================== */
+@layer components {
+	/* ---- Campo de texto ---- */
+	.pg-input {
+		display: flex;
+		height: 40px;
+		width: 100%;
+		min-width: 0;
+		background: var(--pg-bg);
+		border: 1px solid var(--pg-line-2);
+		border-radius: 0;
+		color: var(--pg-ink-1);
+		font: 500 var(--pg-t-md) / 1 var(--pg-font);
+		padding-inline: 12px;
+		outline: none;
+		transition: border-color 0.15s, box-shadow 0.15s;
+	}
+
+	.pg-input::placeholder {
+		color: var(--pg-ink-3);
+	}
+
+	.pg-input:focus {
+		border-color: var(--pg-phos);
+		box-shadow: 0 0 0 1px var(--pg-phos), 0 0 18px -6px var(--pg-phos);
+	}
+
+	.pg-input:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	@media (max-width: 767px) {
+		.pg-input {
+			height: 48px;
+		}
+	}
+
+	/* ---- Camada de fundo (modal, sheet, drawer) ---- */
+	.pg-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 50;
+		background: rgba(0, 0, 0, 0.72);
+	}
+
+	/* ---- Modal centralizado ---- */
+	.pg-modal {
+		position: fixed;
+		left: 50%;
+		top: 50%;
+		z-index: 51;
+		transform: translate(-50%, -50%);
+		display: grid;
+		gap: 16px;
+		width: min(calc(100% - 32px), 520px);
+		max-height: calc(100dvh - 32px);
+		overflow: auto;
+		padding: 20px;
+		background: var(--pg-bg-1);
+		border: 1px solid var(--pg-phos);
+		box-shadow: 0 20px 40px -10px #000,
+			0 0 24px -10px var(--pg-phos);
+		color: var(--pg-ink-2);
+		font-family: var(--pg-font);
+	}
+
+	.pg-modal--wide {
+		width: min(calc(100% - 32px), 760px);
+	}
+
+	.pg-modal__title {
+		font: 700 var(--pg-t-md) / 1.3 var(--pg-font);
+		letter-spacing: 0.01em;
+		color: var(--pg-ink-1);
+	}
+
+	.pg-modal__title::before {
+		content: "> ";
+		color: var(--pg-phos);
+	}
+
+	.pg-modal__desc {
+		font-size: var(--pg-t-sm);
+		color: var(--pg-ink-3);
+	}
+
+	/* ---- Sheet lateral (inspetor, raio-X) ---- */
+	.pg-sheet {
+		position: fixed;
+		inset-block: 0;
+		right: 0;
+		z-index: 51;
+		display: flex;
+		flex-direction: column;
+		width: min(100%, 460px);
+		background: var(--pg-bg-1);
+		border-left: 1px solid var(--pg-phos);
+		box-shadow: -20px 0 40px -20px #000;
+		color: var(--pg-ink-2);
+		font-family: var(--pg-font);
+		overflow: hidden;
+	}
+
+	.pg-sheet--left {
+		right: auto;
+		left: 0;
+		border-left: 0;
+		border-right: 1px solid var(--pg-phos);
+	}
+
+	.pg-sheet__close {
+		position: absolute;
+		right: 8px;
+		top: 8px;
+		z-index: 2;
+	}
+
+	/* ---- Drawer / bottom sheet (mobile) ---- */
+	.pg-drawer {
+		position: fixed;
+		inset-inline: 0;
+		bottom: 0;
+		z-index: 51;
+		display: flex;
+		flex-direction: column;
+		max-height: 92dvh;
+		background: var(--pg-bg-1);
+		border-top: 1px solid var(--pg-phos);
+		box-shadow: 0 -10px 30px -10px color-mix(in srgb, var(--pg-phos) 30%, transparent);
+		color: var(--pg-ink-2);
+		font-family: var(--pg-font);
+	}
+
+	.pg-drawer__grab {
+		display: grid;
+		place-items: center;
+		height: 28px;
+		flex: none;
+	}
+
+	.pg-drawer__grab > i {
+		display: block;
+		width: 44px;
+		height: 4px;
+		background: var(--pg-line-2);
+	}
+
+	.pg-drawer__body {
+		overflow: auto;
+		padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+	}
+
+	/* ---- Tooltip ---- */
+	.pg-tip {
+		z-index: 99999;
+		background: var(--pg-bg-2);
+		border: 1px solid var(--pg-phos);
+		color: var(--pg-ink-1);
+		font: 400 var(--pg-t-sm) / 1.4 var(--pg-font);
+		padding: 6px 10px;
+		max-width: 260px;
+		box-shadow: 0 10px 24px -8px #000;
+	}
+
+	/* ---- Hover card de político ---- */
+	.pg-hovercard {
+		position: relative;
+		z-index: 50;
+		width: 288px;
+		color: var(--pg-ink-1);
+		outline: none;
+		overflow: hidden;
+		border: 0;
+		background: transparent;
+	}
+
+	/* ---- Toast (sonner, modo unstyled) ---- */
+	.pg-toast {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+		width: 100%;
+		padding: 12px;
+		background: var(--pg-bg-2);
+		border: 1px solid var(--pg-phos);
+		color: var(--pg-ink-1);
+		font: 500 var(--pg-t-sm) / 1.5 var(--pg-font);
+		box-shadow: 0 12px 28px -10px #000;
+	}
+
+	.pg-toast[data-type="error"] {
+		border-color: var(--pg-crit);
+	}
+
+	.pg-toast[data-type="warning"] {
+		border-color: var(--pg-warn);
+	}
+
+	.pg-toast__icon {
+		flex: none;
+		width: 14px;
+		text-align: center;
+		color: var(--pg-phos);
+		font-weight: 700;
+	}
+
+	.pg-toast[data-type="error"] .pg-toast__icon {
+		color: var(--pg-crit);
+	}
+
+	.pg-toast[data-type="warning"] .pg-toast__icon {
+		color: var(--pg-warn);
+	}
+
+	.pg-toast__title {
+		color: var(--pg-ink-1);
+	}
+
+	.pg-toast__desc {
+		color: var(--pg-ink-3);
+		font-size: var(--pg-t-micro);
+	}
+}

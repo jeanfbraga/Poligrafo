@@ -1,16 +1,25 @@
 import { Suspense } from "react";
-import { IBM_Plex_Mono } from "next/font/google";
+import { Bytesized, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import Clarity from "@/components/analytics/Clarity";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Toaster } from "@/components/ui/sonner";
 import { CrtFlicker } from "@/components/ui/crt-flicker";
+import { CrtTurnOn } from "@/components/ui/crt-turn-on";
+import { InvestigacaoProvider } from "@/components/investigacao/InvestigacaoProvider";
 
 const plexMono = IBM_Plex_Mono({
 	weight: ["400", "500", "600", "700"],
 	subsets: ["latin"],
 	variable: "--font-plex-mono",
+});
+
+// Bytesized é usada SOMENTE no wordmark do produto (ver tokens em styles/pg).
+const bytesized = Bytesized({
+	weight: "400",
+	subsets: ["latin"],
+	variable: "--font-bytesized",
 });
 
 import type { Metadata } from "next";
@@ -35,32 +44,23 @@ export const metadata: Metadata = {
 		title: "Polígrafo - Auditoria Cidadã",
 		description:
 			"Cruze dados públicos de políticos para gerar dossiês e encontrar conexões suspeitas em tempo real.",
-		url: "https://poligrafo.app",
+		url: "https://poligrafo.app.br",
 		siteName: "Polígrafo",
-		images: [
-			{
-				url: "/transferir.png",
-				width: 1200,
-				height: 630,
-				alt: "Polígrafo OSINT",
-			},
-		],
 		locale: "pt_BR",
 		type: "website",
 	},
 	twitter: {
-		card: "summary_large_image",
+		card: "summary",
 		title: "Polígrafo - Auditoria Cidadã",
 		description:
 			"Cruze dados públicos de políticos para gerar dossiês e encontrar conexões suspeitas em tempo real.",
-		images: ["/transferir.png"],
 	},
 };
 
 import type { Viewport } from "next";
 
 export const viewport: Viewport = {
-	themeColor: "#050505",
+	themeColor: "#030705",
 };
 
 export default function RootLayout({
@@ -73,7 +73,7 @@ export default function RootLayout({
 	const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "G-1VS9S268X2";
 	const clarityId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
 
-	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poligrafo.app";
+	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poligrafo.app.br";
 
 	const jsonLd = {
 		"@context": "https://schema.org",
@@ -85,7 +85,11 @@ export default function RootLayout({
 	};
 
 	return (
-		<html lang="pt-BR" className={plexMono.variable} suppressHydrationWarning>
+		<html
+			lang="pt-BR"
+			className={`${plexMono.variable} ${bytesized.variable}`}
+			suppressHydrationWarning
+		>
 			<head>
 				<script dangerouslySetInnerHTML={{
 					__html: `
@@ -99,7 +103,10 @@ export default function RootLayout({
 				/>
 			</head>
 			<body className="font-mono subpixel-antialiased crt-monitor" suppressHydrationWarning>
-				{children}
+				<InvestigacaoProvider>
+						<CrtTurnOn />
+						{children}
+					</InvestigacaoProvider>
 				{gaId && <GoogleAnalytics gaId={gaId} />}
 				{clarityId && <Clarity projectId={clarityId} />}
 				<Analytics />

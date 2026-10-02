@@ -1,0 +1,156 @@
+/* ==========================================================================
+   POLÍGRAFO — BASE
+   Corpo, foco, seleção, scrollbar, CRT e acessibilidade de movimento.
+   ========================================================================== */
+@layer base {
+	* {
+		border-color: var(--pg-line-2);
+	}
+
+	html {
+		scroll-behavior: smooth;
+		background: var(--pg-bg);
+	}
+
+	body {
+		background-color: var(--pg-bg) !important;
+		color: var(--pg-ink-2);
+		font-family: var(--pg-font);
+		font-size: var(--pg-t-md);
+		line-height: 1.6;
+	}
+
+	::selection {
+		background: var(--pg-phos);
+		color: var(--pg-phos-ink);
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--pg-phos);
+		outline-offset: 2px;
+	}
+
+	[hidden] {
+		display: none !important;
+	}
+
+	button,
+	input,
+	select,
+	textarea {
+		font: inherit;
+		color: inherit;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4,
+	p {
+		margin: 0;
+	}
+}
+
+/* ---- CRT: scanlines + vinheta (sempre ligado; não há controle do usuário) ---- */
+.crt-monitor::after {
+	content: " ";
+	display: block;
+	position: fixed;
+	inset: 0;
+	background: repeating-linear-gradient(
+		to bottom,
+		rgba(0, 0, 0, 0) 0 2px,
+		rgba(0, 0, 0, 0.11) 2px 3px
+	);
+	box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.6);
+	z-index: 99;
+	pointer-events: none;
+}
+
+/* Enquanto a animação "ligar monitor" não terminou, o conteúdo fica oculto */
+html.crt-pending .site-content {
+	opacity: 0;
+	transform: scaleY(0);
+}
+
+/* ---- Auditoria de cursor (fora de @layer para vencer o preflight do Tailwind) ---- */
+button,
+a,
+select,
+summary,
+label[for],
+[role="button"],
+[role="tab"],
+[role="link"],
+[role="menuitem"],
+[role="option"],
+[role="switch"],
+[tabindex]:not([tabindex="-1"]),
+.cursor-pointer {
+	cursor: pointer;
+}
+
+input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+	cursor: text;
+}
+
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="checkbox"],
+input[type="radio"],
+input[type="file"] {
+	cursor: pointer;
+}
+
+button:disabled,
+a[aria-disabled="true"],
+[role="button"][aria-disabled="true"],
+input:disabled,
+select:disabled,
+button[disabled] {
+	cursor: not-allowed;
+	pointer-events: auto;
+}
+
+/* ---- Scrollbar fósforo ---- */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--pg-line-2) var(--pg-bg);
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--pg-bg);
+	border-left: 1px solid var(--pg-line);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--pg-line-2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--pg-ink-3);
+}
+
+::-webkit-scrollbar-corner {
+	background: var(--pg-bg);
+}
+
+/* ---- Movimento reduzido ---- */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation: none !important;
+		transition: none !important;
+	}
+
+	html {
+		scroll-behavior: auto;
+	}
+}

@@ -1,5 +1,6 @@
 import { buscarDiariosMunicipais } from "@/services/integrations/dou/queridodiario";
 import { supabaseAdmin } from "../../../../lib/supabase-admin";
+import { podeLerCachePesquisas } from "../../../../lib/cache-pesquisas";
 import { GROQ_MODELS } from "@/services/ai/ai-models-config";
 
 // Função auxiliar para analisar trechos com GROQ
@@ -56,7 +57,7 @@ async function restaurarCacheDiarios(
 	sendEvent: any,
 	supabaseNodesBuffer: any[],
 ): Promise<boolean> {
-	if (process.env.NODE_ENV === "development") return false;
+	if (!podeLerCachePesquisas()) return false;
 	const { data: cacheData } = await supabaseAdmin
 		.from("pesquisas")
 		.select("grafo_dados")

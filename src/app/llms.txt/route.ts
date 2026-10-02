@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poligrafo.app";
+	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poligrafo.app.br";
 
 	const content = `# Polígrafo — Inteligência Artificial & Auditoria Cidadã (OSINT)
 

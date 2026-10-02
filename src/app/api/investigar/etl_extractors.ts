@@ -1,5 +1,6 @@
 import { parse } from "csv-parse/sync";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { LIMITE_NOTAS_CEAP } from "@/lib/investigacao/cota";
 import { fetchWithTimeout, normalizeString } from "./tse";
 
 // ==========================================
@@ -12,7 +13,7 @@ async function buscarDespesasCamaraCache(cleanId: number, sendEvent?: any) {
 			.select("*")
 			.eq("id_deputado", cleanId)
 			.order("valor_documento", { ascending: false })
-			.limit(60);
+			.limit(LIMITE_NOTAS_CEAP);
 
 		if (!error && data && data.length > 0) {
 			if (sendEvent) {
@@ -55,7 +56,7 @@ async function coletarDespesasCamaraApi(idDeputado: number | string) {
 			todasDespesasRaw.push(...batch);
 			if (batch.length < 100) break;
 		}
-		if (todasDespesasRaw.length >= 60) break;
+		if (todasDespesasRaw.length >= LIMITE_NOTAS_CEAP) break;
 	}
 
 	if (todasDespesasRaw.length === 0) {
@@ -82,7 +83,7 @@ function formatarDespesasCamara(rawDespesas: any[]) {
 	}));
 
 	despesasConvertidas.sort((a, b) => b.valorDocumento - a.valorDocumento);
-	return despesasConvertidas.slice(0, 60);
+	return despesasConvertidas.slice(0, LIMITE_NOTAS_CEAP);
 }
 
 export async function buscarDespesasCamara(
@@ -121,7 +122,7 @@ async function buscarDespesasSenadoCache(idSenador: number, sendEvent?: any) {
 			.eq("id_deputado", idSenador)
 			.eq("casa", "SENADO")
 			.order("valor_documento", { ascending: false })
-			.limit(60);
+			.limit(LIMITE_NOTAS_CEAP);
 
 		if (!error && data && data.length > 0) {
 			if (sendEvent) {
@@ -201,7 +202,7 @@ function parseDespesasSenadoCsv(csvText: string, nomeSenador: string) {
 
 	const despesasConvertidas = despesasSenador.map(parseLinhaSenado);
 	despesasConvertidas.sort((a: any, b: any) => b.valorDocumento - a.valorDocumento);
-	return despesasConvertidas.slice(0, 60);
+	return despesasConvertidas.slice(0, LIMITE_NOTAS_CEAP);
 }
 
 function notificarFalhaSenado(sendEvent: any, ultimoStatus: number, anos: number[]) {

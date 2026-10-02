@@ -1,5 +1,6 @@
 import { analyzeGraphNetwork } from "@/lib/graph-analysis";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { podeLerCachePesquisas } from "@/lib/cache-pesquisas";
 import { checkNepotismoCamara } from "@/services/integrations/camara/nepotismo-client";
 import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
 import { checkNepotismoCMRJ } from "@/services/integrations/cmrj/nepotismo-client";
@@ -625,7 +626,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				? `${nomeParaBusca}_${refParam}`
 				: nomeParaBusca;
 			try {
-				if (!isDev) {
+				if (podeLerCachePesquisas()) {
 					const limiteCache24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 					const { data: cacheData, error: cacheErr } = await supabaseAdmin
 						.from("pesquisas")
@@ -1270,8 +1271,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			} else {
 				// Fallback: Se a API falhou (ex: 502 Bad Gateway), tenta resgatar do cache Supabase de pesquisas antigas
 				try {
-					const isDev = process.env.NODE_ENV === "development";
-					if (!isDev) {
+					if (podeLerCachePesquisas()) {
 						const { supabaseAdmin } = await import("@/lib/supabase-admin");
 						const chaveCacheDeLeitura = refParam
 							? `${nomeParaBusca}_${refParam}`
@@ -2430,15 +2430,6 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 		}
 		if (despesasCruas.length > 0) {
-			const { criarNodeResumoCeap } = await import("@/lib/utils");
-			const resumoCeap = criarNodeResumoCeap(
-				pessoaId,
-				deputadoBasico.casa,
-				despesasCruas,
-			);
-			sendEvent("NODE_NOVO", resumoCeap);
-			supabaseNodes.push(resumoCeap);
-
 			// PASSO 4: Triagem com IA passando a UF e os Doadores
 			sendEvent("STATUS", {
 				msg: "[POLÍGRAFO IA] Operando Triagem Documental e Cruzamento Geográfico...",

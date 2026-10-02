@@ -1,0 +1,581 @@
+/* ==========================================================================
+   POLÍGRAFO — PERFIL / PROJETO / PRESIDENTE: ficha, colunas e leitura analítica.
+   ========================================================================== */
+@layer components {
+	.pg-ficha {
+		display: flex;
+		gap: 20px;
+		padding: 16px;
+	}
+
+	/* link discreto que abre a lista completa (comissões / frentes) */
+	.pg-more {
+		justify-self: start;
+		padding: 6px 0;
+		border: 0;
+		background: none;
+		color: var(--pg-phos);
+		font: 600 var(--pg-t-sm) / 1.3 var(--pg-font);
+		cursor: pointer;
+	}
+
+	.pg-more:hover {
+		text-decoration: underline;
+	}
+
+	/* ---- diálogo "Comissões e frentes": cabeçalho, barra de busca, lista rolável ---- */
+	.pg-modal.pg-dlg {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		width: min(calc(100% - 24px), 720px);
+		max-height: min(86dvh, 720px);
+		padding: 0;
+		overflow: hidden;
+	}
+
+	.pg-dlg__head {
+		display: grid;
+		gap: 4px;
+		padding: 18px 56px 12px 18px;
+	}
+
+	.pg-dlg__head [id^="radix"] ~ [id^="radix"],
+	.pg-dlg__head p {
+		margin: 0;
+		font-size: var(--pg-t-sm);
+		color: var(--pg-ink-3);
+	}
+
+	.pg-dlg__bar {
+		display: grid;
+		gap: 12px;
+		padding: 0 18px 14px;
+		border-bottom: 1px solid var(--pg-line);
+	}
+
+	.pg-dlg__busca {
+		position: relative;
+		display: block;
+	}
+
+	.pg-dlg__busca > svg {
+		position: absolute;
+		left: 12px;
+		top: 50%;
+		transform: translateY(-50%);
+		color: var(--pg-phos);
+		pointer-events: none;
+	}
+
+	.pg-dlg__busca .pg-input {
+		padding-left: 36px;
+	}
+
+	/* temas têm nomes longos: chips em caixa normal e com área de toque maior */
+	.pg-dlg .pg-fchip {
+		height: 30px;
+		padding-inline: 10px;
+		letter-spacing: 0;
+		text-transform: none;
+	}
+
+	.pg-dlg__corpo {
+		flex: 1;
+		min-height: 0;
+		overflow: auto;
+		padding: 4px 18px 8px;
+	}
+
+	.pg-dlg__list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.pg-dlg__row {
+		display: grid;
+		grid-template-columns: 72px minmax(0, 1fr) auto;
+		align-items: start;
+		gap: 12px;
+		padding: 12px 0;
+		border-bottom: 1px solid var(--pg-line);
+	}
+
+	.pg-dlg__row--sem {
+		grid-template-columns: minmax(0, 1fr) auto;
+	}
+
+	.pg-dlg__nome {
+		min-width: 0;
+		line-height: 1.4;
+		color: var(--pg-ink-1);
+		overflow-wrap: anywhere;
+	}
+
+	.pg-dlg__nome small {
+		display: block;
+		margin-top: 2px;
+		font-size: var(--pg-t-sm);
+		color: var(--pg-ink-3);
+	}
+
+	/* celular: fonte mono é larga; corpo menor e colunas enxutas para o nome ganhar espaço */
+	@media (max-width: 767px) {
+		.pg-dlg .pg-modal__title {
+			font-size: var(--pg-t-md);
+		}
+
+		.pg-dlg__head {
+			padding: 14px 52px 10px 14px;
+		}
+
+		.pg-dlg__bar,
+		.pg-dlg__corpo {
+			padding-inline: 14px;
+		}
+
+		.pg-dlg__bar {
+			gap: 10px;
+		}
+
+		.pg-dlg__busca .pg-input {
+			height: 40px;
+			font-size: var(--pg-t-sm);
+		}
+
+		.pg-dlg__row {
+			grid-template-columns: 60px minmax(0, 1fr) auto;
+			gap: 10px;
+			padding: 10px 0;
+		}
+
+		.pg-dlg__row--sem {
+			grid-template-columns: minmax(0, 1fr) auto;
+		}
+
+		.pg-dlg__nome {
+			font-size: var(--pg-t-sm);
+			line-height: 1.45;
+		}
+
+		.pg-dlg__nome small {
+			font-size: var(--pg-t-micro);
+		}
+	}
+
+	.pg-dlg__foot {
+		padding: 10px 18px;
+		border-top: 1px solid var(--pg-line);
+		font-size: var(--pg-t-micro);
+		color: var(--pg-ink-3);
+	}
+
+	/* ---- patrimônio declarado: número, evolução, composição e maiores bens ---- */
+	.pg-pat {
+		display: grid;
+		gap: 20px;
+	}
+
+	.pg-pat__topo {
+		display: grid;
+		gap: 12px;
+	}
+
+	.pg-pat__evo {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px 12px;
+		color: var(--pg-ink-2);
+		font-size: var(--pg-t-sm);
+	}
+
+	.pg-pat__sec {
+		display: grid;
+		gap: 12px;
+	}
+
+	.pg-pat__h {
+		margin: 0;
+		font: 600 var(--pg-t-sm) / 1.3 var(--pg-font);
+		color: var(--pg-ink-1);
+	}
+
+	.pg-comp {
+		display: grid;
+		gap: 14px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.pg-comp li {
+		display: grid;
+		gap: 6px;
+	}
+
+	.pg-comp__t {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: 2px 12px;
+		font-size: var(--pg-t-sm);
+		color: var(--pg-ink-2);
+	}
+
+	.pg-comp__t b {
+		color: var(--pg-ink-1);
+		font-weight: 600;
+	}
+
+	.pg-bens {
+		display: grid;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		border-top: 1px solid var(--pg-line);
+	}
+
+	.pg-bens--todos {
+		max-height: 380px;
+		overflow: auto;
+	}
+
+	.pg-bem {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: start;
+		gap: 4px 16px;
+		padding: 12px 0;
+		border-bottom: 1px solid var(--pg-line);
+	}
+
+	.pg-bem b {
+		display: block;
+		font-weight: 600;
+		line-height: 1.4;
+		color: var(--pg-ink-1);
+		overflow-wrap: anywhere;
+	}
+
+	.pg-bem div > span {
+		display: block;
+		margin-top: 2px;
+		font-size: var(--pg-t-sm);
+		line-height: 1.35;
+		color: var(--pg-ink-3);
+	}
+
+	.pg-bem__v {
+		font-variant-numeric: tabular-nums;
+		color: var(--pg-ink-1);
+		white-space: nowrap;
+	}
+
+	/* ---- página do Perfil: navegação fixa + área rolável ---- */
+	.pg-perfil {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
+	}
+
+	.pg-perfil > .pg-view {
+		flex: 1;
+		height: auto;
+		min-height: 0;
+	}
+
+	.pg-perfil .pg-view [id] {
+		scroll-margin-top: 8px;
+	}
+
+	/* a faixa de seções reaproveita .pg-msec (sticky); no desktop alinha com o conteúdo */
+	.pg-secnav {
+		display: block;
+		padding: 8px 24px;
+		overflow: visible;
+	}
+
+	.pg-secnav__faixa {
+		display: flex;
+		gap: 8px;
+		max-width: 1180px;
+		margin-inline: auto;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.pg-secnav__faixa::-webkit-scrollbar {
+		display: none;
+	}
+
+	.pg-secnav button {
+		height: 32px;
+		padding-inline: 14px;
+		transition: background 0.15s, color 0.15s, border-color 0.15s;
+	}
+
+	.pg-secnav button:hover {
+		color: var(--pg-ink-1);
+		border-color: var(--pg-phos);
+	}
+
+	/* ---- hero: foto maior, nome grande, ação principal à direita ---- */
+	.pg-hero__nome {
+		margin: 0;
+		font: 700 var(--pg-t-xl) / 1.12 var(--pg-font);
+		color: var(--pg-ink-1);
+		text-shadow: var(--pg-glow);
+		overflow-wrap: anywhere;
+	}
+
+	.pg-hero__civil {
+		margin: 4px 0 0;
+		font-size: var(--pg-t-sm);
+		color: var(--pg-ink-3);
+	}
+
+	.pg-ficha {
+		align-items: flex-start;
+	}
+
+	.pg-ficha .pg-photo {
+		width: 136px;
+		height: 176px;
+	}
+
+	.pg-ficha__acoes {
+		margin-left: auto;
+		flex: none;
+		width: 272px;
+		align-self: flex-start;
+	}
+
+	.pg-acao {
+		display: grid;
+		gap: 8px;
+	}
+
+	.pg-acao__dica {
+		font-size: var(--pg-t-micro);
+		letter-spacing: 0.06em;
+		color: var(--pg-ink-3);
+		text-transform: uppercase;
+		line-height: 1.4;
+	}
+
+	/* ---- resumo "de relance" (dentro do painel do perfil, sob a identidade) ---- */
+	.pg-ficha__resumo {
+		padding: 0 16px 16px;
+	}
+
+	.pg-resumo {
+		display: grid;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+		gap: 8px;
+	}
+
+	.pg-resumo__item {
+		display: grid;
+		align-content: start;
+		gap: 4px;
+		min-width: 0;
+		padding: 14px 14px 12px;
+		border: 1px solid var(--pg-line);
+		background: var(--pg-bg-1);
+		color: inherit;
+		text-align: left;
+		cursor: pointer;
+		transition: background 0.15s, border-color 0.15s;
+	}
+
+	.pg-resumo__item:hover,
+	.pg-resumo__item:focus-visible {
+		background: var(--pg-bg-2);
+		border-color: var(--pg-phos);
+		outline: none;
+	}
+
+	.pg-resumo__item b {
+		font: 600 var(--pg-t-lg) / 1.1 var(--pg-font);
+		color: var(--pg-ink-1);
+		font-variant-numeric: tabular-nums;
+		text-shadow: var(--pg-glow);
+		overflow-wrap: anywhere;
+	}
+
+	.pg-resumo__item small {
+		font-size: var(--pg-t-micro);
+		line-height: 1.35;
+		letter-spacing: 0.04em;
+		color: var(--pg-ink-3);
+	}
+
+	/* cargo atual sob o nome do parlamentar */
+	.pg-cargo {
+		margin: 4px 0 0;
+		font: 600 var(--pg-t-sm) / 1.3 var(--pg-font);
+		letter-spacing: 0.01em;
+		color: var(--pg-phos);
+	}
+
+	.pg-ficha-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 12px;
+		padding: 0 16px 16px;
+		align-items: start;
+	}
+
+	.pg-ficha-grid > * {
+		min-width: 0;
+	}
+
+	/* ---- servidores do gabinete: períodos de lotação de cada pessoa ---- */
+	.pg-vinculos__toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		justify-self: start;
+		margin-top: 4px;
+		padding: 2px 6px;
+		border: 1px solid var(--pg-line-2);
+		background: none;
+		color: var(--pg-phos);
+		font: 600 var(--pg-t-micro) / 1 var(--pg-font);
+		letter-spacing: 0.09em;
+		text-transform: uppercase;
+		cursor: pointer;
+	}
+
+	.pg-vinculos__toggle:hover,
+	.pg-vinculos__toggle[aria-expanded="true"] {
+		background: var(--pg-bg-3);
+	}
+
+	.pg-vinculos {
+		display: grid;
+		gap: 6px;
+		margin: 0;
+		padding: 8px 12px 10px 24px;
+		list-style: none;
+		background: var(--pg-bg-2);
+		border-bottom: 1px solid var(--pg-line);
+	}
+
+	.pg-vinculos li {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 8px;
+		color: var(--pg-ink-2);
+		font-size: var(--pg-t-sm);
+		line-height: 1.35;
+	}
+
+	.pg-vinculos li > span:first-child {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+
+	.pg-cols2 {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 16px;
+		align-items: start;
+	}
+
+	.pg-cols13 {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+		gap: 16px;
+		align-items: start;
+	}
+
+	@media (max-width: 1023px) {
+		.pg-cols2,
+		.pg-cols13 {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.pg-resumo {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+
+		.pg-ficha__acoes {
+			width: 232px;
+		}
+	}
+
+	@media (max-width: 767px) {
+		/* foto ao lado da identidade; a ação principal ocupa a linha de baixo */
+		.pg-ficha {
+			flex-direction: row;
+			flex-wrap: wrap;
+			align-items: flex-start;
+			gap: 14px;
+			padding: 12px;
+		}
+
+		.pg-ficha .pg-photo {
+			width: 84px;
+			height: 108px;
+		}
+
+		.pg-ficha__acoes {
+			width: 100%;
+			flex-basis: 100%;
+			margin-left: 0;
+		}
+
+		.pg-hero__nome {
+			font-size: 18px;
+		}
+
+		.pg-resumo__item b,
+		.pg-pat .pg-hero-n {
+			font-size: 16px;
+		}
+
+		.pg-ficha__resumo {
+			padding: 0 12px 12px;
+		}
+
+		.pg-resumo {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 6px;
+		}
+
+		.pg-resumo__item {
+			padding: 12px;
+		}
+
+		.pg-resumo__item:last-child:nth-child(odd) {
+			grid-column: 1 / -1;
+		}
+
+		.pg-secnav {
+			padding: 8px 12px;
+		}
+
+		/* minmax(0,…): a coluna pode encolher; sem isso chips e linhas largas vazam do card */
+		.pg-ficha-grid {
+			grid-template-columns: minmax(0, 1fr);
+			padding: 0 12px 12px;
+		}
+	}
+
+	/* ---- opacidade do gasto (Presidente / CPGF) ---- */
+	.pg-opac {
+		height: 8px;
+		background: repeating-linear-gradient(90deg, var(--pg-bg-3) 0 5px, transparent 5px 7px);
+	}
+
+	.pg-opac > i {
+		display: block;
+		height: 100%;
+		background: repeating-linear-gradient(90deg, var(--pg-crit) 0 5px, transparent 5px 7px);
+	}
+}

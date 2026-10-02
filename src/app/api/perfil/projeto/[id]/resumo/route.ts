@@ -73,7 +73,7 @@ async function executarOpenRouterResumo(prompt: string): Promise<{ resumoMarkdow
 				headers: {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${openRouterKey}`,
-					"HTTP-Referer": "https://poligrafo.app",
+					"HTTP-Referer": "https://poligrafo.app.br",
 					"X-Title": "Poligrafo OSINT",
 				},
 				body: JSON.stringify({

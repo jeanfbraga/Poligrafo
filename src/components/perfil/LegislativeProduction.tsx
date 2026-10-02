@@ -2,84 +2,83 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { FileText, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
-import { TerminalWindow } from "@/components/ui/terminal";
+import { Panel, Seg } from "@/components/ds";
+import { Paginador, usePagina } from "@/components/ds/Paginador";
+import { PixelIcon } from "@/components/pixel/PixelIcon";
+import { separarProducao } from "@/lib/producao-mandato";
 
-export default function LegislativeProduction({ producao, idDeputado }: { producao: any[]; idDeputado: string }) {
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+type Dados = Record<string, any>;
+type Aba = "atual" | "anteriores";
 
-  if (!producao || producao.length === 0) {
-    return (
-      <TerminalWindow 
-        title="Producao_Legislativa"
-        icon={<span className="text-green-500">&gt;</span>}
-      >
-        <p className="text-green-400/80 text-sm">Nenhuma proposição encontrada no período.</p>
-      </TerminalWindow>
-    );
-  }
+function LinhaProjeto({ p, idDeputado }: { p: Dados; idDeputado: string }) {
+	return (
+		<Link href={`/perfil/deputado/${idDeputado}/projeto/${p.id_proposicao}`} className="pg-lrow" style={{ gridTemplateColumns: "auto 1fr auto" }}>
+			<PixelIcon name="file" size={14} />
+			<div className="pg-lrow__main">
+				<b>{p.titulo}</b>
+				<span>{p.ementa ? String(p.ementa).slice(0, 90) : "Sem ementa"}</span>
+			</div>
+			<span className="pg-lrow__meta">
+				{new Date(p.data_apresentacao).toLocaleDateString("pt-BR")}
+				<PixelIcon name="chev" size={12} />
+			</span>
+		</Link>
+	);
+}
 
-  return (
-    <TerminalWindow 
-      title="Producao_Legislativa"
-      icon={<span className="text-green-500">&gt;</span>}
-      badge={`${producao.length} projetos`}
-      className="flex flex-col max-h-150"
-    >
-      <div className="overflow-y-auto pr-2 space-y-3 custom-scrollbar flex-1">
-        {producao.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((p: any) => (
-          <Link 
-            href={`/perfil/deputado/${idDeputado}/projeto/${p.id_proposicao}`}
-            key={p.id_proposicao} 
-            className="block p-4 border border-green-500/20 bg-black/60 hover:bg-green-950/20 hover:border-green-500/50 transition-all group"
-          >
-            <div className="flex justify-between items-start gap-3 sm:gap-4">
-              <div className="flex-1 w-full">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="w-4 h-4 text-green-500" />
-                  <p className="text-sm font-bold text-green-300">{p.titulo}</p>
-                </div>
-                {p.ementa && (
-                  <p className="text-xs text-green-400 line-clamp-2 leading-relaxed">
-                    {p.ementa}
-                  </p>
-                )}
-                <p className="text-[10px] text-green-500/70 mt-3 font-mono">
-                  {new Date(p.data_apresentacao).toLocaleDateString("pt-BR")}
-                </p>
-              </div>
-              <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-none bg-green-500/10 group-hover:bg-green-500 group-hover:text-black transition-colors">
-                <ArrowRight className="w-4 h-4" />
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+function subtituloDoPainel(atuais: number, anteriores: number): string {
+	if (anteriores === 0) return `${atuais} projetos · toque para ler`;
+	return `${atuais} no mandato atual · ${anteriores} de mandatos anteriores`;
+}
 
-      {producao.length > itemsPerPage && (
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-green-500/20 px-2 pb-2">
-          <p className="text-xs text-green-400/80 hidden sm:block">
-            Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, producao.length)} de {producao.length}
-          </p>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-1 border border-green-500/30 text-green-500 hover:bg-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed rounded-none transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button 
-              onClick={() => setCurrentPage(p => Math.min(Math.ceil(producao.length / itemsPerPage), p + 1))}
-              disabled={currentPage === Math.ceil(producao.length / itemsPerPage)}
-              className="p-1 border border-green-500/30 text-green-500 hover:bg-green-500/20 disabled:opacity-30 disabled:cursor-not-allowed rounded-none transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-    </TerminalWindow>
-  );
+function SeletorDeMandato({ aba, onAba, atuais, anteriores }: { aba: Aba; onAba: (a: Aba) => void; atuais: number; anteriores: number }) {
+	return (
+		<div style={{ padding: "8px 12px" }}>
+			<Seg<Aba>
+				label="Mandato"
+				value={aba}
+				onChange={onAba}
+				options={[
+					{ value: "atual", label: `Mandato atual (${atuais})` },
+					{ value: "anteriores", label: `Anteriores (${anteriores})` },
+				]}
+			/>
+		</div>
+	);
+}
+
+export default function LegislativeProduction({ producao, idDeputado, perfil }: { producao: Dados[]; idDeputado: string; perfil?: Dados | null }) {
+	const { atuais, anteriores } = separarProducao(producao, perfil);
+	const [aba, setAba] = useState<Aba>(atuais.length > 0 ? "atual" : "anteriores");
+	const lista = aba === "atual" ? atuais : anteriores;
+	const pag = usePagina(lista, 8);
+
+	if (!producao || producao.length === 0) {
+		return (
+			<Panel title="Produção legislativa" id="producao">
+				<p className="pg-note">Nenhuma proposição encontrada no período.</p>
+			</Panel>
+		);
+	}
+
+	return (
+		<Panel title="Produção legislativa" sub={subtituloDoPainel(atuais.length, anteriores.length)} flush id="producao">
+			{anteriores.length > 0 ? (
+				<SeletorDeMandato
+					aba={aba}
+					onAba={(a) => {
+						setAba(a);
+						pag.reset();
+					}}
+					atuais={atuais.length}
+					anteriores={anteriores.length}
+				/>
+			) : null}
+			{lista.length === 0 ? <p className="pg-note">Nenhuma proposição neste mandato.</p> : null}
+			{pag.fatia.map((p) => (
+				<LinhaProjeto key={p.id_proposicao} p={p} idDeputado={idDeputado} />
+			))}
+			<Paginador p={pag} />
+		</Panel>
+	);
 }

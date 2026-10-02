@@ -1,39 +1,31 @@
 "use client";
 
-import {
-	CircleCheck,
-	Info,
-	LoaderCircle,
-	OctagonX,
-	TriangleAlert,
-} from "lucide-react";
-import { useTheme } from "next-themes";
 import { Toaster as Sonner } from "sonner";
+import { Spinner } from "@/components/ds/Spinner";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
-const Toaster = ({ ...props }: ToasterProps) => {
-	const { theme = "system" } = useTheme();
+const glyph = (g: string) => <span className="pg-toast__icon">{g}</span>;
 
+/** Toasts do terminal: glifos em vez de ícones, cores só para estado. */
+const Toaster = ({ ...props }: ToasterProps) => {
 	return (
 		<Sonner
-			theme={theme as ToasterProps["theme"]}
+			theme="dark"
 			className="toaster group"
 			icons={{
-				success: <CircleCheck className="h-4 w-4" />,
-				info: <Info className="h-4 w-4" />,
-				warning: <TriangleAlert className="h-4 w-4" />,
-				error: <OctagonX className="h-4 w-4" />,
-				loading: <LoaderCircle className="h-4 w-4 animate-spin" />,
+				success: glyph("✓"),
+				info: glyph(">"),
+				warning: glyph("▲"),
+				error: glyph("◆"),
+				loading: <Spinner />,
 			}}
 			toastOptions={{
-				className:
-					"font-mono! rounded-none! border! border-green-500! bg-black! text-green-500! uppercase! tracking-widest! text-xs! shadow-[0_0_15px_rgba(34,197,94,0.3)]!",
-				style: {
-					background: "black",
-					border: "1px solid #22c55e",
-					borderRadius: "0px",
-					color: "#22c55e",
+				unstyled: true,
+				classNames: {
+					toast: "pg-toast",
+					title: "pg-toast__title",
+					description: "pg-toast__desc",
 				},
 			}}
 			{...props}

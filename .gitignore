@@ -47,3 +47,4 @@ Obsidian Poligrafo Docs/
 implementation_plan.md
 # Supabase CLI temp files
 supabase/.temp/
+.env*

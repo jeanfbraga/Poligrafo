@@ -55,110 +55,19 @@ function obterFallbackClient(primaryClient: any) {
 }
 
 import { fetchWithTimeout } from "@/app/api/investigar/tse";
+import { type MandatoHistorico, mandatoDoHistorico } from "@/lib/mandato";
 
-function formatarDataSimples(dataHora?: string): string {
-  if (!dataHora) return "";
-  const match = dataHora.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (match) {
-    const [, ano, mes, dia] = match;
-    return `${dia}/${mes}/${ano}`;
-  }
-  return "";
-}
-
-function filtrarEventosLegislatura(historico: any[]) {
-  if (!Array.isArray(historico)) return [];
-  const leg57 = historico.filter((h: any) => h.idLegislatura === 57 || !h.idLegislatura);
-  const eventos = leg57.length > 0 ? leg57 : historico;
-  return [...eventos].sort((a, b) => (a.dataHora || "").localeCompare(b.dataHora || ""));
-}
-
-function isEventoEntrada(desc: string, sit: string): boolean {
-  return desc.includes("entrada") || sit === "exercício" || sit === "exercicio";
-}
-
-function isEventoSaida(desc: string, sit: string): boolean {
-  return desc.includes("saída") || desc.includes("saida") || sit.includes("supl") || sit.includes("licen");
-}
-
-function extrairUltimasMovimentacoes(ordenados: any[]) {
-  let entrada: any = null;
-  let saida: any = null;
-  for (const ev of ordenados) {
-    const desc = (ev.descricaoStatus || "").toLowerCase();
-    const sit = (ev.situacao || "").toLowerCase();
-    if (isEventoEntrada(desc, sit)) entrada = ev;
-    if (isEventoSaida(desc, sit)) saida = ev;
-  }
-  return { entrada, saida };
-}
-
-function montarTextoSuplente(entrada: any, saida: any, ultimoStatus: any): string {
-  const dtEntrada = formatarDataSimples(entrada?.dataHora);
-  const dtSaida = formatarDataSimples(saida?.dataHora || ultimoStatus?.data);
-  if (dtEntrada && dtSaida) return `Exerceu mandato como Suplente de ${dtEntrada} a ${dtSaida}`;
-  if (dtSaida) return `Suplente fora de exercício desde ${dtSaida}`;
-  return "Parlamentar em suplência";
-}
-
-function extrairMotivoLicenca(saida: any): string {
-  const desc = (saida?.descricaoStatus || "").toLowerCase();
-  if (desc.includes("ministro")) return "exercer o cargo de Ministro de Estado";
-  if (desc.includes("saúde") || desc.includes("saude")) return "tratamento de saúde";
-  return "afastamento temporário";
-}
-
-function montarRetornoSuplente(entrada: any, saida: any, ultimoStatus: any) {
+/** Fatos do mandato (posse, retorno, saída, origem) a partir do histórico da Câmara; a tela decide o texto (lib/mandato.ts). */
+function camposDoMandato(mandato: MandatoHistorico) {
   return {
-    situacao: "Suplência",
-    condicaoEleitoral: "Suplente",
-    mandatoTexto: montarTextoSuplente(entrada, saida, ultimoStatus),
-    dataPosse: formatarDataSimples(entrada?.dataHora),
-    dataSaida: formatarDataSimples(saida?.dataHora || ultimoStatus?.data),
+    situacao: mandato.situacao,
+    condicao_eleitoral: mandato.condicaoEleitoral,
+    data_posse: mandato.dataPosse,
+    data_entrada: mandato.dataEntrada,
+    data_saida: mandato.dataSaida,
+    origem_posse: mandato.origemPosse,
+    motivo_afastamento: mandato.motivoAfastamento,
   };
-}
-
-function montarRetornoLicenca(entrada: any, saida: any, condicaoEleitoral: string, ultimoStatus: any) {
-  const dtSaida = formatarDataSimples(saida?.dataHora || ultimoStatus?.data);
-  const motivo = extrairMotivoLicenca(saida);
-  return {
-    situacao: "Licença",
-    condicaoEleitoral,
-    mandatoTexto: `Licenciado desde ${dtSaida} para ${motivo}`,
-    dataPosse: formatarDataSimples(entrada?.dataHora),
-    dataSaida: dtSaida,
-  };
-}
-
-function montarRetornoExercicio(entrada: any, condicaoEleitoral: string) {
-  const dtPosse = formatarDataSimples(entrada?.dataHora);
-  return {
-    situacao: "Exercício",
-    condicaoEleitoral,
-    mandatoTexto: dtPosse ? `Em exercício parlamentar desde ${dtPosse}` : "Em exercício parlamentar",
-    dataPosse: dtPosse,
-    dataSaida: undefined,
-  };
-}
-
-function processarHistoricoMandato(historico: any[], ultimoStatus: any) {
-  const situacaoAtual = ultimoStatus?.situacao || "Exercício";
-  const condicaoEleitoral = ultimoStatus?.condicaoEleitoral || "Titular";
-  const ordenados = filtrarEventosLegislatura(historico);
-  const { entrada, saida } = extrairUltimasMovimentacoes(ordenados);
-
-  if (situacaoAtual.toLowerCase().includes("supl")) {
-    return montarRetornoSuplente(entrada, saida, ultimoStatus);
-  }
-
-  const ehLicenca = situacaoAtual.toLowerCase().includes("licen") ||
-    Boolean(saida && (!entrada || (saida.dataHora || "") > (entrada.dataHora || "")));
-
-  if (ehLicenca) {
-    return montarRetornoLicenca(entrada, saida, condicaoEleitoral, ultimoStatus);
-  }
-
-  return montarRetornoExercicio(entrada, condicaoEleitoral);
 }
 
 async function persistirPerfilNoBanco(perfil: any) {
@@ -211,11 +120,7 @@ function montarObjetoPerfilCompleto(params: {
     frentes,
     comissoes,
     profissoes,
-    situacao: mandato.situacao,
-    condicao_eleitoral: mandato.condicaoEleitoral,
-    mandato_texto: mandato.mandatoTexto,
-    data_posse: mandato.dataPosse,
-    data_saida: mandato.dataSaida,
+    ...camposDoMandato(mandato),
   };
 }
 
@@ -236,7 +141,7 @@ async function buscarPerfilLiveCamara(idDeputadoNum: number, info: any) {
     const comissoes = extrairListaTitulos(orgaosRes);
     const profissoes = extrairListaTitulos(profRes);
 
-    const mandato = processarHistoricoMandato(histData, depData?.ultimoStatus);
+    const mandato = mandatoDoHistorico(histData, depData?.ultimoStatus);
     const perfilCompleto = montarObjetoPerfilCompleto({
       idDeputadoNum,
       depData,
@@ -257,7 +162,7 @@ async function buscarPerfilLiveCamara(idDeputadoNum: number, info: any) {
 
 async function enriquecerMandatoSeNecessario(perfil: any, idDeputadoNum: number) {
   if (!perfil) return null;
-  if (perfil.mandato_texto) return perfil;
+  if (perfil.data_posse !== undefined) return perfil;
   try {
     const API_BASE = "https://dadosabertos.camara.leg.br/api/v2";
     const [depRes, histRes] = await Promise.allSettled([
@@ -266,14 +171,10 @@ async function enriquecerMandatoSeNecessario(perfil: any, idDeputadoNum: number)
     ]);
     const depData = depRes.status === "fulfilled" ? depRes.value?.dados : null;
     const histData = histRes.status === "fulfilled" ? histRes.value?.dados : [];
-    const mandato = processarHistoricoMandato(histData, depData?.ultimoStatus);
+    const mandato = mandatoDoHistorico(histData, depData?.ultimoStatus);
     return {
       ...perfil,
-      situacao: mandato.situacao,
-      condicao_eleitoral: mandato.condicaoEleitoral,
-      mandato_texto: mandato.mandatoTexto,
-      data_posse: mandato.dataPosse,
-      data_saida: mandato.dataSaida,
+      ...camposDoMandato(mandato),
     };
   } catch {
     return perfil;

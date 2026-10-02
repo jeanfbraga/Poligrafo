@@ -1,21 +1,23 @@
 import * as React from "react";
 
-const MOBILE_BREAKPOINT = 768;
+export const MOBILE_BREAKPOINT = 768;
 
-export function useIsMobile() {
-	const [isMobile, setIsMobile] = React.useState<boolean | undefined>(
-		undefined,
-	);
+/** `null` até a primeira medição no cliente (evita piscar o layout errado). */
+export function useViewport(): "mobile" | "desktop" | null {
+	const [vp, setVp] = React.useState<"mobile" | "desktop" | null>(null);
 
 	React.useEffect(() => {
 		const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-		const onChange = () => {
-			setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-		};
-		mql.addEventListener("change", onChange);
-		setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-		return () => mql.removeEventListener("change", onChange);
+		const atualizar = () => setVp(mql.matches ? "mobile" : "desktop");
+		atualizar();
+		mql.addEventListener("change", atualizar);
+		return () => mql.removeEventListener("change", atualizar);
 	}, []);
 
-	return !!isMobile;
+	return vp;
+}
+
+/** Compatibilidade: true somente no celular (false enquanto não mediu). */
+export function useIsMobile() {
+	return useViewport() === "mobile";
 }

@@ -32,6 +32,20 @@ function getOrchestrator(isDev: boolean) {
 	return new AiOrchestrator(providers);
 }
 
+/**
+ * Notas por chamada de IA. O prompt de 60 notas tem ~7 mil tokens de entrada (+ ~6 mil de resposta),
+ * acima do limite por pedido do plano gratuito da Groq (HTTP 413) e lento demais para o timeout do Gemini.
+ * Com 20 notas o pedido fica em ~4,5 mil tokens de entrada.
+ */
+export const TAMANHO_LOTE_IA = 20;
+
+export function dividirEmLotes<T>(itens: T[], tamanho: number = TAMANHO_LOTE_IA): T[][] {
+	const lotes: T[][] = [];
+	for (let i = 0; i < itens.length; i += tamanho) lotes.push(itens.slice(i, i + tamanho));
+	return lotes;
+}
+
+/** Analisa as despesas em lotes pequenos; um lote que falha cai na heurística local só para ele. */
 export async function analisarLoteComInteligencia(
 	despesas: any[],
 	ufPolitico: string,
@@ -41,7 +55,23 @@ export async function analisarLoteComInteligencia(
 	normaLocal?: string,
 ) {
 	if (!despesas || despesas.length === 0) return [];
+	const resultado: any[] = [];
+	for (const lote of dividirEmLotes(despesas)) {
+		resultado.push(
+			...(await analisarLoteUnico(lote, ufPolitico, listaDoadores, esferaPolitico, casaLegislativa, normaLocal)),
+		);
+	}
+	return resultado;
+}
 
+async function analisarLoteUnico(
+	despesas: any[],
+	ufPolitico: string,
+	listaDoadores: string[],
+	esferaPolitico: string,
+	casaLegislativa?: string,
+	normaLocal?: string,
+) {
 	const loteOtimizado = despesas.map((d: any) => ({
 		cnpj: d.cnpjCpfFornecedor,
 		fornecedor: d.nomeFornecedor,

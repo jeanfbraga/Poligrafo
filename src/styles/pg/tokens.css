@@ -1,0 +1,117 @@
+/* ==========================================================================
+   POLÍGRAFO — Design System "Terminal Fósforo" · TOKENS
+   Fonte única de verdade de cor, tipografia e escala.
+
+   Regras de uso (ver Obsidian doc 4):
+   - Fósforo verde (--pg-phos) é a identidade: ação, foco, progresso.
+   - Cor de família aparece SÓ no cabeçalho do node (pessoa/org/fin/doc).
+   - Âmbar e vermelho existem SÓ para risco (atenção ≥ 60, crítico ≥ 85).
+   - Dourado (--pg-gold) é exclusivo do troféu do pódio.
+   - Tipografia: IBM Plex Mono em 10/12/14/20/28. Bytesized só no wordmark.
+   ========================================================================== */
+:root {
+	color-scheme: dark;
+
+	--pg-bg: #030705;
+	--pg-bg-1: #06110a;
+	--pg-bg-2: #0a1b11;
+	--pg-bg-3: #102a1a;
+	--pg-line: #12301f;
+	--pg-line-2: #1f4d31;
+
+	--pg-ink-1: #d2ffe0;
+	--pg-ink-2: #7fd39b;
+	--pg-ink-3: #4f9b6c;
+
+	--pg-phos: #3dff8b;
+	--pg-phos-ink: #02130a;
+
+	--pg-pessoa: #3dff8b;
+	--pg-org: #4fd8e6;
+	--pg-fin: #9db4cc;
+	--pg-doc: #b69cff;
+
+	--pg-warn: #ffb224;
+	--pg-crit: #ff4d5e;
+	--pg-gold: #ffd24a;
+
+	--pg-font: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo,
+		Consolas, "Liberation Mono", monospace;
+	--pg-font-logo: var(--font-bytesized), var(--pg-font);
+
+	--pg-t-micro: 10px;
+	--pg-t-sm: 12px;
+	--pg-t-md: 14px;
+	--pg-t-lg: 20px;
+	--pg-t-xl: 28px;
+
+	--pg-glow: 0 0 10px color-mix(in srgb, var(--pg-phos) 35%, transparent);
+}
+
+/* No celular o menor corpo de texto sobe para 11px (legibilidade ao toque); os tamanhos de
+   destaque descem (a fonte mono é larga: 20px/28px dominam a tela de 375px). */
+@media (max-width: 767px) {
+	:root {
+		--pg-t-micro: 11px;
+		--pg-t-lg: 17px;
+		--pg-t-xl: 22px;
+	}
+}
+
+/* Tokens expostos ao Tailwind: bg-pg-bg-1, text-pg-ink-2, border-pg-line-2... */
+@theme inline {
+	--color-pg-bg: var(--pg-bg);
+	--color-pg-bg-1: var(--pg-bg-1);
+	--color-pg-bg-2: var(--pg-bg-2);
+	--color-pg-bg-3: var(--pg-bg-3);
+	--color-pg-line: var(--pg-line);
+	--color-pg-line-2: var(--pg-line-2);
+	--color-pg-ink-1: var(--pg-ink-1);
+	--color-pg-ink-2: var(--pg-ink-2);
+	--color-pg-ink-3: var(--pg-ink-3);
+	--color-pg-phos: var(--pg-phos);
+	--color-pg-phos-ink: var(--pg-phos-ink);
+	--color-pg-pessoa: var(--pg-pessoa);
+	--color-pg-org: var(--pg-org);
+	--color-pg-fin: var(--pg-fin);
+	--color-pg-doc: var(--pg-doc);
+	--color-pg-warn: var(--pg-warn);
+	--color-pg-crit: var(--pg-crit);
+	--color-pg-gold: var(--pg-gold);
+
+	--text-pg-micro: var(--pg-t-micro);
+	--text-pg-sm: var(--pg-t-sm);
+	--text-pg-md: var(--pg-t-md);
+	--text-pg-lg: var(--pg-t-lg);
+	--text-pg-xl: var(--pg-t-xl);
+
+	--font-mono: var(--pg-font);
+
+	/* Semânticos do shadcn/ui mapeados na paleta do terminal */
+	--color-background: var(--pg-bg);
+	--color-foreground: var(--pg-ink-1);
+	--color-border: var(--pg-line-2);
+	--color-input: var(--pg-line-2);
+	--color-ring: var(--pg-phos);
+	--color-primary: var(--pg-phos);
+	--color-primary-foreground: var(--pg-phos-ink);
+	--color-secondary: var(--pg-bg-2);
+	--color-secondary-foreground: var(--pg-ink-1);
+	--color-destructive: var(--pg-crit);
+	--color-destructive-foreground: var(--pg-ink-1);
+	--color-muted: var(--pg-bg-2);
+	--color-muted-foreground: var(--pg-ink-3);
+	--color-accent: var(--pg-bg-3);
+	--color-accent-foreground: var(--pg-ink-1);
+	--color-popover: var(--pg-bg-1);
+	--color-popover-foreground: var(--pg-ink-1);
+	--color-card: var(--pg-bg-1);
+	--color-card-foreground: var(--pg-ink-1);
+
+	/* Cantos secos em todo o produto */
+	--radius-sm: 0px;
+	--radius-md: 0px;
+	--radius-lg: 0px;
+	--radius-xl: 0px;
+	--radius-2xl: 0px;
+}

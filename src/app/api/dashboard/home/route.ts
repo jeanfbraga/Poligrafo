@@ -5,6 +5,7 @@ import {
 	agruparCeapPorUf,
 	agruparPesquisas,
 } from "@/lib/dashboard-aggregations";
+import { rankingMenosPresentes } from "@/lib/frequencia";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
 
 export const revalidate = 0; // Temporariamente sem cache para dev
@@ -145,9 +146,7 @@ async function consultarViewsDashboard(supabase: any) {
 			.from("camara_frequencia")
 			.select("*")
 			.eq("condicao_eleitoral", "Titular")
-			.eq("situacao", "Exercício")
-			.order("presencas", { ascending: true })
-			.limit(10),
+			.eq("situacao", "Exercício"),
 		supabase.from("camara_votacoes").select("*").order("votos_registrados", { ascending: false }).limit(10),
 		supabase.from("dashboard_emendas_top10").select("*"),
 		supabase.from("dashboard_emendas_uf").select("*"),
@@ -191,7 +190,7 @@ function montarRespostaDashboard(resultados: any[], supabaseUrl: string) {
 		ceapTop10: resolverDado(err1, ceapTop10, (d) => enriquecerDeputados(d, supabaseUrl)),
 		ceapTotal: resolverDado(err2, ceapTotal),
 		ceapCategorias: resolverDado(err3, ceapCategorias),
-		menosPresentes: resolverDado(err4, menosPresentes, (d) => enriquecerDeputados(d, supabaseUrl)),
+		menosPresentes: resolverDado(err4, menosPresentes, (d) => enriquecerDeputados(rankingMenosPresentes(d, 10), supabaseUrl)),
 		totalSessoes,
 		votantes: resolverDado(err5, votantes, (d) => enriquecerDeputados(d, supabaseUrl)),
 		emendasTop10: resolverDado(err6, emendasTop10, (d) => enriquecerEmendasPorNome(d, supabaseUrl)),

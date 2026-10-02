@@ -13,15 +13,14 @@
 
 // ─── NÍVEL 1: GROQ CLOUD (Developer Free Tier) ───────────────────────────────
 // Documentação: https://console.groq.com/docs/models
-// Franquia gratuita: 200 RPM / 200k TPM nos modelos compound; Developer Tier nos demais.
+// Verificado em 02/10/2026 com a chave do projeto (GET /openai/v1/models + chamada real, 0,3–0,5 s).
+// Removidos: groq/compound e groq/compound-mini (404 — não existem mais na conta),
+// openai/gpt-oss-safeguard-20b (classificador de segurança, não faz triagem JSON e estoura limite),
+// allam-2-7b (contexto de 4k tokens: o lote de 60 notas não cabe) e qwen3.6 (substituído pelo 3.8).
 export const GROQ_MODELS = [
-	"groq/compound",
-	"groq/compound-mini",
 	"openai/gpt-oss-120b",
 	"openai/gpt-oss-20b",
-	"qwen/qwen3.6-27b",
-	"openai/gpt-oss-safeguard-20b",
-	"allam-2-7b",
+	"qwen/qwen3.8-27b",
 ] as const;
 
 // ─── NÍVEL 2: OPENROUTER (Free Tier / :free Router) ──────────────────────────
@@ -41,26 +40,27 @@ export const OPENROUTER_MODELS = [
 // ─── NÍVEL 3: GOOGLE GEMINI & GEMMA (Google AI Studio Free Tier) ─────────────
 // Documentação: https://ai.google.dev/pricing
 // Franquia gratuita: 15 RPM / 1.500 RPD por chave gratuita de API no Google AI Studio.
+// A ORDEM IMPORTA: o provedor tenta em sequência com timeout. Os "lite" respondem em ~0,5–1,3 s;
+// os "flash" com raciocínio levam 16–24 s e estouram o timeout, então ficam por último.
+// Verificado em 02/10/2026. Removidos: gemini-2.0-flash e -2.0-flash-lite (404, descontinuados),
+// gemma-3-27b-it (não listado mais) e gemini-3.8-flash (503 intermitente na verificação).
 export const GEMINI_MODELS = [
-	"gemini-2.5-flash",
 	"gemini-2.5-flash-lite",
-	"gemini-2.0-flash",
-	"gemini-2.0-flash-lite",
 	"gemini-3.5-flash-lite",
 	"gemini-3.1-flash-lite",
-	"gemini-3.5-flash",
 	"gemini-3.6-flash",
 	"gemma-4-31b-it",
-	"gemma-3-27b-it",
+	"gemini-2.5-flash",
+	"gemini-3.5-flash",
 ] as const;
 
 // ─── MODELOS DE VISÃO COMPUTACIONAL / OCR (ETL CMRJ & Documentos Escaneados) ───
 // Usados exclusivamente em scripts batch offline quando não há camada de texto nativa.
 export const VISION_MODELS = {
 	gemini: [
-		"gemini-2.5-flash",
 		"gemini-2.5-flash-lite",
-		"gemini-2.0-flash",
+		"gemini-3.5-flash-lite",
+		"gemini-2.5-flash",
 	],
 	openrouter: [
 		"openrouter/free",

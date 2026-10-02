@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
+import { mandatoDoHistorico } from '../../src/lib/mandato';
+import { rankingMenosPresentes, sessaoContaParaAusencia, textoDePresenca } from '../../src/lib/frequencia';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
@@ -18,6 +20,8 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 
 const API_BASE = 'https://dadosabertos.camara.leg.br/api/v2';
 const BATCH_SIZE = 1000;
+const DRY_RUN = process.argv.includes('--dry-run');
+const LOTE_HISTORICO = 8;
 
 async function fetchJson(url: string) {
     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
@@ -47,19 +51,35 @@ async function buscarEventosDeliberativos(dataInicio: string, dataFim: string): 
 }
 
 function inicializarEstatisticas(ativos: any[]) {
-	const stats: Record<number, { id_deputado: number; presencas: number; ausencias_nao_justificadas: number; condicao_eleitoral: string; situacao: string }> = {};
+	const stats: Record<number, { id_deputado: number; presencas: number; ausencias_nao_justificadas: number; condicao_eleitoral: string; situacao: string; inicio: string }> = {};
 	for (const dep of ativos) {
 		stats[dep.id] = {
 			id_deputado: dep.id,
 			presencas: 0,
 			ausencias_nao_justificadas: 0,
 			condicao_eleitoral: 'Titular',
-			situacao: 'Exercício'
+			situacao: 'Exercício',
+			inicio: '' // data (AAAA-MM-DD) da entrada em exercício; só ausências a partir dela contam
 		};
 	}
 	return stats;
 }
 
+/** Data de entrada em exercício de cada deputado: sessões anteriores a ela não contam como ausência. */
+async function carregarInicioDeExercicio(stats: Record<number, any>) {
+	console.log("[FREQUENCIA SYNC] Buscando data de entrada em exercício de cada deputado...");
+	const ids = Object.keys(stats).map(Number);
+	for (let i = 0; i < ids.length; i += LOTE_HISTORICO) {
+		await Promise.all(ids.slice(i, i + LOTE_HISTORICO).map(async (id) => {
+			try {
+				const res = await fetchJson(`${API_BASE}/deputados/${id}/historico`);
+				stats[id].inicio = mandatoDoHistorico(res.dados ?? [], undefined).dataEntrada;
+			} catch (e: any) {
+				console.warn(`[FREQUENCIA SYNC] Sem histórico de ${id} (conta todas as sessões): ${e.message}`);
+			}
+		}));
+	}
+}
 async function enriquecerCondicaoSituacao(stats: Record<number, any>) {
 	console.log("[FREQUENCIA SYNC] Verificando condição eleitoral e situação dos deputados com baixa presença...");
 	const candidatos = Object.values(stats).filter(s => s.presencas < 40);
@@ -81,11 +101,12 @@ async function processarPresencasEvento(evento: any, ativos: any[], stats: Recor
 		const urlDeputados = `${API_BASE}/eventos/${evento.id}/deputados`;
 		const presentes = await fetchJson(urlDeputados);
 		const presentesIds = new Set(presentes.dados.map((d: any) => d.id));
+		const dataSessao = String(evento.dataHoraInicio ?? '');
 
 		for (const dep of ativos) {
 			if (presentesIds.has(dep.id)) {
 				stats[dep.id].presencas += 1;
-			} else {
+			} else if (sessaoContaParaAusencia(dataSessao, stats[dep.id].inicio)) {
 				stats[dep.id].ausencias_nao_justificadas += 1;
 			}
 		}
@@ -105,6 +126,13 @@ async function salvarEstatisticas(batch: any[], anoAtual: number) {
 	}
 }
 
+function imprimirRanking(batch: any[]) {
+	console.log("[FREQUENCIA SYNC] --dry-run: nada foi gravado. Menos presentes (titulares em exercício, por taxa):");
+	const titulares = batch.filter(b => b.condicao_eleitoral === 'Titular' && b.situacao === 'Exercício');
+	for (const r of rankingMenosPresentes(titulares, 10)) {
+		console.log(`  - ${r.id_deputado}: ${textoDePresenca(r.presencas, r.sessoes, r.taxa)}`);
+	}
+}
 async function run() {
 	console.log("[FREQUENCIA SYNC] Iniciando sincronização via API V2 (últimos 90 dias)...");
 	
@@ -133,11 +161,16 @@ async function run() {
 			await processarPresencasEvento(evento, ativos, stats);
 		}
 
+		await carregarInicioDeExercicio(stats);
 		await enriquecerCondicaoSituacao(stats);
 
 		const anoAtual = today.getFullYear();
-		const batch = Object.values(stats).map(s => ({ ...s, ano: anoAtual }));
+		const batch = Object.values(stats).map(({ inicio: _inicio, ...s }) => ({ ...s, ano: anoAtual }));
 
+		if (DRY_RUN) {
+			imprimirRanking(batch);
+			return;
+		}
 		await salvarEstatisticas(batch, anoAtual);
 		console.log("[FREQUENCIA SYNC] Concluído com sucesso!");
 	} catch (error: any) {

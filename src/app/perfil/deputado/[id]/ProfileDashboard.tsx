@@ -1,177 +1,246 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import ProfileHeader from "@/components/perfil/ProfileHeader";
-import VotingHistory from "@/components/perfil/VotingHistory";
-import LegislativeProduction from "@/components/perfil/LegislativeProduction";
-import GabineteList from "@/components/perfil/GabineteList";
-import CotaChart from "@/components/perfil/CotaChart";
-import PerfilPatrimonioCard from "@/components/perfil/PerfilPatrimonioCard";
-import { Lock, AlertTriangle, ArrowLeft } from "lucide-react";
-import { ScrambleText } from "@/components/ui/scramble-text";
-import { SiteHeader } from "@/components/layout/SiteHeader";
-import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { Panel, Spinner } from "@/components/ds";
+import { AcaoInvestigar } from "@/components/investigacao/AcaoInvestigar";
+import { useInvestigacao } from "@/components/investigacao/InvestigacaoProvider";
+import { jobView } from "@/lib/investigacao/job-view";
+import { JobPanel } from "@/components/investigacao/JobPanel";
+import { AppShell } from "@/components/layout/AppShell";
+import CotaChart from "@/components/perfil/CotaChart";
+import GabineteList from "@/components/perfil/GabineteList";
+import NavegacaoDeSecoes, { type SecaoNav } from "@/components/perfil/NavegacaoDeSecoes";
+import { ResumoPerfil } from "@/components/perfil/ResumoPerfil";
+import { resumoDoPerfil } from "@/lib/perfil-resumo";
+import LegislativeProduction from "@/components/perfil/LegislativeProduction";
+import PerfilPatrimonioCard from "@/components/perfil/PerfilPatrimonioCard";
+import ProfileHeader from "@/components/perfil/ProfileHeader";
+import { useViewport } from "@/hooks/use-mobile";
+import VotingHistory from "@/components/perfil/VotingHistory";
+import { type Alvo, urlDossie } from "@/lib/investigacao/alvo";
+import { tituloCaso } from "@/lib/texto";
 
-function hasPerfilData(json: any): boolean {
-  if (!json) return false;
-  if (json.perfil) return true;
-  if (Array.isArray(json.votos) && json.votos.length > 0) return true;
-  return Boolean(Array.isArray(json.producao) && json.producao.length > 0);
+type Params = Record<string, string | string[] | undefined>;
+type Dados = Record<string, any>;
+
+export function hasPerfilData(json: Dados | null): boolean {
+	if (!json) return false;
+	if (json.perfil) return true;
+	if (Array.isArray(json.votos) && json.votos.length > 0) return true;
+	return Boolean(Array.isArray(json.producao) && json.producao.length > 0);
 }
 
-function buildFallbackPerfil(idDeputado: string, searchParams?: Record<string, string | string[] | undefined>) {
-  const nomeStr = typeof searchParams?.nome === "string" ? searchParams.nome : undefined;
-  const partidoStr = typeof searchParams?.partido === "string" ? searchParams.partido : "N/A";
-  const ufStr = typeof searchParams?.uf === "string" ? searchParams.uf : "BR";
-
-  return {
-    id_deputado: idDeputado,
-    nome_civil: nomeStr,
-    nome_eleitoral: nomeStr,
-    partido: partidoStr,
-    uf: ufStr,
-    frentes_parlamentares: [],
-    comissoes: [],
-    profissoes: []
-  };
+function buildFallbackPerfil(idDeputado: string, sp?: Params) {
+	const str = (v: unknown, padrao?: string) => (typeof v === "string" ? v : padrao);
+	const nome = str(sp?.nome);
+	return {
+		id_deputado: idDeputado,
+		nome_civil: nome,
+		nome_eleitoral: nome,
+		partido: str(sp?.partido, "N/A"),
+		uf: str(sp?.uf, "BR"),
+		frentes_parlamentares: [],
+		comissoes: [],
+		profissoes: [],
+	};
 }
 
-function enrichPerfilFallback(json: any, idDeputado: string, searchParams?: Record<string, string | string[] | undefined>) {
-  if (!searchParams?.nome) return;
-  const nomeStr = typeof searchParams.nome === "string" ? searchParams.nome : "";
-
-  if (!json.perfil) {
-    json.perfil = buildFallbackPerfil(idDeputado, searchParams);
-    return;
-  }
-  if (!json.perfil.nome_civil && !json.perfil.nome_eleitoral) {
-    json.perfil.nome_civil = nomeStr;
-    json.perfil.nome_eleitoral = nomeStr;
-  }
+/** Completa nome/partido/UF a partir da URL quando o banco ainda não tem a ficha. */
+export function enrichPerfilFallback(json: Dados, idDeputado: string, sp?: Params) {
+	if (!sp?.nome) return;
+	const nome = typeof sp.nome === "string" ? sp.nome : "";
+	if (!json.perfil) {
+		json.perfil = buildFallbackPerfil(idDeputado, sp);
+		return;
+	}
+	if (!json.perfil.nome_civil && !json.perfil.nome_eleitoral) {
+		json.perfil.nome_civil = nome;
+		json.perfil.nome_eleitoral = nome;
+	}
 }
 
-export default function ProfileDashboard({ 
-  idDeputado, 
-  searchParams 
-}: { 
-  idDeputado: string,
-  searchParams?: Record<string, string | string[] | undefined>
-}) {
-  const router = useRouter();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const SECOES: SecaoNav[] = [
+	{ id: "perfil", rotulo: "Perfil" },
+	{ id: "invest", rotulo: "Investigação" },
+	{ id: "patrimonio", rotulo: "Patrimônio" },
+	{ id: "votos", rotulo: "Votos" },
+	{ id: "producao", rotulo: "Produção" },
+	{ id: "cota", rotulo: "Cota" },
+	{ id: "gabinete", rotulo: "Gabinete" },
+];
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const res = await fetch(`/api/perfil/deputado/${idDeputado}`);
-        if (!res.ok) throw new Error("Falha ao buscar dados do perfil.");
-        const json = await res.json();
-        
-        if (!hasPerfilData(json) && !searchParams?.nome) {
-          throw new Error(`Nenhum dado encontrado para o Parlamentar (ID: ${idDeputado}). O banco de dados pode ainda não ter sido sincronizado pela inteligência artificial.`);
-        }
-        
-        enrichPerfilFallback(json, idDeputado, searchParams);
-        setData(json);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, [idDeputado, searchParams]);
+/** Só as seções que a página realmente mostra (ex.: sem patrimônio se não há dado do TSE). */
+export function secoesVisiveis(data: Dados, jobAtivo = false): SecaoNav[] {
+	const presente: Record<string, boolean> = { patrimonio: Boolean(data.tse), perfil: Boolean(data.perfil), invest: jobAtivo };
+	return SECOES.filter((s) => presente[s.id] ?? true);
+}
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center">
-          <Lock className="w-12 h-12 mb-4" />
-          <p className="text-base md:text-xl tracking-widest uppercase text-center px-4">
-            <ScrambleText text="Acessando base de dados federal..." duration={1500} />
-          </p>
-          <p className="text-xs md:text-sm mt-2 text-green-700 text-center px-4">
-            <ScrambleText text="Decriptando histórico parlamentar" duration={1000} delay={500} />
-          </p>
-        </div>
-      </div>
-    );
-  }
+function Carregando() {
+	return (
+		<div className="pg-view">
+			<div className="pg-view__inner">
+				<Panel title="Acessando base de dados federal" sub="Decriptando histórico parlamentar">
+					<p className="pg-note">
+						<Spinner /> Consultando o perfil do parlamentar…
+					</p>
+				</Panel>
+			</div>
+		</div>
+	);
+}
 
-  if (error || !data) {
-    return (
-      <div className="min-h-screen bg-black text-green-500 font-mono flex flex-col">
-        <SiteHeader showOnMobile={true} />
-        <div className="p-4 md:p-8 flex-1">
-          <div className="max-w-6xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <Button 
-              variant="ghost" 
-              className="text-green-500 hover:text-green-400 hover:bg-green-950 px-3 uppercase tracking-widest text-xs"
-              onClick={() => router.push("/")}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-            </Button>
-          </div>
-          <div className="max-w-2xl mx-auto border border-red-500 bg-red-950/20 p-6 rounded-none mt-12">
-            <h2 className="text-red-500 text-2xl mb-2 flex items-center gap-2 font-bold uppercase">
-              <AlertTriangle /> ACESSO NEGADO / ERRO
-            </h2>
-            <p className="text-red-400">{error || "Falha desconhecida ao buscar os dados."}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+function Falha({ mensagem }: { mensagem: string }) {
+	return (
+		<div className="pg-view">
+			<div className="pg-view__inner">
+				<Panel title="Acesso negado / erro" sub="Não foi possível carregar o perfil">
+					<div className="pg-riskbox pg-riskbox--crit">
+						<p>◆ {mensagem}</p>
+					</div>
+				</Panel>
+			</div>
+		</div>
+	);
+}
 
-  return (
-    <div className="min-h-screen flex flex-col bg-black text-green-500 font-mono overflow-x-hidden relative">
-      {/* Top Bar padronizada */}
-      <SiteHeader showSearch={false} showOnMobile={true} />
+/** Carrega /api/perfil/deputado/[id] (com fallback pelos dados da URL). */
+function usePerfil(idDeputado: string, searchParams?: Params) {
+	const [data, setData] = useState<Dados | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 
-      <div className="p-4 md:p-8">
-        <div className="max-w-6xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <Button 
-            variant="ghost" 
-            className="text-green-500 hover:text-green-400 hover:bg-green-950 px-3 uppercase tracking-widest text-xs"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-          </Button>
-          <div className="text-right">
-            <p className="text-xs text-green-700 uppercase tracking-widest">Nível de Acesso: CONFIDENCIAL</p>
-            <p className="text-xs text-green-600 uppercase">Origem: DADOS ABERTOS DA CÂMARA</p>
-          </div>
-        </div>
+	useEffect(() => {
+		async function carregar() {
+			try {
+				const res = await fetch(`/api/perfil/deputado/${idDeputado}`);
+				if (!res.ok) throw new Error("Falha ao buscar dados do perfil.");
+				const json = await res.json();
+				if (!hasPerfilData(json) && !searchParams?.nome) {
+					throw new Error(`Nenhum dado encontrado para o parlamentar (ID: ${idDeputado}). O banco de dados pode ainda não ter sido sincronizado.`);
+				}
+				enrichPerfilFallback(json, idDeputado, searchParams);
+				setData(json);
+			} catch (e) {
+				setError((e as Error).message);
+			} finally {
+				setLoading(false);
+			}
+		}
+		void carregar();
+	}, [idDeputado, searchParams]);
 
-        <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-700">
-          {data.perfil && (
-            <ProfileHeader 
-              perfil={data.perfil} 
-              idDeputado={idDeputado} 
-              fotoUrl={typeof searchParams?.foto === "string" ? searchParams.foto : undefined} 
-            />
-          )}
+	return { data, loading, error };
+}
 
-          {data.tse && (
-            <div className="mt-8">
-              <PerfilPatrimonioCard tse={data.tse} />
-            </div>
-          )}
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-            <VotingHistory votos={data.votos} idDeputado={idDeputado} perfil={data.perfil} />
-            <LegislativeProduction producao={data.producao} idDeputado={idDeputado} />
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-            <CotaChart cota={data.cota} />
-            <GabineteList servidores={data.servidores} perfil={data.perfil} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+interface SecoesProps {
+	data: Dados;
+	idDeputado: string;
+	foto?: string;
+	job: ReactNode;
+	/** Botão principal do topo (Investigar / andamento / abrir dossiê). */
+	acao: ReactNode;
+	/** Há investigação (em andamento, concluída, interrompida ou com erro) para este perfil. */
+	jobAtivo: boolean;
+	mobile: boolean;
+}
+
+function SecoesDoPerfil({ data, idDeputado, foto, job, acao, jobAtivo, mobile }: SecoesProps) {
+	const patrimonio = data.tse ? <PerfilPatrimonioCard tse={data.tse} /> : null;
+	const votos = <VotingHistory votos={data.votos} idDeputado={idDeputado} perfil={data.perfil} />;
+	const producao = <LegislativeProduction producao={data.producao} idDeputado={idDeputado} perfil={data.perfil} />;
+	const cota = <CotaChart cota={data.cota} />;
+	const gabinete = <GabineteList servidores={data.servidores} perfil={data.perfil} />;
+	const secoes = useMemo(() => secoesVisiveis(data, jobAtivo), [data, jobAtivo]);
+	const resumo = useMemo(() => resumoDoPerfil(data), [data]);
+	const header = data.perfil ? (
+		<ProfileHeader perfil={data.perfil} idDeputado={idDeputado} fotoUrl={foto} acoes={acao} resumo={<ResumoPerfil itens={resumo} />} />
+	) : null;
+	return (
+		<div className="pg-perfil">
+			<NavegacaoDeSecoes secoes={secoes} />
+			<div className="pg-view">
+				<div className="pg-view__inner">
+					{header}
+					{job}
+					{mobile ? (
+						<>
+							{patrimonio}
+							{votos}
+							{producao}
+							{cota}
+							{gabinete}
+						</>
+					) : (
+						<>
+							<div className="pg-cols2">
+								<div className="pg-stack" style={{ gap: 16 }}>
+									{patrimonio}
+									{cota}
+								</div>
+								<div className="pg-stack" style={{ gap: 16 }}>
+									{votos}
+									{producao}
+								</div>
+							</div>
+							{gabinete}
+						</>
+					)}
+				</div>
+			</div>
+		</div>
+	);
+}
+
+/** Nome exibido: eleitoral → civil → nome da URL → "Perfil". */
+function nomeDoPerfil(data: Dados | null, searchParams?: Params): string {
+	const daUrl = typeof searchParams?.nome === "string" ? searchParams.nome : "Perfil";
+	return tituloCaso(data?.perfil?.nome_eleitoral || data?.perfil?.nome_civil || daUrl);
+}
+
+/**
+ * O painel de Investigação só existe quando há o que acompanhar (andamento, resultado, falha);
+ * ocioso, a explicação fica na dica do botão do topo.
+ */
+function useJobAtivo(alvo: Alvo): boolean {
+	const inv = useInvestigacao();
+	return jobView(inv.state, alvo, 0).estado !== "idle";
+}
+
+function escolherCorpo(estado: { loading: boolean; error: string | null; data: Dados | null }, secoes: () => ReactNode): ReactNode {
+	if (estado.loading) return <Carregando />;
+	if (estado.error || !estado.data) return <Falha mensagem={estado.error || "Falha desconhecida ao buscar os dados."} />;
+	return secoes();
+}
+
+export default function ProfileDashboard({ idDeputado, searchParams }: { idDeputado: string; searchParams?: Params }) {
+	const router = useRouter();
+	const vp = useViewport();
+	const { data, loading, error } = usePerfil(idDeputado, searchParams);
+
+	const nome = nomeDoPerfil(data, searchParams);
+	const alvo: Alvo = useMemo(() => ({ nome, ref: `FEDERAL:CAMARA:${idDeputado}`, uf: "FEDERAL" }), [nome, idDeputado]);
+	const jobAtivo = useJobAtivo(alvo);
+	if (!vp) return null;
+	const mobile = vp === "mobile";
+	const foto = typeof searchParams?.foto === "string" ? searchParams.foto : undefined;
+	const abrirDossie = () => router.push(urlDossie(alvo));
+	const job = jobAtivo ? <JobPanel alvo={alvo} mobile={mobile} onAbrir={abrirDossie} acaoNoTopo /> : null;
+	const acao = <AcaoInvestigar alvo={alvo} onAbrir={abrirDossie} />;
+
+	const corpo = escolherCorpo({ loading, error, data }, () => (
+		<SecoesDoPerfil data={data as Dados} idDeputado={idDeputado} foto={foto} job={job} acao={acao} jobAtivo={jobAtivo} mobile={mobile} />
+	));
+
+	return (
+		<AppShell
+			migalhas={[{ label: "Início", href: "/" }, { label: `Perfil · ${nome}` }]}
+			tituloMobile={{ titulo: nome, subtitulo: "Perfil" }}
+			voltarHref="/"
+			jobJaVisto
+			status={<span>origem: dados abertos da câmara · acesso: público</span>}
+		>
+			{corpo}
+		</AppShell>
+	);
 }

@@ -1,469 +1,298 @@
 "use client";
 
-import { useEffect, useState, useRef, use } from "react";
-import gsap from "gsap";
-import { useGSAP } from "@gsap/react";
-import { ArrowLeft, Lock, Unlock, AlertTriangle, User, Landmark, CreditCard, ChevronRight, ChevronDown, ChevronUp, Calendar, ArrowDown, ArrowRight, ExternalLink, Activity, Info, AlertCircle, FileWarning } from "lucide-react";
-import { SiteHeader } from "@/components/layout/SiteHeader";
-import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
-import { TerminalWindow } from "@/components/ui/terminal";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ScrambleText } from "@/components/ui/scramble-text";
+import { Corners, Kv, KStats, Label, Panel, Spinner, Tag } from "@/components/ds";
+import { Paginador, usePagina } from "@/components/ds/Paginador";
+import { AppShell } from "@/components/layout/AppShell";
+import { PixelIcon } from "@/components/pixel/PixelIcon";
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { useViewport } from "@/hooks/use-mobile";
+import { agruparDespesasPorAnoMes, cpfParcial, type LancamentoCpgf, percentualSigiloso, rotuloMes } from "@/lib/cpgf";
+import { brl, iniciais } from "@/lib/format";
 
-function formatMoney(val: number) {
-	return Number(val).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+type Dados = Record<string, any>;
+const ITENS_POR_PAGINA = 50;
 
-function agruparDespesasPorAnoMes(topDespesas?: any[]) {
-	const groupedByYear: Record<string, Record<string, any[]>> = {};
-	if (!topDespesas) return groupedByYear;
-	for (const item of topDespesas) {
-		if (!item?.data) continue;
-		const parts = item.data.split("/");
-		if (parts.length === 3) {
-			const year = parts[2];
-			const month = parts[1];
-			groupedByYear[year] = groupedByYear[year] || {};
-			groupedByYear[year][month] = groupedByYear[year][month] || [];
-			groupedByYear[year][month].push(item);
-		}
-	}
-	return groupedByYear;
-}
-
-function PresidenteLoading() {
-	return (
-		<div className="min-h-screen bg-black text-green-500 font-mono flex flex-col items-center justify-center">
-			<div className="animate-pulse flex flex-col items-center">
-				<Lock className="w-12 h-12 mb-4" />
-				<p className="text-base md:text-xl tracking-widest uppercase text-center px-4">
-					<ScrambleText text="Acessando base de dados federal..." duration={1500} />
-				</p>
-				<p className="text-xs md:text-sm mt-2 text-green-700 text-center px-4">
-					<ScrambleText text="Decriptando extratos CPGF" duration={1000} delay={500} />
-				</p>
-			</div>
-		</div>
-	);
-}
-
-function PresidenteError({ error, onBack }: { error: string | null; onBack: () => void }) {
-	return (
-		<div className="min-h-screen bg-black text-green-500 font-mono p-8">
-			<Button variant="cyber" onClick={onBack} className="mb-8">
-				<ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-			</Button>
-			<div className="border border-red-500 bg-red-950/20 p-6 rounded-none max-w-2xl">
-				<h2 className="text-red-500 text-2xl mb-2 flex items-center gap-2 font-bold uppercase">
-					<AlertTriangle /> ACESSO NEGADO / ERRO
-				</h2>
-				<p className="text-red-400">{error}</p>
-			</div>
-		</div>
-	);
-}
-
-function PresidenteFotoCard({ perfil, tse }: { perfil: any; tse: any }) {
-	const fotoUrl = tse?.fotoUrl
+function Foto({ perfil, tse }: { perfil: Dados; tse: Dados }) {
+	const [falhou, setFalhou] = useState(false);
+	const url = tse?.fotoUrl
 		? `/api/proxy-image?url=${encodeURIComponent(tse.fotoUrl)}&raw=true`
 		: `/api/proxy-image?url=${encodeURIComponent(`https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/img/${tse?.idEleicao}/${tse?.idTse}/${tse?.idUe}`)}&raw=true`;
-
-	const cpfFormatado = tse?.cpf
-		? tse.cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-**")
-		: "RESTRITO";
-
 	return (
-		<TerminalWindow className="bg-green-950/10 p-4 md:p-6 border-green-500" scanline={false}>
-			<div className="absolute top-0 right-0 p-2 text-xs text-green-700 z-20">ID: {perfil.id.toUpperCase()}</div>
-			<div className="w-32 h-40 border-2 border-green-500/50 p-1 relative bg-black/80 mb-4 group overflow-hidden">
-				<div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(34,197,94,0.05)_50%)] bg-size-[100%_4px] pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity z-10" />
-				{tse?.idTse ? (
-					<img
-						src={fotoUrl}
-						alt={perfil.nome}
-						className="w-full h-full object-cover relative z-0"
-						onError={(e) => { e.currentTarget.style.display = 'none'; }}
-					/>
-				) : (
-					<div className="w-full h-full flex items-center justify-center relative z-0">
-						<User className="w-12 h-12 text-green-700" />
-					</div>
-				)}
-				<div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-green-500 z-20" />
-				<div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-green-500 z-20" />
-				<div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-green-500 z-20" />
-				<div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-green-500 z-20" />
-			</div>
-			<h1 className="text-2xl font-bold uppercase mb-1">
-				<ScrambleText text={perfil.nome} duration={1200} />
-			</h1>
-			<p className="text-sm text-green-400 bg-green-900/30 px-2 py-1 inline-block uppercase tracking-wider border border-green-500/50 mb-4">
-				{perfil.cargo}
-			</p>
-
-			<div className="space-y-3 pt-4 border-t border-green-900/50">
-				<div>
-					<p className="text-xs text-green-600 uppercase">Período de Análise</p>
-					<p className="text-sm font-bold">{perfil.mandato}</p>
-				</div>
-				<div>
-					<p className="text-xs text-green-600 uppercase">Documento Principal</p>
-					<p className="text-sm font-bold">{cpfFormatado}</p>
-				</div>
-			</div>
-		</TerminalWindow>
+		<div className="pg-photo">
+			<Corners />
+			{tse?.idTse && !falhou ? (
+				// eslint-disable-next-line @next/next/no-img-element
+				<img src={url} alt={perfil.nome} onError={() => setFalhou(true)} />
+			) : (
+				<>
+					<span className="pg-photo__initials">{iniciais(perfil.nome ?? "")}</span>
+					<small className="pg-photo__none">SEM FOTO</small>
+				</>
+			)}
+		</div>
 	);
 }
 
-function PresidentePatrimonioCard({ tse }: { tse: any }) {
-	const bens = tse?.bens || [];
+function Identidade({ perfil, tse }: { perfil: Dados; tse: Dados }) {
 	return (
-		<TerminalWindow 
-			title="Patrimônio Declarado" 
-			className="bg-green-950/10 p-4 md:p-6 border-green-500"
-			scanline={false}
-		>
-			<p className="text-3xl font-bold text-green-400 mb-2 mt-2">{formatMoney(tse?.patrimonio || 0)}</p>
-			<p className="text-xs text-green-600 uppercase mb-4">Fonte: TSE ({tse?.eleicao})</p>
+		<Panel title="Perfil" sub="Presidência da República">
+			<div className="pg-ficha" style={{ padding: 0 }}>
+				<Foto perfil={perfil} tse={tse} />
+				<div className="pg-stack" style={{ minWidth: 0 }}>
+					<h1 style={{ font: "700 var(--pg-t-lg)/1.2 var(--pg-font)", textTransform: "uppercase", color: "var(--pg-ink-1)", textShadow: "var(--pg-glow)" }}>{perfil.nome}</h1>
+					<div className="pg-chiprow">
+						<Tag tone="phos">{perfil.cargo}</Tag>
+					</div>
+				</div>
+			</div>
+			<Kv
+				items={[
+					{ key: "periodo", label: "Período", value: perfil.mandato },
+					{ key: "doc", label: "Documento", value: <span className="pg-code">{cpfParcial(tse?.cpf)}</span> },
+				]}
+			/>
+		</Panel>
+	);
+}
 
-			{bens.length > 0 && (
-				<div className="space-y-2">
-					{bens.map((b: any, i: number) => (
-						<div key={i} className="text-xs border-l-2 border-green-500 pl-2">
-							<p className="text-green-300" title={b.descricao}>{b.descricao}</p>
-							<p className="text-green-500 font-bold">{formatMoney(b.valor)}</p>
-						</div>
+function Patrimonio({ tse }: { tse: Dados }) {
+	const bens: Dados[] = tse?.bens || [];
+	return (
+		<Panel title="Patrimônio declarado" sub={`Fonte: TSE ${tse?.eleicao ?? ""}`}>
+			<div className="pg-hero-n">{brl(tse?.patrimonio || 0)}</div>
+			{bens.map((b, i) => (
+				<div key={i} className="pg-lrow" style={{ gridTemplateColumns: "1fr auto", paddingInline: 0, minHeight: 44 }}>
+					<div className="pg-lrow__main">
+						<b style={{ whiteSpace: "normal" }} title={b.descricao}>{b.descricao}</b>
+					</div>
+					<span className="pg-lrow__meta" style={{ color: "var(--pg-ink-1)" }}>{brl(b.valor)}</span>
+				</div>
+			))}
+		</Panel>
+	);
+}
+
+function Lancamentos({ itens, onAbrir }: { itens: LancamentoCpgf[]; onAbrir: (l: LancamentoCpgf) => void }) {
+	const pag = usePagina(itens, ITENS_POR_PAGINA);
+	return (
+		<div className="pg-acc__body">
+			{pag.fatia.map((l, i) => {
+				const sigiloso = !l.nomeFornecedor;
+				return (
+					<button key={i} type="button" className={`pg-acc__tx${sigiloso ? " pg-acc__tx--sig" : ""}`} onClick={() => onAbrir(l)}>
+						<b>
+							{sigiloso ? "◆ " : ""}
+							{l.nomeFornecedor ? l.nomeFornecedor.toLowerCase() : "SIGILOSO"}
+						</b>
+						<span>{l.data?.substring(0, 5)}</span>
+						<span className="pg-acc__val">{brl(l.valor)}</span>
+					</button>
+				);
+			})}
+			<Paginador p={pag} />
+		</div>
+	);
+}
+
+function GrupoMes({ chave, mes, itens, aberto, onAlternar, onAbrir }: { chave: string; mes: string; itens: LancamentoCpgf[]; aberto: boolean; onAlternar: (k: string) => void; onAbrir: (l: LancamentoCpgf) => void }) {
+	const total = itens.reduce((acc, i) => acc + i.valor, 0);
+	return (
+		<div className="pg-acc">
+			<button type="button" className="pg-acc__head" aria-expanded={aberto} onClick={() => onAlternar(chave)}>
+				<PixelIcon name={aberto ? "chevd" : "chev"} size={14} />
+				<b>
+					{rotuloMes(mes)} · {itens.length} itens
+				</b>
+				<span className="pg-label">{brl(total)}</span>
+			</button>
+			{aberto ? <Lancamentos itens={itens} onAbrir={onAbrir} /> : null}
+		</div>
+	);
+}
+
+function Extrato({ cpgf, onAbrir }: { cpgf: Dados; onAbrir: (l: LancamentoCpgf) => void }) {
+	const [aberto, setAberto] = useState<string | null>(null);
+	const pct = percentualSigiloso(cpgf.countSigiloso, cpgf.countTotal);
+	const porAno = agruparDespesasPorAnoMes(cpgf?.topDespesas);
+	const anos = Object.keys(porAno).sort((a, b) => b.localeCompare(a));
+	const alternar = (k: string) => setAberto((atual) => (atual === k ? null : k));
+
+	return (
+		<Panel title="Cartão corporativo (CPGF)" sub="Extrato por período" flush>
+			<div className="pg-panel__body">
+				<KStats
+					cols={2}
+					items={[
+						{ key: "tot", label: "Gasto da amostra", value: brl(cpgf.totalValor) },
+						{ key: "sig", label: "Valor sigiloso", value: brl(cpgf.totalSigiloso), tone: "crit" },
+						{ key: "n", label: "Lançamentos", value: String(cpgf.countTotal) },
+						{ key: "pct", label: "Ocultação", value: `${String(pct).replace(".", ",")}%`, tone: "crit" },
+					]}
+				/>
+				<div className="pg-stack">
+					<div className="pg-opac" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Grau de opacidade do gasto">
+						<i style={{ width: `${pct}%` }} />
+					</div>
+					<p className="pg-label" style={{ textAlign: "right" }}>Grau de opacidade do gasto</p>
+				</div>
+			</div>
+			{anos.length === 0 ? <p className="pg-empty">Nenhum dado aberto retornado na amostragem.</p> : null}
+			{anos.map((ano) => (
+				<div key={ano}>
+					<div className="pg-acc__head" style={{ cursor: "default", gridTemplateColumns: "1fr" }}>
+						<b>{ano}</b>
+					</div>
+					{Object.keys(porAno[ano]).sort((a, b) => b.localeCompare(a)).map((mes) => (
+						<GrupoMes key={`${ano}-${mes}`} chave={`${ano}-${mes}`} mes={mes} itens={porAno[ano][mes]} aberto={aberto === `${ano}-${mes}`} onAlternar={alternar} onAbrir={onAbrir} />
 					))}
 				</div>
-			)}
-		</TerminalWindow>
+			))}
+		</Panel>
 	);
 }
 
-function PresidenteTransacaoDrawer({
-	selectedTransaction,
-	onClose,
-}: {
-	selectedTransaction: any;
-	onClose: () => void;
-}) {
+function DetalheLancamento({ l }: { l: LancamentoCpgf }) {
+	const sigiloso = !l.nomeFornecedor;
 	return (
-		<Drawer open={Boolean(selectedTransaction)} onOpenChange={(open: boolean) => { if (!open) onClose(); }}>
-			<DrawerContent className="bg-black border-green-500/50 max-h-[85vh]">
-				<DrawerHeader>
-					<DrawerTitle className="text-green-500 font-mono tracking-wider">Detalhes da Transação</DrawerTitle>
-					<DrawerDescription className="text-green-600/70 font-mono">
-						Lançamento do Cartão de Pagamento
-					</DrawerDescription>
-				</DrawerHeader>
-				{selectedTransaction && (
-					<div className="p-4 flex flex-col gap-6 font-mono overflow-y-auto">
-						<div className="flex items-center gap-4">
-							<div className="bg-green-900/30 p-4 rounded-full border border-green-900/50">
-								<Landmark className="w-8 h-8 text-green-500" />
-							</div>
-							<div>
-								<p className="text-xs text-green-600 uppercase mb-1">Fornecedor</p>
-								<p className="text-base font-bold text-green-300">{selectedTransaction.nomeFornecedor || "SIGILOSO"}</p>
-							</div>
-						</div>
-						<div className="grid grid-cols-2 gap-6 p-4 bg-green-950/10 border border-green-900/30">
-							<div>
-								<p className="text-xs text-green-600 uppercase mb-1 flex items-center gap-1">
-									<CreditCard className="w-3 h-3" /> Valor
-								</p>
-								<p className="text-xl font-bold text-green-500">{formatMoney(selectedTransaction.valor)}</p>
-							</div>
-							<div>
-								<p className="text-xs text-green-600 uppercase mb-1 flex items-center gap-1">
-									<Calendar className="w-3 h-3" /> Data
-								</p>
-								<p className="text-base text-green-400">{selectedTransaction.data}</p>
-							</div>
-						</div>
-						<div>
-							<p className="text-xs text-green-600 uppercase mb-1">CNPJ / CPF do Favorecido</p>
-							<p className="text-sm text-green-400 font-mono bg-green-950/20 p-2 border border-green-900/30 inline-block">{selectedTransaction.cnpj || "N/A"}</p>
-						</div>
+		<div className="pg-insp__scroll" style={{ padding: 16 }}>
+			<div>
+				<Label>Lançamento CPGF</Label>
+				<h3 style={{ color: sigiloso ? "var(--pg-crit)" : "var(--pg-ink-1)", textTransform: "uppercase" }}>
+					{sigiloso ? "◆ SIGILOSO" : l.nomeFornecedor}
+				</h3>
+				<p className="pg-insp__subt">Cartão de pagamento do governo federal</p>
+			</div>
+			{sigiloso ? (
+				<div className="pg-riskbox pg-riskbox--crit">
+					<p>&gt; Lançamento sob sigilo: favorecido e finalidade não divulgados.</p>
+				</div>
+			) : null}
+			<Kv
+				items={[
+					{ key: "valor", label: "Valor", value: brl(l.valor), big: true },
+					{ key: "data", label: "Data", value: l.data ?? "—" },
+					{ key: "cnpj", label: "CNPJ/CPF", value: <span className="pg-code">{l.cnpj || "N/A"}</span> },
+				]}
+			/>
+		</div>
+	);
+}
+
+function PainelLancamento({ l, onFechar, mobile }: { l: LancamentoCpgf | null; onFechar: () => void; mobile: boolean }) {
+	const conteudo = l ? <DetalheLancamento l={l} /> : null;
+	if (mobile) {
+		return (
+			<Drawer open={Boolean(l)} onOpenChange={(o) => !o && onFechar()}>
+				<DrawerContent>
+					<DrawerTitle className="sr-only">Detalhes da transação</DrawerTitle>
+					<DrawerDescription className="sr-only">Lançamento do cartão de pagamento</DrawerDescription>
+					<div className="pg-drawer__body">{conteudo}</div>
+				</DrawerContent>
+			</Drawer>
+		);
+	}
+	return (
+		<Sheet open={Boolean(l)} onOpenChange={(o) => !o && onFechar()}>
+			<SheetContent>
+				<SheetTitle className="sr-only">Detalhes da transação</SheetTitle>
+				<SheetDescription className="sr-only">Lançamento do cartão de pagamento</SheetDescription>
+				{conteudo}
+			</SheetContent>
+		</Sheet>
+	);
+}
+
+function usePresidente(id: string) {
+	const [data, setData] = useState<Dados | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	useEffect(() => {
+		fetch(`/api/perfil/presidente/${id}`)
+			.then((res) => {
+				if (!res.ok) throw new Error("Perfil não encontrado ou erro na API");
+				return res.json();
+			})
+			.then(setData)
+			.catch((e: Error) => setError(e.message))
+			.finally(() => setLoading(false));
+	}, [id]);
+	return { data, loading, error };
+}
+
+function Corpo({ data, onAbrir, mobile }: { data: Dados; onAbrir: (l: LancamentoCpgf) => void; mobile: boolean }) {
+	const { perfil, tse, cpgf } = data;
+	const lateral = (
+		<div className="pg-stack" style={{ gap: 16 }}>
+			<Identidade perfil={perfil} tse={tse} />
+			<Patrimonio tse={tse} />
+		</div>
+	);
+	const extrato = <Extrato cpgf={cpgf} onAbrir={onAbrir} />;
+	return (
+		<div className="pg-view">
+			<div className="pg-view__inner" style={{ gap: 16 }}>
+				{mobile ? (
+					<>
+						{lateral}
+						{extrato}
+					</>
+				) : (
+					<div className="pg-cols13">
+						{lateral}
+						{extrato}
 					</div>
 				)}
-				<DrawerFooter>
-					<DrawerClose asChild>
-						<Button variant="outline" className="border-green-900 text-green-500 hover:bg-green-900/50 hover:text-green-400 w-full rounded-none">
-							Fechar
-						</Button>
-					</DrawerClose>
-				</DrawerFooter>
-			</DrawerContent>
-		</Drawer>
+			</div>
+		</div>
 	);
 }
 
 export default function PresidentePerfilPage(props: { params: Promise<{ id: string }> }) {
-	const params = use(props.params);
+	const { id } = use(props.params);
 	const router = useRouter();
-	const [data, setData] = useState<any>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
-	const [lastExpandedGroup, setLastExpandedGroup] = useState<string | null>(null);
-	const [currentPage, setCurrentPage] = useState(1);
-	const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
-	const accordionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+	const vp = useViewport();
+	const { data, loading, error } = usePresidente(id);
+	const [lancamento, setLancamento] = useState<LancamentoCpgf | null>(null);
+	if (!vp) return null;
+	const mobile = vp === "mobile";
+	const nome: string = data?.perfil?.nome ?? "Presidente";
 
-	useGSAP(() => {
-		Object.keys(accordionRefs.current).forEach((key) => {
-			const wrapper = accordionRefs.current[key];
-			if (wrapper) {
-				const inner = wrapper.children[0];
-				const rows = wrapper.querySelectorAll(".transaction-row");
-				gsap.killTweensOf([wrapper, inner, rows]);
-				if (expandedGroup === key) {
-					gsap.to(wrapper, { height: "auto", opacity: 1, duration: 0.35, ease: "power2.out" });
-				} else {
-					gsap.to(wrapper, { height: 0, opacity: 0, duration: 0.25, ease: "power2.inOut" });
-				}
-			}
-		});
-	}, [expandedGroup]);
-
-	useEffect(() => {
-		async function loadPerfil() {
-			try {
-				const res = await fetch(`/api/perfil/presidente/${params.id}`);
-				if (!res.ok) {
-					throw new Error("Perfil não encontrado ou erro na API");
-				}
-				const json = await res.json();
-				setData(json);
-			} catch (err: any) {
-				setError(err.message);
-			} finally {
-				setLoading(false);
-			}
-		}
-		loadPerfil();
-	}, [params.id]);
-
-	if (loading) return <PresidenteLoading />;
-	if (error || !data) return <PresidenteError error={error} onBack={() => router.push("/")} />;
-
-	const { perfil, tse, cpgf } = data;
-	const percentSigiloso = cpgf.countTotal > 0 ? ((cpgf.countSigiloso / cpgf.countTotal) * 100).toFixed(1) : 0;
-	const groupedByYear = agruparDespesasPorAnoMes(cpgf?.topDespesas);
-	const sortedYears = Object.keys(groupedByYear).sort((a, b) => b.localeCompare(a));
-	const ITEMS_PER_PAGE = 50;
+	let corpo;
+	if (loading) {
+		corpo = (
+			<div className="pg-view">
+				<div className="pg-view__inner">
+					<Panel title="Acessando base de dados federal" sub="Decriptando extratos CPGF">
+						<p className="pg-note"><Spinner /> Consultando…</p>
+					</Panel>
+				</div>
+			</div>
+		);
+	} else if (error || !data) {
+		corpo = (
+			<div className="pg-view">
+				<div className="pg-view__inner">
+					<Panel title="Acesso negado / erro">
+						<div className="pg-riskbox pg-riskbox--crit"><p>◆ {error}</p></div>
+						<button type="button" className="pg-btn" onClick={() => router.push("/")}>Voltar ao início</button>
+					</Panel>
+				</div>
+			</div>
+		);
+	} else corpo = <Corpo data={data} onAbrir={setLancamento} mobile={mobile} />;
 
 	return (
-		<div className="min-h-screen flex flex-col bg-black text-green-500 font-mono overflow-x-hidden relative">
-			<SiteHeader showSearch={false} />
-
-			<div className="p-4 md:p-8">
-				<div className="max-w-6xl mx-auto mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-					<Button 
-						variant="ghost" 
-						className="text-green-500 hover:text-green-400 hover:bg-green-950 px-3 uppercase tracking-widest text-xs"
-						onClick={() => router.push("/")}
-					>
-						<ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-					</Button>
-					<div className="text-right">
-						<p className="text-xs text-green-700 uppercase tracking-widest">Nível de Acesso: CONFIDENCIAL</p>
-						<p className="text-xs text-green-600 uppercase">Origem: PORTAL_TRANSPARENCIA + TSE</p>
-					</div>
-				</div>
-
-			<div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-				<div className="md:col-span-1 space-y-6">
-					<PresidenteFotoCard perfil={perfil} tse={tse} />
-					<PresidentePatrimonioCard tse={tse} />
-				</div>
-
-				<div className="md:col-span-2 space-y-6">
-					<TerminalWindow 
-						title="Extrato Cartão Corporativo (CPGF)"
-						className="bg-black p-4 md:p-6 border-green-500"
-						scanline={false}
-					>
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 mt-4">
-							<div className="border border-green-900/50 p-3">
-								<p className="text-[10px] text-green-600 uppercase mb-1">Gasto Total da Amostra</p>
-								<p className="text-xl md:text-2xl font-bold whitespace-nowrap">{formatMoney(cpgf.totalValor)}</p>
-							</div>
-							<div className="border border-red-900/50 bg-red-950/10 p-3">
-								<p className="text-[10px] text-red-500 uppercase mb-1 flex items-center gap-1"><Lock className="w-3 h-3 shrink-0" /> Valor Sigiloso</p>
-								<p className="text-xl md:text-2xl font-bold text-red-500 whitespace-nowrap">{formatMoney(cpgf.totalSigiloso)}</p>
-							</div>
-							<div className="border border-green-900/50 p-3">
-								<p className="text-[10px] text-green-600 uppercase mb-1">Total Lançamentos</p>
-								<p className="text-xl md:text-2xl font-bold">{cpgf.countTotal}</p>
-							</div>
-							<div className="border border-red-900/50 p-3">
-								<p className="text-[10px] text-red-500 uppercase mb-1">% de Ocultação</p>
-								<p className="text-xl md:text-2xl font-bold text-red-500">{percentSigiloso}%</p>
-							</div>
-						</div>
-
-						<div className="w-full h-2 bg-green-900/30 mb-2 relative">
-							<div
-								className="h-full bg-red-500 absolute top-0 left-0"
-								style={{ width: `${percentSigiloso}%` }}
-							/>
-						</div>
-						<p className="text-xs text-green-700 text-right mb-6">Grau de opacidade governamental</p>
-
-						<h3 className="text-sm font-bold uppercase mb-4 text-green-400 border-b border-green-900/50 pb-2">Lançamentos por Período (Ano-Mês)</h3>
-
-						{sortedYears.length > 0 ? (
-							<div className="flex flex-col gap-6 mb-8">
-								{sortedYears.map((year) => {
-									const monthsObj = groupedByYear[year];
-									const sortedMonths = Object.keys(monthsObj).sort((a, b) => b.localeCompare(a));
-
-									return (
-										<div key={year} className="flex flex-col gap-2">
-											<h4 className="text-lg font-bold text-green-300 border-l-4 border-green-500 pl-3 md:ml-1 tracking-widest">{year}</h4>
-											{sortedMonths.map((month) => {
-												const groupKey = `${year}-${month}`;
-												const isExpanded = expandedGroup === groupKey;
-												const shouldRenderContent = isExpanded || lastExpandedGroup === groupKey;
-												const items = monthsObj[month];
-												const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
-												const currentItems = items.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-												const groupTotal = items.reduce((acc, curr) => acc + curr.valor, 0);
-
-												const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-												const monthLabel = monthNames[parseInt(month, 10) - 1] || month;
-
-												return (
-													<div key={groupKey} className="border border-green-900/50 bg-green-950/5 md:ml-2">
-														<button
-															className="w-full flex items-center justify-between p-3 md:p-4 hover:bg-green-900/20 text-left transition-colors"
-															onClick={() => {
-																if (isExpanded) {
-																	setLastExpandedGroup(groupKey);
-																	setExpandedGroup(null);
-																} else {
-																	setLastExpandedGroup(expandedGroup);
-																	setExpandedGroup(groupKey);
-																	setCurrentPage(1);
-																}
-															}}
-														>
-															<div className="flex items-center gap-2 md:gap-3">
-																<Calendar className="w-4 h-4 text-green-600 hidden xs:block" />
-																<span className="font-bold text-green-400 uppercase w-10 md:w-12 text-sm md:text-base">{monthLabel}</span>
-																<span className="text-[12px] md:text-[10px] bg-green-900/50 text-green-300 px-1.5 md:px-2 py-0.5 rounded-sm whitespace-nowrap">{items.length} itens</span>
-															</div>
-															<div className="flex items-center gap-2 md:gap-4">
-																<span className="text-xs md:text-sm font-bold text-green-500 whitespace-nowrap">{formatMoney(groupTotal)}</span>
-																{isExpanded ? <ChevronUp className="w-4 h-4 text-green-600 shrink-0" /> : <ChevronDown className="w-4 h-4 text-green-600 shrink-0" />}
-															</div>
-														</button>
-
-														<div
-															ref={(el) => {
-																accordionRefs.current[groupKey] = el;
-															}}
-															className="overflow-hidden h-0 opacity-0"
-														>
-															<div className="p-4 border-t border-green-900/50 bg-black/50">
-																<div className="hidden md:block overflow-x-auto">
-																	<table className="w-full text-left border-collapse">
-																		<thead>
-																			<tr className="border-b border-green-900/50 text-green-600 text-xs uppercase tracking-wider">
-																				<th className="p-3 font-medium">Data</th>
-																				<th className="p-3 font-medium">Fornecedor</th>
-																				<th className="p-3 font-medium">CNPJ</th>
-																				<th className="p-3 font-medium text-right">Valor</th>
-																			</tr>
-																		</thead>
-																		<tbody className="divide-y divide-green-900/20">
-																			{shouldRenderContent && currentItems.map((item: any, idx: number) => (
-																				<tr key={idx} className="transaction-row hover:bg-green-900/10 transition-colors">
-																					<td className="p-3 text-xs text-green-600 whitespace-nowrap">{item.data ? item.data.substring(0, 5) : ""}</td>
-																					<td className="p-3 text-sm font-bold text-green-300 capitalize">{item.nomeFornecedor ? item.nomeFornecedor.toLowerCase() : "Sigiloso"}</td>
-																					<td className="p-3 text-xs text-green-600/70 font-mono">{item.cnpj}</td>
-																					<td className="p-3 text-sm font-bold text-green-400 text-right whitespace-nowrap">{formatMoney(item.valor)}</td>
-																				</tr>
-																			))}
-																		</tbody>
-																	</table>
-																</div>
-
-																<div className="flex flex-col divide-y divide-green-950 md:hidden">
-																	{shouldRenderContent && currentItems.map((item: any, idx: number) => (
-																		<div
-																			key={idx}
-																			className="transaction-row flex items-center justify-between gap-3 py-3 px-0 hover:bg-green-900/20 cursor-pointer transition-colors"
-																			onClick={() => setSelectedTransaction(item)}
-																		>
-																			<div className="flex flex-col min-w-0 flex-1 pr-2">
-																				<span className="text-xs font-bold text-green-300 truncate capitalize">{item.nomeFornecedor ? item.nomeFornecedor.toLowerCase() : "Sigiloso"}</span>
-																				<span className="text-xs text-green-600">{item.data ? item.data.substring(0, 5) : ""}</span>
-																			</div>
-																			<div className="flex items-center gap-2 shrink-0">
-																				<span className="font-bold text-green-400 text-xs whitespace-nowrap">{formatMoney(item.valor)}</span>
-																				<ChevronRight className="w-4 h-4 text-green-600 shrink-0" />
-																			</div>
-																		</div>
-																	))}
-																</div>
-
-																{shouldRenderContent && totalPages > 1 && (
-																	<div className="flex items-center justify-between mt-4 border-t border-green-900/30 pt-4">
-																		<Button
-																			variant="outline"
-																			size="sm"
-																			className="border-green-900 text-green-500 hover:bg-green-900/50"
-																			onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-																			disabled={currentPage === 1}
-																		>
-																			Anterior
-																		</Button>
-																		<span className="text-xs text-green-600">Página {currentPage} de {totalPages}</span>
-																		<Button
-																			variant="outline"
-																			size="sm"
-																			className="border-green-900 text-green-500 hover:bg-green-900/50"
-																			onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-																			disabled={currentPage === totalPages}
-																		>
-																			Próxima
-																		</Button>
-																	</div>
-																)}
-															</div>
-														</div>
-													</div>
-												);
-											})}
-										</div>
-									);
-								})}
-							</div>
-						) : (
-							<div className="text-center py-8 text-green-700 text-xs uppercase border border-dashed border-green-900/50 mb-8">
-								<Unlock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-								Nenhum dado aberto retornado na amostragem.
-							</div>
-						)}
-					</TerminalWindow>
-
-					<div className="border border-dashed border-green-900/50 p-6 flex flex-col items-center justify-center text-center opacity-50">
-						<AlertTriangle className="w-8 h-8 mb-2" />
-						<p className="text-xs uppercase">Módulos em Desenvolvimento</p>
-						<p className="text-[10px] mt-2 max-w-xs">Análise de Viagens FAB, Licitações Federais e Enriquecimento Societário de Fornecedores.</p>
-					</div>
-				</div>
-			</div>
-
-			<PresidenteTransacaoDrawer
-				selectedTransaction={selectedTransaction}
-				onClose={() => setSelectedTransaction(null)}
-			/>
-			</div>
-		</div>
+		<AppShell
+			migalhas={[{ label: "Início", href: "/" }, { label: `Presidência · ${nome}` }]}
+			tituloMobile={{ titulo: nome, subtitulo: "Presidência" }}
+			voltarHref="/"
+			status={<span>origem: portal da transparência + TSE · acesso: público</span>}
+		>
+			{corpo}
+			<PainelLancamento l={lancamento} onFechar={() => setLancamento(null)} mobile={mobile} />
+		</AppShell>
 	);
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { tituloCaso } from "@/lib/texto";
 import ProfileDashboard from "./ProfileDashboard";
 
 function extrairStringParam(val: unknown): string | undefined {
@@ -29,7 +30,8 @@ export async function generateMetadata(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<Metadata> {
   const searchParams = await props.searchParams;
-  const nome = extrairStringParam(searchParams.nome);
+  const nomeBruto = extrairStringParam(searchParams.nome);
+  const nome = nomeBruto ? tituloCaso(nomeBruto) : undefined;
   const partido = extrairStringParam(searchParams.partido);
   const uf = extrairStringParam(searchParams.uf);
   const foto = extrairStringParam(searchParams.foto);

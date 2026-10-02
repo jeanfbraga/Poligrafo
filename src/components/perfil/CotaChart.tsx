@@ -1,148 +1,83 @@
 "use client";
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
-import { formatCurrency } from "@/lib/utils";
-import { TerminalWindow } from "@/components/ui/terminal";
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Panel, Tag } from "@/components/ds";
+import { ESTILO_TOOLTIP, ESTILO_TOOLTIP_ITEM, ESTILO_TOOLTIP_ROTULO } from "@/components/ds/chart-tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { type ResumoDaCota, resumirCotaMensal } from "@/lib/cota-mensal";
+import { brl } from "@/lib/format";
 
-const VERBA_GABINETE_TETO = 125734.51; // Valor aproximado atual
+type Dados = Record<string, any>;
 
-const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const VERBA_GABINETE_TETO = 125734.51; // valor aproximado atual
 
-function montarDadosGrafico(cota: any[], tetoCEAP: number) {
-  return MESES.map((nomeMes, index) => {
-    const mesNum = index + 1;
-    const registro = cota.find((c: any) => c.mes_referencia === mesNum);
-    return {
-      name: nomeMes,
-      gasto: registro ? registro.valor_gasto : 0,
-      teto: tetoCEAP,
-      mesNum,
-    };
-  });
+function Grafico({ resumo, mobile }: { resumo: ResumoDaCota; mobile: boolean }) {
+	const { dados, teto } = resumo;
+	return (
+		<div style={{ height: mobile ? 220 : 270, width: "100%" }}>
+			<ResponsiveContainer width="100%" height="100%">
+				<BarChart data={dados} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+					<CartesianGrid stroke="#12301f" vertical={false} />
+					<XAxis dataKey="name" stroke="#4f9b6c" fontSize={10} tickLine={false} axisLine={{ stroke: "#1f4d31" }} tickFormatter={(v: string) => (mobile ? v.slice(0, 1) : v)} />
+					<YAxis stroke="#4f9b6c" fontSize={10} width={mobile ? 38 : 55} tickLine={false} axisLine={{ stroke: "#1f4d31" }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
+					<Tooltip formatter={(v) => [brl(Number(v)), "Gasto CEAP"]} contentStyle={ESTILO_TOOLTIP} itemStyle={ESTILO_TOOLTIP_ITEM} labelStyle={ESTILO_TOOLTIP_ROTULO} cursor={{ fill: "#102a1a", opacity: 0.6 }} />
+					<Bar dataKey="gasto" maxBarSize={36} radius={0}>
+						{dados.map((d) => (
+							<Cell key={d.name} fill={teto > 0 && d.gasto > teto ? "#ffb224" : "#3dff8b"} fillOpacity={0.85} />
+						))}
+					</Bar>
+					<ReferenceLine y={teto} stroke="#ffb224" strokeDasharray="5 4" label={{ position: "top", value: "TETO CEAP", fill: "#ffb224", fontSize: 10 }} />
+				</BarChart>
+			</ResponsiveContainer>
+		</div>
+	);
 }
 
-function obterConfigMobile(isMobile: boolean) {
-  if (isMobile) {
-    return {
-      margin: { top: 20, right: 0, left: -25, bottom: 0 },
-      xAxisFontSize: 10,
-      xAxisTickMargin: 5,
-      yAxisWidth: 45,
-      tooltipFontSize: "10px",
-      tooltipPadding: "4px 8px",
-      formatXAxis: (v: string) => v.substring(0, 1),
-      formatYAxis: (v: number) => `${(v / 1000).toFixed(0)}k`,
-    };
-  }
-  return {
-    margin: { top: 20, right: 10, left: 10, bottom: 5 },
-    xAxisFontSize: 12,
-    xAxisTickMargin: 10,
-    yAxisWidth: 55,
-    tooltipFontSize: "12px",
-    tooltipPadding: "10px",
-    formatXAxis: (v: string) => v,
-    formatYAxis: (v: number) => `R$ ${(v / 1000).toFixed(0)}k`,
-  };
+/** Situação do ano em relação ao teto; sem gasto algum, não afirma "dentro do teto". */
+function SituacaoDoTeto({ resumo }: { resumo: ResumoDaCota }) {
+	const { situacao, mesesAcima, ano } = resumo;
+	if (situacao === "sem-gasto") return <Tag>sem gastos registrados em {ano}</Tag>;
+	if (situacao === "dentro") return <Tag tone="phos">dentro do teto</Tag>;
+	return <Tag tone="warn">▲ acima do teto: {mesesAcima} {mesesAcima === 1 ? "mês" : "meses"}</Tag>;
 }
 
-export default function CotaChart({ cota }: { cota: any[] }) {
-  const isMobile = useIsMobile();
+function SemGastos({ resumo }: { resumo: ResumoDaCota }) {
+	return (
+		<p className="pg-note">
+			Nenhuma despesa de cota consta na base da Câmara para {resumo.ano}. Pode ser mandato recente, cota não utilizada ou notas ainda não publicadas.
+		</p>
+	);
+}
 
-  if (!cota || cota.length === 0) {
-    return (
-      <TerminalWindow 
-        title={`Cota Parlamentar (CEAP) - ${new Date().getFullYear()}`}
-      >
-        <p className="text-green-400/80">Nenhum dado de cota encontrado para este deputado.</p>
-      </TerminalWindow>
-    );
-  }
+export default function CotaChart({ cota }: { cota: Dados[] }) {
+	const mobile = useIsMobile();
 
-  const anoReferencia = cota[0]?.ano_referencia || new Date().getFullYear();
-  const tetoCEAP = cota[0]?.valor_teto || 0;
-  const chartData = montarDadosGrafico(cota, tetoCEAP);
-  const cfg = obterConfigMobile(isMobile);
+	if (!cota || cota.length === 0) {
+		return (
+			<Panel title="Cota parlamentar (CEAP)" id="cota">
+				<p className="pg-note">Nenhum dado de cota encontrado para este deputado.</p>
+			</Panel>
+		);
+	}
 
-  return (
-    <TerminalWindow 
-      title={`Cota Parlamentar (CEAP)`}
-      badge={`Ano ${anoReferencia}`}
-    >
-      <div className="flex flex-col h-full w-full">
-        <div className="mb-4 text-xs text-green-400/60 uppercase tracking-widest text-center">
-          Evolução de Gastos vs Limites (R$)
-        </div>
+	const resumo = resumirCotaMensal(cota);
 
-        <div className="h-64 sm:h-72 w-full mt-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chartData}
-              margin={cfg.margin}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#15803d" vertical={false} opacity={0.3} />
-              <XAxis 
-                dataKey="name" 
-                stroke="#22c55e" 
-                fontSize={cfg.xAxisFontSize} 
-                tickMargin={cfg.xAxisTickMargin}
-                tickFormatter={cfg.formatXAxis}
-                axisLine={{ stroke: '#15803d' }}
-                tickLine={false}
-              />
-              <YAxis 
-                stroke="#22c55e" 
-                fontSize={10} 
-                width={cfg.yAxisWidth}
-                tickFormatter={cfg.formatYAxis}
-                axisLine={{ stroke: '#15803d' }}
-                tickLine={false}
-              />
-              <Tooltip
-                formatter={(value: number, name: string) => [formatCurrency(value), name === 'gasto' ? 'Gasto CEAP' : name]}
-                labelStyle={{ color: '#22c55e', fontWeight: 'bold' }}
-                contentStyle={{ backgroundColor: 'black', border: '1px solid #22c55e', color: '#22c55e', fontFamily: 'monospace', fontSize: cfg.tooltipFontSize, padding: cfg.tooltipPadding }}
-                cursor={{ fill: 'rgba(34, 197, 94, 0.1)' }}
-              />
-              <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-              
-              <Bar 
-                dataKey="gasto" 
-                name="Gasto Realizado" 
-                fill="#ef4444" 
-                radius={[2, 2, 0, 0]}
-                maxBarSize={40}
-              />
-
-              <ReferenceLine 
-                y={tetoCEAP} 
-                stroke="#3b82f6" 
-                strokeDasharray="4 4" 
-                label={{ position: 'top', value: 'Teto CEAP', fill: '#3b82f6', fontSize: 10 }} 
-              />
-              
-              <ReferenceLine 
-                y={VERBA_GABINETE_TETO} 
-                stroke="#eab308" 
-                strokeDasharray="4 4" 
-                label={{ position: 'top', value: 'Teto Verba Gabinete', fill: '#eab308', fontSize: 10 }} 
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="mt-6 pt-4 border-t border-green-500/20 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-center">
-            <div className="flex flex-row sm:flex-col justify-between sm:justify-center items-center">
-                <p className="text-[10px] md:text-xs text-blue-400/80 uppercase tracking-widest">Teto Mensal CEAP</p>
-                <p className="font-mono text-blue-400 text-sm md:text-base">{formatCurrency(tetoCEAP)}</p>
-            </div>
-            <div className="flex flex-row sm:flex-col justify-between sm:justify-center items-center">
-                <p className="text-[10px] md:text-xs text-yellow-400/80 uppercase tracking-widest">Teto Verba Gabinete</p>
-                <p className="font-mono text-yellow-400 text-sm md:text-base">{formatCurrency(VERBA_GABINETE_TETO)}</p>
-            </div>
-        </div>
-      </div>
-    </TerminalWindow>
-  );
+	return (
+		<Panel title="Cota parlamentar (CEAP)" sub={`${resumo.ano} · gasto mensal contra o teto`} id="cota">
+			{resumo.situacao === "sem-gasto" ? <SemGastos resumo={resumo} /> : <Grafico resumo={resumo} mobile={mobile} />}
+			<div className="pg-chiprow">
+				<SituacaoDoTeto resumo={resumo} />
+			</div>
+			<dl className="pg-kv">
+				<div>
+					<dt>Teto mensal CEAP</dt>
+					<dd>{brl(resumo.teto)}</dd>
+				</div>
+				<div>
+					<dt>Verba de gabinete</dt>
+					<dd>{brl(VERBA_GABINETE_TETO)}</dd>
+				</div>
+			</dl>
+		</Panel>
+	);
 }

@@ -193,37 +193,6 @@ export function sanitizarIdDeputado(id: any): number {
 	return Number(cleanStr) || 0;
 }
 
-export function criarNodeResumoCeap(
-	pessoaId: string,
-	casa: string,
-	despesas: any[]
-): any {
-	const totalGasto = despesas.reduce(
-		(acc: number, d: any) =>
-			acc + (Number(d.valorDocumento ?? d.valorLiquido ?? d.valor ?? 0) || 0),
-		0
-	);
-	const valorFmt = totalGasto.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
-
-	return {
-		id: `ceap-resumo-${pessoaId}`,
-		type: "CEAP_RESUMO",
-		_origemId: pessoaId,
-		data: {
-			label: `COTA PARLAMENTAR (${despesas.length} NOTAS AUDITADAS)`,
-			totalNotas: despesas.length,
-			totalAuditado: totalGasto,
-			valorFormatado: `R$ ${valorFmt}`,
-			casa: casa || "CAMARA",
-			alertas: [
-				`${despesas.length} despesas da cota parlamentar auditadas.`,
-				`Total amostrado: R$ ${valorFmt}`,
-			],
-			score_letalidade: 10,
-		},
-	};
-}
-
 /**
  * Retorna o primeiro valor definido e não vazio da lista de candidatos.
  * Complexidade ciclomática estrita: 3.

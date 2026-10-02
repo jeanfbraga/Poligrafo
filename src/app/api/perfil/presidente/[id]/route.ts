@@ -54,9 +54,9 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout 
 
 export async function GET(
 	request: Request,
-	context: { params: Promise<{ id: string }> | { id: string } },
+	context: { params: Promise<{ id: string }> },
 ) {
-	const { id } = await Promise.resolve(context.params);
+	const { id } = await context.params;
 	const targetId = id?.toLowerCase() || "";
 	const vipInfo = VIP_MAP[targetId];
 
