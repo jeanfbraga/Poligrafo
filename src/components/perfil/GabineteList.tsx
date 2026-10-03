@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { FilterChip, Panel, Tag } from "@/components/ds";
 import { Paginador, usePagina } from "@/components/ds/Paginador";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
-import { agruparServidores, type ServidorAgrupado, type StatusServidor } from "@/lib/gabinete";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { agruparServidores, type CargoContado, resumoPorCargo, type ServidorAgrupado, type StatusServidor } from "@/lib/gabinete";
 import { tituloCaso } from "@/lib/texto";
 
 type Dados = Record<string, any>;
@@ -32,27 +33,45 @@ function Vinculos({ servidor }: { servidor: ServidorAgrupado }) {
 	);
 }
 
-function LinhaServidor({ servidor }: { servidor: ServidorAgrupado }) {
+/** Cartão compacto: nome, cargo · período e, se houver, o botão dos períodos. Só exonerado ganha selo. */
+function CartaoServidor({ servidor }: { servidor: ServidorAgrupado }) {
 	const [aberto, setAberto] = useState(false);
 	const periodos = servidor.vinculos.length;
+	const ativo = servidor.status === "ATIVO";
 	return (
-		<>
-			<div className="pg-lrow" style={{ gridTemplateColumns: "1fr auto" }}>
-				<div className="pg-lrow__main">
+		<li className="pg-gab__item">
+			<div className="pg-gab__linha">
+				<span className={`pg-gab__dot${ativo ? "" : " pg-gab__dot--off"}`} role="img" aria-label={ativo ? "Ativo" : "Exonerado"} />
+				<div className="pg-gab__txt">
 					<b>{tituloCaso(servidor.nome)}</b>
-					<span>{tituloCaso(servidor.atual.cargo)}</span>
-					<span>{servidor.atual.periodo}</span>
-					{periodos > 1 ? (
-						<button type="button" className="pg-vinculos__toggle" aria-expanded={aberto} onClick={() => setAberto((a) => !a)}>
-							<PixelIcon name={aberto ? "chevd" : "chev"} size={12} />
-							{periodos} períodos
-						</button>
-					) : null}
+					<span>
+						{tituloCaso(servidor.atual.cargo)} · {servidor.atual.periodo}
+					</span>
 				</div>
-				<Tag tone={servidor.status === "ATIVO" ? "phos" : "steel"}>{servidor.status}</Tag>
+				{ativo ? null : <Tag tone="steel">Exonerado</Tag>}
+				{periodos > 1 ? (
+					<button type="button" className="pg-vinculos__toggle" aria-expanded={aberto} onClick={() => setAberto((a) => !a)}>
+						<PixelIcon name={aberto ? "chevd" : "chev"} size={12} />
+						{periodos} períodos
+					</button>
+				) : null}
 			</div>
 			{aberto ? <Vinculos servidor={servidor} /> : null}
-		</>
+		</li>
+	);
+}
+
+/** "22 Secretário Parlamentar · 2 Cargo de Natureza Especial": a composição do gabinete numa linha. */
+function ResumoDeCargos({ cargos }: { cargos: CargoContado[] }) {
+	if (cargos.length === 0) return null;
+	return (
+		<p className="pg-gab__cargos">
+			{cargos.map((c) => (
+				<span key={c.cargo}>
+					<b>{c.quantidade}</b> {tituloCaso(c.cargo)}
+				</span>
+			))}
+		</p>
 	);
 }
 
@@ -69,12 +88,14 @@ function SemServidores({ perfil }: { perfil?: Dados }) {
 	);
 }
 
-/** Servidores do gabinete: uma linha por pessoa, com os períodos de lotação recolhidos. */
+/** Servidores do gabinete: uma entrada por pessoa em grade compacta (2–3 colunas no desktop). */
 export default function GabineteList({ servidores, perfil }: { servidores: Dados[]; perfil?: Dados }) {
+	const mobile = useIsMobile();
 	const [filtro, setFiltro] = useState<Filtro>("TODOS");
 	const pessoas = useMemo(() => agruparServidores(servidores ?? []), [servidores]);
 	const filtrados = useMemo(() => filtrar(pessoas, filtro), [pessoas, filtro]);
-	const pag = usePagina(filtrados, 8);
+	const cargos = useMemo(() => resumoPorCargo(pessoas), [pessoas]);
+	const pag = usePagina(filtrados, mobile ? 8 : 18);
 
 	if (pessoas.length === 0) return <SemServidores perfil={perfil} />;
 
@@ -86,14 +107,19 @@ export default function GabineteList({ servidores, perfil }: { servidores: Dados
 
 	return (
 		<Panel title="Servidores do gabinete" sub={`${pessoas.length} servidores · ${servidores.length} períodos registrados`} flush id="gabinete">
-			<div className="pg-chiprow" style={{ padding: "12px 12px 8px" }}>
-				<FilterChip pressed={filtro === "TODOS"} onClick={() => escolher("TODOS")}>Todos ({pessoas.length})</FilterChip>
-				<FilterChip pressed={filtro === "ATIVOS"} onClick={() => escolher("ATIVOS")}>Ativos ({ativos})</FilterChip>
-				<FilterChip pressed={filtro === "EXONERADOS"} onClick={() => escolher("EXONERADOS")}>Exonerados ({pessoas.length - ativos})</FilterChip>
+			<div className="pg-gab__topo">
+				<ResumoDeCargos cargos={cargos} />
+				<div className="pg-chiprow">
+					<FilterChip pressed={filtro === "TODOS"} onClick={() => escolher("TODOS")}>Todos ({pessoas.length})</FilterChip>
+					<FilterChip pressed={filtro === "ATIVOS"} onClick={() => escolher("ATIVOS")}>Ativos ({ativos})</FilterChip>
+					<FilterChip pressed={filtro === "EXONERADOS"} onClick={() => escolher("EXONERADOS")}>Exonerados ({pessoas.length - ativos})</FilterChip>
+				</div>
 			</div>
-			{pag.fatia.map((s) => (
-				<LinhaServidor key={s.nome} servidor={s} />
-			))}
+			<ul className="pg-gab">
+				{pag.fatia.map((s) => (
+					<CartaoServidor key={s.nome} servidor={s} />
+				))}
+			</ul>
 			{filtrados.length === 0 ? <p className="pg-empty">Nenhum servidor encontrado para este filtro.</p> : null}
 			<Paginador p={pag} />
 		</Panel>

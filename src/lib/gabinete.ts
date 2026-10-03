@@ -97,3 +97,18 @@ export function agruparServidores(servidores: Record<string, any>[], hoje: Date 
 		})
 		.sort((a, b) => (a.status === b.status ? a.nome.localeCompare(b.nome) : a.status === "ATIVO" ? -1 : 1));
 }
+
+export interface CargoContado {
+	cargo: string;
+	quantidade: number;
+}
+
+/** Quantas pessoas ativas há em cada cargo (pelo vínculo mais recente), do maior para o menor. */
+export function resumoPorCargo(pessoas: ServidorAgrupado[]): CargoContado[] {
+	const mapa = new Map<string, number>();
+	for (const p of pessoas) {
+		if (p.status !== "ATIVO") continue;
+		mapa.set(p.atual.cargo, (mapa.get(p.atual.cargo) ?? 0) + 1);
+	}
+	return [...mapa.entries()].map(([cargo, quantidade]) => ({ cargo, quantidade })).sort((a, b) => b.quantidade - a.quantidade || a.cargo.localeCompare(b.cargo));
+}

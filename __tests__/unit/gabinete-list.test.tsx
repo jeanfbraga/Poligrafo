@@ -3,8 +3,13 @@
  */
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import GabineteList from "@/components/perfil/GabineteList";
+
+// jsdom não tem matchMedia (usado por useIsMobile).
+beforeAll(() => {
+	window.matchMedia = ((query: string) => ({ matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia;
+});
 
 const servidores = [
 	{ nome: "ALINE MARIA PEREIRA", cargo: "SECRETÁRIO PARLAMENTAR", periodo: "De 19/02/2025 a 17/02/2026" },
@@ -12,7 +17,7 @@ const servidores = [
 	{ nome: "FLAELSON LÉDA DOS REIS", cargo: "SECRETÁRIO PARLAMENTAR", periodo: "De 14/02/2025 a 17/02/2026" },
 ];
 
-describe("GabineteList — uma linha por servidor", () => {
+describe("GabineteList — uma entrada por servidor", () => {
 	it("agrupa os períodos: 3 registros viram 2 servidores", () => {
 		render(<GabineteList servidores={servidores} />);
 		expect(screen.getAllByText("Aline Maria Pereira")).toHaveLength(1);
@@ -36,6 +41,13 @@ describe("GabineteList — uma linha por servidor", () => {
 		const lista = screen.getByLabelText("Períodos de ALINE MARIA PEREIRA");
 		expect(lista).toHaveTextContent("Desde 31/03/2026");
 		expect(lista).toHaveTextContent("De 19/02/2025 a 17/02/2026");
+	});
+
+	it("resume os cargos dos ativos e só marca exonerado", () => {
+		render(<GabineteList servidores={servidores} />);
+		expect(screen.getByText("Secretário Parlamentar", { selector: "span" })).toBeInTheDocument();
+		expect(screen.getByLabelText("Exonerado")).toBeInTheDocument();
+		expect(screen.getByLabelText("Ativo")).toBeInTheDocument();
 	});
 
 	it("sem servidores mostra a mensagem do gabinete", () => {

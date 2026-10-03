@@ -433,6 +433,128 @@
 		min-width: 0;
 	}
 
+	/* ---- servidores do gabinete: grade compacta (nome, cargo · período) ---- */
+	.pg-gab__topo {
+		display: grid;
+		gap: 10px;
+		padding: 12px 16px;
+		border-bottom: 1px solid var(--pg-line);
+	}
+
+	.pg-gab__cargos {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 16px;
+		margin: 0;
+		color: var(--pg-ink-3);
+		font-size: var(--pg-t-sm);
+	}
+
+	.pg-gab__cargos b {
+		color: var(--pg-ink-1);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.pg-gab {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.pg-gab__item {
+		min-width: 0;
+		border-bottom: 1px solid var(--pg-line);
+	}
+
+	/* separador vertical entre colunas, sem borda dupla */
+	.pg-gab__item:not(:nth-child(3n + 1)) {
+		border-left: 1px solid var(--pg-line);
+	}
+
+	.pg-gab__linha {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: start;
+		gap: 4px 10px;
+		padding: 10px 14px;
+	}
+
+	.pg-gab__dot {
+		width: 8px;
+		height: 8px;
+		margin-top: 6px;
+		background: var(--pg-phos);
+		box-shadow: var(--pg-glow);
+	}
+
+	.pg-gab__dot--off {
+		background: var(--pg-ink-3);
+		box-shadow: none;
+	}
+
+	.pg-gab__txt {
+		display: grid;
+		gap: 1px;
+		min-width: 0;
+	}
+
+	.pg-gab__txt b {
+		font-weight: 600;
+		line-height: 1.35;
+		color: var(--pg-ink-1);
+		overflow-wrap: anywhere;
+	}
+
+	.pg-gab__txt span {
+		font-size: var(--pg-t-sm);
+		line-height: 1.35;
+		color: var(--pg-ink-3);
+		overflow-wrap: anywhere;
+	}
+
+	/* o botão de períodos ocupa a linha de baixo, alinhado ao texto */
+	.pg-gab__linha .pg-vinculos__toggle {
+		grid-column: 2 / -1;
+		margin-top: 2px;
+	}
+
+	.pg-gab .pg-vinculos {
+		padding-left: 32px;
+	}
+
+	@media (max-width: 1279px) {
+		.pg-gab {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		.pg-gab__item:not(:nth-child(3n + 1)) {
+			border-left: 0;
+		}
+
+		.pg-gab__item:nth-child(2n) {
+			border-left: 1px solid var(--pg-line);
+		}
+	}
+
+	@media (max-width: 767px) {
+		.pg-gab {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.pg-gab__item:nth-child(2n) {
+			border-left: 0;
+		}
+
+		.pg-gab__topo {
+			padding: 12px;
+		}
+
+		.pg-gab__linha {
+			padding: 10px 12px;
+		}
+	}
 	/* ---- servidores do gabinete: períodos de lotação de cada pessoa ---- */
 	.pg-vinculos__toggle {
 		display: inline-flex;
