@@ -23,10 +23,26 @@ export interface PayloadExportacao {
 	urlsNotasFiscais: string[];
 }
 
-/** Mesma régua do app (atenção/crítico, inclusive por regra) + todo contrato, como contexto. */
-function ehRelevante(n: DossieNode): boolean {
-	if (n.type === "PESSOA") return false;
+/** Nós que só abrem painéis (pessoa, Raio-X, atividade): não têm registro próprio para documentar. */
+const SO_NAVEGACAO = new Set(["PESSOA", "RESUMO_GASTOS", "ATIVIDADE_PARLAMENTAR"]);
+
+/** Mesma régua do app (atenção/crítico, inclusive por regra); contrato sempre conta, como contexto. */
+function temAlerta(n: DossieNode): boolean {
 	return n.type === "CONTRATO" || riscoDoNo(String(n.type), n.data) !== "ok";
+}
+
+/**
+ * Canvas = curadoria de quem investiga: o que está visível entra sempre (ex.: despesa de nota baixa
+ * arrastada do rail). Oculto (emendas recolhidas no hub) só entra com alerta, para não despejar centenas.
+ */
+function entraDoCanvas(n: DossieNode): boolean {
+	if (SO_NAVEGACAO.has(String(n.type))) return false;
+	return !n.hidden || temAlerta(n);
+}
+
+/** Rail (fora do canvas): só o que tem alerta. */
+function entraDoRail(n: DossieNode): boolean {
+	return !SO_NAVEGACAO.has(String(n.type)) && temAlerta(n);
 }
 
 /** URLs http(s) de documento comprobatório de um achado, sem repetição. */
@@ -51,13 +67,13 @@ function identificacaoDoDossie(pessoa: DossieNode | undefined, nome: string): Id
 	};
 }
 
-/** Achados de atenção/crítico + todos os contratos, ordenados por score. */
+/** Tudo o que está visível no canvas + o que tem alerta (oculto ou no rail), ordenado por score. */
 export function montarPayloadExportacao(
 	nodes: DossieNode[],
 	evidencias: DossieNode[],
 	nomeBusca: string,
 ): PayloadExportacao {
-	const entidades = [...nodes.filter(ehRelevante), ...evidencias.filter(ehRelevante)]
+	const entidades = [...nodes.filter(entraDoCanvas), ...evidencias.filter(entraDoRail)]
 		.map((n) => ({ ...n.data, type: n.type }) as Dados)
 		.sort((a, b) => scoreDoNo(b) - scoreDoNo(a));
 	const pessoa = nodes.find((n) => n.type === "PESSOA");

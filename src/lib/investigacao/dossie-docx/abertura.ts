@@ -181,8 +181,9 @@ function narrativa(m: ModeloDossie): string {
 	const nome = m.politico.nome;
 	if (t.achados === 0) {
 		return (
-			`Nenhum registro relacionado a ${nome} atingiu os critérios de seleção deste dossiê (nível de atenção ou crítico) ` +
-			"e não há contratos vinculados. Isso não atesta regularidade: indica apenas que as bases consultadas não produziram alertas."
+			`Nenhum registro relacionado a ${nome} atingiu os critérios de seleção deste dossiê (nível de atenção ou crítico), ` +
+			"não há contratos vinculados e nenhum registro foi mantido no canvas. Isso não atesta regularidade: indica apenas " +
+			"que as bases consultadas não produziram alertas."
 		);
 	}
 	const valor = t.valor > 0 ? ` Os registros financeiros somam ${brl(t.valor)}.` : "";

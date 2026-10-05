@@ -15,8 +15,20 @@ const evidencias = [no("e1", "DESPESA", { label: "Táxi", score_letalidade: 65, 
 describe("montarPayloadExportacao", () => {
 	const p = montarPayloadExportacao(nodes, evidencias, "busca");
 
-	it("inclui risco ≥ 60 e todos os contratos; exclui o resto", () => {
-		expect(p.despesasCriticas.map((d) => d.label)).toEqual(["Gráfica", "Táxi", "Pregão"]);
+	it("canvas visível entra sempre (despesa de nota baixa incluída); rail só com alerta", () => {
+		expect(p.despesasCriticas.map((d) => d.label)).toEqual(["Gráfica", "Táxi", "Posto", "Pregão"]);
+		const rail = [no("e2", "DESPESA", { label: "Café", score_letalidade: 10 })];
+		expect(montarPayloadExportacao([], rail, "").despesasCriticas).toEqual([]);
+	});
+
+	it("oculto no canvas (emenda recolhida no hub) só entra com alerta; nós de navegação nunca", () => {
+		const canvas = [
+			{ ...no("em1", "EMENDA", { label: "Emenda ok", score_letalidade: 10 }), hidden: true },
+			{ ...no("em2", "EMENDA", { label: "Emenda alerta", score_letalidade: 70 }), hidden: true },
+			no("rx", "RESUMO_GASTOS", { label: "Raio-X de Gastos", valor: 1000 }),
+			no("at", "ATIVIDADE_PARLAMENTAR", { label: "Atividade" }),
+		];
+		expect(montarPayloadExportacao(canvas, [], "").despesasCriticas.map((d) => d.label)).toEqual(["Emenda alerta"]);
 	});
 
 	it("usa a régua do app: crítico por regra entra mesmo com nota baixa; a pessoa nunca entra", () => {
