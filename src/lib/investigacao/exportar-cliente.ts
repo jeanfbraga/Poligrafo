@@ -6,8 +6,9 @@ export async function exportarDossieDocx(
 	nodes: DossieNode[],
 	evidencias: DossieNode[],
 	nomeBusca: string,
+	refAlvo?: string,
 ): Promise<string> {
-	const payload = montarPayloadExportacao(nodes, evidencias, nomeBusca);
+	const payload = montarPayloadExportacao(nodes, evidencias, nomeBusca, refAlvo);
 	const res = await fetch("/api/exportar-dossie", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },

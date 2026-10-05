@@ -93,6 +93,15 @@ function identidadeFederal(casa: string, id: string): IdentidadeInicial {
 	return { cargo: "SENADOR", urlFoto: fotoSupabase(id), urlFotoFallback: FOTO_SENADO(id) };
 }
 
+/**
+ * Id do deputado na Câmara ("FEDERAL:CAMARA:204554" → "204554"). Um fluxo grava o CPF nessa
+ * posição quando o deputado vem do TSE: 11 dígitos não são id da Câmara e voltam null.
+ */
+export function idCamaraDaRef(ref?: string): string | null {
+	const m = /^FEDERAL:CAMARA:(\d{1,7})$/.exec(ref?.trim() ?? "");
+	return m ? m[1] : null;
+}
+
 function identidadeDaRef(ref: string): IdentidadeInicial {
 	const [a, b, c] = ref.split(":");
 	if (a === "FEDERAL" && (b === "CAMARA" || b === "SENADO") && c) return identidadeFederal(b, c);

@@ -137,4 +137,4 @@ export const subtitulo = (titulo: string, detalhe?: string) =>
 		children: detalhe ? [texto(titulo), mono(`  ${detalhe}`, { size: 16, color: COR.SUAVE, bold: false })] : [texto(titulo)],
 	});
 
-export const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+export const plural = (n: number, um: string, varios: string) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;

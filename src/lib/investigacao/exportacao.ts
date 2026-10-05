@@ -4,6 +4,7 @@
    ========================================================================== */
 import type { ShareData } from "@/components/shared/ShareDialog";
 import type { DossieNode } from "./dossie-state";
+import { idCamaraDaRef } from "./alvo";
 import { riscoDoNo, scoreDoNo } from "./risco";
 
 type Dados = Record<string, any>;
@@ -19,6 +20,8 @@ export interface IdentificacaoPolitico {
 export interface PayloadExportacao {
 	nomePolitico: string;
 	politico?: IdentificacaoPolitico;
+	/** Id do deputado federal na Câmara: o servidor anexa gabinete, cota e votos do perfil. */
+	idCamara?: string;
 	despesasCriticas: Dados[];
 	urlsNotasFiscais: string[];
 }
@@ -72,6 +75,7 @@ export function montarPayloadExportacao(
 	nodes: DossieNode[],
 	evidencias: DossieNode[],
 	nomeBusca: string,
+	refAlvo?: string,
 ): PayloadExportacao {
 	const entidades = [...nodes.filter(entraDoCanvas), ...evidencias.filter(entraDoRail)]
 		.map((n) => ({ ...n.data, type: n.type }) as Dados)
@@ -81,6 +85,7 @@ export function montarPayloadExportacao(
 	return {
 		nomePolitico: nome,
 		politico: identificacaoDoDossie(pessoa, nome),
+		idCamara: idCamaraDaRef(refAlvo) ?? undefined,
 		despesasCriticas: entidades,
 		urlsNotasFiscais: [...new Set(entidades.flatMap(fontesDoAchado))],
 	};

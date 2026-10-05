@@ -1,7 +1,7 @@
 /* ==========================================================================
    Dossiê exportado — montagem do .docx.
    Capa (sem cabeçalho) + corpo com cabeçalho/rodapé paginados:
-   sumário → registros detalhados → fontes → metodologia.
+   sumário → atuação parlamentar (deputado federal) → registros detalhados → fontes → metodologia.
    ========================================================================== */
 import { Document, type IStylesOptions, Packer, PageNumber, Paragraph, SectionType, type Table, TabStopType, TextRun, Footer, Header } from "docx";
 import type { PayloadExportacao } from "../exportacao";
@@ -10,6 +10,8 @@ import { secaoAchados } from "./achados";
 import { secaoFontes, secaoMetodologia } from "./apendices";
 import { COR, FONTE, LARGURA_UTIL, linha, mono, PAGINA, texto } from "./estilo";
 import { type ModeloDossie, montarModeloDossie } from "./modelo";
+import type { PerfilNoDossie } from "./perfil";
+import { secaoPerfil } from "./secao-perfil";
 
 const ESTILOS: IStylesOptions = {
 	default: {
@@ -78,7 +80,7 @@ type Secao = (m: ModeloDossie, numero: number) => (Paragraph | Table)[] | null;
 
 /** Numera só as seções que existem (sem registros, "Registros detalhados" some). */
 function corpo(m: ModeloDossie): (Paragraph | Table)[] {
-	const secoes: Secao[] = [sumario, secaoAchados, secaoFontes, secaoMetodologia];
+	const secoes: Secao[] = [sumario, secaoPerfil, secaoAchados, secaoFontes, secaoMetodologia];
 	const blocos: (Paragraph | Table)[] = [];
 	let numero = 0;
 	for (const secao of secoes) {
@@ -109,6 +111,6 @@ export function montarDocumentoDossie(m: ModeloDossie): Document {
 	});
 }
 
-export async function gerarDossieDocx(payload: PayloadExportacao, agora: Date = new Date()): Promise<Buffer> {
-	return Packer.toBuffer(montarDocumentoDossie(montarModeloDossie(payload, agora)));
+export async function gerarDossieDocx(payload: PayloadExportacao, agora: Date = new Date(), perfil: PerfilNoDossie = null): Promise<Buffer> {
+	return Packer.toBuffer(montarDocumentoDossie(montarModeloDossie(payload, agora, perfil)));
 }

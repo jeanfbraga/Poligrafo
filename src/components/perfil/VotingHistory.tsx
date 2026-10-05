@@ -5,14 +5,10 @@ import { useMemo, useState } from "react";
 import { FilterChip, Panel } from "@/components/ds";
 import { Paginador, usePagina } from "@/components/ds/Paginador";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
+import { limparNomeProjeto } from "@/lib/votos";
 
 type Dados = Record<string, any>;
 type Filtro = "TODOS" | "SIM" | "NÃO";
-
-export function limparNomeProjeto(nome?: string): string {
-	if (!nome) return "Votação sem nome";
-	return nome.split(/\.\s*Sim:/i)[0];
-}
 
 /** Classe e rótulo do voto: sim (fósforo), não (aço), abstenção/outros (neutro). */
 export function estiloDoVoto(voto?: string): { cls: string; texto: string } {
