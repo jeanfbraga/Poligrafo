@@ -4,33 +4,54 @@
    ========================================================================== */
 import type { ShareData } from "@/components/shared/ShareDialog";
 import type { DossieNode } from "./dossie-state";
-import { scoreDoNo } from "./risco";
+import { riscoDoNo, scoreDoNo } from "./risco";
 
 type Dados = Record<string, any>;
 
-const LIMITE_RISCO = 60;
+/** Identificação da pessoa analisada (capa e cabeçalho do documento). */
+export interface IdentificacaoPolitico {
+	nome: string;
+	cargo?: string;
+	partido?: string;
+	uf?: string;
+}
 
 export interface PayloadExportacao {
 	nomePolitico: string;
+	politico?: IdentificacaoPolitico;
 	despesasCriticas: Dados[];
 	urlsNotasFiscais: string[];
 }
 
+/** Mesma régua do app (atenção/crítico, inclusive por regra) + todo contrato, como contexto. */
 function ehRelevante(n: DossieNode): boolean {
-	return scoreDoNo(n.data) >= LIMITE_RISCO || n.type === "CONTRATO";
+	if (n.type === "PESSOA") return false;
+	return n.type === "CONTRATO" || riscoDoNo(String(n.type), n.data) !== "ok";
 }
 
-function linksDe(d: Dados): string[] {
-	const links: string[] = [];
-	if (d?.urlDocumento) links.push(d.urlDocumento);
-	if (d?.link) links.push(d.link);
+/** URLs http(s) de documento comprobatório de um achado, sem repetição. */
+export function fontesDoAchado(d: Dados): string[] {
+	const links = [d?.urlDocumento, d?.url_documento, d?.link_documento, d?.link];
 	if (d?.numeroControlePNCP) {
 		links.push(`https://pncp.gov.br/app/contratos?q=${encodeURIComponent(d.numeroControlePNCP)}`);
 	}
-	return links;
+	const validas = links.filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u));
+	return [...new Set(validas)];
 }
 
-/** Entidades de risco (score ≥ 60) + todos os contratos, ordenadas por score. */
+const textoOuNada = (v: unknown): string | undefined => (v ? String(v) : undefined);
+
+function identificacaoDoDossie(pessoa: DossieNode | undefined, nome: string): IdentificacaoPolitico {
+	const p = (pessoa?.data ?? {}) as Dados;
+	return {
+		nome,
+		cargo: textoOuNada(p.cargo),
+		partido: textoOuNada(p.partido ?? p.siglaPartido),
+		uf: textoOuNada(p.uf),
+	};
+}
+
+/** Achados de atenção/crítico + todos os contratos, ordenados por score. */
 export function montarPayloadExportacao(
 	nodes: DossieNode[],
 	evidencias: DossieNode[],
@@ -38,18 +59,30 @@ export function montarPayloadExportacao(
 ): PayloadExportacao {
 	const entidades = [...nodes.filter(ehRelevante), ...evidencias.filter(ehRelevante)]
 		.map((n) => ({ ...n.data, type: n.type }) as Dados)
-		.sort((a, b) => (b?.score_letalidade || 0) - (a?.score_letalidade || 0));
-	const urls = entidades.flatMap(linksDe).filter((u) => String(u).startsWith("http"));
+		.sort((a, b) => scoreDoNo(b) - scoreDoNo(a));
 	const pessoa = nodes.find((n) => n.type === "PESSOA");
+	const nome = String(pessoa?.data?.label || nomeBusca || "Desconhecido");
 	return {
-		nomePolitico: String(pessoa?.data?.label || nomeBusca || "Desconhecido"),
+		nomePolitico: nome,
+		politico: identificacaoDoDossie(pessoa, nome),
 		despesasCriticas: entidades,
-		urlsNotasFiscais: urls,
+		urlsNotasFiscais: [...new Set(entidades.flatMap(fontesDoAchado))],
 	};
 }
 
-export function nomeArquivoDossie(nomePolitico: string): string {
-	return `dossie-${nomePolitico.replace(/\s+/g, "_")}.docx`;
+const doisDigitos = (n: number) => String(n).padStart(2, "0");
+
+/** "dossie-Joao_da_Silva-2026-10-05.docx" — só ASCII, seguro para header e sistema de arquivos. */
+export function nomeArquivoDossie(nomePolitico: string, data: Date = new Date()): string {
+	const slug =
+		nomePolitico
+			.normalize("NFD")
+			.replace(/[̀-ͯ]/g, "")
+			.trim()
+			.replace(/\s+/g, "_")
+			.replace(/[^\w-]/g, "") || "sem_nome";
+	const dia = `${data.getFullYear()}-${doisDigitos(data.getMonth() + 1)}-${doisDigitos(data.getDate())}`;
+	return `dossie-${slug}-${dia}.docx`;
 }
 
 function valorDoAchado(d: Dados): number | undefined {
