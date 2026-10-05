@@ -13,7 +13,10 @@ export async function exportarDossieDocx(
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(payload),
 	});
-	if (!res.ok) throw new Error("Falha ao gerar dossiê.");
+	if (!res.ok) {
+		const erro = await res.json().catch(() => null);
+		throw new Error(erro?.error || "Falha ao gerar dossiê.");
+	}
 	const blob = await res.blob();
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement("a");

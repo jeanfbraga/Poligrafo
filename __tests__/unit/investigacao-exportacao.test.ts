@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DossieNode } from "@/lib/investigacao/dossie-state";
-import { montarPayloadExportacao, montarShareData, nomeArquivoDossie } from "@/lib/investigacao/exportacao";
+import { fontesDoAchado, montarPayloadExportacao, montarShareData, nomeArquivoDossie } from "@/lib/investigacao/exportacao";
 
 const no = (id: string, type: string, data: Record<string, unknown>): DossieNode => ({ id, type, position: { x: 0, y: 0 }, data });
 
@@ -17,6 +17,21 @@ describe("montarPayloadExportacao", () => {
 
 	it("inclui risco ≥ 60 e todos os contratos; exclui o resto", () => {
 		expect(p.despesasCriticas.map((d) => d.label)).toEqual(["Gráfica", "Táxi", "Pregão"]);
+	});
+
+	it("usa a régua do app: crítico por regra entra mesmo com nota baixa; a pessoa nunca entra", () => {
+		const comRegra = [
+			...nodes,
+			no("em", "EMENDA", { label: "Emenda fantasma", score_letalidade: 20, isFantasma: true }),
+			no("pj", "PROCESSO_JUDICIAL", { label: "Ação", score_letalidade: 0 }),
+		];
+		const labels = montarPayloadExportacao(comRegra, [], "").despesasCriticas.map((d) => d.label);
+		expect(labels).toEqual(expect.arrayContaining(["Emenda fantasma", "Ação"]));
+		expect(labels).not.toContain("ALICE RIBEIRO");
+	});
+
+	it("leva a identificação da pessoa para a capa", () => {
+		expect(p.politico).toEqual({ nome: "ALICE RIBEIRO", cargo: "DEPUTADO FEDERAL", partido: undefined, uf: "RJ" });
 	});
 
 	it("ordena por score decrescente", () => {
@@ -37,8 +52,19 @@ describe("montarPayloadExportacao", () => {
 		expect(montarPayloadExportacao([], [], "").nomePolitico).toBe("Desconhecido");
 	});
 
-	it("nomeArquivoDossie troca espaços por underscore", () => {
-		expect(nomeArquivoDossie("Alice Ribeiro")).toBe("dossie-Alice_Ribeiro.docx");
+	it("nomeArquivoDossie: ASCII, underscore no lugar de espaço e data", () => {
+		const dia = new Date(2026, 9, 5, 12);
+		expect(nomeArquivoDossie("Alice Ribeiro", dia)).toBe("dossie-Alice_Ribeiro-2026-10-05.docx");
+		expect(nomeArquivoDossie("João D'Ávila", dia)).toBe("dossie-Joao_DAvila-2026-10-05.docx");
+		expect(nomeArquivoDossie("  ", dia)).toBe("dossie-sem_nome-2026-10-05.docx");
+	});
+});
+
+describe("fontesDoAchado", () => {
+	it("junta documento, link e PNCP, só http(s) e sem repetir", () => {
+		expect(
+			fontesDoAchado({ urlDocumento: "https://a", url_documento: "https://a", link: "javascript:alert(1)", numeroControlePNCP: "1/2" }),
+		).toEqual(["https://a", "https://pncp.gov.br/app/contratos?q=1%2F2"]);
 	});
 });
 
