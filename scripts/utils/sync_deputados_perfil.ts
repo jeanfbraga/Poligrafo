@@ -12,14 +12,30 @@ const mKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const pClient = createClient(pUrl, pKey);
 const mClient = createClient(mUrl, mKey);
 
-async function syncVotacoesDeputados(idDeputados: number[]) {
-  console.log(`--- SYNCING VOTAÇÕES FOR ${idDeputados.length} DEPUTADOS ---`);
-  
-  for (const idDeputado of idDeputados) {
-    const { data: votos, error: vErr } = await pClient
+// O PostgREST devolve no máximo 1000 linhas por requisição: sem paginar, quem tem
+// mais de 1000 votos era copiado truncado (e numa ordem arbitrária).
+const PAGINA = 1000;
+
+async function lerVotosDoDeputado(idDeputado: number) {
+  const votos: any[] = [];
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error } = await pClient
       .from('camara_votos_detalhados')
       .select('*')
-      .eq('id_deputado', idDeputado);
+      .eq('id_deputado', idDeputado)
+      .order('id_votacao', { ascending: true })
+      .range(de, de + PAGINA - 1);
+    if (error) return { votos: null, error };
+    votos.push(...(data ?? []));
+    if (!data || data.length < PAGINA) return { votos, error: null };
+  }
+}
+
+async function syncVotacoesDeputados(idDeputados: number[]) {
+  console.log(`--- SYNCING VOTAÇÕES FOR ${idDeputados.length} DEPUTADOS ---`);
+
+  for (const idDeputado of idDeputados) {
+    const { votos, error: vErr } = await lerVotosDoDeputado(idDeputado);
 
     if (vErr || !votos || votos.length === 0) {
       continue;

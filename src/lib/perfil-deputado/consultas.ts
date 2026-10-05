@@ -31,24 +31,49 @@ function formatarVotosDeputado(data: any[]) {
   });
 }
 
-async function buscarVotosComFallback(supabase: any, idDeputadoNum: number) {
-  let { data, error } = await supabase
-    .from("camara_votos_detalhados")
-    .select("id_votacao, voto, camara_votacoes_master (id_proposicao, projeto_nome, projeto_tema, data_votacao)")
-    .eq("id_deputado", idDeputadoNum);
+/** Teto de linhas por requisição do PostgREST (max_rows padrão do Supabase). */
+export const LINHAS_POR_PAGINA = 1000;
 
-  const fallback = obterFallbackClient(supabase);
-  if ((error || !data || data.length === 0) && fallback) {
-    const res = await fallback
+/**
+ * Lê todas as páginas de uma consulta. Sem isso o PostgREST corta em 1000 linhas
+ * em silêncio. `pagina(de, ate)` deve ter ordem estável (senão as páginas se sobrepõem).
+ * Erro em qualquer página descarta tudo: lista parcial daria totais errados.
+ */
+export async function buscarTodasAsPaginas(
+  pagina: (de: number, ate: number) => PromiseLike<{ data: any[] | null; error: any }>,
+): Promise<{ data: any[]; error: any }> {
+  const linhas: any[] = [];
+  for (let de = 0; ; de += LINHAS_POR_PAGINA) {
+    const { data, error } = await pagina(de, de + LINHAS_POR_PAGINA - 1);
+    if (error) return { data: [], error };
+    linhas.push(...(data ?? []));
+    if (!data || data.length < LINHAS_POR_PAGINA) return { data: linhas, error: null };
+  }
+}
+
+function consultarVotos(client: any, idDeputadoNum: number) {
+  return buscarTodasAsPaginas((de, ate) =>
+    client
       .from("camara_votos_detalhados")
       .select("id_votacao, voto, camara_votacoes_master (id_proposicao, projeto_nome, projeto_tema, data_votacao)")
-      .eq("id_deputado", idDeputadoNum);
-    if (!res.error && res.data && res.data.length > 0) {
+      .eq("id_deputado", idDeputadoNum)
+      .order("id_votacao", { ascending: true })
+      .range(de, ate),
+  );
+}
+
+async function buscarVotosComFallback(supabase: any, idDeputadoNum: number) {
+  let { data, error } = await consultarVotos(supabase, idDeputadoNum);
+
+  const fallback = obterFallbackClient(supabase);
+  if ((error || data.length === 0) && fallback) {
+    const res = await consultarVotos(fallback, idDeputadoNum);
+    if (!res.error && res.data.length > 0) {
       data = res.data;
     }
   }
 
-  return data || [];
+  return data;
 }
 
 /** Votos nominais em plenário, do mais recente ao mais antigo. */
