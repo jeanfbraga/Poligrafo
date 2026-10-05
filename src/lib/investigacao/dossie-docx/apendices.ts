@@ -63,7 +63,7 @@ const CRITERIOS: [Risco, string][] = [
 			"empenhado), processo judicial ou sanção, classificação crítica na fonte original ou padrão atípico na rede de relações.",
 	],
 	["warn", `Nota de risco entre ${LIMITE_ATENCAO} e ${LIMITE_CRITICO - 1}.`],
-	["ok", "Contratos listados independentemente da nota, para dar contexto às relações financeiras."],
+	["ok", "Registros sem alerta mantidos no painel de investigação (ex.: despesas levadas ao canvas, contratos), para dar contexto às relações financeiras."],
 ];
 
 const LIMITACOES = [
@@ -81,7 +81,7 @@ export function secaoMetodologia(m: ModeloDossie, numero: number): Bloco[] {
 		paragrafo([
 			texto(
 				"Entram no dossiê os registros que o Polígrafo classifica como críticos ou de atenção — a mesma régua usada " +
-					"no painel de investigação — e todos os contratos encontrados.",
+					"no painel de investigação —, todos os contratos e tudo o que estava visível no canvas no momento da exportação.",
 			),
 		]),
 		tabelaDados(

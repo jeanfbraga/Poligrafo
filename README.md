@@ -184,7 +184,7 @@ O schema principal está em [`supabase/schema.sql`](supabase/schema.sql). O banc
 | `camara_cota_resumo_cache` | Gasto CEAP mensal agregado (PK: `deputado_id, ano_referencia, mes_referencia`) |
 | `camara_gabinete_servidores` | Servidores de gabinete (nome, função, data de admissão) |
 
-> Essas tabelas são populadas pelo ETL `scripts/etl/perfil-politico-sync.ts` e servem a rota `/perfil/deputado/[id]`. A instância de produção as armazena em um segundo Supabase (workaround de storage), mas contribuidores podem usá-las no banco principal sem nenhuma alteração de configuração.
+> Essas tabelas são populadas pelo ETL `scripts/etl/perfil-politico-sync.ts` e servem a rota `/perfil/deputado/[id]`. A instância de produção as armazena em um segundo Supabase (workaround de storage), mas contribuidores podem usá-las no banco principal sem nenhuma alteração de configuração. Na Vercel (produção e preview) o segundo banco é obrigatório: sem `NEXT_PUBLIC_SUPABASE_PERFIL_URL` e `SUPABASE_PERFIL_SERVICE_ROLE_KEY`, as consultas de perfil falham em vez de cair no banco principal. Os ETLs de perfil (`sync:perfil`, `sync:producao`, `sync:votos`, `proposicoes-detalhes-sync`) também exigem o segundo banco; para rodá-los com um banco só, defina `PERFIL_NO_BANCO_PRINCIPAL=1`.
 
 ---
 

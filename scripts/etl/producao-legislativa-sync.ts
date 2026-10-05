@@ -3,18 +3,13 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { pathToFileURL } from 'node:url';
 import { fetchCamaraJson as fetchJson, exigirDeputados } from './camara-http';
+import { credenciaisBancoPerfil } from './banco-perfil';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_PERFIL_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_PERFIL_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const bancoPerfil = credenciaisBancoPerfil();
 
-if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("ERRO: Faltando credenciais administrativas do Supabase.");
-    process.exit(1);
-}
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+const supabaseAdmin = createClient(bancoPerfil.url, bancoPerfil.key, {
     auth: { autoRefreshToken: false, persistSession: false }
 });
 

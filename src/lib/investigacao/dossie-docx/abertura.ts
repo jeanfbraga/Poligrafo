@@ -22,6 +22,7 @@ import {
 	tituloSecao,
 } from "./estilo";
 import type { Achado, Categoria, ModeloDossie } from "./modelo";
+import { PERFIL_INDISPONIVEL, type PerfilDossie } from "./perfil";
 
 type Bloco = Paragraph | Table;
 
@@ -57,10 +58,28 @@ function linhaCapa(rot: string, valor: string): TableRow {
 	});
 }
 
+function situacaoCota(c: NonNullable<PerfilDossie["cota"]>): string {
+	if (c.situacao === "sem-gasto") return "sem gastos registrados";
+	if (c.situacao === "dentro") return `${brl(c.totalGasto)} · dentro do teto`;
+	return `${brl(c.totalGasto)} · ${plural(c.mesesAcima, "mês", "meses")} acima do teto mensal`;
+}
+
+/** Números da atuação parlamentar (capa e sumário); vazio quando não há perfil consultado. */
+export function linhasPerfil(perfil: ModeloDossie["perfil"]): [string, string][] {
+	if (!perfil || perfil === PERFIL_INDISPONIVEL) return [];
+	const v = perfil.votos;
+	return [
+		["Gabinete", plural(perfil.gabinete.ativos, "servidor ativo", "servidores ativos")],
+		[perfil.cota ? `Cota parlamentar ${perfil.cota.ano}` : "Cota parlamentar", perfil.cota ? situacaoCota(perfil.cota) : "sem registros"],
+		["Votos em plenário", v.total > 0 ? `${v.total.toLocaleString("pt-BR")} (${v.sim} Sim · ${v.nao} Não · ${v.outros} outros)` : "nenhum registrado"],
+	];
+}
+
 function fichaTecnica(m: ModeloDossie): Table {
 	const t = m.totais;
 	const linhas: [string, string][] = [
 		["Gerado em", `${m.geradoEm} (horário de Brasília)`],
+		...linhasPerfil(m.perfil),
 		["Registros listados", String(t.achados)],
 		["Classificação", classificacao(t)],
 		["Valor dos registros financeiros", t.valor > 0 ? brl(t.valor) : "—"],
@@ -181,8 +200,9 @@ function narrativa(m: ModeloDossie): string {
 	const nome = m.politico.nome;
 	if (t.achados === 0) {
 		return (
-			`Nenhum registro relacionado a ${nome} atingiu os critérios de seleção deste dossiê (nível de atenção ou crítico) ` +
-			"e não há contratos vinculados. Isso não atesta regularidade: indica apenas que as bases consultadas não produziram alertas."
+			`Nenhum registro relacionado a ${nome} atingiu os critérios de seleção deste dossiê (nível de atenção ou crítico), ` +
+			"não há contratos vinculados e nenhum registro foi mantido no canvas. Isso não atesta regularidade: indica apenas " +
+			"que as bases consultadas não produziram alertas."
 		);
 	}
 	const valor = t.valor > 0 ? ` Os registros financeiros somam ${brl(t.valor)}.` : "";
@@ -239,6 +259,11 @@ function tabelaCategorias(categorias: Categoria[], t: ModeloDossie["totais"]): T
 
 export function sumario(m: ModeloDossie, numero: number): Bloco[] {
 	const blocos: Bloco[] = [...tituloSecao(numero, "Sumário executivo", false, 0), indicadores(m.totais), espaco(240), paragrafo([texto(narrativa(m))], { after: 120 })];
+	const perfil = linhasPerfil(m.perfil);
+	if (perfil.length > 0) {
+		const resumo = perfil.map(([r, v]) => `${r.toLowerCase()}: ${v}`).join("; ");
+		blocos.push(paragrafo([texto("Atuação parlamentar — ", { bold: true }), texto(`${resumo}. Detalhes na seção seguinte.`)], { after: 120 }));
+	}
 	if (m.destaques.length > 0) {
 		blocos.push(subtitulo("Registros prioritários", `${m.destaques.length} mais graves`), tabelaDestaques(m.destaques));
 	}

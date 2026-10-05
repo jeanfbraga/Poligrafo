@@ -161,7 +161,7 @@ export function secaoAchados(m: ModeloDossie, numero: number): (Paragraph | Tabl
 			[
 				texto(
 					"Fichas agrupadas por categoria, da mais grave para a menos grave. O filete à esquerda indica o nível: " +
-						"vermelho para crítico, âmbar para atenção e cinza para contratos listados como contexto.",
+						"vermelho para crítico, âmbar para atenção e cinza para registros sem alerta, listados como contexto.",
 					{ color: COR.SUAVE },
 				),
 			],

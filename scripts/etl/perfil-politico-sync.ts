@@ -5,22 +5,22 @@ import * as cheerio from 'cheerio';
 import { pathToFileURL } from 'node:url';
 import { fetchCamaraJson as fetchJson, exigirDeputados } from './camara-http';
 import { fetchWithTimeout } from '../../src/app/api/investigar/tse';
+import { credenciaisBancoPerfil } from './banco-perfil';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_PERFIL_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_PERFIL_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const bancoPerfil = credenciaisBancoPerfil();
 
 const supabasePrincipalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabasePrincipalKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseServiceKey || !supabasePrincipalUrl || !supabasePrincipalKey) {
-    console.error("ERRO: Faltando credenciais administrativas do Supabase (Principal ou Perfil).");
+if (!supabasePrincipalUrl || !supabasePrincipalKey) {
+    console.error("ERRO: Faltando credenciais administrativas do Supabase principal.");
     process.exit(1);
 }
 
 // Banco Secundário (Perfis) - Destino
-const supabasePerfil = createClient(supabaseUrl, supabaseServiceKey, {
+const supabasePerfil = createClient(bancoPerfil.url, bancoPerfil.key, {
     auth: { autoRefreshToken: false, persistSession: false }
 });
 

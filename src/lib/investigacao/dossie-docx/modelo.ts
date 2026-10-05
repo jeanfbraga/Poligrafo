@@ -8,6 +8,7 @@ import { tipoDoNo } from "@/components/nodes/node-types";
 import { numeroSeguro } from "@/lib/format";
 import { fontesDoAchado, type IdentificacaoPolitico, type PayloadExportacao } from "../exportacao";
 import type { Risco } from "../risco";
+import { PERFIL_INDISPONIVEL, type PerfilNoDossie } from "./perfil";
 
 type Dados = Record<string, any>;
 
@@ -35,6 +36,9 @@ export interface Categoria {
 
 export interface ModeloDossie {
 	politico: IdentificacaoPolitico;
+	/** Deputado federal: id na Câmara (habilita a seção "Atuação parlamentar"). */
+	idCamara?: string;
+	perfil: PerfilNoDossie;
 	geradoEm: string;
 	categorias: Categoria[];
 	/** Na ordem em que aparecem no documento. */
@@ -149,12 +153,26 @@ function identificacao(payload: PayloadExportacao): IdentificacaoPolitico {
 	return { nome: textoDe(p.nome, payload.nomePolitico), cargo: opcional(p.cargo), partido: opcional(p.partido), uf: opcional(p.uf) };
 }
 
-export function montarModeloDossie(payload: PayloadExportacao, agora: Date): ModeloDossie {
+/** Só aceita id numérico da Câmara (vem do corpo da requisição). */
+export const idCamaraValido = (v: unknown): string | undefined => (typeof v === "string" && /^\d{1,7}$/.test(v) ? v : undefined);
+
+const BASE_PERFIL = "Câmara · gabinete, CEAP e votações";
+
+function basesDe(achados: Achado[], perfil: PerfilNoDossie): string[] {
+	const bases = new Set(achados.map((a) => a.card.fonte).filter(Boolean));
+	if (perfil && perfil !== PERFIL_INDISPONIVEL) bases.add(BASE_PERFIL);
+	return [...bases].sort();
+}
+
+export function montarModeloDossie(payload: PayloadExportacao, agora: Date, perfil: PerfilNoDossie = null): ModeloDossie {
 	const entidades = Array.isArray(payload.despesasCriticas) ? payload.despesasCriticas.filter(ehObjeto) : [];
 	const categorias = numerar(agruparPorCategoria(entidades.map(achadoDe)));
 	const achados = categorias.flatMap((c) => c.achados);
+	const idCamara = idCamaraValido(payload.idCamara);
 	return {
 		politico: identificacao(payload),
+		idCamara,
+		perfil: idCamara ? perfil : null,
 		geradoEm: dataHoraBrasilia(agora),
 		categorias,
 		achados,
@@ -167,7 +185,7 @@ export function montarModeloDossie(payload: PayloadExportacao, agora: Date): Mod
 			valor: somar(achados),
 			documentos: achados.reduce((t, a) => t + a.fontes.length, 0),
 		},
-		bases: [...new Set(achados.map((a) => a.card.fonte).filter(Boolean))].sort(),
+		bases: basesDe(achados, idCamara ? perfil : null),
 		outrasFontes: urlsAvulsas(payload, achados),
 	};
 }

@@ -20,18 +20,13 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fetchCamaraJson } from './camara-http';
+import { credenciaisBancoPerfil } from './banco-perfil';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_PERFIL_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_PERFIL_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const bancoPerfil = credenciaisBancoPerfil();
 
-if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("ERRO: Faltando credenciais administrativas do Supabase (URL ou SERVICE_ROLE_KEY).");
-    process.exit(1);
-}
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+const supabaseAdmin = createClient(bancoPerfil.url, bancoPerfil.key, {
     auth: { autoRefreshToken: false, persistSession: false }
 });
 
@@ -108,15 +103,23 @@ async function downloadTextWithFallback(url: string): Promise<string | null> {
 }
 
 async function carregarDeputadosValidos(): Promise<Set<number>> {
-    const { data: cacheIds, error: cacheErr } = await supabaseAdmin
-        .from('camara_perfil_politico_cache')
-        .select('id_deputado');
+    // Paginado: o PostgREST corta em 1000 linhas, e quem ficasse de fora teria os votos descartados.
+    const cacheIds: Array<{ id_deputado: number }> = [];
+    for (let de = 0; ; de += BATCH_SIZE) {
+        const { data, error: cacheErr } = await supabaseAdmin
+            .from('camara_perfil_politico_cache')
+            .select('id_deputado')
+            .order('id_deputado', { ascending: true })
+            .range(de, de + BATCH_SIZE - 1);
 
-    if (cacheErr) {
-        console.warn("[VOTOS SYNC] Aviso ao buscar cache de perfis:", cacheErr.message);
-        return new Set();
+        if (cacheErr) {
+            console.warn("[VOTOS SYNC] Aviso ao buscar cache de perfis:", cacheErr.message);
+            return new Set();
+        }
+        cacheIds.push(...(data ?? []));
+        if (!data || data.length < BATCH_SIZE) break;
     }
-    const valid = new Set(cacheIds?.map(d => Number(d.id_deputado)) || []);
+    const valid = new Set(cacheIds.map(d => Number(d.id_deputado)));
     console.log(`[VOTOS SYNC] ${valid.size} deputados válidos carregados do cache.`);
     return valid;
 }

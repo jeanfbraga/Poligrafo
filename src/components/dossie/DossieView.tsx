@@ -110,7 +110,7 @@ function useDossieControle() {
 	const exportar = async () => {
 		setExportando(true);
 		try {
-			await exportarDossieDocx(d.nodes, d.evidencias, state.alvo?.nome ?? "");
+			await exportarDossieDocx(d.nodes, d.evidencias, state.alvo?.nome ?? "", state.alvo?.ref);
 			toast.success("Dossiê DOCX gerado e baixado com sucesso.");
 		} catch (e) {
 			toast.error(`Erro ao exportar: ${(e as Error).message}`);

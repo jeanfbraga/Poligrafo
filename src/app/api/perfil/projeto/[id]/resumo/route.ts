@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
-import { supabaseAdmin } from "@/lib/supabase-admin";
 import { GROQ_MODELS, OPENROUTER_MODELS, GEMINI_MODELS } from "@/services/ai/ai-models-config";
 import Groq from "groq-sdk";
 
@@ -188,8 +187,8 @@ async function extrairDadosProjetoBody(request: Request) {
 }
 
 async function buscarDadosProjetoBanco(idProjeto: string) {
-	const supabase = supabaseAdmin || supabasePerfilAdmin;
-	if (!supabase) return { titulo: "", ementa: "" };
+	// Proposições e produção legislativa são dados de perfil: só no banco de perfil.
+	const supabase = supabasePerfilAdmin;
 
 	const { data: propDetalhes } = await supabase
 		.from("camara_proposicoes_detalhes_cache")

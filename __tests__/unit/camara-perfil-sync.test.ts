@@ -13,6 +13,8 @@ describe('Falhas na listagem dos ETLs de perfil e produção', () => {
         vi.clearAllMocks();
         vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://teste.supabase.co');
         vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'chave-teste');
+        vi.stubEnv('NEXT_PUBLIC_SUPABASE_PERFIL_URL', 'https://perfil-teste.supabase.co');
+        vi.stubEnv('SUPABASE_PERFIL_SERVICE_ROLE_KEY', 'chave-perfil-teste');
         vi.spyOn(console, 'log').mockImplementation(() => {});
         vi.spyOn(console, 'error').mockImplementation(() => {});
     });
