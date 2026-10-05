@@ -21,6 +21,13 @@ const supabase = createClient(urlPrincipal, keyPrincipal, {
 	auth: { autoRefreshToken: false, persistSession: false }
 });
 
+// Perfis ricos moram no banco de perfil (nunca no principal); sem ele, o seed usa só os índices locais.
+const urlPerfil = env.NEXT_PUBLIC_SUPABASE_PERFIL_URL;
+const keyPerfil = env.SUPABASE_PERFIL_SERVICE_ROLE_KEY;
+const supabasePerfil = urlPerfil && keyPerfil
+	? createClient(urlPerfil, keyPerfil, { auth: { autoRefreshToken: false, persistSession: false } })
+	: null;
+
 const ORGAOS_BASE = [
 	{
 		esfera: 'FEDERAL',
@@ -240,9 +247,13 @@ async function popularOrgaos(supabaseClient: SupabaseClient): Promise<Map<string
 	return orgaosMap;
 }
 
-async function carregarPerfisRicos(supabaseClient: SupabaseClient): Promise<Map<string, any>> {
+async function carregarPerfisRicos(supabaseClient: SupabaseClient | null): Promise<Map<string, any>> {
 	console.log('2. Consultando camara_perfil_politico_cache para metadados ricos...');
 	const perfilMap = new Map<string, any>();
+	if (!supabaseClient) {
+		console.log('   (Banco de perfil não configurado, usando dados dos índices locais).');
+		return perfilMap;
+	}
 	try {
 		const { data: perfis } = await supabaseClient
 			.from('camara_perfil_politico_cache')
@@ -257,7 +268,7 @@ async function carregarPerfisRicos(supabaseClient: SupabaseClient): Promise<Map<
 			console.log(`   ✅ ${perfis.length} perfis enriquecidos carregados.`);
 		}
 	} catch (e: any) {
-		console.log('   (Perfis ricos indisponíveis no banco principal, usando dados dos índices locais).');
+		console.log('   (Perfis ricos indisponíveis no banco de perfil, usando dados dos índices locais).');
 	}
 	return perfilMap;
 }
@@ -485,7 +496,7 @@ async function seed() {
 	console.log('====================================================\n');
 
 	const orgaosMap = await popularOrgaos(supabase);
-	const perfilMap = await carregarPerfisRicos(supabase);
+	const perfilMap = await carregarPerfisRicos(supabasePerfil);
 	const politicosToInsert = construirPoliticosParaInsercao(orgaosMap, perfilMap);
 
 	const { totalPoliticos, totalMandatos } = await sincronizarPoliticosEMandatos(

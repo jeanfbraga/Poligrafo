@@ -2,20 +2,20 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import * as cheerio from 'cheerio';
+import { credenciaisBancoPerfil } from '../etl/banco-perfil';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_PERFIL_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_PERFIL_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const bancoPerfil = credenciaisBancoPerfil();
 const supabasePrincipalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabasePrincipalKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseServiceKey || !supabasePrincipalUrl || !supabasePrincipalKey) {
-    console.error("ERRO: Faltando credenciais administrativas do Supabase.");
+if (!supabasePrincipalUrl || !supabasePrincipalKey) {
+    console.error("ERRO: Faltando credenciais administrativas do Supabase principal.");
     process.exit(1);
 }
 
-const supabasePerfil = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+const supabasePerfil = createClient(bancoPerfil.url, bancoPerfil.key, { auth: { persistSession: false } });
 const supabasePrincipal = createClient(supabasePrincipalUrl, supabasePrincipalKey, { auth: { persistSession: false } });
 
 const DEPUTADO_TESTE = {

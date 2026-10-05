@@ -12,6 +12,8 @@ describe('Concorrência dos detalhes de proposições', () => {
     it('processa todos os itens respeitando o limite informado', async () => {
         vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://teste.supabase.co');
         vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'chave-teste');
+        vi.stubEnv('NEXT_PUBLIC_SUPABASE_PERFIL_URL', 'https://perfil-teste.supabase.co');
+        vi.stubEnv('SUPABASE_PERFIL_SERVICE_ROLE_KEY', 'chave-perfil-teste');
         const { processarEmLotes } = await import('../../scripts/etl/proposicoes-detalhes-sync');
         let simultaneas = 0;
         let maximo = 0;
@@ -32,6 +34,8 @@ describe('Concorrência dos detalhes de proposições', () => {
     it('rejeita limite de concorrência inválido', async () => {
         vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://teste.supabase.co');
         vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'chave-teste');
+        vi.stubEnv('NEXT_PUBLIC_SUPABASE_PERFIL_URL', 'https://perfil-teste.supabase.co');
+        vi.stubEnv('SUPABASE_PERFIL_SERVICE_ROLE_KEY', 'chave-perfil-teste');
         const { processarEmLotes } = await import('../../scripts/etl/proposicoes-detalhes-sync');
         await expect(processarEmLotes([1], 0, async () => {}, 0)).rejects.toThrow('Concorrência inválida');
     });

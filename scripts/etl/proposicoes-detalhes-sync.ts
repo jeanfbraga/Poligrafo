@@ -9,18 +9,12 @@ import * as dotenv from 'dotenv';
 import { resolve } from 'path';
 import { pathToFileURL } from 'node:url';
 import { fetchCamaraJson } from './camara-http';
+import { credenciaisBancoPerfil } from './banco-perfil';
 
 dotenv.config({ path: resolve(process.cwd(), '.env.local') });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_PERFIL_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_PERFIL_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error("Erro: Credenciais do Supabase ausentes em .env.local");
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+const bancoPerfil = credenciaisBancoPerfil();
+const supabase = createClient(bancoPerfil.url, bancoPerfil.key);
 const API_BASE = "https://dadosabertos.camara.leg.br/api/v2";
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
