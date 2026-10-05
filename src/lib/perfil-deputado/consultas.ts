@@ -1,20 +1,10 @@
 /* ==========================================================================
-   Consultas do perfil do deputado federal (banco de perfil, com fallback no
-   principal). Compartilhadas pela página de perfil (/api/perfil/deputado) e
-   pela exportação do dossiê. SÓ NO SERVIDOR (service role).
+   Consultas do perfil do deputado federal. Os dados de perfil ficam SÓ no
+   banco de perfil (supabasePerfilAdmin): nada de segunda tentativa no banco
+   principal, que guardava cópias parciais. Compartilhadas pela página de
+   perfil (/api/perfil/deputado) e pela exportação do dossiê. SÓ NO SERVIDOR.
    ========================================================================== */
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
-
-export function obterFallbackClient(primaryClient: any) {
-  if (primaryClient === supabasePerfilAdmin && supabaseAdmin !== supabasePerfilAdmin) {
-    return supabaseAdmin;
-  }
-  if (primaryClient === supabaseAdmin && supabasePerfilAdmin !== supabaseAdmin) {
-    return supabasePerfilAdmin;
-  }
-  return null;
-}
 
 function formatarVotosDeputado(data: any[]) {
   return data.map((v: any) => ({
@@ -62,48 +52,27 @@ function consultarVotos(client: any, idDeputadoNum: number) {
   );
 }
 
-async function buscarVotosComFallback(supabase: any, idDeputadoNum: number) {
-  let { data, error } = await consultarVotos(supabase, idDeputadoNum);
-
-  const fallback = obterFallbackClient(supabase);
-  if ((error || data.length === 0) && fallback) {
-    const res = await consultarVotos(fallback, idDeputadoNum);
-    if (!res.error && res.data.length > 0) {
-      data = res.data;
-    }
-  }
-
-  return data;
-}
-
 /** Votos nominais em plenário, do mais recente ao mais antigo. */
 export async function buscarVotosDeputado(supabase: any, idDeputadoNum: number) {
-  const data = await buscarVotosComFallback(supabase, idDeputadoNum);
+  const { data, error } = await consultarVotos(supabase, idDeputadoNum);
+  if (error) console.warn(`[Perfil] Votos do deputado ${idDeputadoNum} indisponíveis:`, error.message);
   if (data.length === 0) return [];
   return formatarVotosDeputado(data);
 }
 
 /** Servidores do gabinete (um registro por período de lotação). */
 export async function buscarServidoresDeputado(supabase: any, idDeputadoNum: number) {
-  let { data } = await supabase
-    .from("camara_servidores_gabinete")
-    .select("*")
-    .eq("deputado_id", idDeputadoNum)
-    .order("nome", { ascending: true });
-
-  const fallback = obterFallbackClient(supabase);
-  if ((!data || data.length === 0) && fallback) {
-    const res = await fallback
+  const { data, error } = await buscarTodasAsPaginas((de, ate) =>
+    supabase
       .from("camara_servidores_gabinete")
       .select("*")
       .eq("deputado_id", idDeputadoNum)
-      .order("nome", { ascending: true });
-    if (res.data && res.data.length > 0) {
-      data = res.data;
-    }
-  }
-
-  return data || [];
+      .order("nome", { ascending: true })
+      .order("id", { ascending: true })
+      .range(de, ate),
+  );
+  if (error) console.warn(`[Perfil] Gabinete do deputado ${idDeputadoNum} indisponível:`, error.message);
+  return data;
 }
 
 function agregarDespesasPorMes(despesas: any[], anoAtual: number, idDeputadoNum: number) {
@@ -145,27 +114,17 @@ async function buscarCotaFallback(idDeputadoNum: number) {
   }
 }
 
-/** Gasto mensal da cota (CEAP) com o teto do mês; sem resumo no cache, agrega as despesas. */
+/**
+ * Gasto mensal da cota (CEAP) com o teto do mês. Sem resumo no banco de perfil, agrega as
+ * despesas brutas da CEAP (ceap_despesas_cache), que são dado de investigação e moram no principal.
+ */
 export async function buscarCotaDeputado(supabase: any, idDeputadoNum: number) {
-  let { data } = await supabase
+  const { data } = await supabase
     .from("camara_cota_resumo_cache")
     .select("*")
     .eq("deputado_id", idDeputadoNum)
     .order("ano_referencia", { ascending: true })
     .order("mes_referencia", { ascending: true });
-
-  const fallback = obterFallbackClient(supabase);
-  if ((!data || data.length === 0) && fallback) {
-    const res = await fallback
-      .from("camara_cota_resumo_cache")
-      .select("*")
-      .eq("deputado_id", idDeputadoNum)
-      .order("ano_referencia", { ascending: true })
-      .order("mes_referencia", { ascending: true });
-    if (res.data && res.data.length > 0) {
-      data = res.data;
-    }
-  }
 
   if (data && data.length > 0) return data;
   return buscarCotaFallback(idDeputadoNum);

@@ -66,15 +66,16 @@ describe("buscarVotosDeputado", () => {
 		expect(fakes.perfil.ranges).toEqual([[0, 999], [1000, 1999]]);
 	});
 
-	it("erro no meio da paginação não devolve lista parcial; cai no banco de fallback", async () => {
+	it("erro no meio da paginação resulta em lista vazia, nunca em contagem truncada", async () => {
 		fakes.perfil = clienteFalso(votos(1500), { erroNaPagina: 1 });
 		fakes.principal = clienteFalso(votos(1500));
-		expect(await buscarVotosDeputado(fakes.perfil, 1)).toHaveLength(1500);
+		expect(await buscarVotosDeputado(fakes.perfil, 1)).toEqual([]);
 	});
 
-	it("erro sem fallback com dados resulta em lista vazia, nunca em contagem truncada", async () => {
-		fakes.perfil = clienteFalso(votos(1500), { erroNaPagina: 1 });
-		fakes.principal = clienteFalso([]);
+	it("nunca consulta o banco principal: perfil vazio é perfil vazio", async () => {
+		fakes.perfil = clienteFalso([]);
+		fakes.principal = clienteFalso(votos(1500));
 		expect(await buscarVotosDeputado(fakes.perfil, 1)).toEqual([]);
+		expect(fakes.principal.ranges).toEqual([]);
 	});
 });

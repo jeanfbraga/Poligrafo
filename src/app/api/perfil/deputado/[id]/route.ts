@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-import { buscarCotaDeputado, buscarServidoresDeputado, buscarVotosDeputado, obterFallbackClient } from "@/lib/perfil-deputado/consultas";
+import { buscarCotaDeputado, buscarServidoresDeputado, buscarVotosDeputado } from "@/lib/perfil-deputado/consultas";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
 
 export const dynamic = 'force-dynamic';
@@ -63,9 +62,7 @@ function camposDoMandato(mandato: MandatoHistorico) {
 
 async function persistirPerfilNoBanco(perfil: any) {
   try {
-    const targetClient = supabasePerfilAdmin || supabaseAdmin;
-    if (!targetClient) return;
-    await targetClient.from("camara_perfil_politico_cache").upsert({
+    await supabasePerfilAdmin.from("camara_perfil_politico_cache").upsert({
       id_deputado: perfil.id_deputado,
       nome_civil: perfil.nome_civil,
       nome_eleitoral: perfil.nome_eleitoral,
@@ -173,23 +170,11 @@ async function enriquecerMandatoSeNecessario(perfil: any, idDeputadoNum: number)
 }
 
 async function buscarPerfilBasico(supabase: any, idDeputadoNum: number, idDeputado: string) {
-  let { data: perfilData } = await supabase
+  const { data: perfilData } = await supabase
     .from("camara_perfil_politico_cache")
     .select("*")
     .eq("id_deputado", idDeputadoNum)
-    .single();
-
-  const fallback = obterFallbackClient(supabase);
-  if (!perfilData && fallback) {
-    const res = await fallback
-      .from("camara_perfil_politico_cache")
-      .select("*")
-      .eq("id_deputado", idDeputadoNum)
-      .single();
-    if (res.data) {
-      perfilData = res.data;
-    }
-  }
+    .maybeSingle();
 
   const info = (congressoIndex as any[]).find((p: any) => String(p.id) === idDeputado);
   
@@ -205,9 +190,8 @@ async function buscarPerfilBasico(supabase: any, idDeputadoNum: number, idDeputa
 
 async function persistirProducaoNoBanco(producao: any[]) {
   try {
-    const targetClient = supabasePerfilAdmin || supabaseAdmin;
-    if (!targetClient || producao.length === 0) return;
-    await targetClient.from("camara_producao_legislativa").upsert(
+    if (producao.length === 0) return;
+    await supabasePerfilAdmin.from("camara_producao_legislativa").upsert(
       producao,
       { onConflict: "id_deputado,id_proposicao" }
     );
@@ -253,23 +237,11 @@ async function buscarProducaoLiveCamara(idDeputadoNum: number) {
 }
 
 async function buscarProducaoBanco(supabase: any, idDeputadoNum: number) {
-  let { data, error } = await supabase
+  const { data } = await supabase
     .from("camara_producao_legislativa")
     .select("*")
     .eq("id_deputado", idDeputadoNum)
     .order("ano", { ascending: false });
-
-  const fallback = obterFallbackClient(supabase);
-  if ((error || !data || data.length === 0) && fallback) {
-    const res = await fallback
-      .from("camara_producao_legislativa")
-      .select("*")
-      .eq("id_deputado", idDeputadoNum)
-      .order("ano", { ascending: false });
-    if (!res.error && res.data && res.data.length > 0) {
-      data = res.data;
-    }
-  }
 
   return data || [];
 }
