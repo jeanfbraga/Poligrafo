@@ -1,3 +1,4 @@
+import { cpfValido } from "@/lib/documento";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export interface TseBensHistorico {
@@ -169,7 +170,7 @@ function aplicarBensCacheNaFicha(
 
 function isCpfValidoParaPersistencia(cpf: string): boolean {
 	const limpo = cpf.replace(/\D/g, "");
-	return Boolean(limpo && limpo.length === 11 && limpo !== "00000000000");
+	return cpfValido(limpo);
 }
 
 function montarRegistroPrincipal(docLimpo: string, nomePolitico: string, tseData: any) {
@@ -235,7 +236,7 @@ export async function resolverPatrimonioTSE(
 	}
 
 	let bens =
-		cpfLimpo && cpfLimpo !== "00000000000"
+		cpfValido(cpfLimpo)
 			? await buscarBensHistoricoTSE(cpfLimpo)
 			: [];
 

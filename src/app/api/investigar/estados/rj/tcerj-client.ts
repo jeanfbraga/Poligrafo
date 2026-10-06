@@ -44,7 +44,7 @@ export async function buscarContratosTceRj(
 						nomeFornecedor: c.Contratado || "N/A",
 						tipoDespesa: `Contrato TCE-RJ: ${c.Objeto?.substring(0, 100) || "N/I"}`,
 						valorDocumento: Number(c.ValorContrato || 0),
-						dataDocumento: c.DataAssinaturaContrato || "2024-01-01",
+						dataDocumento: c.DataAssinaturaContrato || "",
 						urlDocumento: "https://dados.tcerj.tc.br/",
 					});
 				}
@@ -85,7 +85,7 @@ export async function buscarComprasDiretasTceRj(
 						nomeFornecedor: c.Fornecedor || "N/A",
 						tipoDespesa: `Compra Direta TCE-RJ: ${c.Objeto?.substring(0, 100) || "N/I"}`,
 						valorDocumento: Number(c.ValorTotalCompra || c.ValorProcesso || 0),
-						dataDocumento: c.DataProcesso || "2024-01-01",
+						dataDocumento: c.DataProcesso || "",
 						urlDocumento: "https://dados.tcerj.tc.br/",
 					});
 				}

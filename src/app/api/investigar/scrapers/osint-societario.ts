@@ -1,3 +1,4 @@
+import { cnpjValido } from "@/lib/documento";
 import { checkNepotismoCMRJ } from "@/services/integrations/cmrj/nepotismo-client";
 import { buscarNomeacoesDOU } from "@/services/integrations/dou/client";
 import { buscarDiariosMunicipais } from "@/services/integrations/dou/queridodiario";
@@ -60,7 +61,7 @@ export async function investigarFornecedorNivelHard(cnpj: string) {
 	const dataAbertura = "Dado Indisponível";
 	const socios: string[] = [];
 
-	if (cnpjLimpo.length !== 14 || cnpjLimpo === "00000000000000") {
+	if (!cnpjValido(cnpjLimpo)) {
 		return { scorePenalidade: 0, alertas, capitalSocial, dataAbertura, socios };
 	}
 

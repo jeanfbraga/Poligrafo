@@ -125,7 +125,7 @@ function formatarRegistroAracaju(r: any): any | null {
 	const cat = fallbackString(r.categoria_despesa, "Contrato");
 	const org = fallbackString(r.orgao, "CMA");
 	const forn = fallbackString(r.fornecedor_nome, "FORNECEDOR ARACAJU");
-	const doc = fallbackString(r.fornecedor_cnpj_cpf, "13149954000185");
+	const doc = fallbackString(r.fornecedor_cnpj_cpf, "");
 	const num = r.numero_documento || null;
 	const desc = r.descricao || `[${org}] Documento: ${num || "N/A"}`;
 	return {

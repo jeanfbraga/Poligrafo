@@ -2,6 +2,7 @@ import { analyzeGraphNetwork } from "@/lib/graph-analysis";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { podeLerCachePesquisas } from "@/lib/cache-pesquisas";
 import { ColecaoNos, envolverEmissor } from "@/services/core/colecao-nos";
+import { cpfValido, documentoValido } from "@/lib/documento";
 import { checkNepotismoCamara } from "@/services/integrations/camara/nepotismo-client";
 import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
 import { checkNepotismoCMRJ } from "@/services/integrations/cmrj/nepotismo-client";
@@ -124,7 +125,7 @@ async function buscarBensPorNomesCandidato(nomes: (string | undefined)[]): Promi
 async function consultarBensLocaisParaReidratacao(pessoa: any): Promise<any[]> {
 	const data = pessoa.data ?? {};
 	const cpf = String(data.cpf || "").replace(/\D/g, "");
-	if (cpf.length === 11 && cpf !== "00000000000") {
+	if (cpfValido(cpf)) {
 		const { buscarBensHistoricoTSE } = await import("@/services/integrations/tse/bens");
 		const bensCpf = await buscarBensHistoricoTSE(cpf);
 		if (bensCpf.length > 0) return bensCpf;
@@ -137,7 +138,7 @@ async function consultarBensLocaisParaReidratacao(pessoa: any): Promise<any[]> {
 function extrairCpfValidoParaReidratacao(pessoa: any, tseLive: any): string | null {
 	const raw = pessoa.data?.cpf || tseLive?.documentoPrincipal;
 	const clean = raw ? String(raw).replace(/\D/g, "") : "";
-	return clean && clean.length === 11 && clean !== "00000000000" ? clean : null;
+	return cpfValido(clean) ? clean : null;
 }
 
 function montarItemBensLive(tseLive: any) {
@@ -211,11 +212,11 @@ function extrairDocumentoValidoParaNode(principal: any): string | null {
 	const docLive = principal.tseLive?.documentoPrincipal || principal.tseLive?.cpf || principal.cpf_candidato;
 	if (!docLive) return null;
 	const docLimpo = String(docLive).replace(/\D/g, "");
-	return docLimpo.length >= 11 && docLimpo !== "00000000000" ? docLimpo : null;
+	return documentoValido(docLimpo) ? docLimpo : null;
 }
 
 function reidratarDocumentoNodeSeAusente(pessoaData: any, principal: any): void {
-	const precisaCpf = !pessoaData.cpf || pessoaData.cpf === "00000000000";
+	const precisaCpf = !documentoValido(pessoaData.cpf);
 	if (!precisaCpf) return;
 
 	const docLimpo = extrairDocumentoValidoParaNode(principal);
@@ -897,7 +898,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 
 		// NOVIDADE: Se o ID informado pelo frontend/refParam já for um documento estruturado (CPF ou CNPJ), apropria-se dele
 		const possivelDoc = String(deputadoBasico.id).replace(/\D/g, "");
-		if (!cpfLimpo && (possivelDoc.length === 11 || possivelDoc.length === 14)) {
+		if (!cpfLimpo && documentoValido(possivelDoc)) {
 			cpfLimpo = possivelDoc;
 			documentoIsCnpj = possivelDoc.length === 14;
 			sendEvent("STATUS", {
@@ -932,7 +933,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 
 		// Se não tínhamos o documento, ou se herdamos um CNPJ e queremos tentar extrair o CPF real:
 		if (tseResult && (tseResult.documentoPrincipal || tseResult.cpf)) {
-			if (!cpfLimpo || cpfLimpo === "00000000000") {
+			if (!documentoValido(cpfLimpo)) {
 				cpfLimpo = (tseResult.documentoPrincipal || tseResult.cpf!).replace(
 					/\D/g,
 					"",
@@ -974,18 +975,19 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		}
 
 		// Fallback final se nem o TSE achar (político muito antigo, etc)
-		if (!cpfLimpo) cpfLimpo = "00000000000";
-		const pessoaId = `pessoa-${cpfLimpo !== "00000000000" ? cpfLimpo : deputadoBasico.id}`;
+		const pessoaId = `pessoa-${cpfLimpo ?? deputadoBasico.id}`;
 
 		// Se o documento é um CNPJ de campanha, pula a investigação de patrimônio pessoal profunda (mas mantém o que veio do TSE)
 		sendEvent("STATUS", {
-			msg: documentoIsCnpj
+			msg: !cpfLimpo
+				? `Documento do político não confirmado: consultas por CPF (sanções, TCU, processos) serão puladas.`
+				: documentoIsCnpj
 				? `CNPJ de Campanha capturado (${cpfLimpo}). Usando dados declarados ao TSE...`
 				: `CPF capturado (${cpfLimpo}). Investigando Ficha Limpa, TCU e Processos Judiciais...`,
 		});
 		const tseData = (deputadoBasico as any)._tseResult;
 		const fichaPolitico = await investigarPolitico(
-			cpfLimpo,
+			cpfLimpo ?? "",
 			deputadoBasico.nome,
 			deputadoBasico.uf,
 			pessoaId,
@@ -997,7 +999,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		await resolverPatrimonioTSE(
 			fichaPolitico,
 			tseData,
-			cpfLimpo,
+			cpfLimpo ?? "",
 			deputadoBasico.nome,
 			sendEvent,
 			detalhes?.nomeCivil,
@@ -1027,9 +1029,9 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				label: deputadoBasico.nome,
 				nomeCivil: detalhes?.nomeCivil || deputadoBasico.nome,
 				// Envia o cpfLimpo validado. O frontend formata com regex de acordo with isCnpj.
-				cpf: cpfLimpo && cpfLimpo !== "00000000000" ? cpfLimpo : undefined,
+				cpf: documentoValido(cpfLimpo) ? cpfLimpo : undefined,
 				documentoPrincipal:
-					cpfLimpo && cpfLimpo !== "00000000000" ? cpfLimpo : undefined,
+					documentoValido(cpfLimpo) ? cpfLimpo : undefined,
 				isCnpj: documentoIsCnpj,
 				uf: deputadoBasico.uf,
 				cargo: cargoDisplay,
@@ -1076,7 +1078,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 					.upsert(
 						{
 							termo_busca: chaveCacheDeSalvamento,
-							cpf_raiz: cpfLimpo && cpfLimpo !== "00000000000" ? cpfLimpo : null,
+							cpf_raiz: documentoValido(cpfLimpo) ? cpfLimpo : null,
 							grafo_dados: {
 								timestamp: new Date().toISOString(),
 								nodes: supabaseNodes,
@@ -1119,17 +1121,17 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		const isExecutivo =
 			deputadoBasico.casa === "GOVERNO_ESTADUAL" ||
 			deputadoBasico.casa === "PREFEITURA";
-		if (cpfLimpo && cpfLimpo !== "00000000000" && !isExecutivo) {
+		if (documentoValido(cpfLimpo) && !isExecutivo) {
 			sendEvent("STATUS", {
 				msg: `Cruzando documento ${cpfLimpo} nas bases da CGU e Receita Federal...`,
 			});
 			if (typeof buscarReceitasFederais === "function") {
-				await buscarReceitasFederais(cpfLimpo, pessoaId, sendEvent);
+				await buscarReceitasFederais(cpfLimpo!, pessoaId, sendEvent);
 			}
 
 			// Só expande malha se não for CNPJ (pessoas físicas)
 			if (!documentoIsCnpj && typeof expandirMalhaSocietaria === "function") {
-				await expandirMalhaSocietaria(cpfLimpo, pessoaId, sendEvent);
+				await expandirMalhaSocietaria(cpfLimpo!, pessoaId, sendEvent);
 			}
 		}
 
@@ -1312,22 +1314,11 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			}
 		} catch (e) {
 			console.error("[TransfereGov Error]", e);
+			// Fonte fora do ar é aviso de status, não achado: antes virava um nó
+			// vermelho (score 86) no Canvas, como se fosse indício contra o político.
 			sendEvent("STATUS", {
-				msg: `Falha na conexão com o TransfereGov (API Offline). Emitindo alerta no Canvas.`,
+				msg: `Falha na conexão com o TransfereGov (API offline). Emendas PIX não consultadas nesta investigação.`,
 			});
-			const errorPayload = {
-				id: `transferegov-error-${pessoaId}`,
-				type: "EMENDA_RESUMO",
-				_origemId: pessoaId,
-				data: {
-					label: "⚠️ TRANSFEREGOV OFFLINE (ERRO 502)",
-					descricao:
-						"O sistema governamental do Transferegov.br está instável ou fora do ar no momento.",
-					score_letalidade: 86, // >85 pinta o node de vermelho (alerta IA) na UI
-				},
-			};
-			malhaOsintBuffer.push(errorPayload);
-			supabaseNodes.push(errorPayload);
 		}
 
 		// 2.2 SPU - Imóveis da União
@@ -1506,7 +1497,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			String(deputadoBasico.casa).startsWith("CAMARA_MUNICIPAL") ||
 			deputadoBasico.casa === "PREFEITURA"
 		) {
-			const docTce = cpfLimpo || String(deputadoBasico.id);
+			const docTce = cpfLimpo ?? "";
 			sendEvent("STATUS", {
 				msg: `Roteando varredura TCE/ProxyOSINT para a alçada municipal (${deputadoBasico.uf})...`,
 			});
@@ -1704,7 +1695,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			msg: "Vasculhando repasses diretos e contratos federais ao político na CGU...",
 		});
 		await buscarReceitasFederais(
-			cpfLimpo || String(deputadoBasico.id),
+			cpfLimpo ?? "",
 			pessoaId,
 			sendEvent,
 		);
@@ -1714,7 +1705,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			msg: "Analisando faturas de Cartão de Pagamento do Governo Federal (CPGF)...",
 		});
 		await buscarCartaoCorporativo(
-			cpfLimpo || String(deputadoBasico.id),
+			cpfLimpo ?? "",
 			pessoaId,
 			sendEvent,
 			deputadoBasico.casa,
@@ -1725,7 +1716,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			msg: "Rastreando Viagens a Serviço e Voos da FAB financiados com recursos públicos...",
 		});
 		await buscarViagensFAB(
-			cpfLimpo || String(deputadoBasico.id),
+			cpfLimpo ?? "",
 			pessoaId,
 			sendEvent,
 			deputadoBasico.casa,
@@ -1736,7 +1727,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			msg: "Expandindo malha societária via BrasilAPI para rastrear blindagem patrimonial...",
 		});
 		const empresasRelacionadasCNPJs = await expandirMalhaSocietaria(
-			cpfLimpo || String(deputadoBasico.id),
+			cpfLimpo ?? "",
 			pessoaId,
 			sendEvent,
 		);
@@ -2022,7 +2013,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				const { buscarDespesasMunicipalRS } = await import(
 					"@/app/api/investigar/estados/rs/tce"
 				);
-				const docTce = cpfLimpo || String(deputadoBasico.id);
+				const docTce = cpfLimpo ?? "";
 				const tceDespesas = await buscarDespesasMunicipalRS(
 					docTce,
 					deputadoBasico.nome,
@@ -2739,7 +2730,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				// -- LAZY LOADING OSINT TSE Doadores --
 				if (doadores.includes(d.cnpjCpfFornecedor)) {
 					alertasFinais.push(
-						`[TSE ALERTA MÁXIMO] Conflito de Interesse! Este fornecedor financiou a campanha do político em 2022.`,
+						`[TSE ALERTA MÁXIMO] Conflito de Interesse! Este fornecedor consta entre os doadores de campanha do político (TSE).`,
 					);
 					finalScore = 100; // Força score máximo
 				}
@@ -2751,7 +2742,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				else if (finalScore >= 50) nivelDisplay = "MEDIO";
 				const nomeFornFinal = d.nomeFornecedor || d.fornecedor || d.favorecido || d.razaoSocial || d.contratado || "FORNECEDOR IDENTIFICADO";
 				const valorFinal = Number(d.valorDocumento ?? d.valorLiquido ?? d.valor ?? 0);
-				const docFornFinal = d.cnpjCpfFornecedor || d.cnpjFornecedor || d.cnpj || d.cpfCnpj || "13149954000185";
+				const docFornFinal = d.cnpjCpfFornecedor || d.cnpjFornecedor || d.cnpj || d.cpfCnpj || "";
 				const tipoFinal = d.tipoDespesa || d.tipo || d.categoria_despesa || d.descricao || "DESPESA PÚBLICA";
 				const dataDocFinal = d.dataDocumento || d.data || d.data_despesa || "";
 

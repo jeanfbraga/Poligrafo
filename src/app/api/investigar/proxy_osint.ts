@@ -44,7 +44,7 @@ async function coletarDespesasCgu(
 				tipoDespesa:
 					item.funcao || item.elementoDespesa || "Despesa Federal",
 				valorDocumento: Number(item.valor || item.valorPago || 0),
-				dataDocumento: item.data || item.dataDocumento || "2024-01-01",
+				dataDocumento: item.data || item.dataDocumento || "",
 				urlDocumento: "https://portaldatransparencia.gov.br/",
 			});
 		});
@@ -96,7 +96,7 @@ async function coletarContratosCompras(
 					c.fornecedor?.nome || nomeVereador || "Contrato Federal",
 				tipoDespesa: `Contrato Federal: ${c.objeto?.substring(0, 80) || "N/I"}`,
 				valorDocumento: Number(c.valorInicial || 0),
-				dataDocumento: c.dataInicioVigencia || "2024-01-01",
+				dataDocumento: c.dataInicioVigencia || "",
 				urlDocumento: "https://compras.dados.gov.br/",
 			});
 		});

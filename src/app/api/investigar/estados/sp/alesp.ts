@@ -82,7 +82,7 @@ function parseBlocoDespesa(
 	if (ano < anoMinimo) return null;
 
 	return {
-		cnpjCpfFornecedor: extrairTagXml(bloco, "CNPJ").replace(/\D/g, "") || "00000000000000",
+		cnpjCpfFornecedor: extrairTagXml(bloco, "CNPJ").replace(/\D/g, ""),
 		nomeFornecedor: extrairTagXml(bloco, "Fornecedor") || "Fornecedor ALESP",
 		tipoDespesa: extrairTagXml(bloco, "Tipo") || "Verba Indenizatória / Gabinete",
 		valorDocumento: Number.parseFloat(extrairTagXml(bloco, "Valor")) || 0,

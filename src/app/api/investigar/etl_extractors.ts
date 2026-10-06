@@ -23,7 +23,7 @@ async function buscarDespesasCamaraCache(cleanId: number, sendEvent?: any) {
 			}
 
 			return data.map((d: any) => ({
-				cnpjCpfFornecedor: d.cnpj_cpf_fornecedor || "00000000000000",
+				cnpjCpfFornecedor: d.cnpj_cpf_fornecedor || "",
 				nomeFornecedor: d.nome_fornecedor || "FORNECEDOR NÃO IDENTIFICADO",
 				tipoDespesa: d.tipo_despesa,
 				valorDocumento: Number(d.valor_documento || 0),
@@ -74,7 +74,7 @@ function formatarDespesasCamara(rawDespesas: any[]) {
 	const despesasConvertidas = rawDespesas.map((d: any) => ({
 		cnpjCpfFornecedor: d.cnpjCpfFornecedor
 			? d.cnpjCpfFornecedor.replace(/\D/g, "")
-			: "00000000000000",
+			: "",
 		nomeFornecedor: d.nomeFornecedor || "FORNECEDOR NÃO IDENTIFICADO",
 		tipoDespesa: d.tipoDespesa,
 		valorDocumento: Number(d.valorDocumento || 0),
@@ -132,7 +132,7 @@ async function buscarDespesasSenadoCache(idSenador: number, sendEvent?: any) {
 			}
 
 			return data.map((d: any) => ({
-				cnpjCpfFornecedor: d.cnpj_cpf_fornecedor || "00000000000000",
+				cnpjCpfFornecedor: d.cnpj_cpf_fornecedor || "",
 				nomeFornecedor: d.nome_fornecedor || "FORNECEDOR NÃO IDENTIFICADO",
 				tipoDespesa: d.tipo_despesa,
 				valorDocumento: Number(d.valor_documento || 0),
@@ -175,7 +175,7 @@ function parseLinhaSenado(d: any) {
 	if (Number.isNaN(valorNum)) valorNum = 0;
 
 	return {
-		cnpjCpfFornecedor: d.CPF_CNPJ_FORNECEDOR ? d.CPF_CNPJ_FORNECEDOR.replace(/\D/g, "") : "00000000000000",
+		cnpjCpfFornecedor: d.CPF_CNPJ_FORNECEDOR ? d.CPF_CNPJ_FORNECEDOR.replace(/\D/g, "") : "",
 		nomeFornecedor: d.NOME_FORNECEDOR || "FORNECEDOR NÃO IDENTIFICADO",
 		tipoDespesa: d.TIPO_DESPESA || "DESPESA DO SENADO",
 		valorDocumento: valorNum,

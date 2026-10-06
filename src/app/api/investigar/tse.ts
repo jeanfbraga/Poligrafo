@@ -1,3 +1,4 @@
+import { cnpjValido, cpfValido, soDigitos } from "@/lib/documento";
 import { buscarFonte } from "@/lib/fonte-http";
 
 export function normalizeString(str: string): string {
@@ -481,8 +482,9 @@ async function obterBensDetalhes(eleicao: any, localidade: string, matchId: stri
 }
 
 function extrairDocumentosCandidato(jsonCpf: any) {
-	const cpfReal = jsonCpf?.cpf ? String(jsonCpf.cpf).replace(/\D/g, "") : null;
-	const cnpjCampanha = jsonCpf?.cnpjcampanha ? String(jsonCpf.cnpjcampanha).replace(/\D/g, "") : null;
+	// CPF mascarado pela fonte (***.123.456-**) não é documento: antes virava "123456".
+	const cpfReal = cpfValido(jsonCpf?.cpf) ? soDigitos(jsonCpf.cpf) : null;
+	const cnpjCampanha = cnpjValido(jsonCpf?.cnpjcampanha) ? soDigitos(jsonCpf.cnpjcampanha) : null;
 	const documentoValido = cpfReal || cnpjCampanha;
 	const isCnpj = !cpfReal && Boolean(cnpjCampanha);
 	return { cpfReal, cnpjCampanha, documentoValido, isCnpj };

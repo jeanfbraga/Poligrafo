@@ -1,3 +1,4 @@
+import { cpfValido, documentoValido } from "@/lib/documento";
 import { transparenciaLimiter } from "@/services/core/rate-limiter";
 import { listarAtividadesAuditoria } from "@/services/integrations/denasus/client";
 import {
@@ -168,7 +169,7 @@ async function consultarSancoesApi(
 	const headers = { "chave-api-dados": apiKey };
 	await transparenciaLimiter.acquire();
 
-	const isCpfValido = cpfLimpo && cpfLimpo !== "00000000000" && cpfLimpo.length === 11;
+	const isCpfValido = cpfValido(cpfLimpo);
 	const pSancao = isCpfValido ? `codigoSancionado=${cpfLimpo}` : `nomeSancionado=${encodeURIComponent(nome)}`;
 	const pCeaf = isCpfValido ? `cpfSancionado=${cpfLimpo}` : `nomeSancionado=${encodeURIComponent(nome)}`;
 	const pPep = isCpfValido ? `cpf=${cpfLimpo}` : `nome=${encodeURIComponent(nome)}`;
@@ -348,7 +349,7 @@ export async function investigarPolitico(
 	const alertasPessoais: string[] = [];
 	const bensDeclarados: any[] = [];
 
-	if (!cpfLimpo || cpfLimpo === "00000000000") {
+	if (!documentoValido(cpfLimpo)) {
 		return { patrimonioTotal, sancoesCgu, alertasPessoais, bensDeclarados };
 	}
 
@@ -399,7 +400,7 @@ function emitirItemReceitaFederal(item: any, docLimpo: string, i: number, pessoa
 			label: item.nomeFavorecido || item.nomeCredor || "Recebedor",
 			valor: Number(item.valor || item.valorPago || 0),
 			type: item.funcao || item.elementoDespesa || "Despesa Federal (CGU)",
-			dataDocumento: item.data || item.dataDocumento || "2024-01-01",
+			dataDocumento: item.data || item.dataDocumento || "",
 			score_letalidade: 70,
 			motivo_ia: "[CGU] Repasse Federal Direto detectado.",
 		},
@@ -571,7 +572,7 @@ export async function buscarCartaoCorporativo(
 	sendEvent: any,
 	casaPolitico?: string,
 ) {
-	if (!cpfLimpo || cpfLimpo === "00000000000") return;
+	if (!cpfValido(cpfLimpo)) return;
 	const apiKey = process.env.TRANSPARENCIA_API_KEY || "";
 	if (!apiKey) return;
 
@@ -604,7 +605,7 @@ export async function buscarViagensFAB(
 	sendEvent: any,
 	_casaPolitico?: string,
 ) {
-	if (!cpfLimpo || cpfLimpo === "00000000000") return;
+	if (!cpfValido(cpfLimpo)) return;
 	const apiKey = process.env.TRANSPARENCIA_API_KEY || "";
 	if (!apiKey) return;
 	try {

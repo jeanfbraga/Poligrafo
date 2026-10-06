@@ -1,3 +1,4 @@
+import { cpfValido } from "@/lib/documento";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 // A investigação leva minutos. 300 s é o padrão da Vercel com Fluid Compute;
@@ -161,7 +162,7 @@ async function _buscarViagensFAB(
 	sendEvent: any,
 	_casaPolitico?: string,
 ) {
-	if (!cpfLimpo || cpfLimpo === "00000000000") return;
+	if (!cpfValido(cpfLimpo)) return;
 	const apiKey = process.env.TRANSPARENCIA_API_KEY || "";
 	if (!apiKey) return;
 	try {
