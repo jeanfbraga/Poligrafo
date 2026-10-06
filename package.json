@@ -16,6 +16,7 @@
     "sync:spu": "tsx scripts/etl/spu-sync.ts",
     "sync:tse-doadores": "tsx scripts/etl/tse-doadores-sync.ts",
     "sync:tse-eleitos": "tsx scripts/etl/tse-eleitos-sync.ts",
+    "sync:tse-campanha": "tsx scripts/etl/tse-contas-campanha-sync.ts",
     "sync:perfil": "tsx scripts/etl/perfil-politico-sync.ts",
     "sync:votos": "tsx scripts/etl/votos-detalhados-sync.ts",
     "sync:frequencia": "tsx scripts/etl/frequencia-sync.ts",

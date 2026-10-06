@@ -8,9 +8,12 @@
  */
 import { documentoParaPrompt } from "@/lib/documento";
 import { normalizarDespesa } from "@/services/core/despesa-normalizada";
+import type { EmpresaQsa } from "@/services/core/socio-confirmacao";
+import { buscarContasCampanha, type ContasCampanha } from "@/services/integrations/tse/campanha";
 import type { SancaoEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
 import {
 	completarNomes,
+	fatosDeContasCampanha,
 	fatosDeDespesasMandato,
 	fatosDeDoadores,
 	fatosDeEmpresasDoPolitico,
@@ -20,6 +23,7 @@ import {
 import { type ExplicacaoAchado, explicarAchados } from "./explicacao-ia";
 import { executarCruzamentos } from "./motor";
 import { fatosDeSancoes } from "./sancoes";
+import { fatosDeSocios, type Politico } from "./socios";
 import type { Achado, Fato, Severidade } from "./tipos";
 
 export type { Achado, Fato } from "./tipos";
@@ -28,29 +32,51 @@ export interface EntradaCruzamentos {
 	pessoaId: string;
 	/** Casa/fonte das despesas do mandato (ex.: "CAMARA"). */
 	casa: string;
-	/** Lista de CPF/CNPJ do TSE (qualquer outra coisa é ignorada). */
+	/** Lista antiga de CPF/CNPJ do TSE (por nome); ignorada quando há contas por sq_candidato. */
 	doadores: unknown;
 	empresasDoPolitico: string[];
 	/** Despesas do mandato como chegaram da fonte (são normalizadas aqui). */
 	despesasMandato: unknown[];
 	nos: NoGrafo[];
+	/** Número do candidato confirmado pela identidade (base de eleitos). */
+	sqCandidato?: string | null;
+	/** Nomes e CPF confirmado do político (para achá-lo no QSA dos fornecedores). */
+	politico?: Politico | null;
 	agora?: () => Date;
 	buscarSancoes?: (cnpj: string) => Promise<SancaoEmpresa[]>;
+	buscarContas?: (sq: string | null | undefined) => Promise<ContasCampanha | null>;
+	buscarQsa?: (cnpj: string) => Promise<EmpresaQsa | null>;
 	/** IA que só explica (padrão: gateway gratuito); injetável nos testes. */
 	explicar?: (nos: ReturnType<typeof achadoParaNo>[]) => Promise<ExplicacaoAchado[]>;
 }
 
-export async function cruzarDadosDaInvestigacao(e: EntradaCruzamentos): Promise<{ fatos: Fato[]; achados: Achado[] }> {
-	const coletadoEm = (e.agora?.() ?? new Date()).toISOString();
+/** Contas por sq_candidato (sem homônimo) substituem a lista antiga por nome. */
+function fatosDeCampanha(e: EntradaCruzamentos, contas: ContasCampanha | null, coletadoEm: string): Fato[] {
+	if (contas && (contas.doadores.length || contas.fornecedores.length)) {
+		return fatosDeContasCampanha([...contas.doadores, ...contas.fornecedores], coletadoEm, String(e.sqCandidato));
+	}
+	return fatosDeDoadores(Array.isArray(e.doadores) ? e.doadores : [], coletadoEm);
+}
+
+function fatosColetados(e: EntradaCruzamentos, contas: ContasCampanha | null, coletadoEm: string): Fato[] {
 	const despesas = (e.despesasMandato ?? []).map((d) => normalizarDespesa(d, { fonte: e.casa, natureza: "MANDATO" }));
-	const base = [
-		...fatosDeDoadores(Array.isArray(e.doadores) ? e.doadores : [], coletadoEm),
+	return completarNomes([
+		...fatosDeCampanha(e, contas, coletadoEm),
 		...fatosDeEmpresasDoPolitico(e.empresasDoPolitico ?? [], coletadoEm),
 		...fatosDeDespesasMandato(despesas, coletadoEm),
 		...fatosDeNos(e.nos ?? [], coletadoEm),
-	];
-	const sancoes = await fatosDeSancoes(base, coletadoEm, e.buscarSancoes);
-	const fatos = completarNomes([...base, ...sancoes]);
+	]);
+}
+
+export async function cruzarDadosDaInvestigacao(e: EntradaCruzamentos): Promise<{ fatos: Fato[]; achados: Achado[] }> {
+	const coletadoEm = (e.agora?.() ?? new Date()).toISOString();
+	const contas = await (e.buscarContas ?? buscarContasCampanha)(e.sqCandidato).catch(() => null);
+	const base = fatosColetados(e, contas, coletadoEm);
+	const [sancoes, socios] = await Promise.all([
+		fatosDeSancoes(base, coletadoEm, e.buscarSancoes),
+		fatosDeSocios(base, e.politico ?? null, coletadoEm, e.buscarQsa),
+	]);
+	const fatos = completarNomes([...base, ...sancoes, ...socios]);
 	return { fatos, achados: executarCruzamentos(fatos) };
 }
 

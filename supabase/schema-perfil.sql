@@ -237,3 +237,31 @@ DO $$ BEGIN
         CREATE POLICY tse_eleitos_service ON public.tse_eleitos FOR ALL TO service_role USING (true) WITH CHECK (true);
     END IF;
 END $$;
+
+-- -------------------------------------------------------------------------------
+-- 10. tse_campanha_contas — doadores (PF) e fornecedores (CNPJ) das campanhas dos eleitos
+-- Agregado por candidato + papel + documento; ver scripts/sql/migracao_perfil_tse_campanha.sql
+-- LGPD: guarda CPF de doador (pessoa privada) → sem leitura para anon/authenticated.
+-- -------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.tse_campanha_contas (
+    id              BIGSERIAL PRIMARY KEY,
+    sq_candidato    TEXT NOT NULL,
+    ano_eleicao     INTEGER NOT NULL,
+    tipo            TEXT NOT NULL CHECK (tipo IN ('DOADOR', 'FORNECEDOR')),
+    documento       TEXT NOT NULL,
+    nome            TEXT,
+    valor_total     NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    quantidade      INTEGER NOT NULL DEFAULT 0,
+    origem          TEXT,
+    atualizado_em   TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    CONSTRAINT tse_campanha_contas_chave UNIQUE (sq_candidato, ano_eleicao, tipo, documento)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tse_campanha_documento ON public.tse_campanha_contas (documento);
+
+ALTER TABLE public.tse_campanha_contas ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'tse_campanha_contas_service' AND tablename = 'tse_campanha_contas') THEN
+        CREATE POLICY tse_campanha_contas_service ON public.tse_campanha_contas FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
+END $$;

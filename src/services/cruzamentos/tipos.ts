@@ -15,7 +15,9 @@ export type Papel =
 	| "BENEFICIARIO_EMENDA"
 	| "CONTRATADO_ENTE"
 	| "CONTRATADO_PUBLICO"
-	| "SANCIONADO";
+	| "SANCIONADO"
+	/** Pessoa sócia (QSA: nome + 6 dígitos do meio do CPF) de empresa paga pelo mandato/órgão. */
+	| "SOCIO_DE_FORNECEDOR";
 
 export interface Procedencia {
 	/** Nome legível da fonte (ex.: "Câmara dos Deputados — CEAP"). */

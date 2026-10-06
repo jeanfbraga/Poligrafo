@@ -61,6 +61,39 @@ export function fatosDeDespesasMandato(despesas: DespesaNormalizada[], coletadoE
 	});
 }
 
+/** Linha de tse_campanha_contas (Banco de Perfil). */
+export interface ContaCampanhaFato {
+	ano_eleicao: number;
+	tipo: "DOADOR" | "FORNECEDOR";
+	documento: string;
+	nome: string | null;
+	valor_total: number;
+	quantidade: number;
+	origem: string | null;
+}
+
+/** Contas de campanha pelo número do candidato: doadores (CPF) e fornecedores (CNPJ) com valor. */
+export function fatosDeContasCampanha(contas: ContaCampanhaFato[], coletadoEm: string, sq: string): Fato[] {
+	return contas.flatMap((c, i) => {
+		const doc = documentoOuNulo(c.documento);
+		if (!doc) return [];
+		const papel: Papel = c.tipo === "DOADOR" ? "DOADOR" : "FORNECEDOR_CAMPANHA";
+		const arquivo = c.tipo === "DOADOR" ? "receitas" : "despesas contratadas";
+		return [fato(papel, doc, i, {
+			nome: c.nome ?? "",
+			valor: Number(c.valor_total) || undefined,
+			data: String(c.ano_eleicao),
+			detalhe: [c.origem, c.quantidade > 1 ? `${c.quantidade} lançamentos` : ""].filter(Boolean).join(" — "),
+			procedencia: procedencia(
+				`TSE — prestação de contas ${c.ano_eleicao} (${arquivo})`,
+				`sq_candidato=${sq}`,
+				coletadoEm,
+				"https://dadosabertos.tse.jus.br/dataset/?q=presta%C3%A7%C3%A3o+de+contas",
+			),
+		})];
+	});
+}
+
 type LeitorNo = (no: NoGrafo, coletadoEm: string) => Fato[];
 
 /** Contrato/empenho do órgão (TCE etc.): nós de nosDeContratosDoEnte. */

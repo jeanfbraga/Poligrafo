@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { podeLerCachePesquisas } from "@/lib/cache-pesquisas";
 import { ColecaoNos, envolverEmissor } from "@/services/core/colecao-nos";
 import { buscarCandidatos } from "@/services/core/busca-candidatos";
-import { buscarEleitoDaRef, candidatosDaBaseEleitos } from "@/services/integrations/tse/eleitos";
+import { buscarEleitoDoAlvo, candidatosDaBaseEleitos } from "@/services/integrations/tse/eleitos";
 import { perfilDaCasa } from "@/services/core/alcada";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
@@ -577,7 +577,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		// Eleito da ref na base tse_eleitos (Banco de Perfil), pelo número do candidato ou CPF.
 		const [tseResult, eleitoDaRef] = await Promise.all([
 			buscarCpfNoTSE(nomeParaTSE, deputadoBasico.uf, codigoCargoTse, detalhes?.nomeCivil, municipioDoAlvo),
-			buscarEleitoDaRef(deputadoBasico.id).catch(() => null),
+			buscarEleitoDoAlvo({ id: deputadoBasico.id, cpfOficial: detalhes?.cpf }).catch(() => null),
 		]);
 
 		// Identidade verificada (v2): documento válido, confiança e se os dados do TSE são da
@@ -2337,7 +2337,11 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		}
 		// Motor de cruzamentos (regras fixas, sem IA, com fonte e link): services/cruzamentos, nota 31.
 		await emitirCruzamentos(
-			{ pessoaId, casa: String(deputadoBasico.casa), doadores, empresasDoPolitico: empresasRelacionadasCNPJs, despesasMandato: despesasCruas, nos: supabaseNodes },
+			{
+				pessoaId, casa: String(deputadoBasico.casa), doadores, empresasDoPolitico: empresasRelacionadasCNPJs, despesasMandato: despesasCruas, nos: supabaseNodes,
+				sqCandidato: identidade.sqCandidato,
+				politico: { nomes: nomesDeReferencia([deputadoBasico.nome, detalhes?.nomeCivil, eleitoDaRef?.nm_candidato]), cpf: identidade.cpf },
+			},
 			sendEvent,
 		);
 		try {

@@ -11,6 +11,8 @@ import {
 } from "../../src/services/cruzamentos/adaptadores";
 import { executarCruzamentos, raizCnpj } from "../../src/services/cruzamentos/motor";
 import { cnpjsParaConferir, fatosDeSancoes, sancaoParaFato } from "../../src/services/cruzamentos/sancoes";
+import { fatosDeSocios, fornecedoresParaQsa } from "../../src/services/cruzamentos/socios";
+import { fatosDeContasCampanha } from "../../src/services/cruzamentos/adaptadores";
 import type { Fato, Papel } from "../../src/services/cruzamentos/tipos";
 
 /** CNPJ válido a partir dos 12 primeiros dígitos (calcula os verificadores). */
@@ -155,6 +157,64 @@ describe("sanções dos CNPJs que importam", () => {
 	});
 });
 
+describe("contas de campanha e sócios de fornecedores", () => {
+	const CPF_POLITICO = "11144477735"; // miolo 444777
+	const contas = [
+		{ ano_eleicao: 2022, tipo: "DOADOR" as const, documento: CPF, nome: "JOSE DA SILVA", valor_total: 5000, quantidade: 2, origem: "Recursos de pessoas físicas" },
+		{ ano_eleicao: 2022, tipo: "FORNECEDOR" as const, documento: OUTRA, nome: "AGENCIA Y", valor_total: 30000, quantidade: 1, origem: "Publicidade" },
+	];
+
+	it("contas viram DOADOR e FORNECEDOR_CAMPANHA com valor, ano e procedência pelo número do candidato", () => {
+		const fatos = fatosDeContasCampanha(contas, AGORA, "130001");
+		expect(fatos.map((x) => `${x.papel}:${x.documento}`)).toEqual([`DOADOR:${CPF}`, `FORNECEDOR_CAMPANHA:${OUTRA}`]);
+		expect(fatos[0]).toMatchObject({ nome: "JOSE DA SILVA", valor: 5000, data: "2022", detalhe: "Recursos de pessoas físicas — 2 lançamentos", procedencia: { chave: "sq_candidato=130001" } });
+	});
+
+	it("QSA só dos maiores fornecedores; doador e político achados por nome + 6 dígitos do meio do CPF", async () => {
+		const fatos = [
+			...fatosDeContasCampanha(contas, AGORA, "130001"),
+			f("FORNECEDOR_COTA", MATRIZ, { valor: 900, nome: "GRÁFICA X" }),
+			f("CONTRATADO_ENTE", FILIAL, { valor: 100 }),
+		];
+		expect(fornecedoresParaQsa(fatos)).toEqual([OUTRA, MATRIZ, FILIAL]);
+		const buscar = vi.fn(async (cnpj: string) =>
+			cnpj === MATRIZ
+				? {
+					razao_social: "GRÁFICA X LTDA",
+					qsa: [
+						{ nome_socio: "JOSÉ DA SILVA", cnpj_cpf_do_socio: "***982247**" },
+						{ nome_socio: "FULANO POLÍTICO", cnpj_cpf_do_socio: "***444777**" },
+						{ nome_socio: "JOSE DA SILVA", cnpj_cpf_do_socio: "***000111**" },
+					],
+				}
+				: null,
+		);
+		const novos = await fatosDeSocios(fatos, { nomes: ["Fulano Político"], cpf: CPF_POLITICO }, AGORA, buscar);
+		expect(buscar).toHaveBeenCalledTimes(3);
+		expect(novos.map((x) => `${x.papel}:${x.documento}`)).toEqual([`SOCIO_DE_FORNECEDOR:${CPF}`, `EMPRESA_DO_POLITICO:${MATRIZ}`]);
+		expect(novos[0].detalhe).toBe(`sócio de GRÁFICA X LTDA (${MATRIZ}), empresa paga com a cota do mandato`);
+		const achados = executarCruzamentos([...fatos, ...novos]).map((a) => a.regra);
+		expect(achados).toEqual(expect.arrayContaining(["doador-socio-fornecedor", "empresa-politico-cota"]));
+	});
+
+	it("sem doador pessoa física com nome nem político, nem consulta o QSA", async () => {
+		const buscar = vi.fn(async () => null);
+		expect(await fatosDeSocios([f("FORNECEDOR_COTA", MATRIZ)], null, AGORA, buscar)).toEqual([]);
+		expect(buscar).not.toHaveBeenCalled();
+	});
+
+	it("com contas pelo número do candidato, a lista antiga de doadores (por nome) é ignorada", async () => {
+		const { fatos } = await cruzarDadosDaInvestigacao({
+			pessoaId: "p", casa: "CAMARA", doadores: [MATRIZ], empresasDoPolitico: [], despesasMandato: [], nos: [],
+			sqCandidato: "130001", agora: () => new Date(AGORA),
+			buscarContas: async () => ({ doadores: [contas[0]], fornecedores: [contas[1]] }) as never,
+			buscarSancoes: async () => [], buscarQsa: async () => null, explicar: async () => [],
+		});
+		expect(fatos.some((x) => x.documento === MATRIZ)).toBe(false);
+		expect(fatos.map((x) => x.papel)).toEqual(["DOADOR", "FORNECEDOR_CAMPANHA"]);
+	});
+});
+
 describe("entrada do pipe", () => {
 	const entrada = {
 		pessoaId: "pessoa-1",
@@ -168,8 +228,10 @@ describe("entrada do pipe", () => {
 		nos: [],
 		agora: () => new Date(AGORA),
 		buscarSancoes: async (c: string) => (c === MATRIZ ? [{ base: "ceis", nomeBase: "CEIS", registro: {} }] : []),
-		// IA falsa: nenhum teste sai para a rede.
+		// IA, QSA e contas falsos: nenhum teste sai para a rede.
 		explicar: async () => [],
+		buscarQsa: async () => null,
+		buscarContas: async () => null,
 	};
 
 	it("cruza doador × cota × sanção de ponta a ponta", async () => {

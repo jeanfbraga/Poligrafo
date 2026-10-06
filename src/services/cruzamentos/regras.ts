@@ -55,6 +55,20 @@ export const REGRAS: Regra[] = [
 		porque: "empresa da qual o político é sócio recebeu recurso de emenda indicada por ele",
 	},
 	{
+		id: "doador-socio-fornecedor",
+		titulo: "Doador de campanha é sócio de empresa paga pelo mandato",
+		papeis: ["DOADOR", "SOCIO_DE_FORNECEDOR"],
+		severidade: "ALTA",
+		porque: "quem financiou a campanha é sócio (nome e CPF conferidos no QSA) de empresa que recebe dinheiro ligado ao mandato",
+	},
+	{
+		id: "fornecedor-campanha-ente",
+		titulo: "Fornecedor da campanha contratado pelo órgão ligado ao mandato",
+		papeis: ["FORNECEDOR_CAMPANHA", "CONTRATADO_ENTE"],
+		severidade: "ALTA",
+		porque: "a mesma empresa prestou serviço à campanha e tem contrato com o órgão que o político comanda ou fiscaliza",
+	},
+	{
 		id: "fornecedor-campanha-cota",
 		titulo: "Fornecedor da campanha pago com a cota do mandato",
 		papeis: ["FORNECEDOR_CAMPANHA", "FORNECEDOR_COTA"],

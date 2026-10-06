@@ -122,6 +122,19 @@ export function nomeLocal(nome: string | null): string {
 		.trim();
 }
 
+/**
+ * Eleito do alvo: pelo documento da ref e, sem resultado, pelo CPF oficial da
+ * casa (deputado federal: a ref traz o id da Câmara, mas a API dá o CPF).
+ */
+export async function buscarEleitoDoAlvo(
+	alvo: { id: unknown; cpfOficial?: string | null },
+	cliente: ClienteSupabase = supabasePerfilAdmin,
+): Promise<Eleito | null> {
+	const daRef = await buscarEleitoDaRef(alvo.id, cliente);
+	if (daRef || !alvo.cpfOficial) return daRef;
+	return buscarEleitoDaRef(alvo.cpfOficial, cliente);
+}
+
 function documentoDaRef(e: Eleito): string {
 	return e.nr_cpf_candidato || `${PREFIXO_SQ}${e.sq_candidato}`;
 }
