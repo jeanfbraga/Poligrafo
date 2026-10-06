@@ -50,6 +50,11 @@ export interface DependenciasBusca {
 	alesp: (nome: string) => Promise<any[]>;
 	alerj: (nome: string) => Promise<any[]>;
 	municipal: (uf: string, nome: string) => Promise<any[]>;
+	/**
+	 * Base `tse_eleitos` do Banco de Perfil (governador, assembleias, prefeitos e
+	 * vereadores das 27 UFs). null = base indisponível → caminho antigo (TSE ao vivo).
+	 */
+	eleitos?: (nome: string, uf: string | null, cargos?: string[]) => Promise<Candidato[] | null>;
 	status: (msg: string) => void;
 }
 
@@ -78,7 +83,7 @@ export const LEGISLATURA_ATUAL = 57;
  * como "Deputado Federal" e a busca municipal era pulada.
  */
 export function mandatoAtual(c: Candidato): boolean {
-	if (c.casa === "CANDIDATO_TSE") return false;
+	if (c.casa === "CANDIDATO_TSE" || c.suplente === true) return false;
 	return !(c.casa === "CAMARA" && c.idLegislatura !== undefined && c.idLegislatura < LEGISLATURA_ATUAL);
 }
 const UFS_SEM_UF_PADRAO = ["SP", "RJ", "PE", "CE", "PB", "SE"];
@@ -196,9 +201,21 @@ const EXECUTIVOS: Record<string, PerfilExecutivo> = {
 	},
 };
 
-/** Governador/prefeito pedidos explicitamente: direto na base do TSE. */
+/** Consulta a base de eleitos; sem a dependência, ou sem resposta, devolve null. */
+async function daBaseEleitos(deps: DependenciasBusca, nome: string, uf: string | null, cargos?: string[]): Promise<Candidato[] | null> {
+	if (!deps.eleitos) return null;
+	try {
+		return await deps.eleitos(nome, uf, cargos);
+	} catch {
+		return null;
+	}
+}
+
+/** Governador/prefeito pedidos explicitamente: base de eleitos e, sem ela, o TSE ao vivo. */
 async function buscarExecutivo(p: ParametrosBusca, deps: DependenciasBusca): Promise<Candidato[]> {
 	const perfil = EXECUTIVOS[p.cargo];
+	const daBase = await daBaseEleitos(deps, p.nome, p.uf, [perfil.cargoTse]);
+	if (daBase?.length) return ordenarCandidatos(daBase, p.nome, p.uf);
 	deps.status(`Buscando ${p.cargo} diretamente na base eleitoral (TSE)...`);
 	const uf = p.uf || "BR";
 	const t = await deps.tse(p.nome, uf, perfil.cargoTse);
@@ -270,9 +287,23 @@ function municipais(p: ParametrosBusca, deps: DependenciasBusca): Promise<Candid
 	return ufs.map((uf) => deps.municipal(uf, p.nome));
 }
 
+/**
+ * Federal (Câmara/Senado) em paralelo com a base de eleitos. Se a base achar
+ * alguém, ela substitui o TSE ao vivo para assembleias e municípios; sem
+ * resultado (ou fora do ar), segue o caminho antigo.
+ */
+async function primeiraRodada(p: ParametrosBusca, deps: DependenciasBusca) {
+	const federal = coletar(federais(p, deps));
+	const daBase = p.somenteFederal ? null : await daBaseEleitos(deps, p.nome, p.uf);
+	const achouNaBase = Boolean(daBase?.length);
+	const estadual = achouNaBase ? { lista: daBase as Candidato[], erro: false } : await coletar(estaduais(p, deps));
+	const f = await federal;
+	return { lista: [...f.lista, ...estadual.lista], erro: f.erro || estadual.erro, achouNaBase };
+}
+
 async function buscarLegislativosEMunicipais(p: ParametrosBusca, deps: DependenciasBusca): Promise<ResultadoBusca> {
 	deps.status(`Buscando nas esferas Federal${p.uf && !p.somenteFederal ? ` e Estadual (${p.uf})` : ""}...`);
-	const g1 = await coletar([...federais(p, deps), ...estaduais(p, deps)]);
+	const g1 = await primeiraRodada(p, deps);
 	let lista = g1.lista;
 	let erro = g1.erro;
 	// Reserva do TSE para federais (não eleitos ou Câmara/Senado fora do ar): só sem nenhum resultado.
@@ -281,7 +312,8 @@ async function buscarLegislativosEMunicipais(p: ParametrosBusca, deps: Dependenc
 		lista = g2.lista;
 	}
 	if (lista.length === 0) lista = await governadorSugerido(p, deps);
-	if (!p.somenteFederal && melhorCobertura(lista, p.nome) < 1) {
+	// A base de eleitos já cobre prefeitos e vereadores das 27 UFs: varredura municipal só sem ela.
+	if (!p.somenteFederal && !g1.achouNaBase && melhorCobertura(lista, p.nome) < 1) {
 		deps.status("Buscando na malha Municipal (Prefeitos e Vereadores)...");
 		const g3 = await coletar(municipais(p, deps));
 		lista = [...lista, ...g3.lista];

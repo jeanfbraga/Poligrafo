@@ -37,7 +37,36 @@ describe("resolverIdentidade (v1)", () => {
 	});
 
 	it("sem nada: confiança baixa, sem documento inventado", () => {
-		expect(resolverIdentidade({})).toMatchObject({ documento: null, confianca: "baixa", usarDadosTse: false });
+		expect(resolverIdentidade({})).toMatchObject({ documento: null, confianca: "baixa", usarDadosTse: false, sqCandidato: null });
+	});
+});
+
+describe("resolverIdentidade (v2, base de eleitos)", () => {
+	const PREFEITO = { sq_candidato: "250002034955", nm_candidato: "RICARDO LUIS REIS NUNES", ds_cargo: "PREFEITO", nm_ue: "SÃO PAULO", ano_eleicao: 2024 };
+
+	it("vereador/prefeito de 2024 (CPF mascarado pelo TSE): número do candidato dá confiança média", () => {
+		const id = resolverIdentidade({ docDaRef: "250002034955", eleito: PREFEITO, tse: { nome: "Ricardo Luís Reis Nunes" } });
+		expect(id).toMatchObject({ cpf: null, confianca: "media", usarDadosTse: true, sqCandidato: "250002034955", conflitos: [] });
+		expect(id.evidencias.join(" ")).toMatch(/Eleito confirmado na base do TSE \(2024\): PREFEITO — SÃO PAULO/);
+		expect(podeConsultarPorCpf(id)).toBe(false);
+	});
+
+	it("TSE ao vivo com outro nome que o eleito da ref é homônimo: dados descartados", () => {
+		const id = resolverIdentidade({ eleito: PREFEITO, tse: { nome: "RICARDO NUNES DA SILVA" } });
+		expect(id.usarDadosTse).toBe(false);
+		expect(id.conflitos[0]).toMatch(/Nome do TSE diferente do eleito/);
+	});
+
+	it("CPF do eleito (2022) vira documento quando não há oficial nem ref", () => {
+		const id = resolverIdentidade({ eleito: { ...PREFEITO, nr_cpf_candidato: CPF_A } });
+		expect(id).toMatchObject({ cpf: CPF_A, confianca: "alta" });
+		expect(id.evidencias[0]).toMatch(/base de eleitos/);
+	});
+
+	it("eleito com CPF diferente do oficial é ignorado", () => {
+		const id = resolverIdentidade({ cpfOficial: CPF_A, eleito: { ...PREFEITO, nr_cpf_candidato: CPF_B } });
+		expect(id).toMatchObject({ cpf: CPF_A, sqCandidato: null });
+		expect(id.conflitos[0]).toMatch(/base de eleitos diferente/);
 	});
 });
 

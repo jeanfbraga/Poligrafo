@@ -1,0 +1,46 @@
+name: Sync TSE Eleitos (Banco de Perfil)
+
+# Eleitos e suplentes das casas legislativas (CSV nacional do TSE) → tabela
+# tse_eleitos no BANCO DE PERFIL. O Banco Principal não recebe tabela nova
+# (passou do limite de espaço). Pré-requisito: scripts/sql/migracao_perfil_tse_eleitos.sql.
+# Em ano de eleição o TSE atualiza o CSV com frequência: rode manualmente após a apuração.
+
+on:
+  schedule:
+    - cron: '0 7 3 * *' # dia 3 de cada mês, 07:00 UTC (04:00 BRT)
+  workflow_dispatch:
+    inputs:
+      ano:
+        description: 'Só um ciclo (2018, 2022 ou 2024). Vazio = todos.'
+        required: false
+        default: ''
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TSE Eleitos Sync
+        env:
+          NEXT_PUBLIC_SUPABASE_PERFIL_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_PERFIL_URL }}
+          SUPABASE_PERFIL_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PERFIL_SERVICE_ROLE_KEY }}
+          ANO: ${{ github.event.inputs.ano }}
+        run: |
+          if [ -n "$ANO" ]; then
+            npm run sync:tse-eleitos -- --ano "$ANO"
+          else
+            npm run sync:tse-eleitos
+          fi

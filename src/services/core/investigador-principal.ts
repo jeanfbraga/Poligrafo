@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { podeLerCachePesquisas } from "@/lib/cache-pesquisas";
 import { ColecaoNos, envolverEmissor } from "@/services/core/colecao-nos";
 import { buscarCandidatos } from "@/services/core/busca-candidatos";
+import { buscarEleitoDaRef, candidatosDaBaseEleitos } from "@/services/integrations/tse/eleitos";
 import { perfilDaCasa } from "@/services/core/alcada";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
@@ -336,6 +337,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 					alesp: buscarDeputadoEstadualSP,
 					alerj: buscarDeputadoEstadualRJ,
 					municipal: buscarMunicipalMestre,
+					eleitos: candidatosDaBaseEleitos,
 					status: (msg) => sendEvent("STATUS", { msg }),
 				},
 			);
@@ -570,20 +572,19 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			.trim();
 		// No municipal, a busca no TSE fica no município da ref (antes valia o 1º município com o nome).
 		const municipioDoAlvo = perfilAlcada.esfera === "MUNICIPAL" ? deputadoBasico.uri : undefined;
-		const tseResult = await buscarCpfNoTSE(
-			nomeParaTSE,
-			deputadoBasico.uf,
-			codigoCargoTse,
-			detalhes?.nomeCivil,
-			municipioDoAlvo,
-		);
+		// Eleito da ref na base tse_eleitos (Banco de Perfil), pelo número do candidato ou CPF.
+		const [tseResult, eleitoDaRef] = await Promise.all([
+			buscarCpfNoTSE(nomeParaTSE, deputadoBasico.uf, codigoCargoTse, detalhes?.nomeCivil, municipioDoAlvo),
+			buscarEleitoDaRef(deputadoBasico.id).catch(() => null),
+		]);
 
-		// Identidade verificada (v1): documento válido, confiança e se os dados do TSE são da
+		// Identidade verificada (v2): documento válido, confiança e se os dados do TSE são da
 		// mesma pessoa. Nunca adota CPF achado só pelo nome (ver services/core/identidade.ts).
 		const identidade = resolverIdentidade({
 			cpfOficial: detalhes?.cpf,
 			docDaRef: possivelDoc,
 			tse: tseResult,
+			eleito: eleitoDaRef,
 		});
 		const cpfLimpo = identidade.documento;
 		const documentoIsCnpj = identidade.documentoIsCnpj;
@@ -679,6 +680,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 					confianca: identidade.confianca,
 					evidencias: identidade.evidencias,
 					conflitos: identidade.conflitos,
+					sqCandidato: identidade.sqCandidato,
 				},
 			},
 		};
