@@ -1,5 +1,8 @@
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
+// A investigação leva minutos. 300 s é o padrão da Vercel com Fluid Compute;
+// fica explícito para o pipeline (Prazo) poder reservar tempo antes do limite.
+export const maxDuration = 300;
 
 import { checkRateLimit } from "@/lib/api-rate-limit";
 import { fetchWithTimeout } from "./tse";
@@ -275,6 +278,12 @@ export async function GET(request: Request) {
 				});
 			} catch (e) {
 				console.error("Erro fatal:", e);
+				// Antes o stream ficava aberto e o navegador esperava para sempre.
+				sendEvent("ERROR", {
+					mensagem: "A investigação foi interrompida por um erro interno. Tente novamente.",
+				});
+			} finally {
+				safeClose();
 			}
 		},
 	});
