@@ -1,3 +1,5 @@
+import { buscarFonte } from "@/lib/fonte-http";
+
 export function normalizeString(str: string): string {
 	if (!str) return "";
 	return str
@@ -30,25 +32,24 @@ export function matchPalavraInteira(texto: string, palavra: string): boolean {
 	return regex.test(texto);
 }
 
+/**
+ * Legado: uma tentativa, sem cache, sem ajustes por host — mesmo
+ * comportamento de antes. Código novo deve usar `buscarFonte`/`buscarJson`
+ * (`@/lib/fonte-http`), que têm nova tentativa, cache e disjuntor.
+ */
 export async function fetchWithTimeout(
 	resource: string | URL | RequestInfo,
 	options: RequestInit & { timeout?: number } = {},
 ) {
 	const { timeout = 8000, ...fetchOptions } = options;
-	const controller = new AbortController();
-	const id = setTimeout(() => controller.abort(), timeout);
-	try {
-		const response = await fetch(resource as URL, {
-			...fetchOptions,
-			signal: controller.signal,
-			cache: "no-store",
-		});
-		clearTimeout(id);
-		return response;
-	} catch (e) {
-		clearTimeout(id);
-		throw e;
-	}
+	const url = resource instanceof Request ? resource.url : String(resource);
+	return buscarFonte(url, {
+		...fetchOptions,
+		cache: "no-store",
+		timeoutMs: timeout,
+		tentativas: 1,
+		aplicarPoliticas: false,
+	});
 }
 
 export interface ItemHistoricoTse {
