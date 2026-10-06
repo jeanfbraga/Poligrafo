@@ -86,10 +86,24 @@ export function coberturaNome(buscado: string, candidato: string): number {
 	return alvo.filter((t) => doCandidato.has(t)).length / alvo.length;
 }
 
+/** "ANDRE LUIS DO PRADO (ANDRÉ DO PRADO)" → nome civil e nome de urna. */
+function variantesNome(nome: string): string[] {
+	const urna = nome.match(/\(([^)]+)\)/)?.[1];
+	const civil = nome.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+	return [civil, urna].filter((v): v is string => Boolean(v)).map(normalizeString);
+}
+
+/**
+ * Cobertura das palavras (peso 2) + nome exato (civil ou urna) + mesma UF.
+ * Candidatura que só existe no TSE (ex.: candidato ao Senado em 2026) fica
+ * atrás do mandato atual numa casa oficial — senão um deputado estadual
+ * candidato a senador aparecia como "Senador".
+ */
 function pontuacao(c: Candidato, nome: string, uf: string | null): number {
-	const exato = normalizeString(c.nome) === normalizeString(nome) ? 0.5 : 0;
+	const exato = variantesNome(c.nome).includes(normalizeString(nome)) ? 0.5 : 0;
 	const mesmaUf = uf && c.uf === uf ? 0.25 : 0;
-	return coberturaNome(nome, c.nome) * 2 + exato + mesmaUf;
+	const soCandidatura = c.casa === "CANDIDATO_TSE" ? 1 : 0;
+	return coberturaNome(nome, c.nome) * 2 + exato + mesmaUf - soCandidatura;
 }
 
 /** Ordena pela cobertura do nome (e UF igual) e remove refs repetidas. */
@@ -232,9 +246,10 @@ async function buscarLegislativosEMunicipais(p: ParametrosBusca, deps: Dependenc
 	const g1 = await coletar([...federais(p, deps), ...estaduais(p, deps)]);
 	let lista = g1.lista;
 	let erro = g1.erro;
-	if (!lista.some((c) => c.ref.startsWith("FEDERAL:"))) {
+	// Reserva do TSE para federais (não eleitos ou Câmara/Senado fora do ar): só sem nenhum resultado.
+	if (lista.length === 0) {
 		const g2 = await coletar(federaisTse(p, deps));
-		lista = [...lista, ...g2.lista];
+		lista = g2.lista;
 	}
 	if (lista.length === 0) lista = await governadorSugerido(p, deps);
 	if (!p.somenteFederal && melhorCobertura(lista, p.nome) < 1) {

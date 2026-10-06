@@ -86,6 +86,24 @@ describe("buscarCandidatos", () => {
 		expect(r.candidatos[0].ref).toBe("GO:PREFEITO:goiania:52998224725");
 	});
 
+	it("candidato ao Senado no TSE não passa à frente do mandato atual na ALESP", async () => {
+		const d = deps({
+			alesp: vi.fn().mockResolvedValue([{ nome: "ANDRE LUIS DO PRADO (ANDRÉ DO PRADO)", uf: "SP", ref: "ALESP:DEPUTADO_ESTADUAL:x:1" }]),
+			tse: vi.fn().mockResolvedValue({ documentoPrincipal: "52998224725", nome: "ANDRE LUIS DO PRADO", nomeUrna: "ANDRÉ DO PRADO" }),
+		});
+		const r = await buscarCandidatos({ ...base, nome: "André do Prado", uf: "SP" }, d);
+		expect(r.candidatos[0].ref).toBe("ALESP:DEPUTADO_ESTADUAL:x:1");
+		expect(r.candidatos.some((c) => c.ref.startsWith("FEDERAL:SENADO"))).toBe(false); // reserva do TSE nem roda
+	});
+
+	it("nome de urna entre parênteses conta como exato", () => {
+		const lista = [
+			{ nome: "ANDRÉ DO PRADO SILVA", ref: "A", uf: "SP" },
+			{ nome: "ANDRE LUIS DO PRADO (ANDRÉ DO PRADO)", ref: "B", uf: "SP" },
+		];
+		expect(ordenarCandidatos(lista, "André do Prado", "SP")[0].ref).toBe("B");
+	});
+
 	it("sinaliza erro de API quando uma fonte cai e nada é encontrado", async () => {
 		const d = deps({ camara: vi.fn().mockRejectedValue(new Error("timeout")) });
 		const r = await buscarCandidatos({ ...base, nome: "Ninguém", uf: null }, d);
