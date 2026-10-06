@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { confirmarVinculoSocietario, nomesDeReferencia } from "../../src/services/core/socio-confirmacao";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { reiniciarEstadoFonteHttp } from "../../src/lib/fonte-http";
+import { confirmarVinculoSocietario, nomesDeReferencia, verificarEmpresaDoPolitico } from "../../src/services/core/socio-confirmacao";
 
 const CPF = "52998224725"; // miolo 982247
 const NOMES = nomesDeReferencia(["José da Silva Júnior", "ZÉ DA SILVA (ZEZINHO DO POVO)", "abc"]);
@@ -44,5 +45,22 @@ describe("confirmação de sócio pelo QSA", () => {
 			.toMatchObject({ confirmado: true, forca: "RAZAO_SOCIAL" });
 		expect(confirmarVinculoSocietario({ razao_social: "JOSE DA SILVA JUNIOR 11144477735" }, NOMES, CPF).confirmado).toBe(false);
 		expect(confirmarVinculoSocietario({ razao_social: "PADARIA BOM PAO LTDA" }, NOMES, CPF).confirmado).toBe(false);
+	});
+});
+
+describe("consulta do QSA (BrasilAPI)", () => {
+	beforeEach(() => reiniciarEstadoFonteHttp());
+
+	it("consulta a BrasilAPI pelo CNPJ e decide pelo QSA", async () => {
+		const fetchFn = vi.fn(async () => new Response(JSON.stringify({ qsa: [{ nome_socio: "JOSE DA SILVA JUNIOR", cnpj_cpf_do_socio: "***982247**" }] }), { status: 200 }));
+		const v = await verificarEmpresaDoPolitico("11.222.333/0001-81", NOMES, CPF, fetchFn as unknown as typeof fetch);
+		expect(String((fetchFn.mock.calls[0] as unknown[])[0])).toBe("https://brasilapi.com.br/api/cnpj/v1/11222333000181");
+		expect(v).toMatchObject({ confirmado: true, forca: "CPF_E_NOME" });
+	});
+
+	it("QSA fora do ar: não confirma e o motivo (que vai para o log da tela) diz por quê", async () => {
+		const fetchFn = vi.fn(async () => new Response("não encontrado", { status: 404 }));
+		const v = await verificarEmpresaDoPolitico("99888777000155", NOMES, CPF, fetchFn as unknown as typeof fetch);
+		expect(v).toEqual({ confirmado: false, motivo: "QSA indisponível (HTTP_4XX)" });
 	});
 });

@@ -85,12 +85,18 @@ export function confirmarVinculoSocietario(empresa: EmpresaQsa, nomes: string[],
 }
 
 /** Consulta o QSA (BrasilAPI, com cache) e decide. Falha na consulta = não confirmado. */
-export async function verificarEmpresaDoPolitico(cnpj: string, nomes: string[], cpf: string | null): Promise<Veredito> {
+export async function verificarEmpresaDoPolitico(
+	cnpj: string,
+	nomes: string[],
+	cpf: string | null,
+	fetchFn?: typeof fetch,
+): Promise<Veredito> {
 	const r = await buscarJson<EmpresaQsa>(`https://brasilapi.com.br/api/cnpj/v1/${soDigitos(cnpj)}`, {
 		fonte: "brasilapi-cnpj",
 		timeoutMs: 5000,
 		tentativas: 2,
 		memoria: { ttlMs: 6 * 60 * 60 * 1000 },
+		fetchFn,
 	});
 	if (!r.ok) return { confirmado: false, motivo: `QSA indisponível (${r.erro})` };
 	return confirmarVinculoSocietario(r.dados, nomes, cpf);

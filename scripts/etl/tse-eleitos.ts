@@ -120,6 +120,25 @@ export function deduplicar(linhas: { linha: LinhaEleito; turno: number }[]): Lin
 	return [...porSq.values()].map((x) => x.linha);
 }
 
+/** Cliente mínimo para gravar (o supabase-js real ou um falso nos testes). */
+export interface BancoGravacao {
+	from(tabela: string): {
+		upsert(linhas: LinhaEleito[], opcoes: { onConflict: string }): PromiseLike<{ error: { message: string } | null }>;
+	};
+}
+
+/** Upsert em lotes; tabela ausente gera a dica da migração. */
+export async function gravarLinhas(banco: BancoGravacao, linhas: LinhaEleito[], lote = 1000): Promise<void> {
+	for (let i = 0; i < linhas.length; i += lote) {
+		const { error } = await banco.from("tse_eleitos").upsert(linhas.slice(i, i + lote), { onConflict: "sq_candidato,ano_eleicao" });
+		if (!error) continue;
+		const dica = /relation .* does not exist|Could not find the table/i.test(error.message)
+			? " — rode scripts/sql/migracao_perfil_tse_eleitos.sql no Banco de Perfil antes."
+			: "";
+		throw new Error(`[TSE ELEITOS] upsert falhou: ${error.message}${dica}`);
+	}
+}
+
 /** Ciclos carregados e cargos de cada um (2018: só senadores, ainda em mandato até 2027). */
 export const CICLOS: { ano: number; cargos?: string[]; eleicaoMunicipal?: string }[] = [
 	{ ano: 2018, cargos: ["5"] },

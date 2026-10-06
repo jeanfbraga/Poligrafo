@@ -146,13 +146,22 @@ describe("buscarCandidatos", () => {
 describe("buscarCandidatos com a base de eleitos (Banco de Perfil)", () => {
 	const vereadorGo = { nome: "FULANO DE TAL", uf: "GO", ref: "GO:VEREADOR:goiania:SQ-90001", casa: "CAMARA_MUNICIPAL_LOCAL", idLegislatura: 2024 };
 
-	it("achou na base: sem TSE ao vivo para assembleia e sem varredura municipal", async () => {
+	it("achou na base: sem TSE ao vivo para assembleia e sem varredura municipal (e o log de status mostra isso)", async () => {
 		const d = deps({ eleitos: vi.fn().mockResolvedValue([vereadorGo]) });
 		const r = await buscarCandidatos({ ...base, nome: "Fulano de Tal", uf: "GO" }, d);
 		expect(d.eleitos).toHaveBeenCalledWith("Fulano de Tal", "GO", undefined);
 		expect(d.tse).not.toHaveBeenCalled();
 		expect(d.municipal).not.toHaveBeenCalled();
 		expect(r.candidatos[0].ref).toBe("GO:VEREADOR:goiania:SQ-90001");
+		const logs = vi.mocked(d.status).mock.calls.map((c) => c[0]);
+		expect(logs).toEqual(["Buscando nas esferas Federal e Estadual (GO)..."]);
+	});
+
+	it("sem a base, o log mostra a varredura municipal antiga", async () => {
+		const d = deps({ eleitos: vi.fn().mockResolvedValue(null) });
+		await buscarCandidatos({ ...base, nome: "Fulano de Tal", uf: "GO" }, d);
+		const logs = vi.mocked(d.status).mock.calls.map((c) => c[0]);
+		expect(logs).toContain("Buscando na malha Municipal (Prefeitos e Vereadores)...");
 	});
 
 	it("SP: a base substitui a busca da ALESP (que era só o TSE ao vivo)", async () => {
@@ -198,5 +207,7 @@ describe("buscarCandidatos com a base de eleitos (Banco de Perfil)", () => {
 		expect(d.eleitos).toHaveBeenCalledWith("Sandro Mabel", "GO", ["11"]);
 		expect(d.tse).not.toHaveBeenCalled();
 		expect(r.candidatos[0].ref).toBe("GO:PREFEITO:goiania:SQ-7");
+		// Achou na base: o aviso de busca ao vivo no TSE nem aparece.
+		expect(d.status).not.toHaveBeenCalled();
 	});
 });

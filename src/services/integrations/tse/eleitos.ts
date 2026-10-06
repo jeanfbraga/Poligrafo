@@ -63,6 +63,10 @@ export function ufValida(uf: string | null | undefined): uf is string {
 type ClienteSupabase = Pick<typeof supabasePerfilAdmin, "from">;
 
 let avisouIndisponivel = false;
+/** Testes: o aviso de base indisponível sai uma vez por processo. */
+export function reiniciarAvisoEleitos() {
+	avisouIndisponivel = false;
+}
 function avisar(mensagem: string) {
 	if (!avisouIndisponivel) console.warn(`[TSE ELEITOS] Base indisponível (${mensagem}); seguindo sem ela.`);
 	avisouIndisponivel = true;

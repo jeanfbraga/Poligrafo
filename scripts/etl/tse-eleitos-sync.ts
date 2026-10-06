@@ -19,7 +19,15 @@ import { createClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse";
 import dotenv from "dotenv";
 import { credenciaisBancoPerfil } from "./banco-perfil";
-import { CICLOS, deduplicar, type LinhaEleito, linhaParaEleito, montarMapaIbge } from "./tse-eleitos";
+import {
+	type BancoGravacao,
+	CICLOS,
+	deduplicar,
+	gravarLinhas,
+	type LinhaEleito,
+	linhaParaEleito,
+	montarMapaIbge,
+} from "./tse-eleitos";
 import { downloadZipComCurl, extrairArquivoZip } from "./tse-sync-real";
 
 dotenv.config({ path: ".env.local" });
@@ -54,17 +62,7 @@ async function lerCsv(arquivo: string, ano: number, cargos: string[] | undefined
 async function gravar(linhas: LinhaEleito[]) {
 	const { url, key } = credenciaisBancoPerfil();
 	const banco = createClient(url, key, { auth: { persistSession: false } });
-	for (let i = 0; i < linhas.length; i += LOTE) {
-		const { error } = await banco
-			.from("tse_eleitos")
-			.upsert(linhas.slice(i, i + LOTE), { onConflict: "sq_candidato,ano_eleicao" });
-		if (error) {
-			const dica = /relation .* does not exist|Could not find the table/i.test(error.message)
-				? " — rode scripts/sql/migracao_perfil_tse_eleitos.sql no Banco de Perfil antes."
-				: "";
-			throw new Error(`[TSE ELEITOS] upsert falhou: ${error.message}${dica}`);
-		}
-	}
+	await gravarLinhas(banco as unknown as BancoGravacao, linhas, LOTE);
 }
 
 async function sincronizarCiclo(ciclo: (typeof CICLOS)[number], seco: boolean): Promise<number> {

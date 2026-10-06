@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+	type BancoGravacao,
 	deduplicar,
+	gravarLinhas,
 	type LinhaEleito,
 	linhaParaEleito,
 	montarMapaIbge,
@@ -15,6 +17,7 @@ import {
 	eleitoParaCandidato,
 	nomeLocal,
 	palavrasBusca,
+	reiniciarAvisoEleitos,
 	sqDaRef,
 	ufValida,
 } from "../../src/services/integrations/tse/eleitos";
@@ -60,6 +63,22 @@ describe("ETL tse_eleitos (regras puras)", () => {
 	it("nome de urna igual ao civil não se repete na busca", () => {
 		expect(nomesBusca("ANDRÉ DO PRADO", "André do Prado")).toBe("andre do prado");
 		expect(nomesBusca("FULANO", null)).toBe("fulano");
+	});
+
+	it("gravação em lotes com chave sq_candidato+ano; tabela ausente traz a dica da migração", async () => {
+		const base = linhaParaEleito(linha, 2024, mapa) as LinhaEleito;
+		const linhas = Array.from({ length: 5 }, (_v, i) => ({ ...base, sq_candidato: String(i) }));
+		const upsert = vi.fn(async () => ({ error: null }));
+		await gravarLinhas({ from: () => ({ upsert }) } as BancoGravacao, linhas, 2);
+		expect(upsert).toHaveBeenCalledTimes(3);
+		expect(upsert.mock.calls[0]).toEqual([linhas.slice(0, 2), { onConflict: "sq_candidato,ano_eleicao" }]);
+
+		const semTabela = { from: () => ({ upsert: async () => ({ error: { message: "Could not find the table 'public.tse_eleitos' in the schema cache" } }) }) };
+		await expect(gravarLinhas(semTabela, linhas)).rejects.toThrow(
+			"[TSE ELEITOS] upsert falhou: Could not find the table 'public.tse_eleitos' in the schema cache — rode scripts/sql/migracao_perfil_tse_eleitos.sql no Banco de Perfil antes.",
+		);
+		const outroErro = { from: () => ({ upsert: async () => ({ error: { message: "JWT expired" } }) }) };
+		await expect(gravarLinhas(outroErro, linhas)).rejects.toThrow(/^\[TSE ELEITOS\] upsert falhou: JWT expired$/);
 	});
 
 	it("2º turno: fica a situação final do candidato", () => {
@@ -160,10 +179,15 @@ describe("consulta à base tse_eleitos", () => {
 		expect(vazio.chamadas).toHaveLength(0);
 	});
 
-	it("tabela ausente ou base fora do ar: null (o pipe segue sem a base)", async () => {
+	it("tabela ausente ou base fora do ar: null (o pipe segue sem a base) e avisa no log uma vez só", async () => {
+		reiniciarAvisoEleitos();
+		const aviso = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const { cliente } = clienteFalso({ error: { message: "Could not find the table 'public.tse_eleitos'" } });
 		expect(await buscarEleitosPorNome("Fulano", {}, cliente)).toBeNull();
 		expect(await buscarEleitoDaRef("SQ-1", cliente)).toBeNull();
+		expect(aviso).toHaveBeenCalledTimes(1);
+		expect(aviso.mock.calls[0][0]).toBe("[TSE ELEITOS] Base indisponível (Could not find the table 'public.tse_eleitos'); seguindo sem ela.");
+		aviso.mockRestore();
 	});
 
 	it("eleito da ref: pelo número do candidato ou pelo CPF; id da Câmara não consulta", async () => {
