@@ -45,6 +45,15 @@ export type RespostaIA =
 	| { ok: true; dados: unknown; texto: string; provedor: string; modelo: string; tentativas: Tentativa[] }
 	| { ok: false; motivo: "SEM_PROVEDOR" | "PRAZO" | "ESGOTADO"; tentativas: Tentativa[] };
 
+/**
+ * IA desligada em desenvolvimento (economia de cota), salvo POLIGRAFO_AI_IN_DEV=true.
+ * Antes cada chamador tinha sua regra (licitações ignorava a variável; resumo e
+ * Diários nem checavam).
+ */
+export function iaDesligada(env: NodeJS.ProcessEnv = process.env): boolean {
+	return env.NODE_ENV === "development" && env.POLIGRAFO_AI_IN_DEV !== "true";
+}
+
 /** Remove <think>…</think> e cercas de código; devolve o texto limpo. */
 export function limparTextoIA(texto: string): string {
 	return texto.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/```(?:json)?/g, "").trim();

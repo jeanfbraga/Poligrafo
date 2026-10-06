@@ -1,9 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/perfil/projeto/[id]/resumo/route";
 
 describe("API /api/perfil/projeto/[id]/resumo", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
+		// Sem chaves: o gateway não chama provedores de verdade e o resumo cai na reserva local.
+		for (const k of ["GROQ_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY", "CEREBRAS_API_KEY", "MISTRAL_API_KEY", "GITHUB_MODELS_TOKEN", "CLOUDFLARE_API_TOKEN"]) {
+			vi.stubEnv(k, "");
+		}
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
 	});
 
 	it("gera resumo com IA em cascata (L1 a L4) a partir dos dados informados", async () => {
@@ -24,6 +32,7 @@ describe("API /api/perfil/projeto/[id]/resumo", () => {
 		expect(json.resumo.length).toBeGreaterThan(50);
 		expect(json.motor).toBeDefined();
 		expect(json.titulo).toBe("PL 2418/2024");
+		expect(json.motor).toBe("HEURÍSTICA:LOCAL_L4");
 	});
 
 	it("retorna 400 se ID do projeto não for informado", async () => {

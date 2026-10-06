@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const processPipeline = vi.fn();
-vi.mock("../../src/services/ai/llm-orchestrator", () => ({
-	AiOrchestrator: class {
-		processPipeline = processPipeline;
-	},
+const gerar = vi.fn();
+vi.mock("../../src/services/ai/gateway", async (original) => ({
+	...(await original<typeof import("../../src/services/ai/gateway")>()),
+	gerar: (...args: unknown[]) => gerar(...args),
+	iaDesligada: () => false,
 }));
 
 import {
@@ -17,7 +17,6 @@ import {
 	idsDoLote,
 	validarAvaliacoes,
 } from "../../src/services/ai/contratos/avaliacoes";
-import { parsearRespostaContrato } from "../../src/services/ai/utils";
 
 const avaliacao = (id: string, score = 90) => ({
 	id, score_letalidade: score, classificacao: "INDICIO_PENAL_RELEVANTE", motivo_ia: "ALERTA",
@@ -56,16 +55,10 @@ describe("contrato da IA — validação", () => {
 		}
 	});
 
-	it("o provedor recusa resposta fora do contrato (força o próximo modelo)", () => {
-		const validar = criarValidadorAvaliacoes("despesas_avaliadas", ["d0"]);
-		expect(() => parsearRespostaContrato('{"despesas_avaliadas": []}', "despesas_avaliadas", validar)).toThrow(/contrato/);
-		expect(parsearRespostaContrato('```json\n{"despesas_avaliadas":[{"id":"d0","score_letalidade":5}]}\n```', "despesas_avaliadas", validar))
-			.toMatchObject({ despesas_avaliadas: [{ id: "d0" }] });
-	});
 });
 
 describe("contrato da IA — junção dos resultados", () => {
-	beforeEach(() => processPipeline.mockReset());
+	beforeEach(() => gerar.mockReset());
 
 	const despesas = [
 		{ cnpjCpfFornecedor: "1", nomeFornecedor: "A", tipoDespesa: "COMBUSTÍVEIS", valorDocumento: 100, dataDocumento: "2026-01-01" },
@@ -73,16 +66,16 @@ describe("contrato da IA — junção dos resultados", () => {
 	];
 
 	it("envia um id por item e junta pelo id (CNPJ + valor repetidos não colidem)", async () => {
-		processPipeline.mockResolvedValue({ parsedJson: { despesas_avaliadas: [avaliacao("d1", 91), avaliacao("d0", 12)] } });
+		gerar.mockResolvedValue({ ok: true, dados: { despesas_avaliadas: [avaliacao("d1", 91), avaliacao("d0", 12)] } });
 		const r = await analisarLoteComInteligencia(despesas, "SP", [], "FEDERAL", "CAMARA");
-		const prompt = processPipeline.mock.calls[0][1] as string;
+		const prompt = (gerar.mock.calls[0][0] as { usuario: string }).usuario;
 		expect(prompt).toContain('"id":"d0"');
 		expect(r.map((d: any) => d.score_letalidade)).toEqual([12, 91]);
 		expect(r.every((d: any) => d.avaliado_por_ia)).toBe(true);
 	});
 
 	it("item que a IA não devolveu recebe a regra local e a marca 'não avaliado', nunca 'seguro'", async () => {
-		processPipeline.mockResolvedValue({ parsedJson: { despesas_avaliadas: [avaliacao("d0", 70)] } });
+		gerar.mockResolvedValue({ ok: true, dados: { despesas_avaliadas: [avaliacao("d0", 70)] } });
 		const r = await analisarLoteComInteligencia(despesas, "SP", [], "FEDERAL", "CAMARA");
 		expect(r[0].score_letalidade).toBe(70);
 		expect(r[1].avaliado_por_ia).toBe(false);
@@ -91,20 +84,20 @@ describe("contrato da IA — junção dos resultados", () => {
 	});
 
 	it("sem resposta da IA, todo o lote vai para a regra local", async () => {
-		processPipeline.mockResolvedValue(null);
+		gerar.mockResolvedValue({ ok: false, motivo: "ESGOTADO", tentativas: [] });
 		const r = await analisarLoteComInteligencia(despesas, "SP", [], "FEDERAL", "CAMARA");
 		expect(r).toHaveLength(2);
 		expect(r[0].motivo_ia ?? "").not.toContain("[IA]");
 	});
 
 	it("LGPD: prompt sem lista de doadores e com CPF de pessoa física mascarado", async () => {
-		processPipeline.mockResolvedValue(null);
+		gerar.mockResolvedValue({ ok: false, motivo: "ESGOTADO", tentativas: [] });
 		const comPessoaFisica = [
 			{ ...despesas[0], cnpjCpfFornecedor: "52998224725" },
 			{ ...despesas[1], cnpjCpfFornecedor: "33000167000101" },
 		];
 		await analisarLoteComInteligencia(comPessoaFisica, "SP", ["33000167000101", "11144477735"], "FEDERAL", "CAMARA");
-		const prompt = processPipeline.mock.calls[0][1] as string;
+		const prompt = (gerar.mock.calls[0][0] as { usuario: string }).usuario;
 		expect(prompt).not.toContain("52998224725");
 		expect(prompt).not.toContain("11144477735"); // CPF de doador pessoa física não vai
 		expect(prompt).toContain("***.982.247-**");
@@ -113,7 +106,7 @@ describe("contrato da IA — junção dos resultados", () => {
 
 	it("emendas usam ids e0, e1…", async () => {
 		const emendas = [{ codigoEmenda: "123" }, { codigoEmenda: "456" }];
-		processPipeline.mockResolvedValue({ parsedJson: { emendas_avaliadas: [avaliacao("e0", 40), avaliacao("e1", 80)] } });
+		gerar.mockResolvedValue({ ok: true, dados: { emendas_avaliadas: [avaliacao("e0", 40), avaliacao("e1", 80)] } });
 		const r = await analisarEmendasComInteligencia(emendas, "SP", "FEDERAL");
 		expect(r.map((e: any) => e.score_letalidade)).toEqual([40, 80]);
 	});
@@ -126,8 +119,9 @@ describe("contrato da IA — junção dos resultados", () => {
 			{ id: "empresa-4", type: "EMPRESA", data: { label: "W" } },
 			{ id: "empresa-5", type: "EMPRESA", data: { label: "V" } },
 		];
-		processPipeline.mockResolvedValue({
-			parsedJson: { avaliacoes: ["empresa-2", "empresa-3", "empresa-4", "empresa-5"].map((id) => avaliacao(id, 30)) },
+		gerar.mockResolvedValue({
+			ok: true,
+			dados: { avaliacoes: ["empresa-2", "empresa-3", "empresa-4", "empresa-5"].map((id) => avaliacao(id, 30)) },
 		});
 		const r = await analisarMalhaOsintComInteligencia(malha, "SP");
 		const e1 = r.find((n: any) => n.id === "empresa-1");

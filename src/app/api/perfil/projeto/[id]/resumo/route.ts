@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/api-rate-limit";
 import { converterMarkdownParaHtml } from "@/lib/markdown-seguro";
 import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
-import { GROQ_MODELS, OPENROUTER_MODELS, GEMINI_MODELS } from "@/services/ai/ai-models-config";
-import Groq from "groq-sdk";
+import { Prazo } from "@/lib/prazo";
+import { gerar } from "@/services/ai/gateway";
 
 export const dynamic = "force-dynamic";
 
@@ -36,103 +36,20 @@ Aponte de forma técnica, equilibrada e sem partidarismo:
 Mantenha tom técnico, direto e pericial. Use negritos nos termos fundamentais.`;
 }
 
-function limparTextoResposta(text?: string | null): string {
-	if (!text) return "";
-	return text.replace(new RegExp("<think>[\\s\\S]*?<\\/think>", "g"), "").trim();
+/** Resumo pelo gateway (rodízio entre provedores gratuitos, prazo total de 25 s). */
+async function gerarResumoIA(prompt: string): Promise<{ resumoMarkdown: string; motorUsado: string } | null> {
+	const r = await gerar({
+		tarefa: "texto",
+		sistema: "Você é um analista jurídico do projeto Polígrafo. Responda em português, em markdown simples.",
+		usuario: prompt,
+		formato: "texto",
+		maxTokens: 1000,
+		timeoutPorModeloMs: 12_000,
+		prazo: new Prazo(25_000),
+	});
+	if (!r.ok || String(r.dados).length <= 80) return null;
+	return { resumoMarkdown: String(r.dados), motorUsado: `${r.provedor.toUpperCase()}:${r.modelo.toUpperCase()}` };
 }
-
-async function executarGroqResumo(prompt: string): Promise<{ resumoMarkdown: string; motorUsado: string } | null> {
-	const groqKey = process.env.GROQ_API_KEY;
-	if (!groqKey || groqKey.trim() === "") return null;
-
-	const groq = new Groq({ apiKey: groqKey });
-	for (const model of GROQ_MODELS) {
-		try {
-			const completion = await groq.chat.completions.create({
-				messages: [{ role: "user", content: prompt }],
-				model: model,
-				temperature: 0.2,
-				max_tokens: 1000,
-			});
-			const cleanText = limparTextoResposta(completion.choices[0]?.message?.content);
-			if (cleanText.length > 80) {
-				return { resumoMarkdown: cleanText, motorUsado: `GROQ:${model.toUpperCase()}` };
-			}
-		} catch {
-			// Tenta próximo modelo do Groq
-		}
-	}
-	console.warn("[IA RESUMO] Modelos do Groq falharam -> Saltando para L2 (OpenRouter)...");
-	return null;
-}
-
-async function executarOpenRouterResumo(prompt: string): Promise<{ resumoMarkdown: string; motorUsado: string } | null> {
-	const openRouterKey = process.env.OPENROUTER_API_KEY;
-	if (!openRouterKey || openRouterKey.trim() === "") return null;
-
-	for (const model of OPENROUTER_MODELS) {
-		try {
-			const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${openRouterKey}`,
-					"HTTP-Referer": "https://poligrafo.app.br",
-					"X-Title": "Poligrafo OSINT",
-				},
-				body: JSON.stringify({
-					model: model,
-					messages: [{ role: "user", content: prompt }],
-					temperature: 0.2,
-					max_tokens: 1000,
-				}),
-				signal: AbortSignal.timeout(8000),
-			});
-			if (res.ok) {
-				const data = await res.json();
-				const cleanText = limparTextoResposta(data?.choices?.[0]?.message?.content);
-				if (cleanText.length > 80) {
-					return { resumoMarkdown: cleanText, motorUsado: `OPENROUTER:${model.toUpperCase()}` };
-				}
-			}
-		} catch {
-			// Tenta próximo modelo do OpenRouter
-		}
-	}
-	console.warn("[IA RESUMO] Modelos gratuitos do OpenRouter falharam -> Saltando para L3 (Gemini)...");
-	return null;
-}
-
-async function executarGeminiResumo(prompt: string): Promise<{ resumoMarkdown: string; motorUsado: string } | null> {
-	const geminiKey = process.env.GEMINI_API_KEY;
-	if (!geminiKey || geminiKey.trim() === "") return null;
-
-	for (const model of GEMINI_MODELS) {
-		try {
-			const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
-			const res = await fetch(endpoint, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: { temperature: 0.2, maxOutputTokens: 1000 },
-				}),
-				signal: AbortSignal.timeout(8000),
-			});
-			if (res.ok) {
-				const data = await res.json();
-				const cleanText = limparTextoResposta(data?.candidates?.[0]?.content?.parts?.[0]?.text);
-				if (cleanText.length > 80) {
-					return { resumoMarkdown: cleanText, motorUsado: `GEMINI:${model.toUpperCase()}` };
-				}
-			}
-		} catch (err: any) {
-			console.warn(`[IA RESUMO] L3 (Gemini/${model}) falhou:`, err.message);
-		}
-	}
-	return null;
-}
-
 function gerarResumoHeuristico(titulo: string, ementa: string): { resumoMarkdown: string; motorUsado: string } {
 	return {
 		resumoMarkdown: `### 1. O que este projeto faz de forma direta?
@@ -153,16 +70,8 @@ async function gerarResumoComCascata(
 	titulo: string,
 	ementa: string,
 ): Promise<{ resumoMarkdown: string; motorUsado: string }> {
-	const prompt = montarPromptProjeto(titulo, ementa);
-
-	const l1 = await executarGroqResumo(prompt);
-	if (l1) return l1;
-
-	const l2 = await executarOpenRouterResumo(prompt);
-	if (l2) return l2;
-
-	const l3 = await executarGeminiResumo(prompt);
-	if (l3) return l3;
+	const ia = await gerarResumoIA(montarPromptProjeto(titulo, ementa));
+	if (ia) return ia;
 
 	return gerarResumoHeuristico(titulo, ementa);
 }

@@ -1,7 +1,5 @@
-import { AiOrchestrator } from "../../../services/ai/llm-orchestrator";
-import { GroqProvider } from "../../../services/ai/providers/groq-provider";
-import { OpenRouterProvider } from "../../../services/ai/providers/openrouter-provider";
-import { GeminiProvider } from "../../../services/ai/providers/gemini-provider";
+import { Prazo } from "@/lib/prazo";
+import { gerar, iaDesligada, type ResultadoValidacaoIA } from "@/services/ai/gateway";
 import { 
 	construirPromptDespesas, 
 	construirPromptEmendas, 
@@ -22,22 +20,23 @@ import {
 } from "../../../services/ai/contratos/avaliacoes";
 import { documentoParaPrompt, soDigitos } from "@/lib/documento";
 
-function getOrchestrator(isDev: boolean) {
-	const providers = [];
-	
-	if (process.env.GROQ_API_KEY && !isDev) {
-		providers.push(new GroqProvider(process.env.GROQ_API_KEY));
-	}
-	
-	if (process.env.OPENROUTER_API_KEY && !isDev) {
-		providers.push(new OpenRouterProvider(process.env.OPENROUTER_API_KEY));
-	}
-	
-	if (process.env.GEMINI_API_KEY && !isDev) {
-		providers.push(new GeminiProvider(process.env.GEMINI_API_KEY));
-	}
-	
-	return new AiOrchestrator(providers);
+/**
+ * Chamada de IA pelo gateway (rodízio, saúde dos modelos, prazo total de 30 s).
+ * null = IA desligada ou nenhum modelo entregou resposta dentro do contrato:
+ * quem chama aplica a regra local.
+ */
+async function chamarIA(
+	sistema: string,
+	usuario: string,
+	chaveRaiz: string,
+	timeoutPorModeloMs: number,
+	validar?: (json: unknown) => ResultadoValidacaoIA,
+): Promise<{ parsedJson: unknown } | null> {
+	if (iaDesligada()) return null;
+	const r = await gerar({
+		tarefa: "triagem-json", sistema, usuario, formato: "json", chaveRaiz, validar, timeoutPorModeloMs, prazo: new Prazo(30_000),
+	});
+	return r.ok ? { parsedJson: r.dados } : null;
 }
 
 /**
@@ -70,10 +69,6 @@ export async function analisarLoteComInteligencia(
 		);
 	}
 	return resultado;
-}
-
-function iaDesligadaNoDev(): boolean {
-	return process.env.NODE_ENV === "development" && process.env.POLIGRAFO_AI_IN_DEV !== "true";
 }
 
 /** Avaliações válidas da resposta (o provedor já conferiu a cobertura mínima). */
@@ -157,7 +152,7 @@ async function analisarLoteUnico(
 		normaLocal,
 	);
 
-	const response = await getOrchestrator(iaDesligadaNoDev()).processPipeline(
+	const response = await chamarIA(
 		"You MUST reply ONLY with a valid JSON OBJECT, never raw text. The JSON object must contain the root key 'despesas_avaliadas' pointing to the array. You MUST include ALL items from the input, each with its original 'id'.",
 		promptText,
 		"despesas_avaliadas",
@@ -198,7 +193,7 @@ export async function analisarEmendasComInteligencia(
 
 	const promptText = construirPromptEmendas(esferaPolitico, ufPolitico, loteOtimizado, casaLegislativa, normaLocal);
 
-	const response = await getOrchestrator(iaDesligadaNoDev()).processPipeline(
+	const response = await chamarIA(
 		"You MUST reply ONLY with a valid JSON OBJECT. Root must be 'emendas_avaliadas' containing the array. You MUST include ALL items from the input, each with its original 'id'.",
 		promptText,
 		"emendas_avaliadas",
@@ -269,7 +264,7 @@ export async function analisarMalhaOsintComInteligencia(
 	const ids = avaliaveis.map((n: any) => String(n.id));
 	const promptText = construirPromptOSINT(ufPolitico, loteOtimizado, esferaPolitico, casaLegislativa, normaLocal);
 
-	const response = await getOrchestrator(iaDesligadaNoDev()).processPipeline(
+	const response = await chamarIA(
 		"You MUST reply ONLY with a valid JSON OBJECT. Root must be 'avaliacoes' containing the array, one item per node 'id'.",
 		promptText,
 		"avaliacoes",
@@ -316,7 +311,7 @@ export async function traduzirJuridiquesSancoes(sancoes: any[]) {
 			JSON.stringify(textosBrutos),
 		].join("\n");
 
-		const response = await getOrchestrator(iaDesligadaNoDev()).processPipeline(
+		const response = await chamarIA(
 			"You MUST reply ONLY with a valid JSON OBJECT.",
 			promptTexto,
 			"resumo_improbidade",
@@ -325,7 +320,7 @@ export async function traduzirJuridiquesSancoes(sancoes: any[]) {
 		);
 
 		if (response?.parsedJson) {
-			return response.parsedJson;
+			return response.parsedJson as { resumo_improbidade: string; gravidade: number; [k: string]: unknown };
 		}
 	} catch (e) {
 		console.error("[TRADUTOR JURIDICO IA] Erro:", e);
