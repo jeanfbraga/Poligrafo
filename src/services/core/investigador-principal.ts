@@ -5,6 +5,7 @@ import { ColecaoNos, envolverEmissor } from "@/services/core/colecao-nos";
 import { buscarCandidatos } from "@/services/core/busca-candidatos";
 import { perfilDaCasa } from "@/services/core/alcada";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
+import { resolverIdentidade } from "@/services/core/identidade";
 import { cpfValido, documentoValido } from "@/lib/documento";
 import { checkNepotismoCamara } from "@/services/integrations/camara/nepotismo-client";
 import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
@@ -553,48 +554,41 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				console.log("[API Câmara Falhou, ignorando detalhes...]");
 			}
 		}
-		let cpfLimpo = detalhes?.cpf ? detalhes.cpf.replace(/\D/g, "") : null;
-		let documentoIsCnpj = false; // Flag para saber se o documento é CNPJ de campanha
-
-		// NOVIDADE: Se o ID informado pelo frontend/refParam já for um documento estruturado (CPF ou CNPJ), apropria-se dele
 		const possivelDoc = String(deputadoBasico.id).replace(/\D/g, "");
-		if (!cpfLimpo && documentoValido(possivelDoc)) {
-			cpfLimpo = possivelDoc;
-			documentoIsCnpj = possivelDoc.length === 14;
-			sendEvent("STATUS", {
-				msg: `Documento de ${cpfLimpo.length} dígitos herdado da busca estruturada: ${cpfLimpo}`,
-			});
-		}
 
 		// SEMPRE bate no TSE para resgatar o Patrimônio e Nome Civil (mesmo se o documento vier da ref)
 		sendEvent("STATUS", {
 			msg: "Extraindo dados complementares e patrimônio na base eleitoral do TSE...",
 		});
-		// Cargo 3 = Governador, 5 = Senador, 6 = Dep. Federal, 7 = Dep. Estadual, 11 = Prefeito, 13 = Vereador
 		// Regras da alçada numa tabela só (cargo TSE, rótulo, esfera, fontes): services/core/alcada.ts
 		const perfilAlcada = perfilDaCasa(deputadoBasico.casa, deputadoBasico.uf);
 		const codigoCargoTse = perfilAlcada.cargoTse;
 		const nomeParaTSE = deputadoBasico.nome
 			.replace(/\s*\(.*?\)\s*/g, "")
 			.trim();
+		// No municipal, a busca no TSE fica no município da ref (antes valia o 1º município com o nome).
+		const municipioDoAlvo = perfilAlcada.esfera === "MUNICIPAL" ? deputadoBasico.uri : undefined;
 		const tseResult = await buscarCpfNoTSE(
 			nomeParaTSE,
 			deputadoBasico.uf,
 			codigoCargoTse,
 			detalhes?.nomeCivil,
+			municipioDoAlvo,
 		);
 
-		// Se não tínhamos o documento, ou se herdamos um CNPJ e queremos tentar extrair o CPF real:
-		if (tseResult && (tseResult.documentoPrincipal || tseResult.cpf)) {
-			if (!documentoValido(cpfLimpo)) {
-				cpfLimpo = (tseResult.documentoPrincipal || tseResult.cpf!).replace(
-					/\D/g,
-					"",
-				);
-				documentoIsCnpj = tseResult.isCnpj || false;
-			}
+		// Identidade verificada (v1): documento válido, confiança e se os dados do TSE são da
+		// mesma pessoa. Nunca adota CPF achado só pelo nome (ver services/core/identidade.ts).
+		const identidade = resolverIdentidade({
+			cpfOficial: detalhes?.cpf,
+			docDaRef: possivelDoc,
+			tse: tseResult,
+		});
+		const cpfLimpo = identidade.documento;
+		const documentoIsCnpj = identidade.documentoIsCnpj;
+		for (const conflito of identidade.conflitos) {
+			sendEvent("STATUS", { msg: `[IDENTIDADE] ${conflito}` });
 		}
-		if (tseResult?.nome) {
+		if (identidade.usarDadosTse && tseResult?.nome) {
 			detalhes = detalhes || ({} as any);
 			detalhes!.nomeCivil = tseResult.nome;
 		}
@@ -604,30 +598,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 		}
 
-		// Armazena o resultado do TSE para uso posterior (patrimônio)
-		(deputadoBasico as any)._tseResult = tseResult;
-
-		// NOVA LÓGICA: Fallback de CPF usando o cache Supabase com matching tolerante a nome civil/urna
-		if (documentoIsCnpj || !cpfLimpo) {
-			try {
-				const { buscarBensPorNomeTSE } = await import("@/services/integrations/tse/bens");
-				let candidatosBens = await buscarBensPorNomeTSE(deputadoBasico.nome);
-				if (candidatosBens.length === 0 && detalhes?.nomeCivil) {
-					candidatosBens = await buscarBensPorNomeTSE(detalhes.nomeCivil);
-				}
-				if (candidatosBens.length > 0 && candidatosBens[0].cpf_candidato) {
-					cpfLimpo = candidatosBens[0].cpf_candidato;
-					documentoIsCnpj = false;
-					sendEvent("STATUS", {
-						msg: `[OSINT] CPF real resgatado do histórico do TSE (${cpfLimpo}). Malha societária desbloqueada!`,
-					});
-				}
-			} catch (err) {
-				console.error("[TSE] Erro ao buscar CPF no tse_bens_historico", err);
-			}
-		}
-
-		// Fallback final se nem o TSE achar (político muito antigo, etc)
+		// Armazena o resultado do TSE para uso posterior (patrimônio, foto, partido) — só se for a mesma pessoa
+		(deputadoBasico as any)._tseResult = identidade.usarDadosTse ? tseResult : null;
 		const pessoaId = `pessoa-${cpfLimpo ?? deputadoBasico.id}`;
 
 		// Se o documento é um CNPJ de campanha, pula a investigação de patrimônio pessoal profunda (mas mantém o que veio do TSE)
@@ -701,6 +673,11 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				urlFoto: deputadoBasico.urlFoto || (deputadoBasico as any)._tseResult?.urlFoto,
 				partido: (deputadoBasico as any).partido || (deputadoBasico as any)._tseResult?.partido,
 				idPoliticoOriginal: deputadoBasico.id,
+				identidade: {
+					confianca: identidade.confianca,
+					evidencias: identidade.evidencias,
+					conflitos: identidade.conflitos,
+				},
 			},
 		};
 		sendEvent("NODE_NOVO", pessoaNodePayload);

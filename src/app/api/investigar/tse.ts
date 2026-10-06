@@ -202,19 +202,44 @@ async function buscarCandidatoEleicaoGeral(
 	return extrairDetalhesDoTSE(eleicao, uf, match, uf, nomePolitico);
 }
 
-async function buscarLocaisMunicipais(uf: string, idEleicao: string): Promise<string[]> {
+// Códigos TSE das capitais com varredura mais frequente (São Paulo e Rio).
+const CODIGOS_CAPITAIS_TSE = new Set(["71072", "60011"]);
+
+/** "São Paulo", "sao-paulo" e "SAO_PAULO" viram o mesmo slug. */
+export function slugMunicipio(nome: string): string {
+	return normalizeString(nome).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function prioridadeMunicipio(m: any, alvo: string | null): number {
+	if (alvo && slugMunicipio(String(m.nome ?? "")) === alvo) return 0;
+	return CODIGOS_CAPITAIS_TSE.has(String(m.codigo)) ? 1 : 2;
+}
+
+/**
+ * Municípios da UF, com o município do alvo primeiro (se informado) e depois as
+ * capitais. O comparador antigo ignorava o segundo argumento e não ordenava nada.
+ */
+export function ordenarMunicipios(municipios: any[], municipioPreferido?: string): { codigos: string[]; preferido: boolean } {
+	const alvo = municipioPreferido ? slugMunicipio(municipioPreferido) : null;
+	const ordenados = [...municipios].sort((a, b) => prioridadeMunicipio(a, alvo) - prioridadeMunicipio(b, alvo));
+	const preferido = Boolean(alvo) && prioridadeMunicipio(ordenados[0] ?? {}, alvo) === 0;
+	return { codigos: ordenados.map((m: any) => String(m.codigo)), preferido };
+}
+
+async function buscarLocaisMunicipais(
+	uf: string,
+	idEleicao: string,
+	municipioPreferido?: string,
+): Promise<{ codigos: string[]; preferido: boolean }> {
 	try {
 		const urlMuni = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/eleicao/buscar/${uf}/${idEleicao}/municipios`;
 		const resMuni = await fetchWithTimeout(urlMuni, { timeout: 10000 });
-		if (!resMuni.ok) return [];
+		if (!resMuni.ok) return { codigos: [], preferido: false };
 		const dataMuni = await resMuni.json();
-		if (!Array.isArray(dataMuni.municipios)) return [];
-
-		return dataMuni.municipios
-			.sort((a: any) => (a.codigo === "71072" || a.codigo === "60011" ? -1 : 1))
-			.map((m: any) => m.codigo);
+		if (!Array.isArray(dataMuni.municipios)) return { codigos: [], preferido: false };
+		return ordenarMunicipios(dataMuni.municipios, municipioPreferido);
 	} catch {
-		return [];
+		return { codigos: [], preferido: false };
 	}
 }
 
@@ -240,9 +265,12 @@ async function buscarCandidatoEleicaoMunicipal(
 	cargoCodigo: string,
 	nomePolitico: string,
 	nomeSecundario?: string,
+	municipioPreferido?: string,
 ): Promise<TseCandidateResult | null> {
-	const locais = await buscarLocaisMunicipais(uf, eleicao.idEleicao);
+	const { codigos: locais, preferido } = await buscarLocaisMunicipais(uf, eleicao.idEleicao, municipioPreferido);
 	if (locais.length === 0) return null;
+	// Município do alvo conhecido: procura só nele (varrer a UF trazia homônimos de outras cidades).
+	if (preferido) return buscarSoNoMunicipio(eleicao, locais[0], cargoCodigo, nomePolitico, uf, nomeSecundario);
 
 	const capitalLocal = locais[0];
 	if (capitalLocal) {
@@ -268,11 +296,25 @@ async function buscarCandidatoEleicaoMunicipal(
 	return null;
 }
 
+async function buscarSoNoMunicipio(
+	eleicao: any,
+	local: string,
+	cargoCodigo: string,
+	nomePolitico: string,
+	uf: string,
+	nomeSecundario?: string,
+): Promise<TseCandidateResult | null> {
+	const achou = await buscarCandidatoNoLocal(eleicao, local, cargoCodigo, nomePolitico, 15000, nomeSecundario);
+	return achou ? extrairDetalhesDoTSE(eleicao, local, achou.match, uf, nomePolitico) : null;
+}
+
 export async function buscarCpfNoTSE(
 	nomePolitico: string,
 	uf: string,
 	cargoCodigo: string = "5",
 	nomeSecundario?: string,
+	/** Slug do município do alvo (refs municipais): restringe a busca a ele. */
+	municipioPreferido?: string,
 ): Promise<TseCandidateResult | null> {
 	const isMunicipal = ["11", "12", "13"].includes(cargoCodigo);
 	const campanhas = isMunicipal ? CAMPANHAS_MUNICIPAIS : CAMPANHAS_GERAIS;
@@ -280,7 +322,7 @@ export async function buscarCpfNoTSE(
 	for (const eleicao of campanhas) {
 		try {
 			const resultado = isMunicipal
-				? await buscarCandidatoEleicaoMunicipal(eleicao, uf, cargoCodigo, nomePolitico, nomeSecundario)
+				? await buscarCandidatoEleicaoMunicipal(eleicao, uf, cargoCodigo, nomePolitico, nomeSecundario, municipioPreferido)
 				: await buscarCandidatoEleicaoGeral(eleicao, uf, cargoCodigo, nomePolitico, nomeSecundario);
 
 			if (resultado) return resultado;
