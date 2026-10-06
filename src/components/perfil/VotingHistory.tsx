@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { FilterChip, Panel } from "@/components/ds";
 import { Paginador, usePagina } from "@/components/ds/Paginador";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
-import { limparNomeProjeto } from "@/lib/votos";
+import { idProposicaoPrincipal, limparNomeProjeto } from "@/lib/votos";
 
 type Dados = Record<string, any>;
 type Filtro = "TODOS" | "SIM" | "NÃO";
@@ -18,25 +18,33 @@ export function estiloDoVoto(voto?: string): { cls: string; texto: string } {
 	return { cls: "pg-vote--abs", texto: v === "abstenção" ? "ABST." : (voto ?? "—").toUpperCase().slice(0, 7) };
 }
 
+/** Linha de apoio do voto: o tema, a não ser que só repita o nome da votação (aí "Plenário"). */
+export function temaDoVoto(v: Dados): string {
+	const tema = limparNomeProjeto(v.projeto_tema ?? "").trim();
+	if (!v.projeto_tema || tema === "Não especificado") return "Plenário";
+	return tema === limparNomeProjeto(v.projeto_nome).trim() ? "Plenário" : tema;
+}
+
 function LinhaVoto({ v, idDeputado }: { v: Dados; idDeputado: string }) {
 	const e = estiloDoVoto(v.voto);
-	const tema = v.projeto_tema && v.projeto_tema !== "Não especificado" ? v.projeto_tema : "";
+	// A votação é de um parecer/emenda; o link vai para a proposição principal ("2580259-24" → 2580259).
+	const idProjeto = idProposicaoPrincipal(v);
 	const corpo = (
 		<>
 			<span className={`pg-vote ${e.cls}`}>{e.texto}</span>
 			<div className="pg-lrow__main">
 				<b>{limparNomeProjeto(v.projeto_nome)}</b>
-				<span>{tema || "Plenário"}</span>
+				<span>{temaDoVoto(v)}</span>
 			</div>
 			<span className="pg-lrow__meta">
 				{new Date(v.data_votacao).toLocaleDateString("pt-BR")}
-				{v.id_proposicao ? <PixelIcon name="chev" size={12} /> : null}
+				{idProjeto ? <PixelIcon name="chev" size={12} /> : null}
 			</span>
 		</>
 	);
-	if (!v.id_proposicao) return <div className="pg-lrow">{corpo}</div>;
+	if (!idProjeto) return <div className="pg-lrow">{corpo}</div>;
 	return (
-		<Link href={`/perfil/deputado/${idDeputado}/projeto/${v.id_proposicao}`} className="pg-lrow">
+		<Link href={`/perfil/deputado/${idDeputado}/projeto/${idProjeto}`} className="pg-lrow">
 			{corpo}
 		</Link>
 	);
