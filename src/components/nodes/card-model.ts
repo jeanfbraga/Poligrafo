@@ -264,7 +264,27 @@ function diario(d: Dados): Parcial {
 	};
 }
 
+const ROTULO_SEVERIDADE: Record<string, string> = { ALTA: "Alta", MEDIA: "Média", BAIXA: "Baixa" };
+
+/** Cruzamento do motor (regra fixa, sem IA): gravidade, documento e as fontes dos fatos. */
+function achado(d: Dados): Parcial {
+	const fatos: Dados[] = Array.isArray(d.fatos) ? d.fatos : [];
+	const fontes = [...new Set(fatos.map((f) => primeiro(f.fonte)).filter(Boolean))];
+	const gravidade = ROTULO_SEVERIDADE[primeiro(d.severidade)] ?? "—";
+	return {
+		sub: primeiro(d.nome),
+		chave: { label: "Gravidade", valor: gravidade, dica: d.somenteRaiz ? "Só a raiz do CNPJ coincide" : `${fatos.length} fatos`, curto: gravidade },
+		campos: comValor([
+			campo("CNPJ/CPF", d.documento ? documentoFormatado(d.documento) : "", { chip: true, wide: true }),
+			campo("Fatos", fatos.length ? String(fatos.length) : ""),
+		]),
+		motivo: primeiro(d.explicacao_ia, d.motivo_ia),
+		fonte: fontes.slice(0, 2).join(" · ") || "Regra (sem IA)",
+	};
+}
+
 const ADAPTADORES: Record<string, (d: Dados) => Parcial> = {
+	ACHADO: achado,
 	PESSOA: pessoa,
 	DESPESA: despesa,
 	DESPESA_PUBLICA: despesa,

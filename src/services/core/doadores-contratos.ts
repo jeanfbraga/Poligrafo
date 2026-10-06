@@ -6,7 +6,11 @@
  * contratos do FORNECEDOR conferidos (CGU + PNCP), 3 doadores por vez, e o
  * nó carrega os contratos que provam o achado (órgão, valor, link).
  *
- * Na Fase 3 do plano isto vira uma regra do motor de cruzamentos (nota 31).
+ * Fase 3: o nó é só o FATO (doador aparece como fornecedor público, com os
+ * contratos). A gravidade vem do motor de cruzamentos (services/cruzamentos):
+ * "doador também é fornecedor do poder público" é MÉDIA; vira ALTA quando o
+ * contrato é com o órgão ligado ao mandato. Antes era nota 100 fixa e o rótulo
+ * "toma-lá-dá-cá" para contrato com qualquer órgão.
  */
 import {
 	buscarContratosPorFornecedor,
@@ -23,16 +27,15 @@ const buscarPadrao: BuscarContratos = (cnpj) =>
 export function montarNoDoadorComContrato(cnpj: string, contratos: ContratoFornecedor[], pessoaId: string) {
 	const valorTotal = contratos.reduce((acc, c) => acc + c.valorGlobal, 0);
 	return {
-		id: `toma-la-da-ca-${cnpj}`,
+		id: `doador-contrato-${cnpj}`,
 		type: "DESPESA" as const,
 		_origemId: pessoaId,
 		data: {
 			label: "DOADOR COM CONTRATO PÚBLICO",
 			valor: valorTotal,
-			tipo: "CONFLITO DE INTERESSE (TOMA-LÁ-DÁ-CÁ)",
+			tipo: "Doador de campanha que também é fornecedor público",
 			documento: cnpj,
-			score_letalidade: 100,
-			motivo_ia: `ALERTA TOMA-LÁ-DÁ-CÁ: empresa doadora da campanha tem ${contratos.length} contrato(s) público(s) como fornecedora (CNPJ: ${cnpj}).`,
+			motivo_ia: `Empresa doadora da campanha aparece como fornecedora em ${contratos.length} contrato(s) público(s) (CNPJ: ${cnpj}). A gravidade está no cruzamento correspondente.`,
 			// Procedência: os contratos que sustentam o alerta.
 			contratos: contratos.slice(0, 5).map((c) => ({
 				id: c.id, fonte: c.fonte, orgao: c.orgaoEntidade.razaoSocial, objeto: c.objetoContrato.slice(0, 160),
@@ -57,7 +60,7 @@ export async function cruzarDoadoresComContratosPublicos(
 			if (r.status !== "fulfilled" || r.value.length === 0) return;
 			const no = montarNoDoadorComContrato(grupo[k], r.value, pessoaId);
 			nos.push(no);
-			avisar(`[RED FLAG] Doador ${grupo[k]} tem R$ ${no.data.valor.toLocaleString("pt-BR")} em contratos públicos como fornecedor.`);
+			avisar(`[CRUZAMENTO] Doador ${grupo[k]} tem R$ ${no.data.valor.toLocaleString("pt-BR")} em contratos públicos como fornecedor.`);
 		});
 	}
 	return nos;

@@ -6,7 +6,7 @@
      pessoa → verde fósforo   (PESSOA, SOCIO, SERVIDOR, ATIVIDADE_PARLAMENTAR)
      org    → ciano           (EMPRESA, ORGAO)
      fin    → aço             (DESPESA, CONTRATO, EMENDA, EMENDA_RESUMO, RESUMO_GASTOS)
-     doc    → violeta         (PROCESSO_JUDICIAL, DIARIO_OFICIAL_NODE)
+     doc    → violeta         (PROCESSO_JUDICIAL, DIARIO_OFICIAL_NODE, ACHADO)
    Risco (âmbar/vermelho) NUNCA vem da família: ver lib/investigacao/risco.
    ========================================================================== */
 import type { PixelIconName } from "@/components/pixel/pixel-icons";
@@ -38,6 +38,8 @@ export const TIPOS_NO: Record<string, TipoNo> = {
 	RESUMO_GASTOS: { familia: "fin", icon: "chart", tag: "Cota de gabinete", carregando: "Processando…", canShare: false },
 	PROCESSO_JUDICIAL: { familia: "doc", icon: "scale", tag: "Processo judicial", carregando: "Processando…", canShare: true },
 	DIARIO_OFICIAL_NODE: { familia: "doc", icon: "news", tag: "Diário oficial", carregando: "Extraindo ato oficial…", canShare: true },
+	// Motor de cruzamentos (regra fixa, sem IA): dois papéis no mesmo CNPJ/CPF, com as fontes.
+	ACHADO: { familia: "doc", icon: "link", tag: "Cruzamento de dados", carregando: "Cruzando fontes…", canShare: true },
 };
 
 const TIPO_PADRAO: TipoNo = {

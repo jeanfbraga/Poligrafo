@@ -8,6 +8,7 @@ import { perfilDaCasa } from "@/services/core/alcada";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
 import { nomesDeReferencia, verificarEmpresaDoPolitico } from "@/services/core/socio-confirmacao";
+import { emitirCruzamentos } from "@/services/cruzamentos";
 import { cruzarDoadoresComContratosPublicos } from "@/services/core/doadores-contratos";
 import { normalizarDespesa, nosDeContratosDoEnte, separarPorNatureza } from "@/services/core/despesa-normalizada";
 import { cpfValido, documentoValido } from "@/lib/documento";
@@ -2334,6 +2335,11 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				msg: "O político não possui despesas recentes elegíveis para análise.",
 			});
 		}
+		// Motor de cruzamentos (regras fixas, sem IA, com fonte e link): services/cruzamentos, nota 31.
+		await emitirCruzamentos(
+			{ pessoaId, casa: String(deputadoBasico.casa), doadores, empresasDoPolitico: empresasRelacionadasCNPJs, despesasMandato: despesasCruas, nos: supabaseNodes },
+			sendEvent,
+		);
 		try {
 			sendEvent("STATUS", {
 				msg: "Sincronizando log final com a base de inteligência...",

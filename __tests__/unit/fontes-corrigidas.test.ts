@@ -52,7 +52,9 @@ describe("doador com contrato público", () => {
 		const no = montarNoDoadorComContrato(CNPJ, [contrato("cgu:1", 100), contrato("cgu:2", 50)], "pessoa-1");
 		expect(no.data.valor).toBe(150);
 		expect(no.data.contratos.map((c) => c.url)).toEqual(["https://x/cgu:1", "https://x/cgu:2"]);
-		expect(no.id).toBe(`toma-la-da-ca-${CNPJ}`);
+		expect(no.id).toBe(`doador-contrato-${CNPJ}`);
+		// Só o fato: a gravidade vem do motor de cruzamentos (sem nota 100 fixa).
+		expect(no.data).not.toHaveProperty("score_letalidade");
 	});
 
 	it("só gera nó para doador com contrato, em grupos de 3", async () => {
