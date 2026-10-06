@@ -22,7 +22,8 @@
     "sync:aracaju": "tsx scripts/etl/aracaju-sync.ts",
     "sync:cleanup": "tsx scripts/etl/cleanup-sync.ts",
     "seed:canonical": "tsx scripts/etl/seed_canonical_tables.ts",
-    "doctor": "tsx scripts/utils/doctor.ts"
+    "doctor": "tsx scripts/utils/doctor.ts",
+    "qa:canario": "tsx scripts/qa/canario-fontes.ts"
   },
   "keywords": [
     "osint",

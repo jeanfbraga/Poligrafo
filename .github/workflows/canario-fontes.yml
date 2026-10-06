@@ -1,0 +1,33 @@
+name: Canario de Fontes
+# Testa toda semana cada endpoint governamental usado pelo Polígrafo.
+# Ideia portada do canary semanal do mcp-brasil. Ver nota 29 do Obsidian.
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Toda segunda as 09:00 UTC (06:00 em Brasilia)
+  workflow_dispatch:
+
+jobs:
+  canario:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Rodar canario
+        env:
+          TRANSPARENCIA_API_KEY: ${{ secrets.TRANSPARENCIA_API_KEY }}
+          DATAJUD_API_KEY: ${{ secrets.DATAJUD_API_KEY }}
+        run: npx tsx scripts/qa/canario-fontes.ts --json canario-fontes.json
+      - name: Guardar resultado
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canario-fontes
+          path: canario-fontes.json
+          retention-days: 30
