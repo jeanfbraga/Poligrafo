@@ -7,6 +7,7 @@ import { buscarEleitoDaRef, candidatosDaBaseEleitos } from "@/services/integrati
 import { perfilDaCasa } from "@/services/core/alcada";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
+import { nomesDeReferencia, verificarEmpresaDoPolitico } from "@/services/core/socio-confirmacao";
 import { cruzarDoadoresComContratosPublicos } from "@/services/core/doadores-contratos";
 import { normalizarDespesa, nosDeContratosDoEnte, separarPorNatureza } from "@/services/core/despesa-normalizada";
 import { cpfValido, documentoValido } from "@/lib/documento";
@@ -1380,22 +1381,15 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			);
 			const empresasPorNome = await buscarEmpresasDoSocio(deputadoBasico.nome);
 			if (empresasPorNome && empresasPorNome.length > 0) {
-				// ANTI-FALSO-POSITIVO: a busca reversa por nome é fraca (homônimos).
-				// Cada empresa candidata só entra na malha se o QSA (BrasilAPI) tiver
-				// um sócio cujo nome bata EXATAMENTE com o nome civil/urna do político.
-				const nomesDeReferencia = [
+				// ANTI-FALSO-POSITIVO: a busca reversa por nome é fraca (homônimos). A empresa só
+				// entra se o QSA confirmar nome e, com CPF confirmado, os 6 dígitos do meio do CPF
+				// (services/core/socio-confirmacao.ts).
+				const nomesRef = nomesDeReferencia([
 					detalhes?.nomeCivil,
 					(deputadoBasico as any)._tseResult?.nome,
 					(deputadoBasico as any)._tseResult?.nomeUrna,
 					deputadoBasico.nome,
-				]
-					.filter(Boolean)
-					.map((n: string) => normalizeString(n).trim())
-					.filter((n: string) => n.length > 5);
-				const nomesEquivalentes = (nomeSocio: string) => {
-					const ns = normalizeString(nomeSocio || "").trim();
-					return nomesDeReferencia.some((ref: string) => ns === ref);
-				};
+				]);
 				let confirmadas = 0;
 				for (const emp of empresasPorNome) {
 					if (!emp) continue;
@@ -1403,34 +1397,10 @@ export async function executarInvestigacaoPrincipal(params: any) {
 					if (!cnpjEmp || empresasRelacionadasCNPJs.includes(cnpjEmp))
 						continue;
 
-					let verificada = false;
-					try {
-						const resQsa = await fetchWithTimeout(
-							`https://brasilapi.com.br/api/cnpj/v1/${cnpjEmp}`,
-							{ timeout: 5000 },
-						);
-						if (resQsa.ok) {
-							const empData = await resQsa.json();
-							const qsa = empData.qsa || [];
-							verificada = qsa.some((s: any) =>
-								nomesEquivalentes(s.nome_socio || ""),
-							);
-
-							// MEI e Empresa Individual geralmente não possuem quadro societário no BrasilAPI
-							if (!verificada && qsa.length === 0) {
-								const razaoNormalizada = normalizeString(empData.razao_social || "");
-								verificada = nomesDeReferencia.some((ref: string) =>
-									razaoNormalizada.includes(ref)
-								);
-							}
-						}
-					} catch (_e) {
-						// Sem verificação possível — trata como não verificada
-					}
-
-					if (!verificada) {
+					const veredito = await verificarEmpresaDoPolitico(cnpjEmp, nomesRef, identidade.cpf);
+					if (!veredito.confirmado) {
 						sendEvent("STATUS", {
-							msg: `[OSINT] "${emp.razao_social || cnpjEmp}" descartada: nome no QSA não confere com o político (proteção anti-homônimo).`,
+							msg: `[OSINT] "${emp.razao_social || cnpjEmp}" descartada: ${veredito.motivo} (proteção anti-homônimo).`,
 						});
 						continue;
 					}
@@ -1446,8 +1416,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 							cnpj: cnpjEmp,
 							situacao: emp.situacao || "N/I",
 							cnae: emp.cnae || "N/I",
-							motivo_ia:
-								"Vínculo societário confirmado via QSA (nome do sócio idêntico ao nome civil/urna do político).",
+							motivo_ia: `Vínculo societário confirmado via QSA: ${veredito.motivo}.`,
+							forcaVinculo: veredito.forca,
 						},
 					};
 					// Mesmo objeto completo no buffer de stream e no cache persistido
