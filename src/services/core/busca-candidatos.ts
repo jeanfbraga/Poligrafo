@@ -115,8 +115,15 @@ export function ordenarCandidatos(lista: Candidato[], nome: string, uf: string |
 		.map((x) => x.c);
 }
 
+/**
+ * Melhor cobertura entre mandatos em casas oficiais. Candidatura que só existe
+ * no TSE não conta: um vereador candidato a deputado federal em 2026 fazia a
+ * busca municipal ser pulada e ele aparecia como "Deputado Federal".
+ */
 function melhorCobertura(lista: Candidato[], nome: string): number {
-	return lista.reduce((m, c) => Math.max(m, coberturaNome(nome, c.nome)), 0);
+	return lista
+		.filter((c) => c.casa !== "CANDIDATO_TSE")
+		.reduce((m, c) => Math.max(m, coberturaNome(nome, c.nome)), 0);
 }
 
 function urlTse(t: NonNullable<ResultadoTse>, uf: string): string {

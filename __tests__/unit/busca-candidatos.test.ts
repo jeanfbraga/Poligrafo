@@ -96,6 +96,18 @@ describe("buscarCandidatos", () => {
 		expect(r.candidatos.some((c) => c.ref.startsWith("FEDERAL:SENADO"))).toBe(false); // reserva do TSE nem roda
 	});
 
+	it("candidatura federal só no TSE não impede a busca municipal (vereador do Rio)", async () => {
+		const d = deps({
+			camara: vi.fn().mockRejectedValue(new Error("timeout")),
+			tse: vi.fn().mockImplementation(async (_n: string, _uf: string, cargo: string) =>
+				cargo === "6" ? { documentoPrincipal: "52998224725", nome: "RAFAEL ALOISIO FREITAS", idTse: 9 } : null),
+			municipal: vi.fn().mockResolvedValue([{ nome: "RAFAEL ALOISIO FREITAS", uf: "RJ", ref: "RJ:VEREADOR:rio-de-janeiro:08249495799" }]),
+		});
+		const r = await buscarCandidatos({ ...base, nome: "Rafael Aloisio Freitas", uf: "RJ" }, d);
+		expect(d.municipal).toHaveBeenCalled();
+		expect(r.candidatos[0].ref).toBe("RJ:VEREADOR:rio-de-janeiro:08249495799");
+	});
+
 	it("nome de urna entre parênteses conta como exato", () => {
 		const lista = [
 			{ nome: "ANDRÉ DO PRADO SILVA", ref: "A", uf: "SP" },
