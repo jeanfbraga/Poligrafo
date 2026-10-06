@@ -15,15 +15,15 @@ O coração do sistema é uma **Pipeline de Inteligência Artificial em Cascata 
 
 *   **🔍 Busca Multi-Esfera e Autocomplete Integrado**: Busca com sugestões em tempo real para o Congresso Nacional (Câmara e Senado), Presidência, Governos Estaduais, Assembleias (ALERJ, ALESP) e Câmaras Municipais (ex: CMA / Aracaju, CMRJ / Rio de Janeiro, CMSP / São Paulo), com badges visuais de órgão e partido.
 *   **🏛️ Modelo de Dados Canônico Unificado**: Arquitetura escalável que unifica qualquer esfera pública em entidades normalizadas (`politicos`, `orgaos_publicos`, `mandatos`, `despesas_publicas`), permitindo cruzar fornecedores e empresas em qualquer município ou estado do Brasil.
-*   **⚖️ IA de Julgamento em Cascata (Score de Letalidade / Custo $0,00)**: Classificação automatizada de despesas e emendas centralizada em `src/services/ai/ai-models-config.ts`:
-    *   **L1 (Groq Developer Free Tier)**: `groq/compound`, `openai/gpt-oss-120b`, `qwen/qwen3.6-27b` (200 RPM / 200k TPM).
-    *   **L2 (OpenRouter Free Tier)**: Roteador automático `openrouter/free` + modelos com sufixo `:free`.
-    *   **L3 (Google Gemini & Gemma)**: `gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-3.5-flash-lite`, `gemma-4-31b-it`.
-    *   **L4 (Heurística Matemática Local)**: Classificação pericial offline via RegEx e análise estatística, caso nenhuma chave de IA esteja configurada.
+*   **⚖️ IA de Julgamento com Rodízio de Modelos (Score de Letalidade / Custo $0,00)**: todas as chamadas passam pelo gateway `src/services/ai/gateway` (catálogo em `registro.ts`, verificado por `npm run ia:verificar-modelos`):
+    *   **Rodízio entre provedores gratuitos** (uma conta em cada): Groq (`openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`), Google AI Studio (`gemini-2.5-flash-lite`, `gemini-flash-lite-latest`…), OpenRouter (`openrouter/free`) e, se houver chave, Cerebras, Mistral, GitHub Models e Cloudflare Workers AI.
+    *   **Saúde dos modelos**: modelo que falha fica em pausa (30 s → 2 min → 10 min), modelo descontinuado sai por 24 h, `retry-after` é respeitado e cada chamada tem prazo total.
+    *   **Contrato de resposta**: cada item tem um id; item que a IA não avaliou recebe a regra local e a marca "não avaliado pela IA" (nunca "seguro").
+    *   **Heurística Matemática Local**: classificação pericial offline via RegEx e análise estatística, caso nenhuma IA responda.
 *   **⚠️ Alertas Judiciais, Fiscais e Ambientais**:
     *   **DataJud (CNJ)**: Busca automática por **Ações Civis de Improbidade Administrativa** ligadas ao político.
     *   **CGU (Cadastro de Inidôneos)**: Alertas sobre empresas punidas (CEIS/CNEP).
-    *   **IBAMA & ANAC**: Infrações ambientais e aeronaves registradas (RAB).
+    *   **ANAC**: Aeronaves registradas (RAB). _(A integração com o IBAMA foi removida.)_
     *   **Tribunais de Contas (TCEs)**: Cruzamento de prestação de contas estaduais e municipais (TCE-SE, TCE-SP, TCE-SC, TCE-RJ...).
 *   **💸 Dossiê de Patrimônio**: Exibição centralizada dos bens declarados ao TSE e varredura de sócios.
 *   **🔗 Malha Societária Dinâmica**: Pivotamento societário automático (QSA) com 1 clique para rastrear donos de empresas suspeitas.
@@ -65,9 +65,10 @@ Para rodar o ecossistema completo de IA e extração de dados, você precisará 
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase (Banco de Dados e Sync) | **Sim** |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`| Supabase Público | **Sim** |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Admin Role (cache, ETL, dashboard) | **Sim (backend)** |
-| `GROQ_API_KEY` | Groq Developer Free Tier (Compound / GPT-OSS 120B / Qwen) - Motor L1 | **Recomendado** |
-| `OPENROUTER_API_KEY` | OpenRouter (Auto-Router `openrouter/free` e modelos `:free`) - Motor L2 | Opcional |
-| `GEMINI_API_KEY` | Google AI Studio Free Tier (Gemini 2.5 / 2.0 / Gemma) - Motor L3 | Opcional |
+| `GROQ_API_KEY` | Groq Developer Free Tier (GPT-OSS 120B / 20B / Qwen) — rodízio de IA | **Recomendado** |
+| `GEMINI_API_KEY` | Google AI Studio Free Tier (Gemini lite / flash) — rodízio de IA | Opcional |
+| `OPENROUTER_API_KEY` | OpenRouter (`openrouter/free`) — rodízio de IA | Opcional |
+| `CEREBRAS_API_KEY`, `MISTRAL_API_KEY`, `GITHUB_MODELS_TOKEN`, `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` | Provedores gratuitos extras do rodízio (conferir termos antes) | Opcional |
 | `DATAJUD_API_KEY` | CNJ - Busca de Improbidade Administrativa. Suporta chave crua ou com prefixo `APIKey ` | Opcional |
 | `TRANSPARENCIA_API_KEY` | CGU - Alertas CEIS/CNEP e Emendas PIX | Opcional |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics 4 — **desligado por padrão** | Opcional |
