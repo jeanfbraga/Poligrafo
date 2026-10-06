@@ -2,6 +2,7 @@ import { analyzeGraphNetwork } from "@/lib/graph-analysis";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { podeLerCachePesquisas } from "@/lib/cache-pesquisas";
 import { ColecaoNos, envolverEmissor } from "@/services/core/colecao-nos";
+import { buscarCandidatos } from "@/services/core/busca-candidatos";
 import { cpfValido, documentoValido } from "@/lib/documento";
 import { checkNepotismoCamara } from "@/services/integrations/camara/nepotismo-client";
 import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
@@ -311,311 +312,44 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		const supabaseNodes = new ColecaoNos();
 		const sendEvent = envolverEmissor(emitirParaTela, supabaseNodes);
 		const malhaOsintBuffer: any[] = [];
-		let hasApiError = false;
 		if (!forceRef) {
-			// MODO BUSCA EM CASCATA
-			const candidatosGlobais: any[] = [];
-			if (cargoParam === "GOVERNADOR" || cargoParam === "PREFEITO") {
-				sendEvent("STATUS", {
-					msg: `Buscando ${cargoParam} diretamente na base eleitoral (TSE)...`,
-				});
-				const cTse = cargoParam === "GOVERNADOR" ? "3" : "11";
-				const tseDados = await buscarCpfNoTSE(
-					nomeParaBusca,
-					ufScope || "BR",
-					cTse,
-				);
-				if (tseDados) {
-					const docTse = tseDados.documentoPrincipal || tseDados.cpf;
-					if (docTse) {
-						const ufEstado = ufScope || "BR";
-						const municipioSlug = tseDados.municipio || "";
-						// Ref no formato genérico consumido na seleção direta:
-						// GOVERNADOR:{UF}:{nome} | {UF}:PREFEITO:{municipio}:{doc}
-						const refGerada =
-							cargoParam === "GOVERNADOR"
-								? `GOVERNADOR:${ufEstado}:${tseDados.nome || nomeParaBusca}`
-								: `${ufEstado}:PREFEITO:${municipioSlug}:${docTse.replace(/\D/g, "")}`;
-						candidatosGlobais.push({
-							id: docTse.replace(/\D/g, ""),
-							uri: municipioSlug,
-							nome: tseDados.nome || nomeParaBusca,
-							uf: ufEstado,
-							idLegislatura: tseDados.anoEleicao || 2024,
-							casa:
-								cargoParam === "GOVERNADOR" ? "GOVERNO_ESTADUAL" : "PREFEITURA",
-							cargo:
-								cargoParam === "GOVERNADOR"
-									? "Governador de Estado"
-									: "Prefeito Municipal",
-							ref: refGerada,
-						});
-					}
-				}
-			} else {
-				// Sempre busca na esfera Federal primeiro (a menos que seja Governador/Prefeito)
-				// Injeta o ufScope nas APIs para filtrar por estado se existir
-				sendEvent("STATUS", {
-					msg: `Buscando na esfera Federal${ufScope && ufScope !== "FEDERAL" ? ` (filtrando por ${ufScope})` : ""}...`,
-				});
-				let secondsElapsed = 0;
-				const delayInterval = setInterval(() => {
-					secondsElapsed += 5;
-					if (secondsElapsed === 5) {
-						sendEvent("STATUS", {
-							msg: `Aguardando resposta dos servidores da Câmara dos Deputados...`,
-						});
-					} else if (secondsElapsed === 15) {
-						sendEvent("STATUS", {
-							msg: `A API oficial da Câmara está lenta hoje, forçando a conexão...`,
-						});
-					} else if (secondsElapsed === 25) {
-						sendEvent("STATUS", {
-							msg: `Ainda aguardando resposta governamental (tentativa final)...`,
-						});
-					}
-				}, 5000);
-				const [camaraRes, senadoRes] = await Promise.allSettled([
-					buscarPoliticosCamaraLista(nomeParaBusca, ufScope),
-					buscarSenadoresLista(nomeParaBusca),
-				]);
-				clearInterval(delayInterval);
-				if (camaraRes.status === "fulfilled" && camaraRes.value) {
-					candidatosGlobais.push(
-						...camaraRes.value.map((c: any) => ({
-							...c,
-							ref: `FEDERAL:CAMARA:${c.id}`,
-							cargo: "Deputado Federal",
-						})),
-					);
-				} else if (camaraRes.status === "rejected") {
-					hasApiError = true;
-					console.warn(`[CÂMARA] Timeout/Erro na API:`, camaraRes.reason);
-				}
-				if (senadoRes.status === "fulfilled" && senadoRes.value) {
-					candidatosGlobais.push(
-						...senadoRes.value.map((c: any) => ({
-							...c,
-							ref: `FEDERAL:SENADO:${c.id}`,
-							cargo: "Senador da República",
-						})),
-					);
-				} else if (senadoRes.status === "rejected") {
-					hasApiError = true;
-					console.warn(`[SENADO] Timeout/Erro na API:`, senadoRes.reason);
-				}
-
-				// Re-ordenação local pós-coleta Federal para garantir que se houver correspondência exata, ela suba
-				if (candidatosGlobais.length > 1) {
-					const termoNorm = normalizeString(nomeParaBusca);
-					candidatosGlobais.sort((a: any, b: any) => {
-						const nomeA = normalizeString(a.nome);
-						const nomeB = normalizeString(b.nome);
-						if (nomeA === termoNorm && nomeB !== termoNorm) return -1;
-						if (nomeB === termoNorm && nomeA !== termoNorm) return 1;
-						return 0;
-					});
-				}
-
-				// =====================================
-				// FALLBACK TSE PARA FEDERAL (Para candidatos não eleitos ou se a API da Câmara/Senado falhar)
-				// =====================================
-				if (
-					candidatosGlobais.length === 0 &&
-					ufScope &&
-					ufScope !== "FEDERAL" &&
-					ufScope !== "BR"
-				) {
-					sendEvent("STATUS", {
-						msg: `Buscando fallback na base TSE para cargos Federais em ${ufScope}...`,
-					});
-					const federaisTsePromises = [
-						buscarCpfNoTSE(nomeParaBusca, ufScope, "6").then((tseData) => {
-							if (tseData) {
-								return [
-									{
-										id: tseData.documentoPrincipal || tseData.idTse?.toString(),
-										uri: `https://divulgacandcontas.tse.jus.br/divulga/#/candidato/${tseData.anoEleicao}/${tseData.idEleicao}/${ufScope}/${tseData.idTse}`,
-										nome:
-											(tseData as any).nomeUrna ||
-											tseData.nome ||
-											nomeParaBusca,
-										uf: ufScope,
-										casa: "CANDIDATO_TSE",
-										cargo: "Deputado Federal (TSE)",
-										ref: `FEDERAL:CAMARA:${tseData.documentoPrincipal || tseData.idTse}`,
-										cpfOuCnpj: tseData.documentoPrincipal,
-										isCnpj: tseData.isCnpj,
-									},
-								];
-							}
-							return [];
-						}),
-						buscarCpfNoTSE(nomeParaBusca, ufScope, "5").then((tseData) => {
-							if (tseData) {
-								return [
-									{
-										id: tseData.documentoPrincipal || tseData.idTse?.toString(),
-										uri: `https://divulgacandcontas.tse.jus.br/divulga/#/candidato/${tseData.anoEleicao}/${tseData.idEleicao}/${ufScope}/${tseData.idTse}`,
-										nome:
-											(tseData as any).nomeUrna ||
-											tseData.nome ||
-											nomeParaBusca,
-										uf: ufScope,
-										casa: "CANDIDATO_TSE",
-										cargo: "Senador (TSE)",
-										ref: `FEDERAL:SENADO:${tseData.documentoPrincipal || tseData.idTse}`,
-										cpfOuCnpj: tseData.documentoPrincipal,
-										isCnpj: tseData.isCnpj,
-									},
-								];
-							}
-							return [];
-						}),
-					];
-					const federaisTseRes = await Promise.allSettled(federaisTsePromises);
-					federaisTseRes.forEach((res) => {
-						if (res.status === "fulfilled" && res.value) {
-							candidatosGlobais.push(...res.value);
-						}
-					});
-				}
-			}
-
-			// Flag para saber se o usuário EXPLICITAMENTE escolheu 'FEDERAL' na busca.
-			// Nesse caso, NÃO fazemos fallback para estadual e municipal.
-			const isOnlyFederal = ufParam === "FEDERAL";
-
-			// SÓ VAI PARA ESTADUAL SE NÃO ACHOU FEDERAL (E NEM ACHOU GOVERNADOR)
-			if (candidatosGlobais.length === 0 && !isOnlyFederal) {
-				sendEvent("STATUS", {
-					msg: "Não encontrado na esfera Federal. Buscando na esfera Estadual (ALESP e ALERJ)...",
-				});
-				const estaduaisPromises = [];
-				if (!ufScope || ufScope === "SP")
-					estaduaisPromises.push(buscarDeputadoEstadualSP(nomeParaBusca));
-				if (!ufScope || ufScope === "RJ")
-					estaduaisPromises.push(buscarDeputadoEstadualRJ(nomeParaBusca));
-
-				// INTEGRAÇÃO TSE NACIONAL: Fallback para Deputado Estadual (Cargo 7) em UFs fora do eixo SP/RJ
-				if (ufScope && !["SP", "RJ"].includes(ufScope)) {
-					estaduaisPromises.push(
-						buscarCpfNoTSE(nomeParaBusca, ufScope, "7").then((tseData) => {
-							if (tseData) {
-								return [
-									{
-										id: tseData.documentoPrincipal || tseData.idTse?.toString(),
-										uri: `https://divulgacandcontas.tse.jus.br/divulga/#/candidato/${tseData.anoEleicao}/${tseData.idEleicao}/${ufScope}/${tseData.idTse}`,
-										nome:
-											(tseData as any).nomeUrna ||
-											tseData.nome ||
-											nomeParaBusca,
-										uf: ufScope,
-										casa: "ASSEMBLEIA_LEGISLATIVA",
-										cargo: "Deputado Estadual",
-										ref: `ESTADUAL:${ufScope}:${tseData.documentoPrincipal || tseData.idTse}`,
-										cpfOuCnpj: tseData.documentoPrincipal,
-										isCnpj: tseData.isCnpj,
-									},
-								];
-							}
-							return [];
-						}),
-					);
-				}
-				const estaduaisRes = await Promise.allSettled(estaduaisPromises);
-				estaduaisRes.forEach((res) => {
-					if (res.status === "fulfilled" && res.value) {
-						candidatosGlobais.push(...res.value);
-					} else if (res.status === "rejected") {
-						hasApiError = true;
-					}
-				});
-			}
-
-			// TRATAMENTO DINÂMICO PARA GOVERNADORES (busca via TSE):
+			// MODO BUSCA (sem ref): alçadas em paralelo, ordenadas pela semelhança do nome
 			const checkNome = (nomeBruto || "").toLowerCase().trim();
-			if (
-				candidatosGlobais.length === 0 &&
-				(forceRef?.startsWith("GOVERNADOR:") ||
-					correcoesNomes[checkNome]?.autoRef?.startsWith("GOVERNADOR:"))
-			) {
-				const refGov = forceRef || correcoesNomes[checkNome]?.autoRef || "";
-				const partesRef = refGov.split(":");
-				const ufGov = partesRef[1] || ufScope || "BR";
-				const nomeGov = partesRef[2] || nomeParaBusca;
-				sendEvent("STATUS", {
-					msg: `Buscando Governador "${nomeGov}" na base eleitoral TSE (${ufGov})...`,
+			const autoRefGov: string | undefined = correcoesNomes[checkNome]?.autoRef;
+			const { candidatos, houveErroApi } = await buscarCandidatos(
+				{
+					nome: nomeParaBusca,
+					uf: ufScope,
+					cargo: cargoParam,
+					somenteFederal: ufParam === "FEDERAL",
+					refGovernadorSugerida: autoRefGov?.startsWith("GOVERNADOR:") ? autoRefGov : undefined,
+				},
+				{
+					camara: buscarPoliticosCamaraLista,
+					senado: buscarSenadoresLista,
+					tse: (nome, uf, cargo) => buscarCpfNoTSE(nome, uf, cargo),
+					alesp: buscarDeputadoEstadualSP,
+					alerj: buscarDeputadoEstadualRJ,
+					municipal: buscarMunicipalMestre,
+					status: (msg) => sendEvent("STATUS", { msg }),
+				},
+			);
+			if (candidatos.length === 0) {
+				sendEvent("ERROR", {
+					mensagem: houveErroApi
+						? `A busca falhou devido a Timeout/Falha de conexão com as APIs do Governo (Câmara/Senado/TSE). Tente novamente em alguns minutos.`
+						: `Nenhum político encontrado para "${nomeParaBusca}".`,
 				});
-				const tseGov = await buscarCpfNoTSE(nomeGov, ufGov, "3");
-				if (tseGov) {
-					candidatosGlobais.push({
-						id:
-							tseGov.documentoPrincipal || tseGov.idTse?.toString() || nomeGov,
-						uri: "",
-						nome: tseGov.nome || nomeGov,
-						uf: ufGov,
-						idLegislatura: tseGov.anoEleicao || 2023,
-						casa: "GOVERNO_ESTADUAL",
-						cargo: "Governador de Estado",
-						ref: `GOVERNADOR:${ufGov}:${nomeGov}`,
-					});
-				}
-			}
-
-			// SÓ VAI PARA MUNICIPAL SE NÃO ACHOU ESTADUAL E FEDERAL (E NEM GOVERNADOR MANUAL)
-			if (candidatosGlobais.length === 0 && !isOnlyFederal) {
-				sendEvent("STATUS", {
-					msg: "Buscando na malha Municipal Master (Prefeitos e Vereadores)...",
-				});
-				const municipaisPromises = [];
-				if (ufScope) {
-					municipaisPromises.push(
-						buscarMunicipalMestre(ufScope, nomeParaBusca),
-					);
-				} else {
-					// Carga Inicial CEga (apenas eixos principais ativados p/ evitar starvation da Vercel Edge)
-					municipaisPromises.push(buscarMunicipalMestre("SP", nomeParaBusca));
-					municipaisPromises.push(buscarMunicipalMestre("RJ", nomeParaBusca));
-					municipaisPromises.push(buscarMunicipalMestre("PE", nomeParaBusca));
-					municipaisPromises.push(buscarMunicipalMestre("CE", nomeParaBusca));
-					municipaisPromises.push(buscarMunicipalMestre("PB", nomeParaBusca));
-					municipaisPromises.push(buscarMunicipalMestre("SE", nomeParaBusca));
-				}
-				const municipaisRes = await Promise.allSettled(municipaisPromises);
-				municipaisRes.forEach((res) => {
-					if (res.status === "fulfilled" && res.value) {
-						candidatosGlobais.push(...res.value);
-					} else if (res.status === "rejected") {
-						hasApiError = true;
-					}
-				});
-			}
-			if (candidatosGlobais.length === 0) {
-				if (hasApiError) {
-					sendEvent("ERROR", {
-						mensagem: `A busca falhou devido a Timeout/Falha de conexão com as APIs do Governo (Câmara/Senado/TSE). Tente novamente em alguns minutos.`,
-					});
-				} else {
-					sendEvent("ERROR", {
-						mensagem: `Nenhum político encontrado para "${nomeParaBusca}".`,
-					});
-				}
 				safeClose();
 				return;
 			}
-
-			// Remove duplicatas exatas geradas por sobreposição de legislaturas
-			const candidatosUnicos = Array.from(
-				new Map(candidatosGlobais.map((c) => [c.ref, c])).values(),
-			);
 			// Envia para o painel de desambiguação e encerra
 			sendEvent("STATUS", {
-				msg: `${candidatosUnicos.length} perfis encontrados. Aguardando seleção do operador...`,
+				msg: `${candidatos.length} perfis encontrados. Aguardando seleção do operador...`,
 			});
 			sendEvent("CANDIDATOS_ENCONTRADOS", {
 				termo: nomeParaBusca,
-				candidatos: candidatosUnicos,
+				candidatos,
 			});
 			safeClose();
 			return;
