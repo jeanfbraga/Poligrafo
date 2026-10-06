@@ -83,9 +83,25 @@ async function rodarPipe(url: string): Promise<{ eventos: EventoCapturado[]; est
 	return { eventos, estourou };
 }
 
-async function investigarAlvo(alvo: AlvoMatriz, escritas: unknown[]) {
-	const inicio = Date.now();
-	const antesEscritas = escritas.length;
+/** Captura console.warn/console.error durante a execução (continuam aparecendo no terminal). */
+async function comLogs<T>(fn: () => Promise<T>): Promise<{ valor: T; avisos: string[] }> {
+	const avisos: string[] = [];
+	const originais = { warn: console.warn, error: console.error };
+	const capturar = (original: (...a: unknown[]) => void) => (...args: unknown[]) => {
+		avisos.push(args.map((a) => (a instanceof Error ? a.message : typeof a === "string" ? a : JSON.stringify(a))).join(" "));
+		original(...args);
+	};
+	console.warn = capturar(originais.warn);
+	console.error = capturar(originais.error);
+	try {
+		return { valor: await fn(), avisos };
+	} finally {
+		console.warn = originais.warn;
+		console.error = originais.error;
+	}
+}
+
+async function rodadasDoAlvo(alvo: AlvoMatriz) {
 	let ref = alvo.consulta.ref ?? null;
 	let rodada = await rodarPipe(montarUrl(alvo.consulta));
 	const candidatos = rodada.eventos.some((e) => e.tipo === "CANDIDATOS_ENCONTRADOS");
@@ -93,10 +109,19 @@ async function investigarAlvo(alvo: AlvoMatriz, escritas: unknown[]) {
 		ref = refDoPrimeiroCandidato(rodada.eventos);
 		if (ref) rodada = await rodarPipe(montarUrl(alvo.consulta, ref));
 	}
+	return { ref, rodada };
+}
+
+async function investigarAlvo(alvo: AlvoMatriz, escritas: unknown[]) {
+	const inicio = Date.now();
+	const antesEscritas = escritas.length;
+	const { valor, avisos } = await comLogs(() => rodadasDoAlvo(alvo));
+	const { ref, rodada } = valor;
 	const resumo = montarResumo(alvo, ref, rodada.eventos, {
 		duracaoMs: Date.now() - inicio,
 		estourou: rodada.estourou,
 		escritasBloqueadas: escritas.length - antesEscritas,
+		avisos,
 	});
 	return { resumo, eventos: rodada.eventos };
 }
@@ -130,6 +155,7 @@ async function main() {
 		fs.writeFileSync(path.join(pasta, "resumos.json"), JSON.stringify(resumos, null, 2));
 		if (salvarEventos) fs.writeFileSync(path.join(pasta, `${alvo.id}.eventos.json`), JSON.stringify(eventos, null, 1));
 		console.log(`  ${resumo.terminou} · cargo=${resumo.identidade?.cargo ?? "—"} · nós=${JSON.stringify(resumo.nos)}`);
+		console.log(`  achados=${JSON.stringify(resumo.achados)} · avisos no console=${resumo.logs.avisosConsole}`);
 	}
 
 	fs.writeFileSync(path.join(pasta, "resumos.json"), JSON.stringify(resumos, null, 2));

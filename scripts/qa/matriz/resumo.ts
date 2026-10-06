@@ -37,6 +37,28 @@ export interface ResumoAlvo {
 	sentinelas: Record<string, number>;
 	erros: string[];
 	escritasBloqueadas: number;
+	/** Cruzamentos do motor por "regra:severidade". */
+	achados: Record<string, number>;
+	/** Log capturado: avisos/erros do console e marcos do log da tela (identidade, cruzamento). */
+	logs: { avisosConsole: number; amostraAvisos: string[]; marcos: string[] };
+}
+
+/** Linhas do log da tela que vale guardar no resumo. */
+const MARCOS = /^\[(IDENTIDADE|CRUZAMENTO|LGPD)\]|Documento do político não confirmado/;
+const AMOSTRA = 10;
+
+function resumirLogs(eventos: EventoCapturado[], avisos: string[]): ResumoAlvo["logs"] {
+	const marcos = eventos
+		.filter((e) => e.tipo === "STATUS" && MARCOS.test(String(e.payload?.msg ?? "")))
+		.map((e) => mascararDocumentos(String(e.payload.msg)).slice(0, 200));
+	const amostra = [...new Set(avisos.map((a) => mascararDocumentos(a).slice(0, 160)))].slice(0, AMOSTRA);
+	return { avisosConsole: avisos.length, amostraAvisos: amostra, marcos };
+}
+
+function contarAchados(nos: EventoCapturado[]): Record<string, number> {
+	const ultimos = new Map<string, any>();
+	for (const e of nos) if (e.payload?.type === "ACHADO") ultimos.set(String(e.payload.id), e.payload);
+	return contar([...ultimos.values()], (p) => `${p.data?.regra}:${p.data?.severidade}`);
 }
 
 // "2024-01-01" saiu da lista: o código não injeta mais essa data (removida na Fase 1) e contratos
@@ -106,7 +128,7 @@ export function montarResumo(
 	alvo: { id: string; descricao: string; alcada: string; exercita: string; cargoEsperado: string },
 	ref: string | null,
 	eventos: EventoCapturado[],
-	extra: { duracaoMs: number; estourou: boolean; escritasBloqueadas: number },
+	extra: { duracaoMs: number; estourou: boolean; escritasBloqueadas: number; avisos?: string[] },
 ): ResumoAlvo {
 	const nos = eventos.filter((e) => e.tipo === "NODE_NOVO");
 	return {
@@ -123,6 +145,8 @@ export function montarResumo(
 			.filter((e) => e.tipo === "ERROR")
 			.map((e) => mascararDocumentos(String(e.payload?.mensagem ?? e.payload?.msg ?? "")).slice(0, 200)),
 		escritasBloqueadas: extra.escritasBloqueadas,
+		achados: contarAchados(nos),
+		logs: resumirLogs(eventos, extra.avisos ?? []),
 	};
 }
 
@@ -144,6 +168,11 @@ function texto(v: unknown): string {
 	return typeof v === "object" ? JSON.stringify(v ?? null) : String(v);
 }
 
+/** Campos que resumos antigos (de antes da Fase 3) não têm. */
+function novos(r: ResumoAlvo): { achados: Record<string, number>; avisos: number } {
+	return { achados: r.achados ?? {}, avisos: r.logs?.avisosConsole ?? 0 };
+}
+
 /** Compara dois conjuntos de resumos (antes × depois) campo a campo. */
 export function compararResumos(antes: ResumoAlvo[], depois: ResumoAlvo[]): Diferenca[] {
 	const diffs: Diferenca[] = [];
@@ -163,6 +192,8 @@ export function compararResumos(antes: ResumoAlvo[], depois: ResumoAlvo[]): Dife
 			["nos", a.nos, d.nos],
 			["sentinelas", a.sentinelas, d.sentinelas],
 			["erros", a.erros.length, d.erros.length],
+			["achados", novos(a).achados, novos(d).achados],
+			["avisosConsole", novos(a).avisos, novos(d).avisos],
 		];
 		for (const [campo, va, vd] of campos) {
 			if (texto(va) !== texto(vd)) diffs.push({ id: d.id, campo, antes: texto(va), depois: texto(vd) });

@@ -75,6 +75,31 @@ describe("matriz de alçadas — resumo", () => {
 		expect(diffs.map((d) => d.campo)).toEqual(expect.arrayContaining(["terminou", "cargo", "cargoCorreto", "nos", "erros"]));
 		expect(compararResumos([base], [base])).toEqual([]);
 	});
+
+	it("guarda os logs: avisos do console (sem documento) e marcos de identidade/cruzamento do log da tela", () => {
+		const eventos: EventoCapturado[] = [
+			{ tipo: "STATUS", payload: { msg: "Carregando lote..." }, ms: 1 },
+			{ tipo: "STATUS", payload: { msg: "[IDENTIDADE] CPF do TSE diferente do CPF oficial: dados do TSE descartados (possível homônimo)" }, ms: 2 },
+			{ tipo: "STATUS", payload: { msg: "[CRUZAMENTO] 2 cruzamento(s) entre 9 fatos verificados." }, ms: 3 },
+		];
+		const avisos = ["[TSE ELEITOS] Base indisponível (x); seguindo sem ela.", "falha no CPF 12345678909", "falha no CPF 12345678909"];
+		const r = montarResumo(alvo, null, eventos, { duracaoMs: 1, estourou: false, escritasBloqueadas: 0, avisos });
+		expect(r.logs.avisosConsole).toBe(3);
+		expect(r.logs.amostraAvisos).toHaveLength(2);
+		expect(JSON.stringify(r.logs)).not.toContain("12345678909");
+		expect(r.logs.marcos).toEqual([
+			"[IDENTIDADE] CPF do TSE diferente do CPF oficial: dados do TSE descartados (possível homônimo)",
+			"[CRUZAMENTO] 2 cruzamento(s) entre 9 fatos verificados.",
+		]);
+	});
+
+	it("conta cruzamentos pela última versão de cada nó ACHADO e a comparação aponta a mudança", () => {
+		const achado = (sev: string, extra = {}) => no("ACHADO", "achado-doador-fornecedor-cota-1", { regra: "doador-fornecedor-cota", severidade: sev, ...extra });
+		const r = montarResumo(alvo, null, [achado("ALTA"), achado("ALTA", { explicacao_ia: "x" })], { duracaoMs: 1, estourou: false, escritasBloqueadas: 0 });
+		expect(r.achados).toEqual({ "doador-fornecedor-cota:ALTA": 1 });
+		const antigo = { ...r, achados: undefined, logs: undefined } as never;
+		expect(compararResumos([antigo], [r]).map((d) => d.campo)).toEqual(["achados"]);
+	});
 });
 
 describe("matriz de alçadas — banco somente leitura", () => {
