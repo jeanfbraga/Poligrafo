@@ -108,6 +108,26 @@ describe("buscarCandidatos", () => {
 		expect(r.candidatos[0].ref).toBe("RJ:VEREADOR:rio-de-janeiro:08249495799");
 	});
 
+	it("ex-deputado federal hoje prefeito: legislatura passada não pula a busca municipal", async () => {
+		const d = deps({
+			camara: vi.fn().mockResolvedValue([{ id: 74000, nome: "Sandro Mabel", uf: "GO", idLegislatura: 54, casa: "CAMARA" }]),
+			municipal: vi.fn().mockResolvedValue([{ nome: "SANDRO MABEL", uf: "GO", ref: "GO:PREFEITO:goiania:52998224725", casa: "PREFEITURA" }]),
+		});
+		const r = await buscarCandidatos({ ...base, nome: "Sandro Mabel", uf: "GO" }, d);
+		expect(d.municipal).toHaveBeenCalled();
+		expect(r.candidatos[0].ref).toBe("GO:PREFEITO:goiania:52998224725");
+	});
+
+	it("deputado atual com linhas de várias legislaturas fica com a mais recente", () => {
+		const lista = [
+			{ nome: "Fulano", ref: "FEDERAL:CAMARA:1", casa: "CAMARA", idLegislatura: 56 },
+			{ nome: "Fulano", ref: "FEDERAL:CAMARA:1", casa: "CAMARA", idLegislatura: 57 },
+		];
+		const r = ordenarCandidatos(lista, "Fulano", null);
+		expect(r).toHaveLength(1);
+		expect(r[0].idLegislatura).toBe(57);
+	});
+
 	it("nome de urna entre parênteses conta como exato", () => {
 		const lista = [
 			{ nome: "ANDRÉ DO PRADO SILVA", ref: "A", uf: "SP" },

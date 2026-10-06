@@ -69,6 +69,18 @@ export interface ResultadoBusca {
 }
 
 const PALAVRAS_VAZIAS = new Set(["de", "da", "do", "das", "dos", "e"]);
+/** 57ª Legislatura da Câmara (2023–2027). */
+export const LEGISLATURA_ATUAL = 57;
+
+/**
+ * Mandato atual numa casa oficial? Candidatura só do TSE e deputado de
+ * legislatura passada não são: um ex-deputado federal hoje prefeito aparecia
+ * como "Deputado Federal" e a busca municipal era pulada.
+ */
+export function mandatoAtual(c: Candidato): boolean {
+	if (c.casa === "CANDIDATO_TSE") return false;
+	return !(c.casa === "CAMARA" && c.idLegislatura !== undefined && c.idLegislatura < LEGISLATURA_ATUAL);
+}
 const UFS_SEM_UF_PADRAO = ["SP", "RJ", "PE", "CE", "PB", "SE"];
 
 function tokens(nome: string): string[] {
@@ -102,13 +114,23 @@ function variantesNome(nome: string): string[] {
 function pontuacao(c: Candidato, nome: string, uf: string | null): number {
 	const exato = variantesNome(c.nome).includes(normalizeString(nome)) ? 0.5 : 0;
 	const mesmaUf = uf && c.uf === uf ? 0.25 : 0;
-	const soCandidatura = c.casa === "CANDIDATO_TSE" ? 1 : 0;
-	return coberturaNome(nome, c.nome) * 2 + exato + mesmaUf - soCandidatura;
+	const foraDoMandato = mandatoAtual(c) ? 0 : 1;
+	return coberturaNome(nome, c.nome) * 2 + exato + mesmaUf - foraDoMandato;
 }
 
 /** Ordena pela cobertura do nome (e UF igual) e remove refs repetidas. */
+/** Uma linha por ref; a Câmara devolve uma por legislatura — fica a mais recente. */
+function semRepetir(lista: Candidato[]): Candidato[] {
+	const porRef = new Map<string, Candidato>();
+	for (const c of lista) {
+		const atual = porRef.get(c.ref);
+		if (!atual || (c.idLegislatura ?? 0) > (atual.idLegislatura ?? 0)) porRef.set(c.ref, c);
+	}
+	return [...porRef.values()];
+}
+
 export function ordenarCandidatos(lista: Candidato[], nome: string, uf: string | null): Candidato[] {
-	const unicos = Array.from(new Map(lista.map((c) => [c.ref, c])).values());
+	const unicos = semRepetir(lista);
 	return unicos
 		.map((c, i) => ({ c, i, p: pontuacao(c, nome, uf) }))
 		.sort((a, b) => b.p - a.p || a.i - b.i)
@@ -122,7 +144,7 @@ export function ordenarCandidatos(lista: Candidato[], nome: string, uf: string |
  */
 function melhorCobertura(lista: Candidato[], nome: string): number {
 	return lista
-		.filter((c) => c.casa !== "CANDIDATO_TSE")
+		.filter(mandatoAtual)
 		.reduce((m, c) => Math.max(m, coberturaNome(nome, c.nome)), 0);
 }
 
