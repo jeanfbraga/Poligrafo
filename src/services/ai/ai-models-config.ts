@@ -26,15 +26,12 @@ export const GROQ_MODELS = [
 // ─── NÍVEL 2: OPENROUTER (Free Tier / :free Router) ──────────────────────────
 // Documentação: https://openrouter.ai/models?q=free
 // O modelo 'openrouter/free' roteia dinamicamente para qualquer modelo gratuito com cota.
-// Os modelos com sufixo ':free' garantem custo $0,00 permanente na chamada de API.
+// Verificado em 06/10/2026 (`npm run ia:verificar-modelos`): 6 dos 7 :free anteriores
+// SUMIRAM do catálogo (llama-3.3-70b, gemini-2.0-flash-exp, deepseek-r1, gpt-oss-20b,
+// qwen-2.5-coder, llama-3.1-8b). O limite :free é da CONTA (429 pausa o provedor todo).
 export const OPENROUTER_MODELS = [
 	"openrouter/free",
-	"meta-llama/llama-3.3-70b-instruct:free",
-	"google/gemini-2.0-flash-exp:free",
-	"deepseek/deepseek-r1:free",
-	"openai/gpt-oss-20b:free",
-	"qwen/qwen-2.5-coder-32b-instruct:free",
-	"meta-llama/llama-3.1-8b-instruct:free",
+	"google/gemma-4-26b-a4b-it:free",
 ] as const;
 
 // ─── NÍVEL 3: GOOGLE GEMINI & GEMMA (Google AI Studio Free Tier) ─────────────
@@ -44,8 +41,11 @@ export const OPENROUTER_MODELS = [
 // os "flash" com raciocínio levam 16–24 s e estouram o timeout, então ficam por último.
 // Verificado em 02/10/2026. Removidos: gemini-2.0-flash e -2.0-flash-lite (404, descontinuados),
 // gemma-3-27b-it (não listado mais) e gemini-3.8-flash (503 intermitente na verificação).
+// 06/10/2026: lites ok; gemma-4-31b-it deu HTTP 500 e os "flash" passaram de 25 s (ficam no fim).
+// `gemini-flash-lite-latest` é o apelido estável da Google para o lite mais novo.
 export const GEMINI_MODELS = [
 	"gemini-2.5-flash-lite",
+	"gemini-flash-lite-latest",
 	"gemini-3.5-flash-lite",
 	"gemini-3.1-flash-lite",
 	"gemini-3.6-flash",
@@ -62,11 +62,10 @@ export const VISION_MODELS = {
 		"gemini-3.5-flash-lite",
 		"gemini-2.5-flash",
 	],
-	openrouter: [
-		"openrouter/free",
-		"qwen/qwen2.5-vl-72b-instruct:free",
-	],
-	groq: "llama-3.2-11b-vision-preview",
+	openrouter: ["openrouter/free"],
+	// O Groq não oferece mais modelo de visão na conta (06/10/2026): `llama-3.2-11b-vision-preview`
+	// foi descontinuado. O OCR pula esta etapa quando o valor é null.
+	groq: null as string | null,
 } as const;
 
 export type GroqModel = (typeof GROQ_MODELS)[number];

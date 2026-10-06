@@ -57,7 +57,7 @@ import { VISION_MODELS } from '../../src/services/ai/ai-models-config';
 // ─── L1: Groq Vision ─────────────────────────────────────────────────────────
 async function ocrViaGroq(imageBase64: string, context: string): Promise<Despesa[] | null> {
     const key = process.env.GROQ_API_KEY;
-    if (!key) return null;
+    if (!key || !VISION_MODELS.groq) return null;
 
     const prompt = `Você é um extrator de dados de despesas públicas. Extraia TODAS as linhas de despesa desta imagem de tabela de "Cota de Gabinete" da Câmara Municipal do Rio de Janeiro.
 

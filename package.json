@@ -25,7 +25,8 @@
     "doctor": "tsx scripts/utils/doctor.ts",
     "qa:canario": "tsx scripts/qa/canario-fontes.ts",
     "qa:matriz": "tsx scripts/qa/matriz/executar.ts",
-    "qa:matriz:comparar": "tsx scripts/qa/matriz/comparar.ts"
+    "qa:matriz:comparar": "tsx scripts/qa/matriz/comparar.ts",
+    "ia:verificar-modelos": "tsx scripts/ia/verificar-modelos.ts"
   },
   "keywords": [
     "osint",
