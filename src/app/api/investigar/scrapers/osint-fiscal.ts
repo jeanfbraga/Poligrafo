@@ -1,4 +1,5 @@
 import { cpfValido, documentoValido } from "@/lib/documento";
+import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/fornecedor";
 import { transparenciaLimiter } from "@/services/core/rate-limiter";
 import { listarAtividadesAuditoria } from "@/services/integrations/denasus/client";
 import {
@@ -412,25 +413,21 @@ function emitirItemReceitaFederal(item: any, docLimpo: string, i: number, pessoa
 	});
 }
 
+/** Contratos federais em que o documento é o fornecedor (CGU; o compras.dados legado não existe mais). */
 async function consultarComprasContratos(docLimpo: string, pessoaId: string, sendEvent: any) {
 	try {
-		const res = await fetchWithTimeout(
-			`https://compras.dados.gov.br/contratos/v1/contratos.json?cnpj_contratada=${docLimpo}`,
-			{ timeout: 5000 },
-		);
-		if (!res.ok) return;
-
-		const comprasData = await res.json();
-		const contratos = comprasData?._embedded?.contratos || [];
-		contratos.slice(0, 5).forEach((c: any, i: number) => {
+		const contratos = await buscarContratosPorFornecedor(docLimpo, { paginasCgu: 1, paginasPncp: 0 });
+		contratos.slice(0, 5).forEach((c) => {
 			sendEvent("NODE_NOVO", {
-				id: `compras-${docLimpo}-${i}`,
+				id: `contrato-${c.id}`,
 				type: "CONTRATO",
 				_origemId: pessoaId,
 				data: {
-					label: c.fornecedor?.nome || "Contrato Federal",
-					objeto: c.objeto || "Não Informado",
-					valor: Number(c.valorInicial || 0),
+					label: c.orgaoEntidade.razaoSocial || "Contrato Federal",
+					objeto: c.objetoContrato || "Não Informado",
+					valor: c.valorGlobal,
+					dataDocumento: c.dataAssinatura || "",
+					url: c.url,
 				},
 			});
 		});

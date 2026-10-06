@@ -1,39 +1,30 @@
 import { cnpjValido } from "@/lib/documento";
+import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/fornecedor";
+import { buscarSancoesEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
 import { checkNepotismoCMRJ } from "@/services/integrations/cmrj/nepotismo-client";
 import { buscarNomeacoesDOU } from "@/services/integrations/dou/client";
 import { buscarDiariosMunicipais } from "@/services/integrations/dou/queridodiario";
 import { fetchWithTimeout } from "../tse";
 import { buscarConveniosTransferegov } from "./osint-contratos";
 
-async function avaliarSancoes(
-	resSancoes: PromiseSettledResult<any>,
-): Promise<{ alerta?: string; penalidade: number }> {
-	if (resSancoes.status !== "fulfilled" || !resSancoes.value.ok) {
-		return { penalidade: 0 };
-	}
+/** Sanções da empresa em CEIS/CNEP/CEPIM (o antigo /sancoes não existe). */
+async function avaliarSancoes(cnpjLimpo: string): Promise<{ alerta?: string; penalidade: number }> {
 	try {
-		const sancoes = await resSancoes.value.json();
-		if (Array.isArray(sancoes) && sancoes.length > 0) {
-			return { alerta: "[CGU/CEIS] Empresa Sancionada/Inidônea.", penalidade: 50 };
+		const sancoes = await buscarSancoesEmpresa(cnpjLimpo);
+		if (sancoes.length > 0) {
+			const bases = [...new Set(sancoes.map((s) => s.base.toUpperCase()))].join("/");
+			return { alerta: `[CGU/${bases}] Empresa Sancionada/Inidônea.`, penalidade: 50 };
 		}
 	} catch {}
 	return { penalidade: 0 };
 }
 
-async function avaliarContratos(
-	resCompras: PromiseSettledResult<any>,
-): Promise<{ alerta?: string; penalidade: number }> {
-	if (resCompras.status !== "fulfilled" || !resCompras.value.ok) {
-		return { penalidade: 0 };
-	}
+/** Contratos federais em que a empresa é fornecedora (CGU; compras.dados legado não existe mais). */
+async function avaliarContratos(cnpjLimpo: string): Promise<{ alerta?: string; penalidade: number }> {
 	try {
-		const comprasData = await resCompras.value.json();
-		const contratos = comprasData?._embedded?.contratos || [];
+		const contratos = await buscarContratosPorFornecedor(cnpjLimpo, { paginasCgu: 1, paginasPncp: 0 });
 		if (contratos.length > 0) {
-			return {
-				alerta: `[COMPRAS.GOV] ${contratos.length} Contratos Federais Ativos.`,
-				penalidade: 10,
-			};
+			return { alerta: `[CGU] ${contratos.length} contrato(s) federal(is) como fornecedora.`, penalidade: 10 };
 		}
 	} catch {}
 	return { penalidade: 0 };
@@ -65,24 +56,9 @@ export async function investigarFornecedorNivelHard(cnpj: string) {
 		return { scorePenalidade: 0, alertas, capitalSocial, dataAbertura, socios };
 	}
 
-	const apiKey = process.env.TRANSPARENCIA_API_KEY || "";
-	const promessaSancoes = apiKey
-		? fetchWithTimeout(
-				`https://api.portaldatransparencia.gov.br/api-de-dados/sancoes?cnpjSancionado=${cnpjLimpo}&pagina=1`,
-				{ headers: { "chave-api-dados": apiKey } },
-		  )
-		: Promise.reject("No API Key");
-
-	const [resSancoes, resCompras] = await Promise.allSettled([
-		promessaSancoes,
-		fetchWithTimeout(
-			`https://compras.dados.gov.br/contratos/v1/contratos.json?cnpj_contratada=${cnpjLimpo}`,
-		),
-	]);
-
 	const checagens = await Promise.all([
-		avaliarSancoes(resSancoes),
-		avaliarContratos(resCompras),
+		avaliarSancoes(cnpjLimpo),
+		avaliarContratos(cnpjLimpo),
 		avaliarConvenios(cnpjLimpo),
 	]);
 

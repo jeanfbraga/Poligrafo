@@ -1,48 +1,39 @@
+import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/fornecedor";
+import { buscarConveniosEntidade } from "@/services/integrations/transparencia/convenios-client";
 import { fetchWithTimeout } from "../tse";
 
+/**
+ * Contratos públicos em que o CNPJ (doador) é o FORNECEDOR.
+ * Antes consultava o PNCP com `cnpjOrgao` = CNPJ do doador, ou seja, contratos
+ * em que o doador seria o órgão contratante — o oposto do que se queria.
+ */
 export async function buscarContratosPNCP(cnpj: string) {
 	try {
-		const agora = new Date();
-		const dataFinal = agora.toISOString().slice(0, 10).replace(/-/g, "");
-		const umAnoAtras = new Date(
-			agora.getFullYear() - 1,
-			agora.getMonth(),
-			agora.getDate(),
-		);
-		const dataInicial = umAnoAtras.toISOString().slice(0, 10).replace(/-/g, "");
-		const url = `https://pncp.gov.br/api/consulta/v1/contratos?dataInicial=${dataInicial}&dataFinal=${dataFinal}&cnpjOrgao=${cnpj}&pagina=1&tamanhoPagina=5`;
-		const res = await fetchWithTimeout(url, { timeout: 6000 });
-		if (!res.ok) return [];
-		const json = await res.json();
-		const items = json.data || json.content || json || [];
-		if (!Array.isArray(items)) return [];
-		return items
-			.map((c: any) => ({
-				orgao: c.orgaoEntidade?.razaoSocial || c.nomeOrgao || "N/I",
-				objeto: c.objetoContrato || c.objeto || "N/I",
-				valor: c.valorInicial || c.valorGlobal || 0,
-				data: c.dataAssinatura || c.dataPublicacao || "",
-			}))
-			.slice(0, 5);
+		const contratos = await buscarContratosPorFornecedor(cnpj, { paginasCgu: 1, paginasPncp: 1 });
+		return contratos.slice(0, 5).map((c) => ({
+			id: c.id,
+			fonte: c.fonte,
+			orgao: c.orgaoEntidade.razaoSocial || "N/I",
+			objeto: c.objetoContrato || "N/I",
+			valor: c.valorGlobal,
+			data: c.dataAssinatura || "",
+			url: c.url,
+		}));
 	} catch {
 		return [];
 	}
 }
 
+/**
+ * Convênios federais em que o CNPJ é o convenente (Portal da Transparência).
+ * Antes usava o TransfereGov `/convenios?cnpj_convenente=`, que responde 404.
+ */
 export async function buscarConveniosTransferegov(cnpjLimpo: string) {
 	try {
-		const url = `https://api.transferegov.gestao.gov.br/convenios?cnpj_convenente=${cnpjLimpo}`;
-		const res = await fetchWithTimeout(url, { timeout: 12000 });
-		if (!res.ok) return null;
-		const data = await res.json();
-		if (Array.isArray(data) && data.length > 0) {
-			const valorTotal = data.reduce(
-				(acc, curr) => acc + (Number(curr.valor_global) || 0),
-				0,
-			);
-			return { quantidade: data.length, valorTotal };
-		}
-		return null;
+		const convenios = await buscarConveniosEntidade(cnpjLimpo);
+		if (convenios.length === 0) return null;
+		const valorTotal = convenios.reduce((acc, c) => acc + (Number(c.valorGlobal) || 0), 0);
+		return { quantidade: convenios.length, valorTotal };
 	} catch (_e) {
 		return null;
 	}

@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 			});
 		}
 
-		// Pega os 15 maiores ou mais recentes para enviar à IA (limite de contexto)
+		// Os 15 de MAIOR valor (o cliente já devolve ordenado por valor e só do fornecedor)
 		const contratosParaIA = contratos.slice(0, 15);
 
 		// 2. Aciona uma análise rápida cruzando com o político (se fornecido)

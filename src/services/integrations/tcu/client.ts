@@ -1,6 +1,6 @@
+import { primeiroValor } from "@/lib/valores";
 import { fetchWithTimeout } from "../../../app/api/investigar/tse";
 
-const TCU_DADOS_ABERTOS = "https://dados-abertos.apps.tcu.gov.br/api";
 const TCU_CONTAS_ORDS = "https://contas.tcu.gov.br/ords";
 const TCU_CERTIDOES = "https://certidoes-apf.apps.tcu.gov.br/api/rest/publico";
 
@@ -29,29 +29,40 @@ export interface CertidaoTCU {
 	temInfracao: boolean;
 }
 
-// 1. Inabilitados: GET /condenacao/consulta/inabilitados/{cpf}
+function mapearInabilitado(item: any, cpfLimpo: string): InabilitadoTCU {
+	return {
+		nome: primeiroValor(item.nome, item.nomeResponsavel),
+		cpf: primeiroValor(item.cpf, item.cpfResponsavel, cpfLimpo),
+		motivo: item.processo ? `Processo TCU ${item.processo}` : primeiroValor(item.descricaoFundamento),
+		dataInicio: primeiroValor(item.datatransitojulgado, item.data_transito_julgado, item.dataInicioInabilitacao),
+		dataFim: primeiroValor(item.data_final, item.dataFimInabilitacao),
+		deliberacao: primeiroValor(item.deliberacao, item.numeroDeliberacao),
+	};
+}
+
+/** Só o próprio CPF (se a fonte ignorar o filtro, não traz inabilitado de outra pessoa). */
+function doMesmoCpf(item: any, cpfLimpo: string): boolean {
+	const cpfItem = String(item.cpf || item.cpfResponsavel || "").replace(/\D/g, "");
+	return !cpfItem || cpfItem === cpfLimpo;
+}
+
+// 1. Inabilitados: GET contas.tcu.gov.br/ords/condenacao/consulta/inabilitados/{cpf}
+// O host dados-abertos.apps.tcu.gov.br passou a devolver página antirrobô no lugar
+// do JSON (canário de 06/10/2026); o ORDS responde { items: [...] }.
 export async function buscarInabilitadosTCU(
 	cpf: string,
 ): Promise<InabilitadoTCU[]> {
 	const cpfLimpo = cpf.replace(/\D/g, "");
 	try {
-		const url = `${TCU_DADOS_ABERTOS}/condenacao/consulta/inabilitados/${cpfLimpo}`;
+		const url = `${TCU_CONTAS_ORDS}/condenacao/consulta/inabilitados/${cpfLimpo}`;
 		const res = await fetchWithTimeout(url, { timeout: 6000 });
 		if (!res.ok) {
 			if (res.status === 404) return [];
 			throw new Error(`TCU Inabilitados HTTP ${res.status}`);
 		}
 		const data = await res.json();
-		if (!Array.isArray(data)) return [];
-
-		return data.map((item: any) => ({
-			nome: item.nomeResponsavel || "",
-			cpf: item.cpfResponsavel || cpfLimpo,
-			motivo: item.descricaoFundamento || "",
-			dataInicio: item.dataInicioInabilitacao || "",
-			dataFim: item.dataFimInabilitacao || "",
-			deliberacao: item.numeroDeliberacao || "",
-		}));
+		const lista = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+		return lista.filter((item: any) => doMesmoCpf(item, cpfLimpo)).map((item: any) => mapearInabilitado(item, cpfLimpo));
 	} catch (e: any) {
 		console.warn(
 			`[TCU] Erro ao buscar inabilitados para ${cpfLimpo}:`,

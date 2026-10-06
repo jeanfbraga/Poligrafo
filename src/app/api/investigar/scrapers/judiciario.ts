@@ -1,6 +1,9 @@
 import { traduzirJuridiquesSancoes } from "../ai_helpers";
 import { fetchWithTimeout } from "../tse";
 
+/** Ligar só quando a API pública voltar a expor `partes` (o canário de fontes avisa). */
+export const BUSCA_DATAJUD_POR_CPF_DISPONIVEL = false;
+
 async function fetchDataJudPage(cpfOuNome: string, datajudKey: string, searchAfter: any[] | null): Promise<any | null> {
 	const payload: any = {
 		query: {
@@ -47,7 +50,7 @@ async function avaliarProcessoComIA(assuntoPrinc: string, numeroProcesso: string
 			{ titulo: assuntoPrinc, descricao: `Processo da Classe de Improbidade Administrativa nº ${numeroProcesso}` },
 		]);
 		if (resumo?.resumo_improbidade) {
-			return { motivo: resumo.resumo_improbidade, gravidade: resumo.gravidade || 95 };
+			return { motivo: resumo.resumo_improbidade, gravidade: resumo.gravidade ?? 95 };
 		}
 	} catch (_err) {}
 	return {
@@ -96,6 +99,13 @@ export async function buscarProcessosDataJud(
 	const datajudKey = process.env.DATAJUD_API_KEY;
 	if (!datajudKey) {
 		console.warn("[DATAJUD] Chave API não configurada.");
+		return;
+	}
+	// A API pública do DataJud NÃO expõe as partes do processo (canário de 06/10/2026):
+	// a busca por CPF em `partes.documento` sempre volta vazia e só gastava até 3 × 60 s.
+	// A fonte fica "indisponível por CPF" até termos números de processo de outra fonte.
+	if (!BUSCA_DATAJUD_POR_CPF_DISPONIVEL) {
+		sendEvent("STATUS", { msg: "[DATAJUD] Indisponível por CPF: a API pública do CNJ não informa as partes do processo." });
 		return;
 	}
 

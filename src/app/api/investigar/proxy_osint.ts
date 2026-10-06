@@ -1,3 +1,5 @@
+import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/fornecedor";
+import { buscarSancoesEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
 import { fetchWithTimeout } from "./tse";
 
 // ==========================================
@@ -63,15 +65,9 @@ async function coletarSancoesCgu(
 ): Promise<string | null> {
 	if (!apiKey) return null;
 	try {
-		const res = await fetchWithTimeout(
-			`https://api.portaldatransparencia.gov.br/api-de-dados/sancoes?cnpjSancionado=${docLimpo}&pagina=1`,
-			{ headers: { "chave-api-dados": apiKey }, timeout: 5000 },
-		);
-		if (!res.ok) return null;
-		const sancoes = await res.json();
-		if (Array.isArray(sancoes) && sancoes.length > 0) {
-			return `ALERTA: ${sancoes.length} sanções na CGU`;
-		}
+		// CEIS/CNEP/CEPIM: o antigo /sancoes?cnpjSancionado= não existe.
+		const sancoes = await buscarSancoesEmpresa(docLimpo, apiKey);
+		if (sancoes.length > 0) return `ALERTA: ${sancoes.length} sanções na CGU`;
 	} catch {}
 	return null;
 }
@@ -82,22 +78,16 @@ async function coletarContratosCompras(
 ): Promise<{ despesas: any[]; statusParte?: string }> {
 	const despesas: any[] = [];
 	try {
-		const res = await fetchWithTimeout(
-			`https://compras.dados.gov.br/contratos/v1/contratos.json?cnpj_contratada=${docLimpo}`,
-			{ timeout: 5000 },
-		);
-		if (!res.ok) return { despesas };
-		const comprasData = await res.json();
-		const contratos = comprasData?._embedded?.contratos || [];
-		contratos.slice(0, 10).forEach((c: any) => {
+		// Contratos federais em que o documento é fornecedor (CGU; compras.dados legado não existe mais).
+		const contratos = await buscarContratosPorFornecedor(docLimpo, { paginasCgu: 1, paginasPncp: 0 });
+		contratos.slice(0, 10).forEach((c) => {
 			despesas.push({
 				cnpjCpfFornecedor: docLimpo,
-				nomeFornecedor:
-					c.fornecedor?.nome || nomeVereador || "Contrato Federal",
-				tipoDespesa: `Contrato Federal: ${c.objeto?.substring(0, 80) || "N/I"}`,
-				valorDocumento: Number(c.valorInicial || 0),
-				dataDocumento: c.dataInicioVigencia || "",
-				urlDocumento: "https://compras.dados.gov.br/",
+				nomeFornecedor: c.nomeFornecedor || nomeVereador || "Contrato Federal",
+				tipoDespesa: `Contrato Federal: ${c.objetoContrato.substring(0, 80) || "N/I"}`,
+				valorDocumento: c.valorGlobal,
+				dataDocumento: c.dataAssinatura || "",
+				urlDocumento: c.url || "https://portaldatransparencia.gov.br/contratos",
 			});
 		});
 		return {

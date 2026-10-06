@@ -41,7 +41,7 @@ describe('🔗 API Contratos Beneficiário (PNCP)', () => {
       json: async () => ({
         content: [
           {
-            orgaoEntidade: { razaoSocial: 'PREFEITURA TESTE ORGAO' },
+            orgaoEntidade: { cnpj: mockCnpj, razaoSocial: 'PREFEITURA TESTE ORGAO' },
             objetoContrato: 'CONTRATACAO DE SERVICOS DE TESTE',
             valorInicial: 50000,
             dataAssinatura: '2026-05-01',

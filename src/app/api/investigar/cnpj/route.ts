@@ -1,3 +1,6 @@
+import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/fornecedor";
+import { buscarConveniosEntidade } from "@/services/integrations/transparencia/convenios-client";
+import { buscarSancoesEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -64,18 +67,19 @@ function emitirQsa(qsa: any[], empresaId: string, cnpjLimpo: string, sendEvent: 
 
 async function emitirContratosCompras(cnpjLimpo: string, empresaId: string, sendEvent: any) {
 	try {
-		const res = await fetchWithTimeout(
-			`https://compras.dados.gov.br/contratos/v1/contratos.json?cnpj_contratada=${cnpjLimpo}`,
-		);
-		if (!res.ok) return;
-		const comprasData = await res.json();
-		const contratos = comprasData?._embedded?.contratos || [];
-		contratos.slice(0, 3).forEach((contrato: any, idx: number) => {
+		// Contratos em que a empresa é fornecedora (CGU + PNCP conferido; compras.dados legado não existe mais).
+		const contratos = await buscarContratosPorFornecedor(cnpjLimpo, { paginasCgu: 1, paginasPncp: 1 });
+		contratos.slice(0, 3).forEach((contrato) => {
 			sendEvent("NODE_NOVO", {
-				id: `contrato-empresa-${cnpjLimpo}-${idx}-${Date.now()}`,
+				id: `contrato-empresa-${contrato.id}`,
 				type: "CONTRATO",
 				_origemId: empresaId,
-				data: { label: `Contrato Gov. Federal`, objeto: contrato.objeto, valor: contrato.valor_inicial },
+				data: {
+					label: contrato.orgaoEntidade.razaoSocial || "Contrato público",
+					objeto: contrato.objetoContrato,
+					valor: contrato.valorGlobal,
+					url: contrato.url,
+				},
 			});
 		});
 	} catch (_e) {}
@@ -83,13 +87,9 @@ async function emitirContratosCompras(cnpjLimpo: string, empresaId: string, send
 
 async function emitirSancoesCgu(cnpjLimpo: string, empresaId: string, apiKey: string, sendEvent: any) {
 	try {
-		const res = await fetchWithTimeout(
-			`https://api.portaldatransparencia.gov.br/api-de-dados/sancoes?cnpjSancionado=${cnpjLimpo}&pagina=1`,
-			{ headers: { "chave-api-dados": apiKey } },
-		);
-		if (!res.ok) return;
-		const sancoes = await res.json();
-		if (!Array.isArray(sancoes) || sancoes.length === 0) return;
+		// CEIS/CNEP/CEPIM: o antigo /sancoes?cnpjSancionado= não existe.
+		const sancoes = (await buscarSancoesEmpresa(cnpjLimpo, apiKey)).map((s) => s.registro);
+		if (sancoes.length === 0) return;
 		sendEvent("STATUS", {
 			msg: `[ALERTA] Empresa consta no Cadastro de Sancionados da CGU! ${sancoes.length} registro(s).`,
 		});
@@ -112,13 +112,10 @@ async function emitirSancoesCgu(cnpjLimpo: string, empresaId: string, apiKey: st
 
 async function emitirConveniosTransferegov(cnpjLimpo: string, empresaId: string, sendEvent: any) {
 	try {
-		const res = await fetchWithTimeout(
-			`https://api.transferegov.gestao.gov.br/convenios?cnpj_convenente=${cnpjLimpo}`,
-		);
-		if (!res.ok) return;
-		const convData = await res.json();
-		if (!Array.isArray(convData) || convData.length === 0) return;
-		const valorTotal = convData.reduce((acc: number, c: any) => acc + (Number(c.valor_global) || 0), 0);
+		// Convênios pelo Portal da Transparência (o /convenios do TransfereGov responde 404).
+		const convData = await buscarConveniosEntidade(cnpjLimpo);
+		if (convData.length === 0) return;
+		const valorTotal = convData.reduce((acc: number, c) => acc + (Number(c.valorGlobal) || 0), 0);
 		sendEvent("STATUS", {
 			msg: `[ATENÇÃO] ${convData.length} convênio(s) federal(is). Valor total: R$ ${valorTotal.toLocaleString("pt-BR")}`,
 		});

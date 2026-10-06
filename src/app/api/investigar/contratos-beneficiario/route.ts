@@ -18,7 +18,8 @@ async function buscarContratosComoOrgao(cnpj: string, yearsToFetch = 2) {
 			const data = await response.json();
 			const items = data.data || data.content || data || [];
 			if (Array.isArray(items)) {
-				items.forEach((c: any) => {
+				// Confere o órgão: um filtro ignorado pela API não pode trazer contratos de outro órgão.
+				items.filter((c: any) => String(c.orgaoEntidade?.cnpj ?? "").replace(/\D/g, "") === cnpj).forEach((c: any) => {
 					allContracts.push({
 						orgao: c.orgaoEntidade?.razaoSocial || c.nomeOrgao || "N/I",
 						objeto: c.objetoContrato || c.objeto || "N/I",

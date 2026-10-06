@@ -6,6 +6,7 @@ import { buscarCandidatos } from "@/services/core/busca-candidatos";
 import { perfilDaCasa } from "@/services/core/alcada";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
+import { cruzarDoadoresComContratosPublicos } from "@/services/core/doadores-contratos";
 import { cpfValido, documentoValido } from "@/lib/documento";
 import { checkNepotismoCamara } from "@/services/integrations/camara/nepotismo-client";
 import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
@@ -1814,48 +1815,16 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			].slice(0, 15);
 			if (doadoresUnicosFornecedores.length > 0) {
 				sendEvent("STATUS", {
-					msg: `Identificados ${doadoresUnicosFornecedores.length} doadores CNPJ. Cruzando com contratos da União...`,
+					msg: `Identificados ${doadoresUnicosFornecedores.length} doadores CNPJ. Cruzando com contratos públicos (CGU e PNCP)...`,
 				});
-				for (const cnpjDoador of doadoresUnicosFornecedores) {
-					sendEvent("STATUS", {
-						msg: `Investigando doador CNPJ ${cnpjDoador} no Compras.gov...`,
-					});
-					try {
-						const resComp = await fetch(
-							`https://compras.dados.gov.br/contratos/v1/contratos.json?cnpj_contratada=${cnpjDoador}`,
-						);
-						if (resComp.ok) {
-							const compJson = await resComp.json();
-							const contratos = compJson?._embedded?.contratos || [];
-							if (contratos.length > 0) {
-								const valorTotal = contratos.reduce(
-									(acc: number, c: any) => acc + (Number(c.valor_inicial) || 0),
-									0,
-								);
-								const nodeDoador = {
-									id: `toma-la-da-ca-${cnpjDoador}-${Date.now()}`,
-									type: "DESPESA" as const,
-									// Força cor de letalidade máxima
-									_origemId: pessoaId,
-									data: {
-										label: "DOADOR COM CONTRATO PÚBLICO",
-										valor: valorTotal,
-										tipo: "CONFLITO DE INTERESSE (TOMA-LÁ-DÁ-CÁ)",
-										dataDocumento: String(new Date().getFullYear()),
-										score_letalidade: 100,
-										motivo_ia: `ALERTA TOMA-LÁ-DÁ-CÁ: Empresa financiou a campanha e possui contratos milionários ativos com o governo (CNPJ: ${cnpjDoador}).`,
-									},
-								};
-								malhaOsintBuffer.push(nodeDoador);
-								supabaseNodes.push(nodeDoador);
-								sendEvent("STATUS", {
-									msg: `[RED FLAG] Doador ${cnpjDoador} possui R$ ${valorTotal.toLocaleString("pt-BR")} em contratos federais!`,
-								});
-							}
-						}
-						// Delay de 400ms para evitar Rate Limit
-						await new Promise((r) => setTimeout(r, 400));
-					} catch (_e) {}
+				const nosDoadores = await cruzarDoadoresComContratosPublicos(
+					doadoresUnicosFornecedores,
+					pessoaId,
+					(msg) => sendEvent("STATUS", { msg }),
+				);
+				for (const noDoador of nosDoadores) {
+					malhaOsintBuffer.push(noDoador);
+					supabaseNodes.push(noDoador);
 				}
 			} else {
 				sendEvent("STATUS", {

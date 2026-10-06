@@ -1,3 +1,4 @@
+import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/fornecedor";
 import { NextResponse } from "next/server";
 import { buscarEmpresasDoSocio } from "@/services/core/socio-search";
 
@@ -24,13 +25,11 @@ async function verificarContratosEmpresa(empresa: any, empIdx: number, sendEvent
 	const cnpjEmp = (empresa.cnpj || "").replace(/\D/g, "");
 	if (!cnpjEmp) return;
 	try {
-		const resCompras = await fetch(
-			`https://compras.dados.gov.br/contratos/v1/contratos.json?cnpj_contratada=${cnpjEmp}`,
-			{ signal: AbortSignal.timeout(4000) },
-		);
-		if (!resCompras.ok) return;
-		const comprasData = await resCompras.json();
-		const contratos = comprasData?._embedded?.contratos || [];
+		// Contratos federais em que a empresa é fornecedora (CGU; compras.dados legado não existe mais).
+		const contratos = (await buscarContratosPorFornecedor(cnpjEmp, { paginasCgu: 1, paginasPncp: 0 })).map((c) => ({
+			objeto: c.objetoContrato,
+			valor_inicial: c.valorGlobal,
+		}));
 		contratos.slice(0, 2).forEach((c: any, cidx: number) => {
 			sendEvent("NODE_NOVO", {
 				id: `contrato-rev-${cnpjEmp}-${cidx}-${Date.now()}`,

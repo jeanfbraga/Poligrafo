@@ -1,6 +1,14 @@
 // pncp/client.ts
-// Integração nativa com o Portal Nacional de Contratações Públicas (PNCP)
-// Baseado no modelo do mcp-brasil
+// Contratos de um fornecedor para /api/investigar/licitacoes e /contratos-beneficiario.
+//
+// A versão anterior consultava `/v1/contratos?cnpjFornecedor=` — parâmetro que o
+// PNCP IGNORA (canário de 06/10/2026: 20 de 20 contratos de outras empresas) — e
+// mandava contratos aleatórios para a IA. Agora delega ao cliente que junta a CGU
+// (federal) e a busca textual do PNCP, sempre conferindo o CNPJ do fornecedor.
+import {
+	buscarContratosPorFornecedor,
+	type ContratoFornecedor,
+} from "@/services/integrations/contratos/fornecedor";
 
 export interface PNCPOrgaoEntidade {
 	cnpj: string;
@@ -22,76 +30,38 @@ export interface PNCPContract {
 	valorInicial?: number;
 	valorGlobal?: number;
 	urlCipi?: string;
+	/** De onde veio (CGU = contrato federal no Portal da Transparência; PNCP = busca textual). */
+	fonte?: "CGU" | "PNCP";
+	/** Link do registro na fonte (procedência). */
+	url?: string;
 }
 
-export interface PNCPResponse {
-	totalRegistros: number;
-	totalPaginas: number;
-	numeroPagina: number;
-	data: PNCPContract[];
+function paraPNCPContract(c: ContratoFornecedor): PNCPContract {
+	return {
+		numeroControlePNCP: c.numeroControlePNCP ?? c.id,
+		dataAssinatura: c.dataAssinatura,
+		orgaoEntidade: {
+			cnpj: c.orgaoEntidade.cnpj,
+			razaoSocial: c.orgaoEntidade.razaoSocial,
+			poderId: "",
+			esferaId: c.orgaoEntidade.esferaId ?? "",
+		},
+		nomeRazaoSocialFornecedor: c.nomeFornecedor,
+		niFornecedor: c.niFornecedor,
+		objetoContrato: c.objetoContrato,
+		valorInicial: c.valorGlobal,
+		valorGlobal: c.valorGlobal,
+		fonte: c.fonte,
+		url: c.url,
+	};
 }
 
 /**
- * Busca o histórico de licitações/contratos de um CNPJ dos últimos `yearsToFetch` anos.
- * Retorna os contratos ordenados da data mais recente para a mais antiga.
+ * Contratos do fornecedor (só os dele), do MAIOR valor para o menor — regra da
+ * nota 14 do Obsidian: ordenar antes de cortar o lote enviado à IA.
+ * `_anos` fica por compatibilidade: as fontes atuais não pedem janela por ano.
  */
-export async function fetchContratosByCNPJ(
-	cnpj: string,
-	yearsToFetch = 8,
-): Promise<PNCPContract[]> {
-	const currentYear = new Date().getFullYear();
-	const allContracts: PNCPContract[] = [];
-
-	// Remove formatação do CNPJ se houver
-	const cleanCnpj = cnpj.replace(/\D/g, "");
-
-	for (let year = currentYear; year > currentYear - yearsToFetch; year--) {
-		const dataInicial = `${year}0101`;
-		const dataFinal = `${year}1231`;
-
-		const url = `https://pncp.gov.br/api/consulta/v1/contratos?cnpjFornecedor=${cleanCnpj}&dataInicial=${dataInicial}&dataFinal=${dataFinal}&pagina=1`;
-
-		try {
-			const response = await fetch(url, {
-				headers: {
-					"User-Agent":
-						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-					Accept: "application/json",
-				},
-				next: { revalidate: 86400 }, // Cache diário de 24 horas
-			});
-
-			if (!response.ok) {
-				if (response.status === 404) {
-					continue; // Nenhum contrato encontrado neste ano
-				}
-				console.warn(
-					`[PNCP] Falha ao buscar contratos para ${cleanCnpj} no ano ${year}. Status: ${response.status}`,
-				);
-				continue;
-			}
-
-			const responseData = (await response.json()) as any;
-			const data = responseData?.data || responseData?.content;
-
-			if (data && Array.isArray(data)) {
-				allContracts.push(...data);
-
-				// Se houver mais de uma página, deveríamos iterar. Para a primeira versão, pegamos a pág 1.
-				// O limite padrão geralmente atende ao volume anual de uma única empresa governamental (limite ~50-100).
-			}
-		} catch (error) {
-			console.error(
-				`[PNCP] Erro de rede ao buscar contratos para ${cleanCnpj} no ano ${year}`,
-				error,
-			);
-		}
-	}
-
-	// Ordenar por data de assinatura decrescente
-	return allContracts.sort((a, b) => {
-		const dataA = a.dataAssinatura || a.dataVigenciaInicio || "";
-		const dataB = b.dataAssinatura || b.dataVigenciaInicio || "";
-		return dataB.localeCompare(dataA);
-	});
+export async function fetchContratosByCNPJ(cnpj: string, _anos = 8): Promise<PNCPContract[]> {
+	const contratos = await buscarContratosPorFornecedor(cnpj, { paginasCgu: 3, paginasPncp: 2 });
+	return contratos.map(paraPNCPContract);
 }

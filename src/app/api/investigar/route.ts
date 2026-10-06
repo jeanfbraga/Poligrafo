@@ -99,31 +99,6 @@ async function _buscarDetalhesPolitico(
 
 // NOVA FUNÇÃO: Investiga a Pessoa Física do Político
 
-// NOVA FUNÇÃO: Busca convênios milionários no Transferegov
-async function _buscarConveniosTransferegov(cnpjLimpo: string) {
-	try {
-		const url = `https://api.transferegov.gestao.gov.br/convenios?cnpj_convenente=${cnpjLimpo}`;
-		const res = await fetchWithTimeout(url, {
-			timeout: 12000,
-		});
-		if (!res.ok) return null;
-		const data = await res.json();
-		if (Array.isArray(data) && data.length > 0) {
-			const valorTotal = data.reduce(
-				(acc, curr) => acc + (Number(curr.valor_global) || 0),
-				0,
-			);
-			return {
-				quantidade: data.length,
-				valorTotal,
-			};
-		}
-		return null;
-	} catch (_e) {
-		return null;
-	}
-}
-
 // NOVA FUNÇÃO: Bate na base de Aeronaves caso haja um prefixo suspeito
 async function _verificarAeronaveAnac(textoBusca: string) {
 	// Regex para extrair prefixos de aeronaves brasileiras (ex: PR-ABC, PP-XYZ, PT-123)
