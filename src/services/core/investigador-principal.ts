@@ -1,6 +1,7 @@
 import { analyzeGraphNetwork } from "@/lib/graph-analysis";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { podeLerCachePesquisas } from "@/lib/cache-pesquisas";
+import { ColecaoNos, envolverEmissor } from "@/services/core/colecao-nos";
 import { checkNepotismoCamara } from "@/services/integrations/camara/nepotismo-client";
 import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
 import { checkNepotismoCMRJ } from "@/services/integrations/cmrj/nepotismo-client";
@@ -294,7 +295,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		refParam,
 		correcoesNomes,
 		nomeBruto,
-		sendEvent,
+		sendEvent: emitirParaTela,
 		safeClose,
 		isDev,
 		dbSearchId,
@@ -305,7 +306,9 @@ export async function executarInvestigacaoPrincipal(params: any) {
 	{
 		// PASSO 1: O Alvo
 		let deputadoBasico: any | null = null;
-		const supabaseNodes: any[] = [];
+		// Tudo que vai para a tela também vai para o cache, com o score final da IA.
+		const supabaseNodes = new ColecaoNos();
+		const sendEvent = envolverEmissor(emitirParaTela, supabaseNodes);
 		const malhaOsintBuffer: any[] = [];
 		let hasApiError = false;
 		if (!forceRef) {
