@@ -343,6 +343,8 @@ export async function investigarPolitico(
 	uf: string,
 	pessoaId: string,
 	sendEvent: any,
+	/** Cargo no TSE: o patrimônio deste passo só existe para deputado federal (cargo 6, eleição 2026). */
+	cargoTse: string = "6",
 ): Promise<ResultadoInvestigacaoPolitico> {
 	let patrimonioTotal = 0;
 	let sancoesCgu = false;
@@ -356,11 +358,14 @@ export async function investigarPolitico(
 	const apiKey = process.env.TRANSPARENCIA_API_KEY || "";
 
 	try {
-		// 1. Patrimônio no TSE
-		const tse = await verificarPatrimonioTse(uf, nome);
-		patrimonioTotal = tse.patrimonioTotal;
-		bensDeclarados.push(...tse.bensDeclarados);
-		if (tse.alertaPatrimonio) alertasPessoais.push(tse.alertaPatrimonio);
+		// 1. Patrimônio no TSE — a consulta é fixa em deputado federal/2026; para outros cargos ela
+		// trazia bens de homônimos. Os demais cargos usam resolverPatrimonioTSE (cargo certo).
+		if (cargoTse === "6") {
+			const tse = await verificarPatrimonioTse(uf, nome);
+			patrimonioTotal = tse.patrimonioTotal;
+			bensDeclarados.push(...tse.bensDeclarados);
+			if (tse.alertaPatrimonio) alertasPessoais.push(tse.alertaPatrimonio);
+		}
 
 		// 2. Sanções CGU (Cache ou API)
 		const cacheHit = await verificarSancoesCache(cpfLimpo, pessoaId, sendEvent, alertasPessoais);

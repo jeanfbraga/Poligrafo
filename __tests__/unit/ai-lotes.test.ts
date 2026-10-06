@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { analisarLoteComInteligencia, dividirEmLotes, TAMANHO_LOTE_IA } from "@/app/api/investigar/ai_helpers";
 
 describe("dividirEmLotes", () => {
@@ -20,6 +20,15 @@ describe("dividirEmLotes", () => {
 });
 
 describe("analisarLoteComInteligencia — em lotes", () => {
+	// Sem isto o teste chamava os provedores de IA de verdade (o vitest carrega o .env.local).
+	beforeEach(() => {
+		vi.stubEnv("NODE_ENV", "development");
+		vi.stubEnv("POLIGRAFO_AI_IN_DEV", "");
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
 	it("devolve uma avaliação por despesa, na mesma ordem, mesmo com mais de um lote (sem LLM em dev)", async () => {
 		const despesas = Array.from({ length: 45 }, (_, i) => ({
 			cnpjCpfFornecedor: `1234567800${String(i).padStart(4, "0")}`,

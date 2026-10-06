@@ -159,7 +159,9 @@ export async function buscarDespesasVereadorRJ(
 		buscarProxyOsint(identificador, nomeVereador),
 	];
 
-	if (municipioUri) {
+	// A capital é fiscalizada pelo TCM-RJ, não pelo TCE-RJ: não consulta o TCE para o Rio.
+	const ehCapital = municipioUri?.toLowerCase().replace(/_/g, "-") === "rio-de-janeiro";
+	if (municipioUri && !ehCapital) {
 		const municipioFormatado = municipioUri.replace(/-/g, " ").toUpperCase();
 		promessas.push(buscarContratosTceRj(municipioFormatado, cnpjsAlvos));
 		promessas.push(buscarComprasDiretasTceRj(municipioFormatado, cnpjsAlvos));

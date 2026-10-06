@@ -46,7 +46,12 @@ const HANDLERS_MUNICIPAIS: Record<string, HandlerMunicipal> = {
 	SE: (nome) => buscarMunicipalSE(nome),
 };
 
-const UFS_GENERICAS_TSE = new Set(["MG", "BA", "PR", "PB", "PI", "PA", "RN", "ES", "TO"]);
+// UFs sem extrator próprio: prefeitos e vereadores pelo TSE. Antes AC, AL, AM, AP, GO, MA, MS, MT,
+// RO e RR ficavam de fora e o prefeito/vereador nem era encontrado. O DF não tem municípios.
+const UFS_GENERICAS_TSE = new Set([
+	"MG", "BA", "PR", "PB", "PI", "PA", "RN", "ES", "TO",
+	"AC", "AL", "AM", "AP", "GO", "MA", "MS", "MT", "RO", "RR",
+]);
 
 /**
  * Orquestrador Geográfico: Decide para qual Tribunal de Contas (TCE)
@@ -137,6 +142,15 @@ async function rotearDespesasUri(
 	return fallbackProxyFederal(ctx);
 }
 
+/** A base de Aracaju vale só para Aracaju (antes era usada para qualquer município de SE). */
+async function rotearDespesasSE(ctx: ContextoDespesa): Promise<any[]> {
+	const municipio = (ctx.municipioUri || "").toLowerCase();
+	if (municipio === "aracaju") {
+		return buscarDespesasAracaju(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa);
+	}
+	return fallbackProxyFederal(ctx);
+}
+
 async function rotearDespesasTO(ctx: ContextoDespesa): Promise<any[]> {
 	const despesasTO = await buscarDespesasTO(ctx.identificador, ctx.nomeParaBusca);
 	if (despesasTO.length > 0) return despesasTO;
@@ -159,7 +173,7 @@ const ROTEADORES_DESPESA: Record<string, (ctx: ContextoDespesa) => Promise<any[]
 	RS: (ctx) => buscarDespesasMunicipalRS(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
 	SC: (ctx) => buscarDespesasMunicipalSC(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
 	PB: (ctx) => buscarDespesasMunicipalPB(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
-	SE: (ctx) => buscarDespesasAracaju(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
+	SE: rotearDespesasSE,
 	TO: rotearDespesasTO,
 };
 

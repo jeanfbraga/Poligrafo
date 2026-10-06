@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { podeLerCachePesquisas } from "@/lib/cache-pesquisas";
 import { ColecaoNos, envolverEmissor } from "@/services/core/colecao-nos";
 import { buscarCandidatos } from "@/services/core/busca-candidatos";
+import { perfilDaCasa } from "@/services/core/alcada";
+import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { cpfValido, documentoValido } from "@/lib/documento";
 import { checkNepotismoCamara } from "@/services/integrations/camara/nepotismo-client";
 import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
@@ -429,6 +431,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 
 			// Extrair prefixos e chamar a API correta
+			const alvoLocal = alvoLocalDaRef(interpretarRef(forceRef), nomeBruto || nomeParaBusca);
 			if (forceRef?.startsWith("FEDERAL:CAMARA:")) {
 				const idRef = forceRef.split(":")[2];
 				const localMatch = (congressoIndex as any[]).find(
@@ -488,87 +491,10 @@ export async function executarInvestigacaoPrincipal(params: any) {
 						};
 					}
 				}
-			} else if (forceRef?.startsWith("SP:")) {
-				const partesSP = forceRef.split(":");
-				const municipioRef = partesSP.length >= 4 ? partesSP[2] : "sao-paulo";
-				const idSP = partesSP.length >= 4 ? partesSP[3] : partesSP[2];
-				deputadoBasico = {
-					id: idSP,
-					uri: municipioRef,
-					nome: (nomeBruto || nomeParaBusca).toUpperCase(),
-					uf: "SP",
-					idLegislatura: 18,
-					casa: "CAMARA_MUNICIPAL_SP",
-				};
-			} else if (forceRef?.startsWith("RJ:")) {
-				const partesRJ = forceRef.split(":");
-				const municipioRefRJ =
-					partesRJ.length >= 4 ? partesRJ[2] : "rio-de-janeiro";
-				const idRJ = partesRJ.length >= 4 ? partesRJ[3] : partesRJ[2];
-				deputadoBasico = {
-					id: idRJ,
-					uri: municipioRefRJ,
-					nome: (nomeBruto || nomeParaBusca).toUpperCase(),
-					uf: "RJ",
-					idLegislatura: 11,
-					casa: "CAMARA_MUNICIPAL_RJ",
-				};
-			} else if (forceRef?.startsWith("ALERJ:")) {
-				const partesAlerj = forceRef.split(":");
-				// Formato novo: ALERJ:DEPUTADO_ESTADUAL:{nomeEncoded}:{documento}
-				let nomeAlerj =
-					partesAlerj.length >= 3
-						? decodeURIComponent(partesAlerj[2])
-						: (nomeBruto || nomeParaBusca).toUpperCase();
-				if (nomeAlerj.includes("%")) nomeAlerj = decodeURIComponent(nomeAlerj);
-				const docAlerj = partesAlerj.length >= 4 ? partesAlerj[3] : "";
-				deputadoBasico = {
-					id: docAlerj || nomeAlerj,
-					// Se tem documento, usa como ID para herança de CPF/CNPJ; senão, usa nome
-					uri: "https://www.alerj.rj.gov.br/Deputados/QuemSao",
-					nome: nomeAlerj,
-					uf: "RJ",
-					idLegislatura: 13,
-					casa: "ALERJ",
-				};
-			} else if (forceRef?.startsWith("ALESP:")) {
-				const partesAlesp = forceRef.split(":");
-				// Formato novo: ALESP:DEPUTADO_ESTADUAL:{nomeEncoded}:{documento}
-				let nomeAlesp =
-					partesAlesp.length >= 3
-						? decodeURIComponent(partesAlesp[2])
-						: (nomeBruto || nomeParaBusca).toUpperCase();
-				if (nomeAlesp.includes("%")) nomeAlesp = decodeURIComponent(nomeAlesp);
-				const docAlesp = partesAlesp.length >= 4 ? partesAlesp[3] : "";
-				deputadoBasico = {
-					id: docAlesp || nomeAlesp,
-					uri: "https://www.al.sp.gov.br/alesp/deputados",
-					nome: nomeAlesp,
-					uf: "SP",
-					idLegislatura: 20,
-					casa: "ALESP",
-				};
-			} else if (forceRef && /^[A-Z]{2}:(PREFEITO|VEREADOR):/.test(forceRef)) {
-				const partesGen = forceRef.split(":");
-				const ufGen = partesGen[0];
-				const cargoGen = partesGen[1];
-				const municGen = partesGen.length >= 3 ? partesGen[2] : "";
-				const docGen = partesGen.length >= 4 ? partesGen[3] : "";
-				deputadoBasico = {
-					id: docGen || nomeParaBusca,
-					uri: municGen,
-					nome: (nomeBruto || nomeParaBusca).toUpperCase(),
-					uf: ufGen,
-					idLegislatura: 2024,
-					casa:
-						cargoGen === "PREFEITO"
-							? "PREFEITURA"
-							: `CAMARA_MUNICIPAL_${ufGen}`,
-				};
-				// Município de atuação (slug) — usado por SICONFI/FNDE/TransfereGov
-				(deputadoBasico as any)._nomeMunicipio = municGen
-					? municGen.replace(/-/g, " ")
-					: undefined;
+			} else if (alvoLocal) {
+				// Municipais e assembleias, inclusive ESTADUAL:{UF}:{doc} (antes sem tratamento)
+				// e prefeito de SP/RJ (antes virava vereador): ver services/core/alvo-ref.ts
+				deputadoBasico = alvoLocal;
 			} else if (
 				forceRef &&
 				(forceRef.startsWith("GOVERNADOR:") ||
@@ -645,16 +571,9 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			msg: "Extraindo dados complementares e patrimônio na base eleitoral do TSE...",
 		});
 		// Cargo 3 = Governador, 5 = Senador, 6 = Dep. Federal, 7 = Dep. Estadual, 11 = Prefeito, 13 = Vereador
-		let codigoCargoTse = "6";
-		if (deputadoBasico.casa === "SENADO") codigoCargoTse = "5";
-		else if (["ALERJ", "ALESP"].includes(deputadoBasico.casa))
-			codigoCargoTse = "7";
-		else if (String(deputadoBasico.casa).startsWith("CAMARA_MUNICIPAL"))
-			codigoCargoTse = "13";
-		else if (deputadoBasico.casa === "GOVERNO_ESTADUAL") codigoCargoTse = "3";
-		else if (deputadoBasico.casa === "PREFEITURA") codigoCargoTse = "11";
-		else if (deputadoBasico.casa === "PRESIDENCIA_DA_REPUBLICA")
-			codigoCargoTse = "1";
+		// Regras da alçada numa tabela só (cargo TSE, rótulo, esfera, fontes): services/core/alcada.ts
+		const perfilAlcada = perfilDaCasa(deputadoBasico.casa, deputadoBasico.uf);
+		const codigoCargoTse = perfilAlcada.cargoTse;
 		const nomeParaTSE = deputadoBasico.nome
 			.replace(/\s*\(.*?\)\s*/g, "")
 			.trim();
@@ -726,6 +645,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			deputadoBasico.uf,
 			pessoaId,
 			sendEvent,
+			perfilAlcada.cargoTse,
 		);
 
 		// Resolução resiliente do patrimônio do político (TSE DivulgaCand + Fallback em cascata Supabase)
@@ -744,18 +664,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				"[LGPD] Patrimônio pessoal oculto no TSE (Apenas CNPJ de Campanha disponível).",
 			);
 		}
-		let cargoDisplay = "Político";
-		if (deputadoBasico.casa === "ALERJ" || deputadoBasico.casa === "ALESP")
-			cargoDisplay = "Deputado Estadual";
-		else if (String(deputadoBasico.casa).startsWith("CAMARA_MUNICIPAL"))
-			cargoDisplay = "Vereador Municipal";
-		else if (deputadoBasico.casa === "CAMARA")
-			cargoDisplay = "Deputado Federal";
-		else if (deputadoBasico.casa === "SENADO")
-			cargoDisplay = "Senador da República";
-		else if (deputadoBasico.casa === "GOVERNO_ESTADUAL")
-			cargoDisplay = "Governador";
-		else if (deputadoBasico.casa === "PREFEITURA") cargoDisplay = "Prefeito";
+		const cargoDisplay = perfilAlcada.cargoDisplay;
 		const pessoaNodePayload = {
 			id: pessoaId,
 			type: "PESSOA",
@@ -852,9 +761,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		}
 
 		// Pré-Passo CGU/BrasilAPI: SKIP para executivos (Deep OSINT já faz essas chamadas adiante)
-		const isExecutivo =
-			deputadoBasico.casa === "GOVERNO_ESTADUAL" ||
-			deputadoBasico.casa === "PREFEITURA";
+		const isExecutivo = perfilAlcada.executivo;
 		if (documentoValido(cpfLimpo) && !isExecutivo) {
 			sendEvent("STATUS", {
 				msg: `Cruzando documento ${cpfLimpo} nas bases da CGU e Receita Federal...`,
@@ -886,24 +793,21 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		}
 
 		// Prepara contexto normativo comum
-		let esferaPolitico = "FEDERAL";
-		if (deputadoBasico.casa === "ALERJ" || deputadoBasico.casa === "ALESP")
-			esferaPolitico = "ESTADUAL";
-		else if (
-			deputadoBasico.casa === "CAMARA_MUNICIPAL_SP" ||
-			deputadoBasico.casa === "CAMARA_MUNICIPAL_RJ" ||
-			String(deputadoBasico.casa).startsWith("CAMARA_MUNICIPAL") ||
-			deputadoBasico.casa === "PREFEITURA"
-		)
-			esferaPolitico = "MUNICIPAL";
+		// Governador e assembleias agora são ESTADUAL (antes caíam em FEDERAL e o prompt usava a cota da Câmara).
+		const esferaPolitico = perfilAlcada.esfera;
 
 		// PASSO 2: Emendas Parlamentares (Extração Completa)
 		sendEvent("STATUS", {
 			msg: "Rastreando emendas parlamentares em todas as legislaturas disponíveis...",
 		});
-		const { emendas, resumo: resumoEmendas } = await buscarEmendas(
-			deputadoBasico.nome,
-		);
+		// Emendas por nome do autor só para quem apresenta emenda federal (deputado federal e senador).
+		// Antes rodava para todo cargo e trazia emendas de homônimos federais.
+		const { emendas, resumo: resumoEmendas } = perfilAlcada.emendasPorAutor
+			? await buscarEmendas(deputadoBasico.nome)
+			: { emendas: [] as any[], resumo: null as any };
+		if (!perfilAlcada.emendasPorAutor) {
+			sendEvent("STATUS", { msg: `Emendas parlamentares federais por autor: não se aplica a ${perfilAlcada.cargoDisplay}.` });
+		}
 		// Emite nó de resumo totalizador antes das emendas individuais
 		if (resumoEmendas && resumoEmendas.totalEmendas > 0) {
 			const resumoId = `emenda-resumo-${pessoaId}`;
@@ -1353,6 +1257,11 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				msg: "Governador detectado. Foco exclusivo em repasses federais transversais...",
 			});
 			despesasCruas = [];
+		} else if (deputadoBasico.casa === "ASSEMBLEIA_LEGISLATIVA") {
+			// Deputado estadual fora de SP/RJ: ainda sem fonte de despesas da assembleia (Fase 4).
+			sendEvent("STATUS", {
+				msg: `Assembleia Legislativa de ${deputadoBasico.uf}: sem fonte de despesas de gabinete integrada. Seguindo com as demais fontes.`,
+			});
 		}
 
 		// =========================================================
@@ -1734,49 +1643,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			}
 		}
 
-		// E6. Integração TCE-RS para Federais (compliance fiscal/saúde/educação de origem)
-		if (
-			deputadoBasico.casa === "CAMARA" &&
-			deputadoBasico.uf === "RS" &&
-			deputadoBasico.uri
-		) {
-			sendEvent("STATUS", {
-				msg: "Alvo Federal do Rio Grande do Sul. Resgatando histórico de Compliance Fiscal no TCE-RS...",
-			});
-			try {
-				const { buscarDespesasMunicipalRS } = await import(
-					"@/app/api/investigar/estados/rs/tce"
-				);
-				const docTce = cpfLimpo ?? "";
-				const tceDespesas = await buscarDespesasMunicipalRS(
-					docTce,
-					deputadoBasico.nome,
-					deputadoBasico.uri,
-					deputadoBasico.casa,
-				);
-				if (tceDespesas && tceDespesas.length > 0) {
-					tceDespesas.forEach((d, i) => {
-						const tcePayload = {
-							id: `tcers-${Date.now()}-${i}`,
-							type: "DESPESA_PUBLICA",
-							_origemId: pessoaId,
-							data: {
-								label: d.tipoDespesa || "TCE-RS",
-								valor: d.valorDocumento,
-								fornecedor:
-									d.nomeFornecedor || d.descricao || "Informação do TCE-RS",
-								data: d.dataDocumento,
-								url: d.urlDocumento || "https://dados.tce.rs.gov.br",
-							},
-						};
-						malhaOsintBuffer.push(tcePayload);
-						supabaseNodes.push(tcePayload);
-					});
-				}
-			} catch (e) {
-				console.warn("[TCE-RS] Falha na integração federal:", e);
-			}
-		}
+		// (Removido) TCE-RS para deputado federal: passava a URL da Câmara como município e virava
+		// uma segunda consulta à CGU. TCE é fonte de alçada municipal (ver services/core/alcada.ts).
 
 		// E3. SICONFI — Saúde fiscal do município alvo (LRF) — apenas para Prefeitos
 		if (deputadoBasico.casa === "PREFEITURA" && deputadoBasico.uf) {
@@ -1944,13 +1812,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			msg: "Iniciando análise: 'Siga o Dinheiro da Campanha'...",
 		});
 		const tseDataFollow = (deputadoBasico as any)._tseResult;
-		let cargoTse = "6"; // Padrão: Federal
-		if (deputadoBasico.casa === "SENADO") cargoTse = "5";
-		else if (["ALERJ", "ALESP"].includes(deputadoBasico.casa)) cargoTse = "7";
-		else if (String(deputadoBasico.casa).startsWith("CAMARA_MUNICIPAL"))
-			cargoTse = "13";
-		else if (deputadoBasico.casa === "GOVERNO_ESTADUAL") cargoTse = "3";
-		else if (deputadoBasico.casa === "PREFEITURA") cargoTse = "11";
+		const cargoTse = perfilAlcada.cargoTse;
 		const eleicaoIdTse = ["3", "5", "6", "7"].includes(cargoTse)
 			? "2040602022"
 			: "2045202024";

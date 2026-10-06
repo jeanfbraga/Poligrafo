@@ -186,8 +186,10 @@ function estaduais(p: ParametrosBusca, deps: DependenciasBusca): Promise<Candida
 	if (p.uf === "SP") return [deps.alesp(p.nome)];
 	if (p.uf === "RJ") return [deps.alerj(p.nome)];
 	const uf = p.uf;
-	return [deps.tse(p.nome, uf, "7").then((t) =>
-		candidatoTse(t, uf, p.nome, "ASSEMBLEIA_LEGISLATIVA", "Deputado Estadual", (doc) => `ESTADUAL:${uf}:${doc}`))];
+	// DF: deputado distrital é o cargo 8 no TSE.
+	const [cargoTse, rotulo] = uf === "DF" ? ["8", "Deputado Distrital"] : ["7", "Deputado Estadual"];
+	return [deps.tse(p.nome, uf, cargoTse).then((t) =>
+		candidatoTse(t, uf, p.nome, "ASSEMBLEIA_LEGISLATIVA", rotulo, (doc) => `ESTADUAL:${uf}:${doc}`))];
 }
 
 /** Federais que só existem no TSE (não eleitos, ou Câmara/Senado fora do ar). */
