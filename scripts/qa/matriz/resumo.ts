@@ -39,7 +39,9 @@ export interface ResumoAlvo {
 	escritasBloqueadas: number;
 }
 
-const SENTINELAS = ["00000000000", "13149954000185", "2024-01-01"];
+// "2024-01-01" saiu da lista: o código não injeta mais essa data (removida na Fase 1) e contratos
+// reais começam em 1º de janeiro — contava como falso alarme.
+const SENTINELAS = ["00000000000", "13149954000185"];
 
 export function hashDocumento(doc: string): string {
 	return createHash("sha256").update(doc).digest("hex").slice(0, 10);

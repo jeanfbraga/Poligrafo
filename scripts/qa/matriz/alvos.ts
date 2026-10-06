@@ -40,7 +40,7 @@ export const ALVOS: AlvoMatriz[] = [
 		descricao: "Presidente da República",
 		alcada: "federal",
 		consulta: { ref: "PRESIDENTE:BR:Luiz Inácio Lula da Silva" },
-		cargoEsperado: "Presidente",
+		cargoEsperado: "Presidente da República",
 		exercita: "presidente recebia normas da cota da Câmara",
 	},
 	{

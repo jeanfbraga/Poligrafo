@@ -42,7 +42,7 @@ describe("matriz de alçadas — resumo", () => {
 		const eventos = [no("EMPRESA", "empresa-1", { cnpj: "13149954000185", data: "2024-01-01" })];
 		const r = montarResumo(alvo, null, eventos, { duracaoMs: 1, estourou: true, escritasBloqueadas: 0 });
 		expect(r.terminou).toBe("TIMEOUT");
-		expect(r.sentinelas).toEqual({ "13149954000185": 1, "2024-01-01": 1 });
+		expect(r.sentinelas).toEqual({ "13149954000185": 1 });
 	});
 
 	it("mascara CPF/CNPJ em mensagens de erro", () => {
