@@ -13,6 +13,13 @@ import {
 	fallbackL4OSINT,
 	aplicarSafetyNetOSINT 
 } from "../../../services/ai/heuristics-engine";
+import {
+	type AvaliacaoIA,
+	criarValidadorAvaliacoes,
+	idsDoLote,
+	ROTULO_NAO_AVALIADO,
+	validarAvaliacoes,
+} from "../../../services/ai/contratos/avaliacoes";
 
 function getOrchestrator(isDev: boolean) {
 	const providers = [];
@@ -64,6 +71,61 @@ export async function analisarLoteComInteligencia(
 	return resultado;
 }
 
+function iaDesligadaNoDev(): boolean {
+	return process.env.NODE_ENV === "development" && process.env.POLIGRAFO_AI_IN_DEV !== "true";
+}
+
+/** Avaliações válidas da resposta (o provedor já conferiu a cobertura mínima). */
+function avaliacoesDaResposta(
+	response: { parsedJson?: unknown } | null,
+	chave: string,
+	ids: string[],
+): Map<string, AvaliacaoIA> | null {
+	if (!response?.parsedJson) return null;
+	const r = validarAvaliacoes(response.parsedJson, chave, ids, 0);
+	return r.success ? r.data : null;
+}
+
+function marcarNaoAvaliado(item: any): any {
+	return {
+		...item,
+		avaliado_por_ia: false,
+		motivo_ia: `[${ROTULO_NAO_AVALIADO} — regra local] ${item?.motivo_ia ?? ""}`.trim(),
+	};
+}
+
+/**
+ * Junta as avaliações da IA aos itens originais pelo id. Item que a IA não
+ * devolveu recebe a regra local (calculada sobre o lote inteiro, para as
+ * medianas não mudarem) e a marca "não avaliado pela IA" — nunca "seguro".
+ */
+function mesclarComRegraLocal(
+	itens: any[],
+	ids: string[],
+	avaliacoes: Map<string, AvaliacaoIA>,
+	aplicar: (item: any, a: AvaliacaoIA) => any,
+	regraLocal: (todos: any[]) => any[],
+): any[] {
+	const faltam = ids.some((id) => !avaliacoes.has(id));
+	const locais = faltam ? regraLocal(itens) : [];
+	return itens.map((item, idx) => {
+		const a = avaliacoes.get(ids[idx]);
+		return a ? aplicar(item, a) : marcarNaoAvaliado(locais[idx]);
+	});
+}
+
+function aplicarAvaliacaoItem(original: any, a: AvaliacaoIA, semApontamento: string): any {
+	return {
+		...original,
+		avaliado_por_ia: true,
+		score_letalidade: a.score_letalidade,
+		classificacao: a.classificacao,
+		enquadramento_normativo: a.enquadramento_normativo ?? "-",
+		fundamentacao_tecnica: a.fundamentacao_tecnica ?? semApontamento,
+		motivo_ia: `[IA] ${a.motivo_ia}`,
+	};
+}
+
 async function analisarLoteUnico(
 	despesas: any[],
 	ufPolitico: string,
@@ -72,7 +134,9 @@ async function analisarLoteUnico(
 	casaLegislativa?: string,
 	normaLocal?: string,
 ) {
-	const loteOtimizado = despesas.map((d: any) => ({
+	const ids = idsDoLote(despesas.length, "d");
+	const loteOtimizado = despesas.map((d: any, i: number) => ({
+		id: ids[i],
 		cnpj: d.cnpjCpfFornecedor,
 		fornecedor: d.nomeFornecedor,
 		tipo: d.tipoDespesa,
@@ -89,41 +153,21 @@ async function analisarLoteUnico(
 		normaLocal,
 	);
 
-	const isDev = process.env.NODE_ENV === "development" && process.env.POLIGRAFO_AI_IN_DEV !== "true";
-	const orchestrator = getOrchestrator(isDev);
-
-	const response = await orchestrator.processPipeline(
-		"You MUST reply ONLY with a valid JSON OBJECT, never raw text. The JSON object must contain the root key 'despesas_avaliadas' pointing to the array. You MUST include ALL items from the input, not just suspicious ones.",
+	const response = await getOrchestrator(iaDesligadaNoDev()).processPipeline(
+		"You MUST reply ONLY with a valid JSON OBJECT, never raw text. The JSON object must contain the root key 'despesas_avaliadas' pointing to the array. You MUST include ALL items from the input, each with its original 'id'.",
 		promptText,
 		"despesas_avaliadas",
-		12000 // 12s inicial
+		12000, // 12s inicial
+		criarValidadorAvaliacoes("despesas_avaliadas", ids),
 	);
 
-	if (response?.parsedJson) {
-		const suspeitasArray = response.parsedJson.despesas_avaliadas || response.parsedJson.despesas_suspeitas || [];
-		
-		return despesas.map((original: any, idx: number) => {
-			const avaliacao =
-				suspeitasArray.find(
-					(a: any) =>
-						a.cnpj === original.cnpjCpfFornecedor &&
-						Number(a.valor || a.valor_original) === Number(original.valorDocumento),
-				) ||
-				(suspeitasArray.length === despesas.length ? suspeitasArray[idx] : undefined);
-				
-			return {
-				...original,
-				score_letalidade: avaliacao?.score_letalidade ?? 20,
-				classificacao: avaliacao?.classificacao ?? "REGULAR_COM_RESSALVA",
-				enquadramento_normativo: avaliacao?.enquadramento_normativo ?? "-",
-				fundamentacao_tecnica: avaliacao?.fundamentacao_tecnica ?? "Sem maiores apontamentos da IA.",
-				motivo_ia: avaliacao ? `[IA] ${avaliacao.motivo_ia}` : "Gasto validado pela IA como seguro.",
-			};
-		});
-	}
+	const regraLocal = (todas: any[]) =>
+		fallbackL4HeuristicaMatematica(todas, listaDoadores, esferaPolitico, casaLegislativa);
+	const avaliacoes = avaliacoesDaResposta(response, "despesas_avaliadas", ids);
+	if (!avaliacoes) return regraLocal(despesas);
 
-	// Fallback L4
-	return fallbackL4HeuristicaMatematica(despesas, listaDoadores, esferaPolitico, casaLegislativa);
+	return mesclarComRegraLocal(despesas, ids, avaliacoes,
+		(o, a) => aplicarAvaliacaoItem(o, a, "Sem maiores apontamentos da IA."), regraLocal);
 }
 
 
@@ -136,7 +180,9 @@ export async function analisarEmendasComInteligencia(
 ) {
 	if (!emendas || emendas.length === 0) return [];
 
-	const loteOtimizado = emendas.map((e: any) => ({
+	const ids = idsDoLote(emendas.length, "e");
+	const loteOtimizado = emendas.map((e: any, i: number) => ({
+		id: ids[i],
 		codigo: e.codigoEmenda,
 		tipo: e._riscoTipo?.label || "Emenda Individual",
 		funcao: e.funcao || e.subfuncao,
@@ -148,36 +194,58 @@ export async function analisarEmendasComInteligencia(
 
 	const promptText = construirPromptEmendas(esferaPolitico, ufPolitico, loteOtimizado, casaLegislativa, normaLocal);
 
-	const isDev = process.env.NODE_ENV === "development" && process.env.POLIGRAFO_AI_IN_DEV !== "true";
-	const orchestrator = getOrchestrator(isDev);
-
-	const response = await orchestrator.processPipeline(
-		"You MUST reply ONLY with a valid JSON OBJECT. Root must be 'emendas_avaliadas' containing the array. You MUST include ALL items from the input, not just suspicious ones.",
+	const response = await getOrchestrator(iaDesligadaNoDev()).processPipeline(
+		"You MUST reply ONLY with a valid JSON OBJECT. Root must be 'emendas_avaliadas' containing the array. You MUST include ALL items from the input, each with its original 'id'.",
 		promptText,
 		"emendas_avaliadas",
-		12000
+		12000,
+		criarValidadorAvaliacoes("emendas_avaliadas", ids),
 	);
 
-	if (response?.parsedJson) {
-		const suspeitasArray = response.parsedJson.emendas_avaliadas || response.parsedJson.emendas_suspeitas || [];
-		
-		return emendas.map((orig: any, idx: number) => {
-			const avaliacao =
-				suspeitasArray.find((a: any) => String(a.codigo) === String(orig.codigoEmenda)) ||
-				(suspeitasArray.length === emendas.length ? suspeitasArray[idx] : undefined);
-				
-			return {
-				...orig,
-				score_letalidade: avaliacao?.score_letalidade ?? 20,
-				classificacao: avaliacao?.classificacao ?? "REGULAR_COM_RESSALVA",
-				enquadramento_normativo: avaliacao?.enquadramento_normativo ?? "-",
-				fundamentacao_tecnica: avaliacao?.fundamentacao_tecnica ?? "Análise via IA sem achados.",
-				motivo_ia: avaliacao ? `[IA] ${avaliacao.motivo_ia}` : "Baixo risco apontado pela IA.",
-			};
-		});
-	}
+	const avaliacoes = avaliacoesDaResposta(response, "emendas_avaliadas", ids);
+	if (!avaliacoes) return fallbackL4Emendas(emendas);
 
-	return fallbackL4Emendas(emendas);
+	return mesclarComRegraLocal(emendas, ids, avaliacoes,
+		(o, a) => aplicarAvaliacaoItem(o, a, "Análise via IA sem achados."), fallbackL4Emendas);
+}
+
+function resumirNoParaIA(n: any): any {
+	if (n.type === "PESSOA") return null;
+	if (n._isContextOnly) return n;
+	return {
+		id: n.id,
+		tipo_no: n.type,
+		rotulo: n.data?.label,
+		descricao: n.data?.objeto || n.data?.situacao,
+		valor_monetario: n.data?.valor || n.data?.capitalSocial || 0,
+		cpf_cnpj: n.data?.codigo || n.data?.cnpj || "N/A",
+	};
+}
+
+/** Nó da malha com a avaliação da IA, ou intacto e marcado quando a IA não avaliou. */
+function aplicarAvaliacaoNo(orig: any, a: AvaliacaoIA | undefined): any {
+	if (!a) {
+		return {
+			...orig,
+			data: {
+				...orig.data,
+				avaliado_por_ia: false,
+				fundamentacao_tecnica: orig.data?.fundamentacao_tecnica ?? `${ROTULO_NAO_AVALIADO}.`,
+			},
+		};
+	}
+	return {
+		...orig,
+		data: {
+			...orig.data,
+			avaliado_por_ia: true,
+			score_letalidade: a.score_letalidade,
+			classificacao: a.classificacao,
+			enquadramento_normativo: a.enquadramento_normativo ?? "-",
+			fundamentacao_tecnica: a.fundamentacao_tecnica ?? "Sem achados da IA.",
+			motivo_ia: a.motivo_ia || orig.data?.motivo_ia,
+		},
+	};
 }
 
 export async function analisarMalhaOsintComInteligencia(
@@ -189,59 +257,41 @@ export async function analisarMalhaOsintComInteligencia(
 ) {
 	if (!malhaOsint || malhaOsint.length === 0) return [];
 
-	const loteOtimizado = malhaOsint
-		.map((n: any) => {
-			if (n.type === "PESSOA") return null;
-			if (n._isContextOnly) return n;
-			return {
-				id: n.id,
-				tipo_no: n.type,
-				rotulo: n.data?.label,
-				descricao: n.data?.objeto || n.data?.situacao,
-				valor_monetario: n.data?.valor || n.data?.capitalSocial || 0,
-				cpf_cnpj: n.data?.codigo || n.data?.cnpj || "N/A",
-			};
-		})
-		.filter(Boolean);
-
+	const loteOtimizado = malhaOsint.map(resumirNoParaIA).filter(Boolean);
 	if (loteOtimizado.length === 0) return [];
 
+	const avaliaveis = malhaOsint.filter((n: any) => !n._isContextOnly && n.type !== "PESSOA");
+	const ids = avaliaveis.map((n: any) => String(n.id));
 	const promptText = construirPromptOSINT(ufPolitico, loteOtimizado, esferaPolitico, casaLegislativa, normaLocal);
 
-	const isDev = process.env.NODE_ENV === "development" && process.env.POLIGRAFO_AI_IN_DEV !== "true";
-	const orchestrator = getOrchestrator(isDev);
-
-	const response = await orchestrator.processPipeline(
-		"You MUST reply ONLY with a valid JSON OBJECT. Root must be 'avaliacoes' containing the array.",
+	const response = await getOrchestrator(iaDesligadaNoDev()).processPipeline(
+		"You MUST reply ONLY with a valid JSON OBJECT. Root must be 'avaliacoes' containing the array, one item per node 'id'.",
 		promptText,
 		"avaliacoes",
-		12000
+		12000,
+		criarValidadorAvaliacoes("avaliacoes", ids),
 	);
 
-	if (response?.parsedJson) {
-		const avaliacoes = response.parsedJson.avaliacoes || [];
-		
-		const successResult = malhaOsint
-			.filter((n: any) => !n._isContextOnly)
-			.map((orig: any) => {
-				const avaliacao = avaliacoes.find((a: any) => String(a.id) === String(orig.id));
-				return {
-					...orig,
-					data: {
-						...orig.data,
-						score_letalidade: avaliacao?.score_letalidade ?? (orig.data.score_letalidade || 20),
-						classificacao: avaliacao?.classificacao ?? "SEM_INDICIO_RELEVANTE",
-						enquadramento_normativo: avaliacao?.enquadramento_normativo ?? "-",
-						fundamentacao_tecnica: avaliacao?.fundamentacao_tecnica ?? "Nó avaliado limpo pela IA.",
-						motivo_ia: avaliacao ? avaliacao.motivo_ia : orig.data.motivo_ia,
-					},
-				};
-			});
-			
-		return aplicarSafetyNetOSINT(successResult, malhaOsint);
-	}
+	const avaliacoes = avaliacoesDaResposta(response, "avaliacoes", ids);
+	if (!avaliacoes) return fallbackL4OSINT(malhaOsint);
 
-	return fallbackL4OSINT(malhaOsint);
+	const resultado = malhaOsint
+		.filter((n: any) => !n._isContextOnly)
+		.map((orig: any) => aplicarAvaliacaoNo(orig, avaliacoes.get(String(orig.id))));
+	return aplicarSafetyNetOSINT(resultado, malhaOsint);
+}
+
+/** A tradução de sanções precisa ao menos do resumo; gravidade fica entre 0 e 100. */
+function validarTraducaoSancao(json: unknown): { success: true } | { success: false; error: string } {
+	const r = json as Record<string, unknown> | null;
+	if (typeof r?.resumo_improbidade !== "string" || !r.resumo_improbidade.trim()) {
+		return { success: false, error: "sem resumo_improbidade" };
+	}
+	const gravidade = Number(r.gravidade);
+	if (!Number.isFinite(gravidade) || gravidade < 0 || gravidade > 100) {
+		return { success: false, error: "gravidade fora de 0-100" };
+	}
+	return { success: true };
 }
 
 export async function traduzirJuridiquesSancoes(sancoes: any[]) {
@@ -261,14 +311,12 @@ export async function traduzirJuridiquesSancoes(sancoes: any[]) {
 			JSON.stringify(textosBrutos),
 		].join("\n");
 
-		const isDev = process.env.NODE_ENV === "development" && process.env.POLIGRAFO_AI_IN_DEV !== "true";
-		const orchestrator = getOrchestrator(isDev);
-
-		const response = await orchestrator.processPipeline(
+		const response = await getOrchestrator(iaDesligadaNoDev()).processPipeline(
 			"You MUST reply ONLY with a valid JSON OBJECT.",
 			promptTexto,
-			"tipo_sancao",
-			8000
+			"resumo_improbidade",
+			8000,
+			validarTraducaoSancao,
 		);
 
 		if (response?.parsedJson) {

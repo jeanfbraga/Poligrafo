@@ -1,5 +1,5 @@
-import { LlmProvider, ProviderResponse, LlmProviderError } from "../types";
-import { extractAndParseJson, handleFetchError } from "../utils";
+import { LlmProvider, ProviderResponse, LlmProviderError, type ValidadorResposta } from "../types";
+import { handleFetchError, parsearRespostaContrato } from "../utils";
 import { GROQ_MODELS } from "../ai-models-config";
 
 export class GroqProvider implements LlmProvider {
@@ -14,6 +14,7 @@ export class GroqProvider implements LlmProvider {
 		userPrompt: string,
 		expectedRootKey: string,
 		timeoutMs: number = 15000,
+		validar?: ValidadorResposta,
 	): Promise<ProviderResponse> {
 		if (!this.apiKey) {
 			throw new LlmProviderError("GROQ_API_KEY ausente", "AUTH_ERROR", "nenhum");
@@ -44,7 +45,8 @@ export class GroqProvider implements LlmProvider {
 					const textResponse = data.choices[0]?.message?.content;
 					if (!textResponse) throw new Error("Retorno vazio do Groq");
 
-					const parsedJson = extractAndParseJson(textResponse, [expectedRootKey, "despesas_suspeitas", "emendas_suspeitas", "avaliacoes"]);
+					// Só a chave da tarefa vale (antes qualquer chave antiga passava para qualquer tarefa).
+					const parsedJson = parsearRespostaContrato(textResponse, expectedRootKey, validar);
 					return { modelUsed: model, parsedJson, rawText: textResponse };
 				} else {
 					const errText = await res.text();

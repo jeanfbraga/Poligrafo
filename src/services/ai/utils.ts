@@ -1,4 +1,4 @@
-import { LlmProviderError } from "./types";
+import { LlmProviderError, type ValidadorResposta } from "./types";
 
 export function extractAndParseJson(textResponse: string, expectedRootKeys?: string[]): any {
 	let cleanText = textResponse
@@ -50,4 +50,21 @@ export function handleFetchError(resStatus: number, errText: string, model: stri
 		throw new LlmProviderError(`Erro de Validação/Bad Request HTTP ${resStatus}: ${errText}`, "VALIDATION_ERROR", model);
 	}
 	throw new LlmProviderError(`Erro HTTP ${resStatus}: ${errText}`, "UNKNOWN", model);
+}
+
+/**
+ * Lê o JSON da resposta exigindo só a chave da tarefa e aplica o contrato
+ * (ex.: cobertura dos ids do lote). Falha = o provedor tenta o próximo modelo.
+ */
+export function parsearRespostaContrato(
+	textResponse: string,
+	expectedRootKey: string,
+	validar?: ValidadorResposta,
+): any {
+	const parsedJson = extractAndParseJson(textResponse, [expectedRootKey]);
+	const validacao = validar?.(parsedJson);
+	if (validacao && !validacao.success) {
+		throw new Error(`Resposta fora do contrato: ${validacao.error}`);
+	}
+	return parsedJson;
 }

@@ -2757,6 +2757,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 						valor: valorFinal,
 						dataDocumento: dataDocFinal,
 						documento: docFornFinal,
+						avaliado_por_ia: d.avaliado_por_ia,
 						descricao: d.descricao || null,
 						numeroDocumento: d.numeroDocumento || d.numero_documento || null,
 						orgao: d.orgao || d.orgaoNome || d.orgaoSigla || null,

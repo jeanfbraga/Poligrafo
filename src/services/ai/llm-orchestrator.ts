@@ -1,4 +1,4 @@
-import { LlmProvider, ProviderResponse, LlmProviderError } from "./types";
+import { LlmProvider, ProviderResponse, LlmProviderError, type ValidadorResposta } from "./types";
 
 export class AiOrchestrator {
 	constructor(private readonly providers: LlmProvider[]) {}
@@ -13,6 +13,7 @@ export class AiOrchestrator {
 		userPrompt: string,
 		expectedRootKey: string,
 		initialTimeoutMs: number = 15000,
+		validar?: ValidadorResposta,
 	): Promise<ProviderResponse | null> {
 		let currentTimeout = initialTimeoutMs;
 
@@ -24,7 +25,8 @@ export class AiOrchestrator {
 					systemPrompt, 
 					userPrompt, 
 					expectedRootKey, 
-					currentTimeout
+					currentTimeout,
+					validar,
 				);
 				console.log(`[AI ORQUESTRADOR] Sucesso usando ${provider.name} (${response.modelUsed})`);
 				return response;

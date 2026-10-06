@@ -1,5 +1,8 @@
 export type LlmProviderErrorType = "AUTH_ERROR" | "RATE_LIMIT" | "PAYLOAD_TOO_LARGE" | "TIMEOUT" | "VALIDATION_ERROR" | "UNKNOWN";
 
+/** Valida a resposta já convertida em JSON; falha = tentar o próximo modelo. */
+export type ValidadorResposta = (json: unknown) => { success: true; data?: unknown } | { success: false; error: string };
+
 export class LlmProviderError extends Error {
 	constructor(
 		message: string,
@@ -39,5 +42,6 @@ export interface LlmProvider {
 		userPrompt: string,
 		expectedRootKey: string,
 		timeoutMs?: number,
+		validar?: ValidadorResposta,
 	): Promise<ProviderResponse>;
 }

@@ -79,18 +79,19 @@ export function resolverContextoNormativo(
 	};
 }
 
-function blocoSaidaJSON(raiz: string, chaveId: string) {
+function blocoSaidaJSON(raiz: string) {
 	return `
 SAÍDA OBRIGATÓRIA:
 - Responda EXCLUSIVAMENTE em JSON válido.
 - Você DEVE retornar TODAS as despesas/emendas do lote, NÃO APENAS as suspeitas.
 - Para itens regulares, use score_letalidade baixo (5-25). Para suspeitos, use scores proporcionais (30-100).
 - NUNCA omita itens do array de saída. O array DEVE ter o mesmo número de itens recebidos no lote.
+- Cada item de saída DEVE repetir o campo "id" do item recebido, sem alterar.
 - Estrutura obrigatória:
 {
   "${raiz}": [
     {
-      "${chaveId}": "valor original",
+      "id": "id exato do item recebido (ex.: d0, e3)",
       "score_letalidade": 0,
       "classificacao": "REGULAR_COM_RESSALVA | IRREGULARIDADE_FORMAL | DESVIO_DE_FINALIDADE | INDICIO_PENAL_RELEVANTE",
       "enquadramento_normativo": "norma ou artigo principal aplicável",
@@ -205,7 +206,7 @@ REGRAS DE MODERAÇÃO:
 - Não crie fato ausente do JSON.
 - Se a irregularidade for apenas normativa/documental, não use classificação penal máxima.
 
-${blocoSaidaJSON("despesas_avaliadas", "cnpj")}
+${blocoSaidaJSON("despesas_avaliadas")}
 
 DADOS PARA ANÁLISE:
 ${JSON.stringify(loteOtimizado)}
@@ -275,7 +276,7 @@ REGRAS DE PRUDÊNCIA:
 - Baixa execução, sozinha, pode refletir morosidade administrativa; só suba para faixa crítica quando houver acúmulo de sinais.
 - Não invente beneficiário oculto se ele não constar.
 
-${blocoSaidaJSON("emendas_avaliadas", "codigo")}
+${blocoSaidaJSON("emendas_avaliadas")}
 
 DADOS PARA ANÁLISE:
 ${JSON.stringify(loteEmendas)}
