@@ -43,6 +43,28 @@ function mapearProposicao(prop: any, depId: number, anoAtual: number) {
     };
 }
 
+/** Teto de páginas por deputado (100 itens cada): trava contra laço infinito de links. */
+const MAX_PAGINAS = 50;
+
+/**
+ * Todas as proposições do deputado na 57ª Legislatura. A API devolve no máximo 100 por
+ * página: sem seguir o link "next", quem tem mais de 100 ficava truncado.
+ */
+export async function buscarProposicoesDoDeputado(depId: number, anoAtual: number): Promise<any[]> {
+    let anosQuery = '';
+    for (let ano = 2023; ano <= anoAtual; ano++) {
+        anosQuery += `&ano=${ano}`;
+    }
+    let url: string | null = `${API_BASE}/proposicoes?idDeputadoAutor=${depId}${anosQuery}&itens=100&ordem=DESC&ordenarPor=ano`;
+    const todas: any[] = [];
+    for (let pagina = 0; url && pagina < MAX_PAGINAS; pagina++) {
+        const data = await fetchJson(url);
+        todas.push(...(data?.dados || []));
+        url = data?.links?.find((l: any) => l.rel === 'next')?.href ?? null;
+    }
+    return todas;
+}
+
 export async function run() {
     console.log("[PRODUCAO LEGISLATIVA SYNC] Iniciando sincronização otimizada...");
     const anoAtual = new Date().getFullYear();
@@ -66,17 +88,10 @@ export async function run() {
                 count++;
                 const depIndex = count;
                 
-                // Buscar proposições de todo o mandato atual (57ª Legislatura - a partir de 2023)
-                let anosQuery = '';
-                for (let ano = 2023; ano <= anoAtual; ano++) {
-                    anosQuery += `&ano=${ano}`;
-                }
-                const urlProposicoes = `${API_BASE}/proposicoes?idDeputadoAutor=${dep.id}${anosQuery}&itens=100&ordem=DESC&ordenarPor=ano`;
-                
                 try {
-                    const data = await fetchJson(urlProposicoes);
-                    const proposicoes = data?.dados || [];
-                    
+                    // Todo o mandato atual (57ª Legislatura, a partir de 2023), todas as páginas.
+                    const proposicoes = await buscarProposicoesDoDeputado(dep.id, anoAtual);
+
                     if (proposicoes.length > 0) {
                         const payload = proposicoes.map((prop: any) => mapearProposicao(prop, dep.id, anoAtual));
 
