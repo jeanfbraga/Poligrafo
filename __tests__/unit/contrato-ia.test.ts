@@ -97,6 +97,20 @@ describe("contrato da IA — junção dos resultados", () => {
 		expect(r[0].motivo_ia ?? "").not.toContain("[IA]");
 	});
 
+	it("LGPD: prompt sem lista de doadores e com CPF de pessoa física mascarado", async () => {
+		processPipeline.mockResolvedValue(null);
+		const comPessoaFisica = [
+			{ ...despesas[0], cnpjCpfFornecedor: "52998224725" },
+			{ ...despesas[1], cnpjCpfFornecedor: "33000167000101" },
+		];
+		await analisarLoteComInteligencia(comPessoaFisica, "SP", ["33000167000101", "11144477735"], "FEDERAL", "CAMARA");
+		const prompt = processPipeline.mock.calls[0][1] as string;
+		expect(prompt).not.toContain("52998224725");
+		expect(prompt).not.toContain("11144477735"); // CPF de doador pessoa física não vai
+		expect(prompt).toContain("***.982.247-**");
+		expect(prompt).toContain('"cnpj":"33000167000101","fornecedorEhDoador":true');
+	});
+
 	it("emendas usam ids e0, e1…", async () => {
 		const emendas = [{ codigoEmenda: "123" }, { codigoEmenda: "456" }];
 		processPipeline.mockResolvedValue({ parsedJson: { emendas_avaliadas: [avaliacao("e0", 40), avaliacao("e1", 80)] } });

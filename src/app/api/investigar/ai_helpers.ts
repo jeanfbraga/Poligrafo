@@ -20,6 +20,7 @@ import {
 	ROTULO_NAO_AVALIADO,
 	validarAvaliacoes,
 } from "../../../services/ai/contratos/avaliacoes";
+import { documentoParaPrompt, soDigitos } from "@/lib/documento";
 
 function getOrchestrator(isDev: boolean) {
 	const providers = [];
@@ -135,9 +136,12 @@ async function analisarLoteUnico(
 	normaLocal?: string,
 ) {
 	const ids = idsDoLote(despesas.length, "d");
+	const doadores = new Set((listaDoadores ?? []).map(soDigitos));
 	const loteOtimizado = despesas.map((d: any, i: number) => ({
 		id: ids[i],
-		cnpj: d.cnpjCpfFornecedor,
+		// LGPD: CPF de fornecedor pessoa física vai mascarado; a lista de doadores não vai.
+		cnpj: documentoParaPrompt(d.cnpjCpfFornecedor),
+		fornecedorEhDoador: doadores.has(soDigitos(d.cnpjCpfFornecedor)),
 		fornecedor: d.nomeFornecedor,
 		tipo: d.tipoDespesa,
 		valor: d.valorDocumento,
@@ -218,7 +222,8 @@ function resumirNoParaIA(n: any): any {
 		rotulo: n.data?.label,
 		descricao: n.data?.objeto || n.data?.situacao,
 		valor_monetario: n.data?.valor || n.data?.capitalSocial || 0,
-		cpf_cnpj: n.data?.codigo || n.data?.cnpj || "N/A",
+		// LGPD: CPF de pessoa física (ex.: sócio) vai mascarado para o provedor de IA.
+		cpf_cnpj: documentoParaPrompt(n.data?.codigo || n.data?.cnpj || "N/A"),
 	};
 }
 

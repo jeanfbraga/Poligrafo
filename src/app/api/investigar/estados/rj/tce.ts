@@ -116,6 +116,8 @@ function formatarItemCotaCmrj(d: any) {
 		dataDocumento: d.data_despesa || "",
 		descricao: d.descricao || d.categoria_despesa || "",
 		_fonte: "CMRJ_COTA_GABINETE",
+		// Cota de gabinete do vereador: gasto do mandato (vai para a triagem).
+		natureza: "MANDATO",
 		_extraidoPor: d.extraido_por || "etl",
 		_arquivoOrigem: d.fonte_arquivo || "",
 	};

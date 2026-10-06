@@ -69,6 +69,16 @@ export function mascararCpf(valor: unknown): string {
 	return `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**`;
 }
 
+/**
+ * Documento como vai para um prompt de IA (LGPD): CPF de pessoa física sai
+ * mascarado (`***.456.789-**`); CNPJ e textos não numéricos passam como estão.
+ */
+export function documentoParaPrompt(valor: unknown): string {
+	const d = soDigitos(valor);
+	if (d.length === 11) return mascararCpf(d);
+	return d || String(valor ?? "");
+}
+
 /** Os 6 dígitos do meio de um CPF (inteiro ou mascarado pela Receita). */
 export function mioloCpf(valor: unknown): string | null {
 	const texto = String(valor ?? "");

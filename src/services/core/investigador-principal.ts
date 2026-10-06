@@ -7,6 +7,7 @@ import { perfilDaCasa } from "@/services/core/alcada";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
 import { cruzarDoadoresComContratosPublicos } from "@/services/core/doadores-contratos";
+import { normalizarDespesa, nosDeContratosDoEnte, separarPorNatureza } from "@/services/core/despesa-normalizada";
 import { cpfValido, documentoValido } from "@/lib/documento";
 import { checkNepotismoCamara } from "@/services/integrations/camara/nepotismo-client";
 import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
@@ -1117,13 +1118,27 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			sendEvent("STATUS", {
 				msg: `Roteando varredura TCE/ProxyOSINT para a alçada municipal (${deputadoBasico.uf})...`,
 			});
-			despesasCruas = await buscarDespesasMunicipalMestre(
+			const brutasMunicipio = await buscarDespesasMunicipalMestre(
 				deputadoBasico.uf,
 				docTce,
 				deputadoBasico.nome,
 				deputadoBasico.uri,
 				deputadoBasico.casa,
 			);
+			// Contratos do município inteiro (TCE) são contexto, não gasto do mandato:
+			// só o que vem marcado como MANDATO (ex.: cota da CMRJ) vai para a triagem.
+			const { mandato, ente } = separarPorNatureza(
+				brutasMunicipio.map((d: any) => normalizarDespesa(d, { fonte: `TCE-${deputadoBasico.uf}`, natureza: "ENTE" })),
+			);
+			despesasCruas = mandato;
+			for (const noEnte of nosDeContratosDoEnte(ente, pessoaId)) {
+				sendEvent("NODE_NOVO", noEnte);
+			}
+			if (ente.length > 0) {
+				sendEvent("STATUS", {
+					msg: `${ente.length} contrato(s)/empenho(s) do órgão encontrados no TCE (contexto; não são gastos do mandato).`,
+				});
+			}
 			if (deputadoBasico.casa === "CAMARA_MUNICIPAL_RJ") {
 				sendEvent("STATUS", {
 					msg: `Consultando API de Servidores da CMRJ...`,
@@ -1984,7 +1999,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			let despesasAvaliadas: any[] = [];
 			try {
 				despesasAvaliadas = await analisarLoteComInteligencia(
-					despesasCruas,
+					// Formato único: a IA nunca mais recebe campos undefined de clientes com outros nomes.
+					despesasCruas.map((d: any) => normalizarDespesa(d, { fonte: String(deputadoBasico.casa), natureza: "MANDATO" })),
 					deputadoBasico.uf,
 					doadores,
 					esferaPolitico,

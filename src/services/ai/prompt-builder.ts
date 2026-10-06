@@ -105,7 +105,8 @@ SAÍDA OBRIGATÓRIA:
 export function construirPromptDespesas(
 	esferaPolitico: string,
 	ufPolitico: string,
-	listaDoadores: string[],
+	/** Não vai para o prompt (LGPD): cada item já traz `fornecedorEhDoador`. */
+	_listaDoadores: string[],
 	loteOtimizado: any[],
 	casaLegislativa?: string,
 	normaLocal?: string,
@@ -136,7 +137,7 @@ CONTEXTO NORMATIVO:
 - Norma principal: ${ctx.normaPrincipal}
 - Órgãos de controle: ${ctx.orgaoControle}
 - Observação local: ${ctx.observacaoLocal}
-- CNPJs doadores de campanha: ${JSON.stringify(listaDoadores)}
+- Doadores de campanha: cada item traz "fornecedorEhDoador" (true quando o fornecedor doou para a campanha do político). Documentos de doadores não são enviados (LGPD); CPF de pessoa física aparece mascarado.
 
 REGRAS MESTRAS:
 ${ctx.regrasBase.map((r) => `- ${r}`).join("\n")}
