@@ -9,7 +9,25 @@
  * Substitui o antigo "toma-lá-dá-cá" com score 100 fixo para todo doador que
  * tivesse qualquer contrato público em qualquer órgão.
  */
-import type { Regra } from "./tipos";
+import { dataIso, dentroDoPeriodo } from "./datas";
+import type { Fato, Regra } from "./tipos";
+
+/**
+ * Sanção × contrato: só é ALTA se algum contrato foi assinado DURANTE a sanção.
+ * Em 07/10/2026 os dois primeiros casos reais (Cuiabá e Goiás) eram contratos
+ * assinados antes da punição — e por suspensão aplicada por outro órgão.
+ */
+export function contratoDuranteSancao(sancoes: Fato[], contratos: Fato[]): { severidade?: "MEDIA"; nota: string } | null {
+	const datas = contratos.map((c) => dataIso(c.data)).filter((d): d is string => d !== null);
+	if (datas.length === 0) return { severidade: "MEDIA", nota: "Sem data do contrato para conferir com o período da sanção." };
+	const periodos = sancoes.map((s) => ({ inicio: s.periodo?.inicio ?? dataIso(s.data), fim: s.periodo?.fim ?? null }));
+	const durante = datas.some((d) => periodos.some((p) => dentroDoPeriodo(d, p.inicio, p.fim)));
+	if (durante) return null;
+	return {
+		severidade: "MEDIA",
+		nota: "Os contratos foram assinados fora do período da sanção (antes da punição ou depois dela); suspensão e impedimento valem só para o órgão que puniu, a inidoneidade vale para todos.",
+	};
+}
 
 export const REGRAS: Regra[] = [
 	{
@@ -95,6 +113,7 @@ export const REGRAS: Regra[] = [
 		papeis: ["SANCIONADO", "FORNECEDOR_COTA"],
 		severidade: "ALTA",
 		porque: "a verba do gabinete foi para empresa que consta nos cadastros de punidas (CEIS/CNEP/CEPIM)",
+		ajustar: contratoDuranteSancao,
 	},
 	{
 		id: "sancionado-ente",
@@ -102,6 +121,7 @@ export const REGRAS: Regra[] = [
 		papeis: ["SANCIONADO", "CONTRATADO_ENTE"],
 		severidade: "ALTA",
 		porque: "o órgão contratou empresa que consta nos cadastros de punidas (CEIS/CNEP/CEPIM)",
+		ajustar: contratoDuranteSancao,
 	},
 	{
 		id: "sancionado-doador",

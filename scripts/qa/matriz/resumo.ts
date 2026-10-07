@@ -108,11 +108,16 @@ function resumirIdentidade(eventos: EventoCapturado[], cargoEsperado: string) {
 	};
 }
 
+/**
+ * Só o documento inteiro conta: "00000000000" dentro do CNPJ real do Banco do
+ * Brasil (00000000000191) não é sentinela (falso alarme na matriz de 07/10/2026).
+ */
 function contarSentinelas(eventos: EventoCapturado[]): Record<string, number> {
 	const nos = eventos.filter((e) => e.tipo === "NODE_NOVO").map((e) => JSON.stringify(e.payload));
 	const r: Record<string, number> = {};
 	for (const s of SENTINELAS) {
-		const n = nos.filter((t) => t.includes(s)).length;
+		const inteiro = new RegExp(`(?<!\\d)${s}(?!\\d)`);
+		const n = nos.filter((t) => inteiro.test(t)).length;
 		if (n) r[s] = n;
 	}
 	return r;

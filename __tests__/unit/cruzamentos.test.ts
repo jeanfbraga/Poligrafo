@@ -12,7 +12,9 @@ import {
 import { executarCruzamentos, raizCnpj } from "../../src/services/cruzamentos/motor";
 import { cnpjsParaConferir, fatosDeSancoes, sancaoParaFato } from "../../src/services/cruzamentos/sancoes";
 import { fatosDeSocios, fornecedoresParaQsa } from "../../src/services/cruzamentos/socios";
-import { fatosDeContasCampanha } from "../../src/services/cruzamentos/adaptadores";
+import { fatosDeContasCampanha, fornecedorDeCampanhaRelevante } from "../../src/services/cruzamentos/adaptadores";
+import { dataIso } from "../../src/services/cruzamentos/datas";
+import { contratoDuranteSancao } from "../../src/services/cruzamentos/regras";
 import type { Fato, Papel } from "../../src/services/cruzamentos/tipos";
 
 /** CNPJ válido a partir dos 12 primeiros dígitos (calcula os verificadores). */
@@ -212,6 +214,49 @@ describe("contas de campanha e sócios de fornecedores", () => {
 		});
 		expect(fatos.some((x) => x.documento === MATRIZ)).toBe(false);
 		expect(fatos.map((x) => x.papel)).toEqual(["DOADOR", "FORNECEDOR_CAMPANHA"]);
+	});
+});
+
+describe("filtros contra falso positivo (casos reais de 07/10/2026)", () => {
+	const conta = (origem: string, valor: number, tipo: "DOADOR" | "FORNECEDOR" = "FORNECEDOR") => ({ tipo, valor_total: valor, origem });
+
+	it("conta de telefone, banco, doação a outra campanha e valor baixo não viram vínculo de fornecedor", () => {
+		expect(fornecedorDeCampanhaRelevante(conta("Telefone", 59.99))).toBe(false); // a Vivo × prefeitura de SP
+		expect(fornecedorDeCampanhaRelevante(conta("Telefone", 5000))).toBe(false);
+		expect(fornecedorDeCampanhaRelevante(conta("Encargos financeiros, taxas bancárias e/ou op. cartão de crédito", 3000))).toBe(false);
+		expect(fornecedorDeCampanhaRelevante(conta("Doações financeiras a outros candidatos/partidos", 50000))).toBe(false);
+		expect(fornecedorDeCampanhaRelevante(conta("Despesa com Impulsionamento de Conteúdos", 20000))).toBe(false);
+		expect(fornecedorDeCampanhaRelevante(conta("Publicidade por materiais impressos", 900))).toBe(false);
+		expect(fornecedorDeCampanhaRelevante(conta("Publicidade por materiais impressos", 5000))).toBe(true);
+		expect(fornecedorDeCampanhaRelevante(conta("Recursos de pessoas físicas", 50, "DOADOR"))).toBe(true);
+		const fatos = fatosDeContasCampanha([{ ano_eleicao: 2024, tipo: "FORNECEDOR", documento: MATRIZ, nome: "TELEFONICA BRASIL S.A.", valor_total: 59.99, quantidade: 1, origem: "Telefone" }], AGORA, "1");
+		expect(fatos).toEqual([]);
+	});
+
+	it("datas das fontes em ISO", () => {
+		expect([dataIso("05/01/2026"), dataIso("2025-06-23T00:00:00"), dataIso("2024"), dataIso(null)]).toEqual(["2026-01-05", "2025-06-23", null, null]);
+	});
+
+	const sancao = (inicio: string, fim: string | null) =>
+		f("SANCIONADO", OUTRA, { detalhe: "CEIS — Suspensão", data: inicio, periodo: { inicio: dataIso(inicio), fim: fim ? dataIso(fim) : null } });
+
+	it("empresa punida contratada pelo órgão: ALTA só se o contrato foi assinado durante a sanção", () => {
+		const durante = executarCruzamentos([sancao("05/01/2026", "04/01/2028"), f("CONTRATADO_ENTE", OUTRA, { data: "2026-03-10" })]);
+		expect(durante[0]).toMatchObject({ regra: "sancionado-ente", severidade: "ALTA" });
+		expect(durante[0].resumo).not.toContain("fora do período");
+
+		// Cuiabá: contrato de 23/06/2025, suspensão de 05/01/2026 a 04/01/2028 aplicada por outro órgão.
+		const antes = executarCruzamentos([sancao("05/01/2026", "04/01/2028"), f("CONTRATADO_ENTE", OUTRA, { data: "2025-06-23" })]);
+		expect(antes[0]).toMatchObject({ regra: "sancionado-ente", severidade: "MEDIA" });
+		expect(antes[0].resumo).toContain("fora do período da sanção");
+
+		const semData = executarCruzamentos([sancao("05/01/2026", null), f("CONTRATADO_ENTE", OUTRA)]);
+		expect(semData[0].severidade).toBe("MEDIA");
+		expect(semData[0].resumo).toContain("Sem data do contrato");
+	});
+
+	it("sanção em vigor sem data de fim cobre contrato posterior", () => {
+		expect(contratoDuranteSancao([sancao("01/01/2020", null)], [f("FORNECEDOR_COTA", OUTRA, { data: "2026-05-01" })])).toBeNull();
 	});
 });
 

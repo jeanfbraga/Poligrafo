@@ -86,20 +86,30 @@ async function processarGazettes(
 	return nodesCriados;
 }
 
+/**
+ * `territorio` = código IBGE do município do mandato (base tse_eleitos): para
+ * prefeito e vereador a busca fica no próprio município, e não no Brasil
+ * inteiro (homônimos de outras cidades). Sem ele, busca nacional (federal/estadual).
+ */
 export async function investigarDiariosOficiais(
 	nomeParaBusca: string,
 	ufScope: string,
 	pessoaId: string,
 	sendEvent: any,
 	supabaseNodesBuffer: any[],
+	territorio?: string | null,
 ) {
 	try {
-		sendEvent("STATUS", { msg: `Consultando Diários Oficiais via Querido Diário...` });
+		const onde = territorio ? `no município (IBGE ${territorio})` : "em todo o país";
+		sendEvent("STATUS", { msg: `Consultando Diários Oficiais via Querido Diário (${onde})...` });
 		// Sem cache próprio: os nós dos Diários entram no cache da investigação (coleção de nós).
 		// O antigo cache inseria uma linha nova em pesquisas (Banco Principal, acima do limite)
 		// a cada investigação e era lido sem validade.
-		const resultado = await buscarDiariosMunicipais({ termo: nomeParaBusca, size: 5 });
-		if (!resultado.gazettes || resultado.gazettes.length === 0) return;
+		const resultado = await buscarDiariosMunicipais({ termo: nomeParaBusca, size: 5, territoryIds: territorio ? [territorio] : undefined });
+		if (!resultado.gazettes || resultado.gazettes.length === 0) {
+			sendEvent("STATUS", { msg: `[DIÁRIOS] Nenhuma publicação com "${nomeParaBusca}" ${onde}.` });
+			return;
+		}
 
 		sendEvent("STATUS", { msg: `Diários Oficiais encontrados. Processando extração via IA...` });
 		await processarGazettes(

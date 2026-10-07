@@ -72,9 +72,33 @@ export interface ContaCampanhaFato {
 	origem: string | null;
 }
 
+/**
+ * Despesas de campanha que NÃO são vínculo de fornecedor (07/10/2026: o primeiro
+ * "cruzamento" real era a conta de R$ 59,99 da Vivo × contrato de telefonia da
+ * prefeitura): doação a outra campanha/partido, banco, concessionária, correio,
+ * imposto e fornecedores universais (companhia aérea, impulsionamento em rede social).
+ */
+const ORIGENS_SEM_VINCULO = [
+	"doacoes financeiras a outros candidatos", "encargos financeiros", "taxa de administracao de financiamento coletivo",
+	"telefone", "agua", "energia eletrica", "correspondencias e despesas postais", "impostos, contribuicoes e taxas",
+	"multas eleitorais", "reembolsos de gastos", "passagem aerea", "impulsionamento de conteudos",
+];
+/** Abaixo disso, a despesa de campanha não sustenta um vínculo. */
+export const VALOR_MINIMO_FORNECEDOR_CAMPANHA = 1000;
+
+function semAcento(texto: string): string {
+	return texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+export function fornecedorDeCampanhaRelevante(c: Pick<ContaCampanhaFato, "tipo" | "valor_total" | "origem">): boolean {
+	if (c.tipo !== "FORNECEDOR") return true;
+	const origem = semAcento(c.origem ?? "");
+	return Number(c.valor_total) >= VALOR_MINIMO_FORNECEDOR_CAMPANHA && !ORIGENS_SEM_VINCULO.some((o) => origem.includes(o));
+}
+
 /** Contas de campanha pelo número do candidato: doadores (CPF) e fornecedores (CNPJ) com valor. */
 export function fatosDeContasCampanha(contas: ContaCampanhaFato[], coletadoEm: string, sq: string): Fato[] {
-	return contas.flatMap((c, i) => {
+	return contas.filter(fornecedorDeCampanhaRelevante).flatMap((c, i) => {
 		const doc = documentoOuNulo(c.documento);
 		if (!doc) return [];
 		const papel: Papel = c.tipo === "DOADOR" ? "DOADOR" : "FORNECEDOR_CAMPANHA";
@@ -145,6 +169,36 @@ const LEITORES: LeitorNo[] = [contratoDoEnte, contratosDeDoador, beneficiarioDeE
 
 export function fatosDeNos(nos: NoGrafo[], coletadoEm: string): Fato[] {
 	return nos.flatMap((no) => LEITORES.flatMap((ler) => ler(no, coletadoEm)));
+}
+
+/** Contratos do órgão ligado ao mandato (PNCP), todos — no dossiê só aparecem os maiores. */
+export function fatosDeContratosDoEnte(contratos: DespesaNormalizada[], coletadoEm: string): Fato[] {
+	return contratos.flatMap((c, i) => {
+		const doc = documentoOuNulo(c.cnpjCpfFornecedor);
+		if (!doc) return [];
+		return [fato("CONTRATADO_ENTE", doc, i, {
+			nome: c.nomeFornecedor,
+			valor: c.valorDocumento || undefined,
+			data: c.dataDocumento || undefined,
+			detalhe: c.tipoDespesa.slice(0, 120),
+			procedencia: procedencia(c.fonte, `cnpjOrgao (PNCP); fornecedor=${doc}`, coletadoEm, c.urlDocumento),
+		})].map((f) => ({ ...f, id: `${f.id}-pncp` }));
+	});
+}
+
+/**
+ * O mesmo registro pode chegar por dois caminhos (ex.: contrato do órgão como
+ * nó de contexto e na lista completa): fica um fato por papel + documento +
+ * valor + data + fonte.
+ */
+export function semFatoRepetido(fatos: Fato[]): Fato[] {
+	const vistos = new Set<string>();
+	return fatos.filter((f) => {
+		const chave = [f.papel, f.documento, f.valor ?? "", f.data ?? "", f.procedencia.fonte].join("|");
+		if (vistos.has(chave)) return false;
+		vistos.add(chave);
+		return true;
+	});
 }
 
 /** Nomes vindos de outros fatos completam doador/empresa (que chegam só com o documento). */

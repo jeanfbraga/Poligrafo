@@ -7,6 +7,7 @@
  */
 import { soDigitos } from "@/lib/documento";
 import { buscarSancoesEmpresa, type SancaoEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
+import { dataIso } from "./datas";
 import type { Fato, Papel } from "./tipos";
 
 const PRIORIDADE: Papel[] = ["EMPRESA_DO_POLITICO", "DOADOR", "FORNECEDOR_COTA", "CONTRATADO_ENTE", "BENEFICIARIO_EMENDA"];
@@ -39,6 +40,11 @@ function periodo(r: Record<string, any>): string {
 	return [inicio && `desde ${inicio}`, fim && `até ${fim}`].filter(Boolean).join(" ");
 }
 
+/** Vigência em ISO para comparar com a data dos contratos (regra contratoDuranteSancao). */
+function periodoDaSancao(r: Record<string, any>): { inicio: string | null; fim: string | null } {
+	return { inicio: dataIso(r.dataInicioSancao || r.dataPublicacao), fim: dataIso(r.dataFimSancao || r.dataFinalSancao) };
+}
+
 export function sancaoParaFato(cnpj: string, s: SancaoEmpresa, i: number, coletadoEm: string): Fato {
 	const r = (s.registro ?? {}) as Record<string, any>;
 	const sancionado = r.sancionado || r.pessoaSancionada || {};
@@ -50,6 +56,7 @@ export function sancaoParaFato(cnpj: string, s: SancaoEmpresa, i: number, coleta
 		documento: cnpj,
 		nome: String(sancionado.nome || sancionado.razaoSocialReceita || ""),
 		data: r.dataInicioSancao || undefined,
+		periodo: periodoDaSancao(r),
 		detalhe: [s.nomeBase, tipo, orgao && `órgão: ${orgao}`, periodo(r)].filter(Boolean).join(" — "),
 		procedencia: {
 			fonte: `Portal da Transparência — ${s.base.toUpperCase()}`,

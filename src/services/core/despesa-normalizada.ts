@@ -67,13 +67,16 @@ export function separarPorNatureza(lista: DespesaNormalizada[]): { mandato: Desp
 	};
 }
 
-/** Contratos do órgão como nós de contexto (sem nota da IA), os de maior valor primeiro. */
-export function nosDeContratosDoEnte(ente: DespesaNormalizada[], pessoaId: string, limite = 20) {
+/**
+ * Contratos do órgão como nós de contexto (sem nota da IA), os de maior valor primeiro.
+ * `prefixo` separa as fontes (TCE × PNCP) para um id não sobrescrever o outro no cache.
+ */
+export function nosDeContratosDoEnte(ente: DespesaNormalizada[], pessoaId: string, limite = 20, prefixo = "contrato-ente") {
 	return [...ente]
 		.sort((a, b) => b.valorDocumento - a.valorDocumento)
 		.slice(0, limite)
 		.map((d, i) => ({
-			id: `contrato-ente-${d.cnpjCpfFornecedor || "sem-doc"}-${i}`,
+			id: `${prefixo}-${d.cnpjCpfFornecedor || "sem-doc"}-${i}`,
 			type: "CONTRATO",
 			_origemId: pessoaId,
 			data: {

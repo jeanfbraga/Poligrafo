@@ -9,6 +9,7 @@ import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
 import { nomesDeReferencia, verificarEmpresaDoPolitico } from "@/services/core/socio-confirmacao";
 import { emitirCruzamentos } from "@/services/cruzamentos";
+import { emitirContratosDoEnte } from "@/services/core/contratos-do-ente";
 import { cruzarDoadoresComContratosPublicos } from "@/services/core/doadores-contratos";
 import { normalizarDespesa, nosDeContratosDoEnte, separarPorNatureza } from "@/services/core/despesa-normalizada";
 import { cpfValido, documentoValido } from "@/lib/documento";
@@ -772,6 +773,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				pessoaId,
 				sendEvent,
 				supabaseNodes,
+				eleitoDaRef?.cd_municipio_ibge,
 			);
 		}
 
@@ -2335,10 +2337,16 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				msg: "O político não possui despesas recentes elegíveis para análise.",
 			});
 		}
+		// Contratos do órgão ligado ao mandato (prefeitura / governo do estado) no PNCP: services/core/contratos-do-ente.ts
+		const contratosDoEnte = await emitirContratosDoEnte(
+			{ esfera: perfilAlcada.esfera, uf: deputadoBasico.uf, codIbge: eleitoDaRef?.cd_municipio_ibge, municipio: (deputadoBasico as any)._nomeMunicipio },
+			pessoaId,
+			sendEvent,
+		);
 		// Motor de cruzamentos (regras fixas, sem IA, com fonte e link): services/cruzamentos, nota 31.
 		await emitirCruzamentos(
 			{
-				pessoaId, casa: String(deputadoBasico.casa), doadores, empresasDoPolitico: empresasRelacionadasCNPJs, despesasMandato: despesasCruas, nos: supabaseNodes,
+				pessoaId, casa: String(deputadoBasico.casa), doadores, empresasDoPolitico: empresasRelacionadasCNPJs, despesasMandato: despesasCruas, nos: supabaseNodes, contratosDoEnte,
 				sqCandidato: identidade.sqCandidato,
 				politico: { nomes: nomesDeReferencia([deputadoBasico.nome, detalhes?.nomeCivil, eleitoDaRef?.nm_candidato]), cpf: identidade.cpf },
 			},

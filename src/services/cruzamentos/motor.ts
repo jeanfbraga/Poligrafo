@@ -61,16 +61,19 @@ function nomeMaisInformativo(fatos: Fato[]): string {
 
 function criarAchado(regra: Regra, documento: string, a: Fato[], b: Fato[], somenteRaiz: boolean): Achado {
 	const nome = nomeMaisInformativo([...a, ...b]);
+	const ajuste = regra.ajustar?.(a, b) ?? null;
+	const base = ajuste?.severidade ?? regra.severidade;
+	const nota = ajuste?.nota ? ` ${ajuste.nota}` : "";
 	return {
 		id: `achado-${regra.id}-${documento}`,
 		regra: regra.id,
 		titulo: regra.titulo,
-		severidade: somenteRaiz ? REBAIXAR[regra.severidade] : regra.severidade,
+		severidade: somenteRaiz ? REBAIXAR[base] : base,
 		documento,
 		nome,
 		somenteRaiz,
 		fatos: [...a, ...b].map((f) => f.id),
-		resumo: montarResumo(regra, nome, documento, a, b, somenteRaiz),
+		resumo: montarResumo(regra, nome, documento, a, b, somenteRaiz) + nota,
 	};
 }
 

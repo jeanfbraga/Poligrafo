@@ -28,7 +28,9 @@ export interface BuscarDiariosOptions {
 	timeout?: number;
 }
 
-const QUERIDO_DIARIO_API = "https://api.queridodiario.ok.org.br";
+// A API mudou de endereço: api.queridodiario.ok.org.br não responde mais (07/10/2026);
+// queridodiario.ok.org.br/api redireciona para este.
+export const QUERIDO_DIARIO_API = "https://api.queridodiario.org.br";
 const GAZETTES_URL = `${QUERIDO_DIARIO_API}/gazettes`;
 
 export async function buscarDiariosMunicipais(

@@ -349,7 +349,7 @@ const estaduais: Sonda[] = [
 		{ avaliar: (_c, res) => avaliarEndpointSuspeito(res.status) },
 	)),
 	sonda("querido-diario", "municipal", "Querido Diário — diários municipais", "osint-diarios, Querido Diário", get(
-		"https://api.queridodiario.ok.org.br/gazettes?querystring=nomear&size=1",
+		"https://api.queridodiario.org.br/gazettes?querystring=nomear&size=1",
 		{ avaliar: (c, res) => (res.ok && JSON.stringify(c).includes("gazettes") ? vereditoStatus(res) : { estado: "FALHA", detalhe: `HTTP ${res.status}` }) },
 	)),
 ];

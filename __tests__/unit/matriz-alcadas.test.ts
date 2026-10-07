@@ -45,6 +45,13 @@ describe("matriz de alçadas — resumo", () => {
 		expect(r.sentinelas).toEqual({ "13149954000185": 1 });
 	});
 
+	it("CNPJ real do Banco do Brasil (00000000000191) não é sentinela; o CPF zerado inteiro é", () => {
+		const bb = montarResumo(alvo, null, [no("CONTRATO", "contrato-pncp-00000000000191-2", { documento: "00000000000191" })], { duracaoMs: 1, estourou: false, escritasBloqueadas: 0 });
+		expect(bb.sentinelas).toEqual({});
+		const zerado = montarResumo(alvo, null, [no("PESSOA", "p", { cpf: "00000000000" })], { duracaoMs: 1, estourou: false, escritasBloqueadas: 0 });
+		expect(zerado.sentinelas).toEqual({ "00000000000": 1 });
+	});
+
 	it("mascara CPF/CNPJ em mensagens de erro", () => {
 		expect(mascararDocumentos("ref ESTADUAL:MG:01236681665 não encontrado")).not.toContain("01236681665");
 		expect(mascararDocumentos("ano 2026, id 123")).toBe("ano 2026, id 123");

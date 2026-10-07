@@ -41,6 +41,8 @@ export interface Fato {
 	data?: string;
 	/** Texto curto que identifica o registro (órgão, objeto, base da sanção…). */
 	detalhe?: string;
+	/** Vigência (ISO yyyy-mm-dd), quando o registro tem: sanção (início e fim). */
+	periodo?: { inicio: string | null; fim: string | null };
 	procedencia: Procedencia;
 }
 
@@ -53,6 +55,8 @@ export interface Regra {
 	severidade: Severidade;
 	/** Por que importa, em uma frase (vai no resumo do achado). */
 	porque: string;
+	/** Ajuste pelos próprios fatos (ex.: contrato fora do período da sanção rebaixa a gravidade). */
+	ajustar?: (a: Fato[], b: Fato[]) => { severidade?: Severidade; nota?: string } | null;
 }
 
 export interface Achado {

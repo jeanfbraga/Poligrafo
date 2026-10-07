@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { buscarEnteSiconfi, consultarIndicadoresLRF } from '../../src/services/integrations/siconfi/client';
+import { reiniciarEstadoFonteHttp } from '../../src/lib/fonte-http';
+import { buscarEnteEstadual, buscarEntePorIbge, buscarEnteSiconfi, consultarIndicadoresLRF } from '../../src/services/integrations/siconfi/client';
 
 // =====================================================
 // SICONFI Client Unit Tests
@@ -21,55 +22,44 @@ const mockRgfItems = [
     { cod_conta: 'LimiteMaximoDespesaComPessoalTotal', coluna: '% sobre a RCL Ajustada', valor: 54 },
 ];
 
-describe('SICONFI Client — buscarEnteSiconfi', () => {
+describe('SICONFI Client — entes (lista completa, sem o filtro ?q= que dá 403)', () => {
+    const entes = {
+        items: [
+            ...mockEntesResponse.items,
+            { cod_ibge: 52, ente: 'Goiás', uf: 'BR', esfera: 'E', populacao: 7000000, cnpj: '01.409.580/0001-38' },
+            { cod_ibge: 53, ente: 'Distrito Federal', uf: 'BR', esfera: 'D', populacao: 3000000, cnpj: '00394601000126' },
+        ],
+    };
+    const resposta = (corpo: unknown, status = 200) => new Response(JSON.stringify(corpo), { status, headers: { 'content-type': 'application/json' } });
+
     beforeEach(() => {
         vi.restoreAllMocks();
+        reiniciarEstadoFonteHttp();
     });
 
-    it('deve encontrar um município por nome exato (normalizado)', async () => {
-        global.fetch = vi.fn().mockResolvedValue({
-            ok: true,
-            json: async () => mockEntesResponse
-        });
-
-        const ente = await buscarEnteSiconfi('MG', 'Belo Horizonte');
-        expect(ente).not.toBeNull();
-        expect(ente!.cod_ibge).toBe(3106200);
-        expect(ente!.ente).toBe('Belo Horizonte');
-        expect(ente!.uf).toBe('MG');
+    it('pede a lista inteira uma vez (cache) e acha município por nome normalizado', async () => {
+        const fetchFn = vi.fn(async () => resposta(entes));
+        expect(await buscarEnteSiconfi('MG', 'Belo Horizonte', fetchFn as never)).toMatchObject({ cod_ibge: 3106200, cnpj: '18715383000117' });
+        expect(await buscarEnteSiconfi('MG', 'uberlandia', fetchFn as never)).toMatchObject({ ente: 'Uberlândia' });
+        expect(await buscarEnteSiconfi('MG', 'Cidade Inexistente', fetchFn as never)).toBeNull();
+        expect(fetchFn).toHaveBeenCalledTimes(1);
+        expect(String((fetchFn.mock.calls[0] as unknown[])[0])).toBe('https://apidatalake.tesouro.gov.br/ords/siconfi/tt/entes');
     });
 
-    it('deve encontrar município com acento no nome (normalização NFD)', async () => {
-        global.fetch = vi.fn().mockResolvedValue({
-            ok: true,
-            json: async () => mockEntesResponse
-        });
-
-        const ente = await buscarEnteSiconfi('MG', 'uberlandia'); // sem acento
-        expect(ente).not.toBeNull();
-        expect(ente!.ente).toBe('Uberlândia');
+    it('município pelo código do IBGE; estado pelo código da UF (no SICONFI a UF do estado vem "BR"); DF é esfera D', async () => {
+        const fetchFn = vi.fn(async () => resposta(entes));
+        expect(await buscarEntePorIbge('3106200', fetchFn as never)).toMatchObject({ ente: 'Belo Horizonte' });
+        expect(await buscarEnteEstadual('go', fetchFn as never)).toMatchObject({ ente: 'Goiás', cnpj: '01409580000138' });
+        expect(await buscarEnteEstadual('DF', fetchFn as never)).toMatchObject({ ente: 'Distrito Federal' });
+        expect(await buscarEnteEstadual('XX', fetchFn as never)).toBeNull();
+        expect(await buscarEntePorIbge('', fetchFn as never)).toBeNull();
     });
 
-    it('deve retornar null para município não encontrado', async () => {
-        global.fetch = vi.fn().mockResolvedValue({
-            ok: true,
-            json: async () => mockEntesResponse
-        });
-
-        const ente = await buscarEnteSiconfi('MG', 'Cidade Inexistente');
-        expect(ente).toBeNull();
-    });
-
-    it('deve retornar null quando a API retorna HTTP error', async () => {
-        global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 });
-        const ente = await buscarEnteSiconfi('SP', 'São Paulo');
-        expect(ente).toBeNull();
-    });
-
-    it('deve retornar null em caso de falha de rede', async () => {
-        global.fetch = vi.fn().mockRejectedValue(new Error('Network timeout'));
-        const ente = await buscarEnteSiconfi('RJ', 'Rio de Janeiro');
-        expect(ente).toBeNull();
+    it('API fora do ar: null e aviso no log', async () => {
+        const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const fetchFn = vi.fn(async () => resposta({ erro: 'x' }, 403));
+        expect(await buscarEnteSiconfi('SP', 'São Paulo', fetchFn as never)).toBeNull();
+        expect(aviso).toHaveBeenCalledWith('[SICONFI] Lista de entes indisponível (HTTP_4XX).');
     });
 });
 

@@ -7,18 +7,20 @@
  * vem da regra; a IA, depois, só explica.
  */
 import { documentoParaPrompt } from "@/lib/documento";
-import { normalizarDespesa } from "@/services/core/despesa-normalizada";
+import { type DespesaNormalizada, normalizarDespesa } from "@/services/core/despesa-normalizada";
 import type { EmpresaQsa } from "@/services/core/socio-confirmacao";
 import { buscarContasCampanha, type ContasCampanha } from "@/services/integrations/tse/campanha";
 import type { SancaoEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
 import {
 	completarNomes,
 	fatosDeContasCampanha,
+	fatosDeContratosDoEnte,
 	fatosDeDespesasMandato,
 	fatosDeDoadores,
 	fatosDeEmpresasDoPolitico,
 	fatosDeNos,
 	type NoGrafo,
+	semFatoRepetido,
 } from "./adaptadores";
 import { type ExplicacaoAchado, explicarAchados } from "./explicacao-ia";
 import { executarCruzamentos } from "./motor";
@@ -38,6 +40,8 @@ export interface EntradaCruzamentos {
 	/** Despesas do mandato como chegaram da fonte (são normalizadas aqui). */
 	despesasMandato: unknown[];
 	nos: NoGrafo[];
+	/** TODOS os contratos do órgão ligado ao mandato (PNCP); no dossiê só aparecem os maiores. */
+	contratosDoEnte?: DespesaNormalizada[];
 	/** Número do candidato confirmado pela identidade (base de eleitos). */
 	sqCandidato?: string | null;
 	/** Nomes e CPF confirmado do político (para achá-lo no QSA dos fornecedores). */
@@ -60,12 +64,13 @@ function fatosDeCampanha(e: EntradaCruzamentos, contas: ContasCampanha | null, c
 
 function fatosColetados(e: EntradaCruzamentos, contas: ContasCampanha | null, coletadoEm: string): Fato[] {
 	const despesas = (e.despesasMandato ?? []).map((d) => normalizarDespesa(d, { fonte: e.casa, natureza: "MANDATO" }));
-	return completarNomes([
+	return completarNomes(semFatoRepetido([
 		...fatosDeCampanha(e, contas, coletadoEm),
 		...fatosDeEmpresasDoPolitico(e.empresasDoPolitico ?? [], coletadoEm),
 		...fatosDeDespesasMandato(despesas, coletadoEm),
+		...fatosDeContratosDoEnte(e.contratosDoEnte ?? [], coletadoEm),
 		...fatosDeNos(e.nos ?? [], coletadoEm),
-	]);
+	]));
 }
 
 export async function cruzarDadosDaInvestigacao(e: EntradaCruzamentos): Promise<{ fatos: Fato[]; achados: Achado[] }> {
