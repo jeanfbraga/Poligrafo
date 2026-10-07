@@ -25,6 +25,7 @@
     "sync:cleanup": "tsx scripts/etl/cleanup-sync.ts",
     "seed:canonical": "tsx scripts/etl/seed_canonical_tables.ts",
     "doctor": "tsx scripts/utils/doctor.ts",
+    "sql:perfil": "tsx scripts/utils/sql-perfil.ts",
     "qa:canario": "tsx scripts/qa/canario-fontes.ts",
     "qa:matriz": "tsx scripts/qa/matriz/executar.ts",
     "qa:matriz:comparar": "tsx scripts/qa/matriz/comparar.ts",

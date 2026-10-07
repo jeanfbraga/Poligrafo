@@ -117,9 +117,20 @@ export async function fetchCamaraJson(url: string, tentativas = 3, esperaMs = 50
     throw new Error(`Câmara indisponível após ${tentativas} tentativas: ${url}. ${descreverErro(ultimoErro)}`);
 }
 
+/**
+ * Lista de deputados da legislatura, UM por id. A API repete o mesmo deputado
+ * (troca de partido, suplente que voltou): 882 entradas para 648 deputados em
+ * 07/10/2026, em sequência. As cópias caíam no mesmo lote paralelo e os
+ * "apaga e insere" do gabinete se cruzavam, duplicando 4.970 linhas.
+ * Fica a última entrada de cada id.
+ */
 export function exigirDeputados(resposta: any): any[] {
     if (!Array.isArray(resposta?.dados) || resposta.dados.length === 0) {
         throw new Error('Lista de deputados indisponível ou vazia; sincronização interrompida antes das gravações.');
     }
-    return resposta.dados;
+    const porId = new Map<unknown, any>();
+    for (const dep of resposta.dados) porId.set(dep?.id, dep);
+    const repetidas = resposta.dados.length - porId.size;
+    if (repetidas > 0) console.log(`[CAMARA] ${repetidas} entradas repetidas removidas da lista de deputados (${porId.size} deputados).`);
+    return [...porId.values()];
 }

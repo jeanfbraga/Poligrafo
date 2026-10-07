@@ -51,10 +51,15 @@ async function lerCsv(arquivo: string, ano: number, cargos: string[] | undefined
 	const parser = fs.createReadStream(arquivo, "latin1").pipe(
 		parse({ columns: true, delimiter: ";", skip_empty_lines: true, relax_quotes: true, relax_column_count: true }),
 	);
-	for await (const r of parser) {
-		if (cargos && !cargos.includes(String(r.CD_CARGO))) continue;
-		const linha = linhaParaEleito(r, ano, mapa);
-		if (linha) linhas.push({ linha, turno: Number(r.NR_TURNO) || 1 });
+	try {
+		for await (const r of parser) {
+			if (cargos && !cargos.includes(String(r.CD_CARGO))) continue;
+			const linha = linhaParaEleito(r, ano, mapa);
+			if (linha) linhas.push({ linha, turno: Number(r.NR_TURNO) || 1 });
+		}
+	} finally {
+		// O CSV extraído sai; fica só o ZIP em .tmp_tse/ (cache que pode ser apagado).
+		fs.rmSync(arquivo, { force: true });
 	}
 	return deduplicar(linhas);
 }

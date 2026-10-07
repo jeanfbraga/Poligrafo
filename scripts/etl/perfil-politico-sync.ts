@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
-import * as cheerio from 'cheerio';
 import { pathToFileURL } from 'node:url';
 import { fetchCamaraJson as fetchJson, exigirDeputados } from './camara-http';
+import { lerTabelaGabinete } from './gabinete-camara';
 import { fetchWithTimeout } from '../../src/app/api/investigar/tse';
 import { credenciaisBancoPerfil } from './banco-perfil';
 
@@ -52,28 +52,8 @@ async function scrapeGabinete(idDeputado: number) {
             }
         });
         if (!res.ok) return [];
-        const html = await res.text();
-        const $ = cheerio.load(html);
-        
-        const servidores: any[] = [];
-        $('.table tbody tr').each((i, el) => {
-            const tds = $(el).find('td');
-            if (tds.length >= 4) {
-                const nome = $(tds[0]).text().trim();
-                const cargo = $(tds[1]).text().trim();
-                const periodo = $(tds[3]).text().trim();
-                if (nome && nome !== "") {
-                    servidores.push({
-                        deputado_id: idDeputado,
-                        nome,
-                        cargo,
-                        periodo,
-                        data_nomeacao: new Date().toISOString() // Placeholder
-                    });
-                }
-            }
-        });
-        return servidores;
+        // Sem linhas repetidas, com remuneração e data real de início (scripts/etl/gabinete-camara.ts).
+        return lerTabelaGabinete(await res.text(), idDeputado);
     } catch (e) {
         console.error(`Erro ao fazer scraping de gabinete para ${idDeputado}:`, e);
         return [];

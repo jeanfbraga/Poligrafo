@@ -86,7 +86,9 @@ export function agruparServidores(servidores: Record<string, any>[], hoje: Date 
 		const chave = chaveDaPessoa(s.nome);
 		if (!chave) continue;
 		const grupo = porPessoa.get(chave) ?? { nome: String(s.nome).trim(), vinculos: [] };
-		grupo.vinculos.push(paraVinculo(s, hoje));
+		const vinculo = paraVinculo(s, hoje);
+		// A mesma linha gravada duas vezes (ETL antigo) não vira dois vínculos.
+		if (!grupo.vinculos.some((v) => v.cargo === vinculo.cargo && v.periodo === vinculo.periodo)) grupo.vinculos.push(vinculo);
 		porPessoa.set(chave, grupo);
 	}
 	return [...porPessoa.values()]

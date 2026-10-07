@@ -120,4 +120,16 @@ describe('Transporte dos ETLs da Câmara', () => {
     it.each([null, {}, { dados: [] }, { dados: {} }])('interrompe listas de deputados indisponíveis: %j', resposta => {
         expect(() => exigirDeputados(resposta)).toThrow('antes das gravações');
     });
+
+    it('um deputado por id (a API repete o mesmo deputado em sequência) e registra no log quantas saíram', () => {
+        const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const lista = exigirDeputados({ dados: [{ id: 1, siglaPartido: 'A' }, { id: 2 }, { id: 2 }, { id: 2, siglaPartido: 'B' }, { id: 3 }] });
+        expect(lista.map(d => d.id)).toEqual([1, 2, 3]);
+        expect(lista[1].siglaPartido).toBe('B');
+        expect(log).toHaveBeenCalledWith('[CAMARA] 2 entradas repetidas removidas da lista de deputados (3 deputados).');
+        log.mockClear();
+        exigirDeputados({ dados: [{ id: 9 }] });
+        expect(log).not.toHaveBeenCalled();
+        log.mockRestore();
+    });
 });

@@ -34,11 +34,20 @@ const TEMP_DIR = path.join(process.cwd(), ".tmp_tse");
 const LOTE = 1000;
 const ANOS = [2022, 2024];
 
+/**
+ * Lê o CSV extraído e APAGA o arquivo no fim: os CSVs do TSE passam de 2,5 GB.
+ * Fica só o ZIP em .tmp_tse/ (cache local, pode ser apagado; o CDN do TSE é
+ * público e não bloqueia, então o ETL baixa de novo quando precisar).
+ */
 async function* linhasCsv(arquivo: string): AsyncGenerator<Record<string, string>> {
 	const parser = fs.createReadStream(arquivo, "latin1").pipe(
 		parse({ columns: true, delimiter: ";", skip_empty_lines: true, relax_quotes: true, relax_column_count: true }),
 	);
-	for await (const r of parser) yield r;
+	try {
+		for await (const r of parser) yield r;
+	} finally {
+		fs.rmSync(arquivo, { force: true });
+	}
 }
 
 async function arquivoDoZip(url: string, nomeZip: string, padrao: RegExp): Promise<string> {
