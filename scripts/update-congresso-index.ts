@@ -7,6 +7,12 @@ interface PoliticoIndex {
     uf: string;
     partido: string;
     casa: 'CAMARA' | 'SENADO' | 'GOVERNO_ESTADUAL';
+    /**
+     * false = passou pela legislatura mas saiu (ex.: Abilio Brunini, hoje prefeito de Cuiabá).
+     * O índice mantém todos (têm página de perfil), mas o atalho de busca por nome
+     * (request-parser) só vale para quem está no mandato.
+     */
+    emExercicio: boolean;
 }
 
 const INDEX_FILE_PATH = path.join(__dirname, '../src/services/integrations/data/congresso-index.json');
@@ -59,11 +65,20 @@ async function fetchWithRetry(url: string, retries = 3): Promise<any> {
     }
 }
 
+/** Ids de quem está em exercício hoje (a lista sem idLegislatura só traz os em exercício). */
+async function idsEmExercicio(): Promise<Set<string>> {
+    const dados = await fetchWithRetry('https://dadosabertos.camara.leg.br/api/v2/deputados?ordem=ASC&ordenarPor=nome&itens=1000');
+    const ids = new Set<string>((dados?.dados || []).map((d: any) => String(d.id)));
+    if (ids.size < 400) throw new Error(`Lista de deputados em exercício suspeita (${ids.size}).`);
+    return ids;
+}
+
 async function coletarDeputados(): Promise<PoliticoIndex[]> {
     const deputadosList: PoliticoIndex[] = [];
     const urlCamara = (pagina: number) =>
         `https://dadosabertos.camara.leg.br/api/v2/deputados?idLegislatura=57&ordem=ASC&ordenarPor=nome&itens=100&pagina=${pagina}`;
     try {
+        const emExercicio = await idsEmExercicio();
         let pagina = 1;
         while (pagina <= 20) {
             const dataCamara = await fetchWithRetry(urlCamara(pagina));
@@ -74,13 +89,15 @@ async function coletarDeputados(): Promise<PoliticoIndex[]> {
                     nome: dep.nome,
                     uf: dep.siglaUf,
                     partido: dep.siglaPartido,
-                    casa: 'CAMARA'
+                    casa: 'CAMARA',
+                    emExercicio: emExercicio.has(String(dep.id)),
                 });
             }
             if (deputados.length < 100) break;
             pagina++;
         }
-        console.log(`✅ Câmara: ${deputadosList.length} deputados obtidos (legislatura 57 completa).`);
+        const fora = deputadosList.filter((d) => !d.emExercicio).length;
+        console.log(`✅ Câmara: ${deputadosList.length} deputados obtidos (legislatura 57 completa; ${fora} fora do exercício).`);
     } catch (e: any) {
         console.error("❌ Erro fatal ao buscar dados da Câmara:", e.message);
     }
@@ -102,7 +119,8 @@ async function coletarSenadores(): Promise<PoliticoIndex[]> {
                 nome: ident.NomeParlamentar,
                 uf: ident.UfParlamentar,
                 partido: ident.SiglaPartidoParlamentar,
-                casa: 'SENADO'
+                casa: 'SENADO',
+                emExercicio: true, // lista "atual" = em exercício
             });
         }
         console.log(`✅ Senado: ${senadoresList.length} senadores obtidos.`);
@@ -127,7 +145,8 @@ async function coletarGovernadores(): Promise<PoliticoIndex[]> {
                     nome: govInfo.nome,
                     uf: uf,
                     partido: govInfo.partido_sigla || govInfo.partido || "N/A",
-                    casa: 'GOVERNO_ESTADUAL'
+                    casa: 'GOVERNO_ESTADUAL',
+                    emExercicio: true,
                 });
             }
         }

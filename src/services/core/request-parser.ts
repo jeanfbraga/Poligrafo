@@ -87,8 +87,10 @@ function buscarMatchCongressoIndex(
 		return refAtual;
 	}
 	const normNome = normalizeString(nome);
+	// Só quem está no mandato: ex-deputado (ex.: hoje prefeito) passa pela busca normal,
+	// senão o atalho reabria o dossiê antigo como "Deputado Federal".
 	const match = (congressoIndex as any[]).find(
-		(p: any) => normalizeString(p.nome) === normNome,
+		(p: any) => p.emExercicio !== false && normalizeString(p.nome) === normNome,
 	);
 	if (!match) return refAtual;
 
