@@ -577,7 +577,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		// Eleito da ref na base tse_eleitos (Banco de Perfil), pelo número do candidato ou CPF.
 		const [tseResult, eleitoDaRef] = await Promise.all([
 			buscarCpfNoTSE(nomeParaTSE, deputadoBasico.uf, codigoCargoTse, detalhes?.nomeCivil, municipioDoAlvo),
-			buscarEleitoDoAlvo({ id: deputadoBasico.id, cpfOficial: detalhes?.cpf }).catch(() => null),
+			buscarEleitoDoAlvo({ id: deputadoBasico.id, cpfOficial: detalhes?.cpf, nome: nomeParaTSE, uf: deputadoBasico.uf, cargoTse: codigoCargoTse }).catch(() => null),
 		]);
 
 		// Identidade verificada (v2): documento válido, confiança e se os dados do TSE são da

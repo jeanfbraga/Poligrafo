@@ -63,6 +63,13 @@ describe("resolverIdentidade (v2, base de eleitos)", () => {
 		expect(id.evidencias[0]).toMatch(/base de eleitos/);
 	});
 
+	it("eleito achado por nome: usa o número do candidato, mas NÃO adota o CPF (confiança média)", () => {
+		const id = resolverIdentidade({ eleito: { ...PREFEITO, nr_cpf_candidato: CPF_A, porNome: true } });
+		expect(id).toMatchObject({ cpf: null, confianca: "media", sqCandidato: "250002034955" });
+		expect(id.evidencias.join(" ")).toContain("por nome exato, cargo e UF (resultado único; CPF não adotado)");
+		expect(podeConsultarPorCpf(id)).toBe(false);
+	});
+
 	it("eleito com CPF diferente do oficial é ignorado", () => {
 		const id = resolverIdentidade({ cpfOficial: CPF_A, eleito: { ...PREFEITO, nr_cpf_candidato: CPF_B } });
 		expect(id).toMatchObject({ cpf: CPF_A, sqCandidato: null });

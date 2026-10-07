@@ -122,17 +122,40 @@ export function nomeLocal(nome: string | null): string {
 		.trim();
 }
 
+export interface AlvoEleito {
+	id: unknown;
+	cpfOficial?: string | null;
+	/** Reserva por nome: só nome EXATO (civil ou de urna) + cargo + UF, com resultado único. */
+	nome?: string | null;
+	uf?: string | null;
+	cargoTse?: string | null;
+}
+
+/** Eleito achado por nome: identidade média — o número do candidato serve, o CPF não é adotado. */
+export type EleitoDoAlvo = Eleito & { porNome?: boolean };
+
+function nomeExato(e: Eleito, nome: string): boolean {
+	const alvo = palavrasBusca(nome).join(" ");
+	return [e.nm_candidato, e.nm_urna_candidato].some((n) => n && palavrasBusca(n).join(" ") === alvo);
+}
+
+async function porNomeCargoUf(alvo: AlvoEleito, cliente: ClienteSupabase): Promise<EleitoDoAlvo | null> {
+	if (!alvo.nome || !alvo.cargoTse || !ufValida(alvo.uf)) return null;
+	const lista = await buscarEleitosPorNome(alvo.nome, { uf: alvo.uf, cargos: [alvo.cargoTse] }, cliente);
+	const exatos = (lista ?? []).filter((e) => nomeExato(e, String(alvo.nome)));
+	return exatos.length === 1 ? { ...exatos[0], porNome: true } : null;
+}
+
 /**
- * Eleito do alvo: pelo documento da ref e, sem resultado, pelo CPF oficial da
- * casa (deputado federal: a ref traz o id da Câmara, mas a API dá o CPF).
+ * Eleito do alvo, nesta ordem: documento da ref (SQ- ou CPF); CPF oficial da
+ * casa (deputado federal: a ref traz o id da Câmara); por último nome exato +
+ * cargo + UF, se o resultado for único (senador: a API do Senado não dá CPF).
  */
-export async function buscarEleitoDoAlvo(
-	alvo: { id: unknown; cpfOficial?: string | null },
-	cliente: ClienteSupabase = supabasePerfilAdmin,
-): Promise<Eleito | null> {
+export async function buscarEleitoDoAlvo(alvo: AlvoEleito, cliente: ClienteSupabase = supabasePerfilAdmin): Promise<EleitoDoAlvo | null> {
 	const daRef = await buscarEleitoDaRef(alvo.id, cliente);
-	if (daRef || !alvo.cpfOficial) return daRef;
-	return buscarEleitoDaRef(alvo.cpfOficial, cliente);
+	if (daRef) return daRef;
+	const porCpf = alvo.cpfOficial ? await buscarEleitoDaRef(alvo.cpfOficial, cliente) : null;
+	return porCpf ?? porNomeCargoUf(alvo, cliente);
 }
 
 function documentoDaRef(e: Eleito): string {

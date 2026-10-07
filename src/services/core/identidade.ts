@@ -40,6 +40,8 @@ export interface EleitoIdentidade {
 	ds_cargo?: string | null;
 	nm_ue?: string | null;
 	ano_eleicao?: number;
+	/** Achado por nome exato + cargo + UF (sem documento): o CPF dele NÃO é adotado. */
+	porNome?: boolean;
 }
 
 export interface EntradaIdentidade {
@@ -96,7 +98,7 @@ function escolherCpf(e: EntradaIdentidade, cpfTse: string | null): Base {
 	const ordem: [string | null, string][] = [
 		[cpfOuNulo(e.cpfOficial), "CPF da API oficial da casa legislativa"],
 		[cpfOuNulo(e.docDaRef), "CPF da referência escolhida (lista oficial/TSE)"],
-		[cpfOuNulo(e.eleito?.nr_cpf_candidato), "CPF do candidato eleito (base de eleitos do TSE)"],
+		[e.eleito?.porNome ? null : cpfOuNulo(e.eleito?.nr_cpf_candidato), "CPF do candidato eleito (base de eleitos do TSE)"],
 		[cpfTse, "CPF do TSE (consulta por cargo e UF)"],
 	];
 	const achado = ordem.find(([cpf]) => cpf);
@@ -128,7 +130,8 @@ function avaliarTse(cpf: string | null, cpfTse: string | null, e: EntradaIdentid
 
 function descreverEleito(eleito: EleitoIdentidade): string {
 	const local = [eleito.ds_cargo, eleito.nm_ue].filter(Boolean).join(" — ");
-	return `Eleito confirmado na base do TSE${eleito.ano_eleicao ? ` (${eleito.ano_eleicao})` : ""}${local ? `: ${local}` : ""}`;
+	const como = eleito.porNome ? "Eleito localizado na base do TSE por nome exato, cargo e UF (resultado único; CPF não adotado)" : "Eleito confirmado na base do TSE";
+	return `${como}${eleito.ano_eleicao ? ` (${eleito.ano_eleicao})` : ""}${local ? `: ${local}` : ""}`;
 }
 
 /** Eleito da base com CPF diferente do escolhido = não é a mesma pessoa. */

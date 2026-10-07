@@ -124,4 +124,20 @@ describe("eleito do alvo", () => {
 		expect(chamadas).toContainEqual(["eq", "nr_cpf_candidato", CPF_CANDIDATO]);
 		expect(await buscarEleitoDoAlvo({ id: "204554" }, clienteFalso({}).cliente)).toBeNull();
 	});
+
+	it("senador (sem CPF na API do Senado): nome exato + cargo + UF, só com resultado único, marcado porNome", async () => {
+		const moro = { sq_candidato: "160001", nm_candidato: "SERGIO FERNANDO MORO", nm_urna_candidato: "SERGIO MORO", cd_cargo: "5", sg_uf: "PR" };
+		const unico = clienteFalso({ tse_eleitos: { data: [moro] } });
+		const e = await buscarEleitoDoAlvo({ id: "5502", nome: "Sergio Moro", uf: "PR", cargoTse: "5" }, unico.cliente);
+		expect(e).toMatchObject({ sq_candidato: "160001", porNome: true });
+		expect(unico.chamadas).toContainEqual(["in", "cd_cargo", ["5"]]);
+		expect(unico.chamadas).toContainEqual(["eq", "sg_uf", "PR"]);
+
+		const dois = clienteFalso({ tse_eleitos: { data: [moro, { ...moro, sq_candidato: "160002" }] } });
+		expect(await buscarEleitoDoAlvo({ id: "5502", nome: "Sergio Moro", uf: "PR", cargoTse: "5" }, dois.cliente)).toBeNull();
+		const parcial = clienteFalso({ tse_eleitos: { data: [{ ...moro, nm_urna_candidato: "SERGIO MORO FILHO", nm_candidato: "SERGIO MORO FILHO" }] } });
+		expect(await buscarEleitoDoAlvo({ id: "5502", nome: "Sergio Moro", uf: "PR", cargoTse: "5" }, parcial.cliente)).toBeNull();
+		const semUf = clienteFalso({ tse_eleitos: { data: [moro] } });
+		expect(await buscarEleitoDoAlvo({ id: "5502", nome: "Sergio Moro", uf: "BR", cargoTse: "5" }, semUf.cliente)).toBeNull();
+	});
 });
