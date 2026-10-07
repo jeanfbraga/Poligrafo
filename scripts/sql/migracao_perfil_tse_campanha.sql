@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS public.tse_campanha_contas (
     CONSTRAINT tse_campanha_contas_chave UNIQUE (sq_candidato, ano_eleicao, tipo, documento)
 );
 
-CREATE INDEX IF NOT EXISTS idx_tse_campanha_documento ON public.tse_campanha_contas (documento);
+-- Sem índice por documento: as consultas são por sq_candidato (coberto pela chave única).
+-- Removido em 07/10/2026 para poupar 13 MB; recriar só quando houver consulta "quem este documento financiou".
 
 ALTER TABLE public.tse_campanha_contas ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
