@@ -93,7 +93,7 @@
     "graphology-metrics": "^2.4.0",
     "gsap": "^3.15.0",
     "html-to-image": "^1.11.13",
-    "next": "^16.1.6",
+    "next": "^16.4.0",
     "pdf-lib": "^1.17.1",
     "playwright": "^1.58.2",
     "react": "^19.2.4",
