@@ -11,6 +11,7 @@ import { nomesDeReferencia, verificarEmpresaDoPolitico } from "@/services/core/s
 import { emitirCruzamentos } from "@/services/cruzamentos";
 import { coletarContratosDoEnte, emitirColetaDoEnte } from "@/services/core/contratos-do-ente";
 import { despesasAlerjParaOPipe } from "@/services/integrations/alerj/despesas-base";
+import { despesasDaAssembleia } from "@/services/integrations/assembleias/despesas";
 import { cruzarDoadoresComContratosPublicos } from "@/services/core/doadores-contratos";
 import { normalizarDespesa, nosDeContratosDoEnte, separarPorNatureza } from "@/services/core/despesa-normalizada";
 import { cpfValido, documentoValido } from "@/lib/documento";
@@ -1262,10 +1263,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 			despesasCruas = [];
 		} else if (deputadoBasico.casa === "ASSEMBLEIA_LEGISLATIVA") {
-			// Deputado estadual fora de SP/RJ: ainda sem fonte de despesas da assembleia (Fase 4).
-			sendEvent("STATUS", {
-				msg: `Assembleia Legislativa de ${deputadoBasico.uf}: sem fonte de despesas de gabinete integrada. Seguindo com as demais fontes.`,
-			});
+			// Deputado estadual fora de SP/RJ: fonte por UF (MG = ALMG); sem fonte, o log diz isso.
+			despesasCruas = await despesasDaAssembleia(deputadoBasico.uf, deputadoBasico.nome, sendEvent);
 		}
 
 		// =========================================================

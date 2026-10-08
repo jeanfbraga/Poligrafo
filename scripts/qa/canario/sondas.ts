@@ -273,15 +273,25 @@ const federais: Sonda[] = [
 // ─── Estadual ───────────────────────────────────────────────────────────────
 
 const estaduais: Sonda[] = [
-	sonda("alesp-xml", "estadual", "ALESP — despesas de gabinete (XML)", "alesp.ts (vai para ETL)", get(
+	sonda("alesp-xml", "estadual", "ALESP — despesas de gabinete (XML)", "ETL alesp-despesas-sync", get(
 		"https://www.al.sp.gov.br/repositorioDados/deputados/despesas_gabinetes.xml",
 		{ metodo: "HEAD", soStatus: true },
 	)),
-	sonda("alerj-docigp", "estadual", "ALERJ — DOCIGP", "alerj.ts", get(
+	sonda("alerj-docigp", "estadual", "ALERJ — DOCIGP (deputados)", "ETL alerj-docigp-sync", get(
 		"https://docigp.alerj.rj.gov.br/api/v1/congressmen?page=1",
 	)),
-	sonda("almg-deputados", "estadual", "ALMG — deputados em exercício", "candidata (Fase 4)", get(
-		"https://dadosabertos.almg.gov.br/ws/deputados/em_exercicio?formato=json",
+	sonda("alerj-docigp-orcamentos", "estadual", "ALERJ — DOCIGP (orçamentos com lançamentos)", "ETL alerj-docigp-sync", get(
+		"https://docigp.alerj.rj.gov.br/api/v1/congressmen/95/legislatures/2/budgets?page=1",
+		{ avaliar: (c, res) => (res.ok && Array.isArray((c as { rows?: unknown[] })?.rows) ? vereditoStatus(res) : { estado: "FALHA", detalhe: `HTTP ${res.status}` }) },
+	)),
+	// O endereço antigo /ws/ redireciona para /api/v2/ (07/10/2026).
+	sonda("almg-deputados", "estadual", "ALMG — deputados em exercício", "assembleias/almg.ts", get(
+		"https://dadosabertos.almg.gov.br/api/v2/deputados/em_exercicio?formato=json",
+		{ avaliar: (c, res) => (res.ok && Array.isArray((c as { list?: unknown[] })?.list) ? vereditoStatus(res) : { estado: "FALHA", detalhe: `HTTP ${res.status}` }) },
+	)),
+	sonda("almg-verbas", "estadual", "ALMG — verba indenizatória", "assembleias/almg.ts", get(
+		`https://dadosabertos.almg.gov.br/api/v2/prestacao_contas/verbas_indenizatorias/deputados/12193/${anoAtual - 1}/3?formato=json`,
+		{ avaliar: (c, res) => (res.ok && Array.isArray((c as { list?: unknown[] })?.list) ? vereditoStatus(res) : { estado: "FALHA", detalhe: `HTTP ${res.status}` }) },
 	)),
 	sonda("tce-sp", "municipal", "TCE-SP — municípios", "sp/tce.ts", get(
 		"https://transparencia.tce.sp.gov.br/api/json/municipios",
