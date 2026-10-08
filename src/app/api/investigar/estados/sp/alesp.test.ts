@@ -13,6 +13,11 @@ vi.mock("../../tse", () => ({
 	buscarCpfNoTSE: vi.fn(),
 }));
 
+// Estes testes cobrem a leitura ao vivo do XML (reserva): a base alesp_despesas fica "fora do ar".
+vi.mock("@/services/integrations/alesp/despesas-base", () => ({
+	buscarDespesasAlespDaBase: vi.fn().mockResolvedValue(null),
+}));
+
 global.fetch = vi.fn();
 
 // Monta uma resposta fetch fake com body em streaming (getReader),

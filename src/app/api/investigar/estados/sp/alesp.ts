@@ -1,3 +1,4 @@
+import { buscarDespesasAlespDaBase } from "@/services/integrations/alesp/despesas-base";
 import { buscarCpfNoTSE } from "../../tse";
 
 export async function buscarDeputadoEstadualSP(nomeBuscado: string): Promise<
@@ -126,6 +127,23 @@ async function streamXmlDespesas(
 	return extraidas;
 }
 
+/** Base `alesp_despesas` (Banco de Perfil) primeiro; null = base fora do ar → XML ao vivo. */
+async function daBase(nomePolitico: string, anoMinimo: number, sendEvent?: any): Promise<any[] | null> {
+	const r = await buscarDespesasAlespDaBase(nomePolitico, anoMinimo).catch(() => null);
+	if (!r) return null;
+	if (!r.deputado) {
+		sendEvent?.("API_WARNING", {
+			fonte: "Assembleia Legislativa de SP (ALESP)",
+			mensagem: `"${nomePolitico}" não foi identificado(a) com segurança na lista de deputados da ALESP (nome ausente ou ambíguo).`,
+		});
+		return [];
+	}
+	sendEvent?.("STATUS", {
+		msg: `[ALESP] ${r.despesas.length} despesa(s) de gabinete de ${r.deputado.deputado} (matrícula ${r.deputado.matricula}) desde ${anoMinimo}, pela base de dados abertos da ALESP.`,
+	});
+	return r.despesas.slice(0, 60);
+}
+
 export async function buscarDespesasDeputadoEstadualSP(
 	identificador: string,
 	nomePolitico: string,
@@ -133,6 +151,8 @@ export async function buscarDespesasDeputadoEstadualSP(
 ) {
 	const anoAtual = new Date().getFullYear();
 	const anoMinimo = anoAtual - 1;
+	const daBaseAlesp = await daBase(nomePolitico, anoMinimo, sendEvent);
+	if (daBaseAlesp) return daBaseAlesp;
 	const urlXml = "https://www.al.sp.gov.br/repositorioDados/deputados/despesas_gabinetes.xml";
 
 	const alvoNorm = normalizaNome(nomePolitico);

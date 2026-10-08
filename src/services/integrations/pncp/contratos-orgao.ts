@@ -77,11 +77,11 @@ export async function buscarContratosDoOrgao(cnpjOrgao: string, op: OpcoesContra
 	const fim = op.agora?.() ?? new Date();
 	const inicio = new Date(fim.getTime() - (op.dias ?? 365) * 864e5);
 	const periodo = `dataInicial=${aaaammdd(inicio)}&dataFinal=${aaaammdd(fim)}`;
-	const primeira = await pagina(cnpj, 1, periodo, op);
-	const extras = Math.min(primeira.totalPaginas, op.paginas ?? 2) - 1;
-	const demais = await Promise.all(Array.from({ length: Math.max(0, extras) }, (_v, i) => pagina(cnpj, i + 2, periodo, op)));
+	// Páginas pedidas juntas (cada uma leva ~20 s no PNCP; em sequência eram 39 s para o Governo de SP).
+	// Página que não existe volta vazia.
+	const paginas = await Promise.all(Array.from({ length: op.paginas ?? 2 }, (_v, i) => pagina(cnpj, i + 1, periodo, op)));
 	const unicos = new Map<string, ContratoOrgao>();
-	for (const c of [primeira, ...demais].flatMap((p) => p.itens).map(deConsulta)) {
+	for (const c of paginas.flatMap((p) => p.itens).map(deConsulta)) {
 		if (c.cnpjOrgao === cnpj && !unicos.has(c.numeroControlePNCP)) unicos.set(c.numeroControlePNCP, c);
 	}
 	return [...unicos.values()].sort((a, b) => b.valorGlobal - a.valorGlobal);

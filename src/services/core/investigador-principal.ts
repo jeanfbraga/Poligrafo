@@ -9,7 +9,7 @@ import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
 import { nomesDeReferencia, verificarEmpresaDoPolitico } from "@/services/core/socio-confirmacao";
 import { emitirCruzamentos } from "@/services/cruzamentos";
-import { emitirContratosDoEnte } from "@/services/core/contratos-do-ente";
+import { coletarContratosDoEnte, emitirColetaDoEnte } from "@/services/core/contratos-do-ente";
 import { cruzarDoadoresComContratosPublicos } from "@/services/core/doadores-contratos";
 import { normalizarDespesa, nosDeContratosDoEnte, separarPorNatureza } from "@/services/core/despesa-normalizada";
 import { cpfValido, documentoValido } from "@/lib/documento";
@@ -607,6 +607,10 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		// Armazena o resultado do TSE para uso posterior (patrimônio, foto, partido) — só se for a mesma pessoa
 		(deputadoBasico as any)._tseResult = identidade.usarDadosTse ? tseResult : null;
 		const pessoaId = `pessoa-${cpfLimpo ?? deputadoBasico.id}`;
+		// Contratos do órgão do mandato no PNCP (~20 s por página): começa já, em paralelo; emite no fim.
+		const coletaEnte = coletarContratosDoEnte({
+			esfera: perfilAlcada.esfera, uf: deputadoBasico.uf, codIbge: eleitoDaRef?.cd_municipio_ibge, municipio: (deputadoBasico as any)._nomeMunicipio,
+		});
 
 		// Se o documento é um CNPJ de campanha, pula a investigação de patrimônio pessoal profunda (mas mantém o que veio do TSE)
 		sendEvent("STATUS", {
@@ -2338,11 +2342,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 		}
 		// Contratos do órgão ligado ao mandato (prefeitura / governo do estado) no PNCP: services/core/contratos-do-ente.ts
-		const contratosDoEnte = await emitirContratosDoEnte(
-			{ esfera: perfilAlcada.esfera, uf: deputadoBasico.uf, codIbge: eleitoDaRef?.cd_municipio_ibge, municipio: (deputadoBasico as any)._nomeMunicipio },
-			pessoaId,
-			sendEvent,
-		);
+		const contratosDoEnte = emitirColetaDoEnte(await coletaEnte, pessoaId, sendEvent);
 		// Motor de cruzamentos (regras fixas, sem IA, com fonte e link): services/cruzamentos, nota 31.
 		await emitirCruzamentos(
 			{

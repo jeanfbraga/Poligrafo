@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reiniciarEstadoFonteHttp } from "../../src/lib/fonte-http";
-import { contratoParaDespesa, emitirContratosDoEnte, localizarEnte } from "../../src/services/core/contratos-do-ente";
+import {
+	coletarContratosDoEnte,
+	contratoParaDespesa,
+	emitirColetaDoEnte,
+	emitirContratosDoEnte,
+	localizarEnte,
+} from "../../src/services/core/contratos-do-ente";
 import { cruzarDadosDaInvestigacao } from "../../src/services/cruzamentos";
 import { buscarContratosDoOrgao, deConsulta } from "../../src/services/integrations/pncp/contratos-orgao";
 
@@ -80,9 +86,21 @@ describe("contratos do órgão ligado ao mandato", () => {
 		expect(nos).toHaveLength(20);
 		expect(nos[0].payload).toMatchObject({ type: "CONTRATO", id: `contrato-pncp-${FORN}-0`, data: { natureza: "ENTE", valor: 25000, fonte: "PNCP — Cuiabá" } });
 		expect(eventos.filter((e) => e.tipo === "STATUS").map((e) => e.payload.msg)).toEqual([
-			"Buscando contratos de Prefeitura de Cuiabá no PNCP (últimos 12 meses)...",
 			"[PNCP] 25 contrato(s) de Prefeitura de Cuiabá nos últimos 12 meses (R$ 325.000). Os 20 maiores aparecem no dossiê; todos entram nos cruzamentos.",
 		]);
+	});
+
+	it("coleta em paralelo sem emitir nada; a emissão vem depois (nó do contrato nunca antes do nó da pessoa)", async () => {
+		const eventos: string[] = [];
+		const coleta = coletarContratosDoEnte({ esfera: "MUNICIPAL", uf: "MT", codIbge: "5103403" }, deps([deConsulta(contratoPncp(1, 10))]));
+		const r = await coleta;
+		expect(eventos).toEqual([]);
+		expect(r).toMatchObject({ situacao: "OK", ente: { ente: "Cuiabá" } });
+		expect(await coletarContratosDoEnte({ esfera: "FEDERAL", uf: "MT" }, deps())).toEqual({ situacao: "NAO_SE_APLICA" });
+		const quebrado = { ...deps(), porIbge: vi.fn(async () => Promise.reject(new Error("rede"))) };
+		expect(await coletarContratosDoEnte({ esfera: "MUNICIPAL", uf: "MT", codIbge: "1" }, quebrado)).toMatchObject({ situacao: "FALHA" });
+		expect(emitirColetaDoEnte(r, "p", (t) => eventos.push(t))).toHaveLength(1);
+		expect(eventos).toEqual(["STATUS", "NODE_NOVO"]);
 	});
 
 	it("sem contratos, órgão não localizado e falha: cada caso com sua mensagem no log", async () => {
