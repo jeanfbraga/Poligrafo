@@ -6,12 +6,15 @@
  * (BrasilAPI, com cache) e compara cada sócio pessoa física, por nome igual E
  * pelos 6 dígitos do meio do CPF (o QSA mostra `***456789**`), com:
  *  - o político → fato EMPRESA_DO_POLITICO para aquele CNPJ;
- *  - os doadores pessoa física → fato SOCIO_DE_FORNECEDOR no CPF do doador.
+ *  - os doadores pessoa física → fato SOCIO_DE_FORNECEDOR no CPF do doador;
+ *  - os funcionários do gabinete do político (só nome completo com 3+ palavras próprias,
+ *    porque a casa não publica o CPF) → fato EMPRESA_DE_ASSESSOR no CNPJ.
  * Nome igual com dígitos diferentes não conta (homônimo).
  */
 import { mioloCpf, soDigitos } from "@/lib/documento";
 import { type EmpresaQsa, normalizarNome } from "@/services/core/socio-confirmacao";
 import { buscarJson } from "@/lib/fonte-http";
+import { nomeDistintivo, type PessoaDoGabinete, resumoVinculos } from "./gabinete";
 import type { Fato, Papel } from "./tipos";
 
 const PAPEIS_FORNECEDOR: Papel[] = ["FORNECEDOR_COTA", "CONTRATADO_ENTE", "BENEFICIARIO_EMENDA", "FORNECEDOR_CAMPANHA"];
@@ -80,11 +83,38 @@ function chavesDoPolitico(p: Politico): Set<string> {
 	return new Set(p.nomes.map((n) => chave(n, miolo)).filter((k): k is string => Boolean(k)));
 }
 
-function fatosDaEmpresa(cnpj: string, qsa: EmpresaQsa, ctx: { fatos: Fato[]; doadores: Map<string, Fato>; politico: Set<string>; coletadoEm: string }): Fato[] {
+interface Contexto {
+	fatos: Fato[];
+	doadores: Map<string, Fato>;
+	politico: Set<string>;
+	assessores: Map<string, PessoaDoGabinete>;
+	coletadoEm: string;
+}
+
+/** Funcionários com nome distintivo, por nome normalizado. */
+function indiceAssessores(pessoas: PessoaDoGabinete[]): Map<string, PessoaDoGabinete> {
+	return new Map(pessoas.filter((p) => nomeDistintivo(p.chave)).map((p) => [p.chave, p]));
+}
+
+function fatoEmpresaDeAssessor(cnpj: string, i: number, nomeEmpresa: string, papeis: string, p: PessoaDoGabinete, coletadoEm: string): Fato {
+	return {
+		id: `fato-empresa_de_assessor-${cnpj}-qsa${i}`,
+		papel: "EMPRESA_DE_ASSESSOR",
+		documento: cnpj,
+		nome: nomeEmpresa,
+		periodo: { inicio: p.inicio, fim: p.fim },
+		detalhe: `sócio ${p.nome} tem o nome completo de funcionário do gabinete (${resumoVinculos(p)}); empresa ${papeis}`,
+		procedencia: procedenciaQsa(cnpj, coletadoEm),
+	};
+}
+
+function fatosDaEmpresa(cnpj: string, qsa: EmpresaQsa, ctx: Contexto): Fato[] {
 	const nomeEmpresa = String(qsa.razao_social ?? "");
 	const papeis = papeisDoCnpj(ctx.fatos, cnpj);
 	const saida: Fato[] = [];
 	(qsa.qsa ?? []).forEach((s, i) => {
+		const assessor = ctx.assessores.get(normalizarNome(String(s.nome_socio ?? "")));
+		if (assessor) saida.push(fatoEmpresaDeAssessor(cnpj, i, nomeEmpresa, papeis, assessor, ctx.coletadoEm));
 		const k = chave(String(s.nome_socio ?? ""), mioloCpf(s.cnpj_cpf_do_socio));
 		if (!k) return;
 		if (ctx.politico.has(k)) {
@@ -104,12 +134,14 @@ export async function fatosDeSocios(
 	coletadoEm: string,
 	buscar: BuscarQsa = buscarQsaPadrao,
 	limite = LIMITE_QSA,
+	gabinete: PessoaDoGabinete[] = [],
 ): Promise<Fato[]> {
 	const doadores = indiceDoadores(fatos);
 	const doPolitico = politico ? chavesDoPolitico(politico) : new Set<string>();
-	if (doadores.size === 0 && doPolitico.size === 0) return [];
+	const assessores = indiceAssessores(gabinete);
+	if (doadores.size === 0 && doPolitico.size === 0 && assessores.size === 0) return [];
 	const cnpjs = fornecedoresParaQsa(fatos, limite);
 	const respostas = await Promise.allSettled(cnpjs.map((c) => buscar(c)));
-	const ctx = { fatos, doadores, politico: doPolitico, coletadoEm };
+	const ctx: Contexto = { fatos, doadores, politico: doPolitico, assessores, coletadoEm };
 	return respostas.flatMap((r, i) => (r.status === "fulfilled" && r.value ? fatosDaEmpresa(cnpjs[i], r.value, ctx) : []));
 }

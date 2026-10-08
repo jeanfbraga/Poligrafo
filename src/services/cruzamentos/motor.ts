@@ -27,11 +27,17 @@ function indexar(fatos: Fato[], chave: (doc: string) => string | null): Indice {
 
 /** Raiz do CNPJ (8 dígitos): mesma empresa, outra filial. CPF não tem raiz. */
 export function raizCnpj(doc: string): string | null {
-	return doc.length === 14 ? doc.slice(0, 8) : null;
+	return /^\d{14}$/.test(doc) ? doc.slice(0, 8) : null;
 }
 
+/** CPF, CNPJ ou o número do candidato no TSE (eleito sem CPF publicado). */
 function documentoValidoParaCruzar(doc: string): string | null {
-	return doc.length === 14 || doc.length === 11 ? doc : null;
+	return /^(\d{11}|\d{14}|SQ-\d+)$/.test(doc) ? doc : null;
+}
+
+/** Como o documento aparece na tela e no prompt: CPF mascarado (LGPD), nº do TSE por extenso. */
+export function documentoLegivel(doc: string): string {
+	return doc.startsWith("SQ-") ? `candidato nº ${doc.slice(3)} no TSE` : documentoParaPrompt(doc);
 }
 
 function formatarValor(v: number | undefined): string {
@@ -51,7 +57,7 @@ function descreverLado(fatos: Fato[]): string {
 export function montarResumo(regra: Regra, nome: string, documento: string, a: Fato[], b: Fato[], somenteRaiz: boolean): string {
 	const raiz = somenteRaiz ? " A coincidência é só na raiz do CNPJ (matriz/filial): confira se é a mesma empresa." : "";
 	// CPF de pessoa física sai mascarado (LGPD): o resumo vai para a tela e para o prompt.
-	const quem = nome ? `${nome} (${documentoParaPrompt(documento)})` : documentoParaPrompt(documento);
+	const quem = nome ? `${nome} (${documentoLegivel(documento)})` : documentoLegivel(documento);
 	return `${quem}: ${regra.porque}. ${descreverLado(a)}. ${descreverLado(b)}.${raiz}`;
 }
 

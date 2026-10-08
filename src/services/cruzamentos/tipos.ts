@@ -19,7 +19,17 @@ export type Papel =
 	/** Pessoa sócia (QSA: nome + 6 dígitos do meio do CPF) de empresa paga pelo mandato/órgão. */
 	| "SOCIO_DE_FORNECEDOR"
 	/** Pessoa com função/cargo de confiança no Executivo federal (Portal da Transparência). */
-	| "SERVIDOR_COMISSIONADO";
+	| "SERVIDOR_COMISSIONADO"
+	/**
+	 * Funcionário do gabinete do PRÓPRIO político (Câmara dos Deputados ou CMRJ). A casa não
+	 * publica o CPF: o fato fica no documento do outro lado (CPF do doador da campanha dele,
+	 * CPF ou nº TSE do eleito), ligado pelo nome completo.
+	 */
+	| "ASSESSOR_DO_GABINETE"
+	/** Mandato eletivo do TSE (eleito, não suplente) no mesmo período do vínculo no gabinete. */
+	| "MANDATO_ELETIVO"
+	/** Empresa da qual um funcionário do gabinete do político é sócio (QSA, nome completo). */
+	| "EMPRESA_DE_ASSESSOR";
 
 export interface Procedencia {
 	/** Nome legível da fonte (ex.: "Câmara dos Deputados — CEAP"). */
@@ -36,7 +46,10 @@ export interface Fato {
 	/** Estável dentro da investigação: papel + documento + índice da origem. */
 	id: string;
 	papel: Papel;
-	/** Só dígitos: CNPJ (14) ou CPF (11). */
+	/**
+	 * Só dígitos: CNPJ (14) ou CPF (11). Eleito de 2024 (o TSE não publica o CPF):
+	 * `SQ-{sq_candidato}`.
+	 */
 	documento: string;
 	nome: string;
 	valor?: number;

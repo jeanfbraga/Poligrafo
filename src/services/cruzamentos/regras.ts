@@ -43,7 +43,72 @@ export function nomeadoDepoisDaEleicao(doacoes: Fato[], funcoes: Fato[]): { seve
 	return { nota: "A função começou antes da eleição em que doou." };
 }
 
+/** Assessor × doador: a gravidade fica; a nota diz onde ele estava na eleição em que doou. */
+export function momentoDaDoacao(doacoes: Fato[], assessores: Fato[]): { nota: string } | null {
+	const anos = doacoes.map((d) => Number(String(d.data ?? "").slice(0, 4))).filter((a) => a > 2000);
+	const periodos = assessores.map((a) => a.periodo).filter((p): p is NonNullable<Fato["periodo"]> => Boolean(p?.inicio));
+	if (anos.length === 0 || periodos.length === 0) return null;
+	const eleicao = `${Math.min(...anos)}-10-01`;
+	if (periodos.some((p) => dentroDoPeriodo(eleicao, p.inicio, p.fim))) return { nota: "Trabalhava no gabinete na época da eleição em que doou." };
+	if (periodos.every((p) => String(p.inicio) > eleicao)) return { nota: "Entrou no gabinete depois da eleição em que doou." };
+	return { nota: "Tinha saído do gabinete antes da eleição em que doou." };
+}
+
+const AVISO_NOME = "A ligação é pelo nome completo: a casa não publica o CPF do funcionário e o TSE não publica o de quem foi eleito em 2024 (nome único entre os eleitos da UF e presente em um só gabinete). Confira se é a mesma pessoa.";
+
+/** Prefeito e deputado estadual não podem manter cargo em comissão; vereador pode, com horário compatível. */
+export function gravidadeDoMandato(_assessores: Fato[], mandatos: Fato[]): { severidade?: "MEDIA"; nota: string } {
+	const detalhe = mandatos.map((m) => m.detalhe ?? "").join(" ");
+	if (/(^| )(Prefeito|Deputado)/.test(detalhe)) {
+		return { severidade: "MEDIA", nota: `Prefeito e deputado estadual não podem manter outro cargo público durante o mandato (Constituição, arts. 38, II, e 54). ${AVISO_NOME}` };
+	}
+	if (/Vereador/.test(detalhe)) {
+		return { nota: `Vereador pode acumular outro cargo se houver compatibilidade de horário (Constituição, art. 38, III): vale conferir a jornada. ${AVISO_NOME}` };
+	}
+	return { nota: `Vale conferir se o mandato é compatível com a jornada no gabinete. ${AVISO_NOME}` };
+}
+
+/** Empresa de assessor × cota: ALTA só se algum pagamento caiu no período em que ele estava no gabinete. */
+export function pagamentoDuranteVinculo(empresas: Fato[], pagamentos: Fato[]): { severidade?: "MEDIA"; nota: string } | null {
+	const datas = pagamentos.map((p) => dataIso(p.data)).filter((d): d is string => d !== null);
+	const periodos = empresas.map((e) => e.periodo).filter((p): p is NonNullable<Fato["periodo"]> => Boolean(p?.inicio));
+	if (datas.length === 0 || periodos.length === 0) return null;
+	if (datas.some((d) => periodos.some((p) => dentroDoPeriodo(d, p.inicio, p.fim)))) return { nota: "Houve pagamento enquanto o sócio trabalhava no gabinete." };
+	return { severidade: "MEDIA", nota: "Os pagamentos são de fora do período em que o sócio trabalhou no gabinete." };
+}
+
 export const REGRAS: Regra[] = [
+	{
+		id: "assessor-empresa-cota",
+		titulo: "Empresa de funcionário do gabinete paga com a cota do mandato",
+		papeis: ["EMPRESA_DE_ASSESSOR", "FORNECEDOR_COTA"],
+		severidade: "ALTA",
+		porque: "a verba do gabinete pagou empresa da qual um funcionário do próprio gabinete é sócio (nome completo no QSA; a casa não publica o CPF do funcionário)",
+		ajustar: pagamentoDuranteVinculo,
+	},
+	{
+		id: "assessor-empresa-campanha",
+		titulo: "Empresa de funcionário do gabinete prestou serviço à campanha",
+		papeis: ["EMPRESA_DE_ASSESSOR", "FORNECEDOR_CAMPANHA"],
+		severidade: "MEDIA",
+		porque: "a campanha pagou empresa da qual um funcionário do gabinete é sócio (nome completo no QSA; a casa não publica o CPF do funcionário)",
+	},
+	{
+		id: "assessor-doador",
+		titulo: "Funcionário do gabinete doou para a campanha do próprio chefe",
+		papeis: ["DOADOR", "ASSESSOR_DO_GABINETE"],
+		severidade: "MEDIA",
+		porque: "quem trabalha no gabinete do político doou para a campanha dele: é permitido, mas é um dos sinais conferidos em investigações de devolução de salário (\"rachadinha\")",
+		ajustar: momentoDaDoacao,
+	},
+	{
+		id: "assessor-com-mandato",
+		titulo: "Funcionário do gabinete com mandato eletivo no mesmo período",
+		papeis: ["ASSESSOR_DO_GABINETE", "MANDATO_ELETIVO"],
+		severidade: "BAIXA",
+		porque: "quem trabalha no gabinete tem o nome de um eleito da mesma UF com mandato no mesmo período: acúmulo a conferir (sinal de funcionário que pode não cumprir a jornada)",
+		ajustar: gravidadeDoMandato,
+	},
 	{
 		id: "doador-cargo-confianca",
 		titulo: "Doador de campanha com cargo de confiança no governo federal",

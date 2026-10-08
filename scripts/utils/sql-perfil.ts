@@ -36,7 +36,8 @@ export async function executarSqlPerfil(sql: string, fetchFn: typeof fetch = fet
 	return corpo ? JSON.parse(corpo) : null;
 }
 
-function lerSql(argv: string[]): string {
+/** Arquivo salvo pelo PowerShell vem com BOM, e o Postgres recusa o "﻿select". */
+export function lerSql(argv: string[]): string {
 	const valor = (flag: string) => {
 		const i = argv.indexOf(flag);
 		return i >= 0 ? argv[i + 1] : undefined;
@@ -44,7 +45,7 @@ function lerSql(argv: string[]): string {
 	const arquivo = valor("--arquivo");
 	const sql = arquivo ? fs.readFileSync(arquivo, "utf8") : valor("--sql");
 	if (!sql) throw new Error('Use --sql "..." ou --arquivo caminho.sql');
-	return sql;
+	return sql.replace(/^﻿/, "");
 }
 
 async function main() {

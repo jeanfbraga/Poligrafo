@@ -1,7 +1,6 @@
 import { cnpjValido } from "@/lib/documento";
 import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/fornecedor";
 import { buscarSancoesEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
-import { checkNepotismoCMRJ } from "@/services/integrations/cmrj/nepotismo-client";
 import { buscarNomeacoesDOU } from "@/services/integrations/dou/client";
 import { buscarDiariosMunicipais } from "@/services/integrations/dou/queridodiario";
 import { fetchWithTimeout } from "../tse";
@@ -77,137 +76,49 @@ export async function investigarFornecedorNivelHard(cnpj: string) {
 	};
 }
 
-function isPublicacaoNomeacao(tipo: string, titulo: string): boolean {
-	return /nomea[çc]|nomear|portaria/i.test(`${tipo} ${titulo}`);
+/**
+ * Citação do sócio no DOU ou num diário municipal: só CONTEXTO, sem nota. A busca é
+ * pelo nome, em todo o país: pode ser homônimo. Antes, qualquer portaria com o mesmo
+ * nome virava "Nepotismo/Laranja detectado" (nota 90) e o nome igual a um servidor da
+ * CMRJ virava "alerta de nepotismo" (nota 100). Parentesco e vínculo só com prova:
+ * services/cruzamentos (gabinete.ts, socios.ts).
+ */
+export const AVISO_HOMONIMO = "busca pelo nome; pode ser homônimo";
+
+export function citacaoNoDou(pub: any): string {
+	const tipo = pub?.tipoPublicacao || pub?.titulo || "publicação";
+	const orgao = pub?.orgao || "órgão federal";
+	return `[DOU] Publicação com o mesmo nome (${AVISO_HOMONIMO}): ${tipo} — ${orgao}.`;
 }
 
-function formatarMotivoDou(
-	pub: any,
-	ehNomeacao: boolean,
-): { motivo: string; score: number } {
-	const orgao = pub.orgao || "Órgão Federal";
-	if (ehNomeacao) {
-		const assinante = pub.assinante || "autoridade";
-		return {
-			motivo: `[DOU] NOMEAÇÃO EM CARGO COMISSIONADO: ${orgao.toUpperCase()} (Nepotismo/Laranja detectado nas proximidades de ${assinante})`,
-			score: 90,
-		};
-	}
-	const pubTipo = pub.tipoPublicacao || "PUBLICAÇÃO";
-	return {
-		motivo: `[DOU] ATO DE PESSOAL: ${pubTipo.toUpperCase()} NO DIÁRIO OFICIAL DA UNIÃO (${orgao})`,
-		score: 60,
-	};
+export function citacaoNoDiarioMunicipal(gazette: any): string {
+	const cidade = gazette?.territory_name || "município";
+	const primeiro = gazette?.excerpts?.[0];
+	const trecho = typeof primeiro === "string" ? ` Trecho: "${primeiro.substring(0, 150)}..."` : "";
+	return `[QUERIDO DIÁRIO] Citação com o mesmo nome em ${cidade} (${AVISO_HOMONIMO}).${trecho}`;
 }
 
-async function checarDouSocio(
-	nomeSocio: string,
-): Promise<{ motivo: string; score: number }> {
+async function checarDouSocio(nomeSocio: string): Promise<string> {
 	try {
-		const douRes = await buscarNomeacoesDOU(nomeSocio, "ANO");
-		const pub = douRes?.publicacoes?.[0];
-		if (!pub) return { motivo: "", score: 0 };
-
-		const ehNomeacao = isPublicacaoNomeacao(
-			pub.tipoPublicacao || "",
-			pub.titulo || "",
-		);
-		return formatarMotivoDou(pub, ehNomeacao);
+		const pub = (await buscarNomeacoesDOU(nomeSocio, "ANO"))?.publicacoes?.[0];
+		return pub ? citacaoNoDou(pub) : "";
 	} catch {
-		return { motivo: "", score: 0 };
+		return "";
 	}
 }
 
-function isTrechoNomeacaoOuContrato(trecho: string): boolean {
-	return /nomea[çc]|contrat|portaria/i.test(trecho);
-}
-
-function extrairTrechoGazette(gazette: any): string {
-	const primeiro = gazette.excerpts?.[0];
-	return typeof primeiro === "string" ? primeiro.substring(0, 150) : "";
-}
-
-function formatarResultadoDiario(
-	gazette: any,
-	trecho: string,
-	isNomeacao: boolean,
-	scoreAtual: number,
-	motivoAtual: string,
-): { motivo: string; score: number } {
-	const cidade = gazette.territory_name || "Município";
-	if (isNomeacao) {
-		return {
-			motivo: `[QUERIDO DIÁRIO] CITAÇÃO MUNICIPAL (${cidade}): Possível nomeação ou contrato nas proximidades de autoridade. Excerto: "${trecho}..."`,
-			score: Math.max(scoreAtual, 85),
-		};
-	}
-	if (!motivoAtual) {
-		return {
-			motivo: `[QUERIDO DIÁRIO] CITAÇÃO MUNICIPAL (${cidade}. Excerto: "${trecho}..."`,
-			score: 40,
-		};
-	}
-	return { motivo: motivoAtual, score: scoreAtual };
-}
-
-async function checarDiariosMunicipaisSocio(
-	nomeSocio: string,
-	scoreAtual: number,
-	motivoAtual: string,
-): Promise<{ motivo: string; score: number }> {
+async function checarDiariosMunicipaisSocio(nomeSocio: string): Promise<string> {
 	try {
-		const qdRes = await buscarDiariosMunicipais({
-			termo: nomeSocio,
-			size: 3,
-			timeout: 6000,
-		});
-		const gazette = qdRes?.gazettes?.[0];
-		if (!gazette) return { motivo: motivoAtual, score: scoreAtual };
-
-		const trecho = extrairTrechoGazette(gazette);
-		const isNomeacao = isTrechoNomeacaoOuContrato(trecho);
-		return formatarResultadoDiario(
-			gazette,
-			trecho,
-			isNomeacao,
-			scoreAtual,
-			motivoAtual,
-		);
+		const gazette = (await buscarDiariosMunicipais({ termo: nomeSocio, size: 3, timeout: 6000 }))?.gazettes?.[0];
+		return gazette ? citacaoNoDiarioMunicipal(gazette) : "";
 	} catch {
-		return { motivo: motivoAtual, score: scoreAtual };
+		return "";
 	}
 }
 
-async function checarNepotismoCmrjSocio(
-	nomeSocio: string,
-): Promise<{ motivo: string; score: number } | null> {
-	try {
-		const nepoMatch = await checkNepotismoCMRJ(nomeSocio);
-		if (nepoMatch) {
-			const lotacaoStr = nepoMatch.lotacao || "Lotação N/I";
-			const cargoStr = nepoMatch.cargo || nepoMatch.vinculo || "Cargo N/I";
-			return {
-				motivo: `🚨 [ALERTA DE NEPOTISMO] O sócio da empresa do investigado (${nomeSocio}) está na Folha de Pagamento da Câmara Municipal do Rio (CMRJ)! Lotação: ${lotacaoStr} - Cargo: ${cargoStr}.`,
-				score: 100,
-			};
-		}
-	} catch {}
-	return null;
-}
-
-async function analisarSocio(
-	nomeSocio: string,
-): Promise<{ motivo?: string; score: number }> {
-	const dou = await checarDouSocio(nomeSocio);
-	const qd = await checarDiariosMunicipaisSocio(nomeSocio, dou.score, dou.motivo);
-	const nepo = await checarNepotismoCmrjSocio(nomeSocio);
-	if (nepo) {
-		return nepo;
-	}
-	return {
-		motivo: qd.motivo || undefined,
-		score: qd.score,
-	};
+async function analisarSocio(nomeSocio: string): Promise<{ motivo?: string }> {
+	const [dou, diario] = await Promise.all([checarDouSocio(nomeSocio), checarDiariosMunicipaisSocio(nomeSocio)]);
+	return { motivo: [dou, diario].filter(Boolean).join(" ") || undefined };
 }
 
 function emitirNodeEmpresa(
@@ -245,11 +156,11 @@ async function processarListaSocios(
 			id: `socio-${docLimpo}-${i}`,
 			type: "SOCIO",
 			_origemId: pessoaId,
+			// Sem nota: a citação por nome é contexto (pode ser homônimo).
 			data: {
 				label: socio.nome_socio || "Sócio",
 				cargo: socio.qualificacao_socio || "Sócio",
 				motivo_ia: analise.motivo,
-				score_letalidade: analise.score,
 			},
 		});
 	}

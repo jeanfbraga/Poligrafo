@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { executarSqlPerfil, refDoProjeto } from "../../scripts/utils/sql-perfil";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { executarSqlPerfil, lerSql, refDoProjeto } from "../../scripts/utils/sql-perfil";
 
 describe("SQL no Banco de Perfil (API de gestão do Supabase)", () => {
 	afterEach(() => vi.unstubAllEnvs());
@@ -19,6 +22,15 @@ describe("SQL no Banco de Perfil (API de gestão do Supabase)", () => {
 		expect(url).not.toContain("token-de-teste");
 		expect((init.headers as Record<string, string>).Authorization).toBe("Bearer token-de-teste");
 		expect(JSON.parse(String(init.body))).toEqual({ query: "select 1 as n" });
+	});
+
+	it("arquivo salvo com BOM (PowerShell) chega ao banco sem o BOM", () => {
+		const pasta = fs.mkdtempSync(path.join(os.tmpdir(), "sql-perfil-"));
+		const arquivo = path.join(pasta, "consulta.sql");
+		fs.writeFileSync(arquivo, "﻿select 1;", "utf8");
+		expect(lerSql(["--arquivo", arquivo])).toBe("select 1;");
+		expect(lerSql(["--sql", "select 2"])).toBe("select 2");
+		fs.rmSync(pasta, { recursive: true, force: true });
 	});
 
 	it("erro do banco vira mensagem com o status; sem token nem tenta", async () => {

@@ -22,14 +22,17 @@ import {
 	type NoGrafo,
 	semFatoRepetido,
 } from "./adaptadores";
+import { carregarGabinete } from "@/services/integrations/gabinete/pessoal";
 import { type ExplicacaoAchado, explicarAchados } from "./explicacao-ia";
-import { executarCruzamentos } from "./motor";
+import { type AlvoGabinete, type DadosGabinete, fatosDoGabinete, pessoasDoGabinete } from "./gabinete";
+import { documentoLegivel, executarCruzamentos } from "./motor";
 import { fatosDeSancoes } from "./sancoes";
 import { fatosDeServidores } from "./servidores";
-import { fatosDeSocios, type Politico } from "./socios";
+import { fatosDeSocios, LIMITE_QSA, type Politico } from "./socios";
 import type { FuncaoComissionada } from "@/services/integrations/transparencia/servidores";
 import type { Achado, Fato, Severidade } from "./tipos";
 
+export { alvoDoGabinete } from "./gabinete";
 export type { Achado, Fato } from "./tipos";
 
 export interface EntradaCruzamentos {
@@ -53,6 +56,9 @@ export interface EntradaCruzamentos {
 	buscarContas?: (sq: string | null | undefined) => Promise<ContasCampanha | null>;
 	buscarQsa?: (cnpj: string) => Promise<EmpresaQsa | null>;
 	buscarFuncoes?: (cpf: string) => Promise<FuncaoComissionada[]>;
+	/** Gabinete do próprio político (Câmara ou CMRJ); `alvoDoGabinete` decide. Outras casas: null. */
+	gabinete?: AlvoGabinete | null;
+	carregarGabinete?: (alvo: AlvoGabinete) => Promise<DadosGabinete | null>;
 	/** IA que só explica (padrão: gateway gratuito); injetável nos testes. */
 	explicar?: (nos: ReturnType<typeof achadoParaNo>[]) => Promise<ExplicacaoAchado[]>;
 }
@@ -76,17 +82,27 @@ function fatosColetados(e: EntradaCruzamentos, contas: ContasCampanha | null, co
 	]));
 }
 
-export async function cruzarDadosDaInvestigacao(e: EntradaCruzamentos): Promise<{ fatos: Fato[]; achados: Achado[] }> {
+async function gabineteDoAlvo(e: EntradaCruzamentos): Promise<DadosGabinete | null> {
+	if (!e.gabinete) return null;
+	return (e.carregarGabinete ?? carregarGabinete)(e.gabinete).catch(() => null);
+}
+
+export async function cruzarDadosDaInvestigacao(e: EntradaCruzamentos): Promise<{ fatos: Fato[]; achados: Achado[]; gabinete: DadosGabinete | null }> {
 	const coletadoEm = (e.agora?.() ?? new Date()).toISOString();
-	const contas = await (e.buscarContas ?? buscarContasCampanha)(e.sqCandidato).catch(() => null);
+	const [contas, gabinete] = await Promise.all([
+		(e.buscarContas ?? buscarContasCampanha)(e.sqCandidato).catch(() => null),
+		gabineteDoAlvo(e),
+	]);
 	const base = fatosColetados(e, contas, coletadoEm);
+	const doGabinete = gabinete ? fatosDoGabinete(gabinete, base, coletadoEm) : [];
+	const pessoas = gabinete ? pessoasDoGabinete(gabinete.assessores) : [];
 	const [sancoes, socios, servidores] = await Promise.all([
 		fatosDeSancoes(base, coletadoEm, e.buscarSancoes),
-		fatosDeSocios(base, e.politico ?? null, coletadoEm, e.buscarQsa),
+		fatosDeSocios(base, e.politico ?? null, coletadoEm, e.buscarQsa, LIMITE_QSA, pessoas),
 		fatosDeServidores(base, coletadoEm, e.buscarFuncoes),
 	]);
-	const fatos = completarNomes([...base, ...sancoes, ...socios, ...servidores]);
-	return { fatos, achados: executarCruzamentos(fatos) };
+	const fatos = completarNomes([...base, ...doGabinete, ...sancoes, ...socios, ...servidores]);
+	return { fatos, achados: executarCruzamentos(fatos), gabinete };
 }
 
 /** Severidade → nota no padrão do dossiê (lib/investigacao/risco.ts: ≥85 crítico, ≥60 atenção). */
@@ -127,7 +143,10 @@ async function explicarComIA(
 export async function emitirCruzamentos(e: EntradaCruzamentos, sendEvent: Emissor): Promise<Achado[]> {
 	try {
 		sendEvent("STATUS", { msg: "Cruzando doadores, empresas, cota, contratos e sanções (regras fixas, sem IA)..." });
-		const { fatos, achados } = await cruzarDadosDaInvestigacao(e);
+		const { fatos, achados, gabinete } = await cruzarDadosDaInvestigacao(e);
+		if (gabinete) {
+			sendEvent("STATUS", { msg: `[GABINETE] ${pessoasDoGabinete(gabinete.assessores).length} pessoa(s) do gabinete (${gabinete.fonte}) conferidas com os doadores da campanha, os sócios dos fornecedores e os eleitos da UF.` });
+		}
 		const nos = achados.map((achado) => achadoParaNo(achado, fatos, e.pessoaId));
 		for (const no of nos) sendEvent("NODE_NOVO", no);
 		sendEvent("STATUS", {
@@ -156,7 +175,7 @@ export function achadoParaNo(achado: Achado, fatos: Fato[], pessoaId: string) {
 			label: achado.titulo,
 			regra: achado.regra,
 			severidade: achado.severidade,
-			documento: documentoParaPrompt(achado.documento),
+			documento: documentoLegivel(achado.documento),
 			nome: achado.nome,
 			somenteRaiz: achado.somenteRaiz,
 			score_letalidade: NOTA_SEVERIDADE[achado.severidade],

@@ -8,16 +8,14 @@ import { perfilDaCasa } from "@/services/core/alcada";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
 import { nomesDeReferencia, verificarEmpresaDoPolitico } from "@/services/core/socio-confirmacao";
-import { emitirCruzamentos } from "@/services/cruzamentos";
+import { alvoDoGabinete, emitirCruzamentos } from "@/services/cruzamentos";
 import { coletarContratosDoEnte, emitirColetaDoEnte } from "@/services/core/contratos-do-ente";
 import { despesasAlerjParaOPipe } from "@/services/integrations/alerj/despesas-base";
 import { despesasDaAssembleia } from "@/services/integrations/assembleias/despesas";
 import { cruzarDoadoresComContratosPublicos } from "@/services/core/doadores-contratos";
 import { normalizarDespesa, nosDeContratosDoEnte, separarPorNatureza } from "@/services/core/despesa-normalizada";
 import { cpfValido, documentoValido } from "@/lib/documento";
-import { checkNepotismoCamara } from "@/services/integrations/camara/nepotismo-client";
 import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
-import { checkNepotismoCMRJ } from "@/services/integrations/cmrj/nepotismo-client";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
 import {
 	analisarEmendasComInteligencia,
@@ -2018,110 +2016,6 @@ export async function executarInvestigacaoPrincipal(params: any) {
 					// Consolidar alertas com a IA
 					if (d.motivo_ia)
 						alertasFinais.unshift(`[POLÍGRAFO IA]: ${d.motivo_ia}`);
-
-					// ==========================================
-					// [NOVO] DETECÇÃO DE NEPOTISMO (CMRJ)
-					// ==========================================
-					if (
-						deputadoBasico.casa === "CAMARA_MUNICIPAL_RJ" &&
-						hardData.socios &&
-						Array.isArray(hardData.socios)
-					) {
-						sendEvent("STATUS", {
-							msg: `[OSINT] Cruzando Malha Societária de ${d.cnpjCpfFornecedor} com a folha de pagamento da CMRJ...`,
-						});
-						for (const socio of hardData.socios) {
-							const nomeSocio =
-								typeof socio === "string"
-									? socio
-									: (socio as any).nome || (socio as any).nome_socio;
-							if (nomeSocio) {
-								const nepotismoMatch = await checkNepotismoCMRJ(nomeSocio);
-								if (nepotismoMatch) {
-									const lotacaoStr =
-										nepotismoMatch.lotacao || "Local Desconhecido";
-									const cargoStr =
-										nepotismoMatch.cargo ||
-										nepotismoMatch.vinculo ||
-										"Cargo Desconhecido";
-
-									// Adiciona o Alerta Crítico
-									alertasFinais.unshift(
-										`🚨 [ALERTA DE NEPOTISMO]: O sócio '${nomeSocio}' atua na CMRJ! Lotação: ${lotacaoStr} | Cargo: ${cargoStr}`,
-									);
-									finalScore = 100; // Letalidade Máxima
-
-									// Gera um Nodo exclusivo no Canvas para materializar a fraude
-									const nepotismoNode = {
-										id: `nepotismo-${nomeSocio.replace(/\s+/g, "-")}-${Date.now()}`,
-										type: "EMPRESA" as const,
-										_origemId: pessoaId,
-										data: {
-											label: "NOMEAÇÃO EM GABINETE PARLAMENTAR",
-											valor: 0,
-											tipo: "CONFLITO DE INTERESSE (POSSÍVEL NEPOTISMO)",
-											dataDocumento:
-												nepotismoMatch.data_ingresso ||
-												String(new Date().getFullYear()),
-											score_letalidade: 100,
-											motivo_ia: `O sócio '${nomeSocio}' da empresa fornecedora (${d.cnpjCpfFornecedor}) possui vínculo empregatício na Câmara Municipal do Rio de Janeiro. Lotação atual: ${lotacaoStr}.`,
-										},
-									};
-									malhaOsintBuffer.push(nepotismoNode);
-									supabaseNodes.push(nepotismoNode);
-									sendEvent("NODE_NOVO", nepotismoNode);
-								}
-							}
-						}
-					}
-
-					// Auditoria de Nepotismo Federal (Câmara dos Deputados)
-					if (
-						deputadoBasico.casa === "CAMARA" &&
-						hardData.socios &&
-						Array.isArray(hardData.socios)
-					) {
-						for (const socio of hardData.socios) {
-							const nomeSocio =
-								typeof socio === "string"
-									? socio
-									: (socio as any).nome || (socio as any).nome_socio;
-							if (nomeSocio) {
-								const nepotismoCamaraMatch = await checkNepotismoCamara(
-									nomeSocio,
-									Number(deputadoBasico.id) || undefined,
-								);
-								if (nepotismoCamaraMatch) {
-									const vinculoTexto =
-										nepotismoCamaraMatch.tipoVinculo === "GABINETE_DIRETO"
-											? "GABINETE DIRETO DO PARLAMENTAR"
-											: "CÂMARA DOS DEPUTADOS";
-
-									alertasFinais.unshift(
-										`🚨 [ALERTA DE NEPOTISMO FEDERAL]: O sócio '${nomeSocio}' atua como ${nepotismoCamaraMatch.cargo} (${vinculoTexto})!`,
-									);
-									finalScore = 100; // Letalidade Máxima
-
-									const nepotismoNode = {
-										id: `nepotismo-camara-${nomeSocio.replace(/\s+/g, "-")}-${Date.now()}`,
-										type: "EMPRESA" as const,
-										_origemId: pessoaId,
-										data: {
-											label: "ASSESSOR DE GABINETE / SÓCIO DE FORNECEDOR",
-											valor: 0,
-											tipo: "CONFLITO DE INTERESSE / NEPOTISMO FEDERAL",
-											dataDocumento: String(new Date().getFullYear()),
-											score_letalidade: 100,
-											motivo_ia: `O sócio '${nomeSocio}' da empresa fornecedora (${d.cnpjCpfFornecedor}) consta na folha de pagamento da Câmara dos Deputados como '${nepotismoCamaraMatch.cargo}' (${vinculoTexto}).`,
-										},
-									};
-									malhaOsintBuffer.push(nepotismoNode);
-									supabaseNodes.push(nepotismoNode);
-									sendEvent("NODE_NOVO", nepotismoNode);
-								}
-							}
-						}
-					}
 				} else {
 					// Gastos corriqueiros recebem apenas a resenha da IA e capital indisponível
 					if (d.motivo_ia)
@@ -2349,6 +2243,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				pessoaId, casa: String(deputadoBasico.casa), doadores, empresasDoPolitico: empresasRelacionadasCNPJs, despesasMandato: despesasCruas, nos: supabaseNodes, contratosDoEnte,
 				sqCandidato: identidade.sqCandidato,
 				politico: { nomes: nomesDeReferencia([deputadoBasico.nome, detalhes?.nomeCivil, eleitoDaRef?.nm_candidato]), cpf: identidade.cpf },
+				// Funcionários do gabinete (Câmara/CMRJ) × doadores, sócios de fornecedores e eleitos: cruzamentos/gabinete.ts
+				gabinete: alvoDoGabinete(deputadoBasico),
 			},
 			sendEvent,
 		);

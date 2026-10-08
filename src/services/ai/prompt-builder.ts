@@ -341,9 +341,9 @@ TIPOLOGIAS:
 - Se projeto de lei contextual beneficiar setor econômico do doador/empresa da malha, aumente o score do nó principal e cite o projeto.
 
 5. CONTRATAÇÃO DE FAMILIARES E NEPOTISMO CRUZADO (Súmula Vinculante 13 / STF)
-- Identificação de empresas pertencentes a parentes, assessores ou sócios do parlamentar recebendo recursos da Cota Parlamentar.
-- Fundamento Legal: Fere a Súmula Vinculante 13 do STF e os princípios constitucionais da Impessoalidade e Moralidade (Art. 37, CF). Em gastos de cota, a simulação de serviços por empresas do próprio círculo familiar configura indício de lavagem de dinheiro e Peculato-Desvio.
-- Score sugerido: 95 a 100 (INDÍCIO PENAL RELEVANTE).
+- Só se aplica quando o próprio dado prova o vínculo: nó ACHADO de regra (empresa do político, empresa de funcionário do gabinete) ou documento que declare o parentesco.
+- Fundamento Legal: Súmula Vinculante 13 do STF e princípios da Impessoalidade e Moralidade (Art. 37, CF).
+- Nome ou sobrenome parecido, ou citação com o mesmo nome em diário oficial, NÃO prova vínculo (pode ser homônimo): não aumente o score por isso.
 
 REGRAS:
 - Não inferir parentesco apenas por sobrenome, salvo se o próprio dado indicar vínculo.
