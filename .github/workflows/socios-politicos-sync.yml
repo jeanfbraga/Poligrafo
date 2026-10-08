@@ -1,0 +1,47 @@
+name: Sync Sócios dos Políticos (Banco de Perfil)
+
+# Empresas em que um eleito (tse_eleitos com CPF) é sócio, pelo arquivo aberto de CNPJ
+# da Receita (compartilhamento "CNPJ - SERPRO+", pasta mensal mais recente): nome
+# completo + 6 dígitos do meio do CPF. Tabela socios_politicos no BANCO DE PERFIL.
+# Baixa ~2 GB (Socios e Empresas); cada zip é apagado depois de lido.
+# Pré-requisito: scripts/sql/migracao_perfil_socios_politicos.sql.
+
+on:
+  schedule:
+    - cron: '0 6 20 * *' # dia 20 de cada mês, 06:00 UTC (a Receita publica a pasta do mês por volta do dia 15)
+  workflow_dispatch:
+    inputs:
+      mes:
+        description: 'Pasta da Receita (AAAA-MM). Vazio = a mais recente.'
+        required: false
+        default: ''
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Sócios dos Políticos Sync
+        env:
+          NEXT_PUBLIC_SUPABASE_PERFIL_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_PERFIL_URL }}
+          SUPABASE_PERFIL_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PERFIL_SERVICE_ROLE_KEY }}
+          MES: ${{ github.event.inputs.mes }}
+        run: |
+          if [ -n "$MES" ]; then
+            npm run sync:socios-politicos -- --mes "$MES"
+          else
+            npm run sync:socios-politicos
+          fi

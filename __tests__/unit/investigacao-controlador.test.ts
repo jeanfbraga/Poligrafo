@@ -194,6 +194,19 @@ describe("controlador — pivôs", () => {
 		expect(s.pivotando).toBe(false);
 	});
 
+	it("empresa declarada sem CNPJ: pivô pelo nome, levando o nome civil do político para conferir o QSA", async () => {
+		const fetchFn = fetchSse(bloco("DONE", {}));
+		const { store, c } = comPessoa(fetchFn);
+		store.dispatch({ t: "PIVO_CNPJ", node: { id: "p1", type: "PESSOA", position: { x: 0, y: 0 }, data: { label: "Flávio Bolsonaro", nomeCivil: "FLAVIO NANTES BOLSONARO" } } });
+		await c.pivotarCnpj("Bolsotini Chocolates e Café LTDA", "empresa-tse-p1-2018-0");
+		const url = new URL(String((fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][0]), "http://x");
+		expect(url.pathname).toBe("/api/investigar/cnpj");
+		expect(url.searchParams.get("nome")).toBe("Bolsotini Chocolates e Café LTDA");
+		expect(url.searchParams.get("cnpj")).toBeNull();
+		expect(url.searchParams.getAll("socio")).toEqual(["FLAVIO NANTES BOLSONARO", "Flávio Bolsonaro"]);
+		expect(url.searchParams.get("origemId")).toBe("empresa-tse-p1-2018-0");
+	});
+
 	it("não aprofunda enquanto a investigação principal roda", async () => {
 		const { store, notificar, c } = comPessoa(fetchSse(bloco("DONE", {})));
 		store.dispatch({ t: "RESTAURAR", alvo: { nome: "A" }, inicio: 1, fim: null, dossie: { ...store.getState().dossie, status: "running" } });
@@ -264,6 +277,12 @@ describe("store — persistência e comparação de alvo", () => {
 		const p = desserializar(raw)!;
 		expect(p.dossie.nodes.map((n) => n.id)).toEqual(["p"]);
 		expect(p.dossie.evidencias.map((n) => n.id)).toEqual(["d"]);
+	});
+
+	it("desserializar mantém o Raio-X de Gastos do vereador (RESUMO_GASTOS)", () => {
+		const no = (id: string, type: string) => ({ id, type, position: { x: 0, y: 0 }, data: {} });
+		const raw = JSON.stringify({ alvo: { nome: "A" }, inicio: 1, fim: 2, dossie: { ...STORE_INICIAL.dossie, status: "done", nodes: [no("p", "PESSOA"), no("rx", "RESUMO_GASTOS")] } });
+		expect(desserializar(raw)!.dossie.nodes.map((n) => n.id)).toEqual(["p", "rx"]);
 	});
 
 	it("desserializar tolera lixo", () => {

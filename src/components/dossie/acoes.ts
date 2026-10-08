@@ -1,8 +1,9 @@
 /* ==========================================================================
    Ações do inspetor por tipo de nó — lógica pura (sem React).
    Regras herdadas do antigo painel lateral do page.tsx:
-   - Pivô por CNPJ só com documento de 14 dígitos e fora de empresas de campanha.
-   - Mapa/endereço só para CNPJ (> 11 dígitos) fora de campanha.
+   - Pivô por CNPJ só com documento de 14 dígitos e fora de empresas de campanha;
+     empresa sem CNPJ (declarada ao TSE) pivota pelo nome, conferindo o político no QSA.
+   - Mapa/endereço para CNPJ (> 11 dígitos) ou empresa com nome, fora de campanha.
    - Busca reversa só para sócio.
    - "Ir para o perfil" só para deputado federal com id canônico.
    ========================================================================== */

@@ -34,6 +34,7 @@ skills-lock.json
 # Temporary data downloads
 .tmp_ceap/
 .tmp_tse/
+.tmp_receita/
 .tmp_debug/
 mcp-brasil/
 .sandbox/

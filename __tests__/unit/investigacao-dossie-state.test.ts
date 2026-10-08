@@ -188,6 +188,14 @@ describe("NODE_NOVO — roteamento", () => {
 		expect(s.evidencias).toHaveLength(0);
 	});
 
+	it("Raio-X de Gastos do vereador (RESUMO_GASTOS) continua no canvas", () => {
+		// Em 08/10/2026 a limpeza do nó agregador de cotas passou a descartar todo RESUMO_GASTOS.
+		let s = aplicarEvento(rodando(), ev("NODE_NOVO", pessoa()));
+		s = aplicarEvento(s, ev("NODE_NOVO", { id: "dashboard-cota-cmrj-1", type: "RESUMO_GASTOS", _origemId: "pessoa-1", data: { label: "Raio-X de Gastos", nomeVereador: "Fulano", score_letalidade: 0 } }));
+		expect(s.nodes.map((n) => n.id)).toContain("dashboard-cota-cmrj-1");
+		expect(s.edges.find((e) => e.target === "dashboard-cota-cmrj-1")?.source).toBe("pessoa-1");
+	});
+
 	it("o mesmo id mescla os dados em vez de duplicar", () => {
 		let s = aplicarEvento(rodando(), ev("NODE_NOVO", pessoa()));
 		s = aplicarEvento(s, ev("NODE_NOVO", { id: "emp-1", type: "EMPRESA", data: { label: "A" } }));
@@ -370,6 +378,22 @@ describe("pivôs", () => {
 		const s0 = aplicarEvento(rodando(), ev("NODE_NOVO", { ...pessoa(), data: { label: "A", nomeCivil: "Alice Monteiro Barbosa" } }));
 		const s = aplicarNoDoPivoCnpj(s0, { id: "s1", type: "SOCIO", data: { label: "Rui Barbosa", _origemId: "emp-1" } } as DossieNode);
 		expect(s.edges.find((e) => e.target === "s1")?.label).toBe("ALERTA: POSSÍVEL PARENTESCO");
+	});
+
+	it("o próprio investigado no QSA não vira 'possível parentesco' com ele mesmo", () => {
+		const s0 = aplicarEvento(rodando(), ev("NODE_NOVO", { ...pessoa(), data: { label: "Flávio Bolsonaro", nomeCivil: "FLAVIO NANTES BOLSONARO" } }));
+		const s = aplicarNoDoPivoCnpj(s0, { id: "s1", type: "SOCIO", data: { label: "FLÁVIO NANTES BOLSONARO", _origemId: "emp-1" } } as DossieNode);
+		expect(s.edges.find((e) => e.target === "s1")?.label).toBe("SÓCIO (QSA): O PRÓPRIO INVESTIGADO");
+	});
+
+	it("drilldown da empresa declarada atualiza o próprio nó (mesmo id), sem aresta para si mesmo", () => {
+		const s0 = aplicarEvento(rodando(), ev("NODE_NOVO", pessoa()));
+		const s1 = aplicarEvento(s0, ev("NODE_NOVO", { id: "empresa-tse-pessoa-1-2018-0", type: "EMPRESA", data: { label: "Bolsotini", motivo_ia: "declarada" } }));
+		const s = aplicarNoDoPivoCnpj(s1, { id: "empresa-tse-pessoa-1-2018-0", type: "EMPRESA", data: { label: "BOLSOTINI LTDA", cnpj: "21.636.316/0001-44", _origemId: "empresa-tse-pessoa-1-2018-0" } } as DossieNode);
+		const no = s.nodes.filter((n) => n.id === "empresa-tse-pessoa-1-2018-0");
+		expect(no).toHaveLength(1);
+		expect(no[0].data).toMatchObject({ cnpj: "21.636.316/0001-44", motivo_ia: "declarada" });
+		expect(s.edges.some((e) => e.source === e.target)).toBe(false);
 	});
 
 	it("pivô por CNPJ de outro tipo vira FORNECEDOR", () => {

@@ -204,15 +204,26 @@ export function criarControlador(deps: DependenciasControlador): Controlador {
 
 	const nodeDe = (ev: SseEvent): DossieNode => ({ position: { x: 0, y: 0 }, ...ev.payload });
 
-	async function pivotarCnpj(cnpj: string, origemId: string) {
-		const url = `/api/investigar/cnpj?cnpj=${encodeURIComponent(cnpj)}&origemId=${encodeURIComponent(origemId)}`;
+	/** Empresa declarada sem CNPJ: o servidor acha o CNPJ pelo nome e confere o político no QSA. */
+	function urlPivoPorNome(nomeEmpresa: string, origemId: string): string {
+		const pessoa = store.getState().dossie.nodes.find((n) => n.type === "PESSOA")?.data ?? {};
+		const q = new URLSearchParams({ nome: nomeEmpresa, origemId });
+		for (const s of new Set([pessoa.nomeCivil, pessoa.label].filter(Boolean).map(String))) q.append("socio", s);
+		return `/api/investigar/cnpj?${q.toString()}`;
+	}
+
+	async function pivotarCnpj(cnpjOuNome: string, origemId: string) {
+		const porNome = /[a-zA-Z]/.test(cnpjOuNome);
+		const url = porNome
+			? urlPivoPorNome(cnpjOuNome, origemId)
+			: `/api/investigar/cnpj?cnpj=${encodeURIComponent(cnpjOuNome)}&origemId=${encodeURIComponent(origemId)}`;
 		await executarPivo(
 			url,
 			origemId,
 			(ev) => {
 				if (ev.tipo === "NODE_NOVO") store.dispatch({ t: "PIVO_CNPJ", node: nodeDe(ev) });
 			},
-			`Quebrando sigilo societário do CNPJ ${cnpj}...`,
+			porNome ? `Procurando o CNPJ de ${cnpjOuNome}...` : `Quebrando sigilo societário do CNPJ ${cnpjOuNome}...`,
 		);
 	}
 

@@ -1,6 +1,6 @@
 import { analyzeGraphNetwork } from "@/lib/graph-analysis";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { podeLerCachePesquisas } from "@/lib/cache-pesquisas";
+import { chaveCachePesquisa, lerCachePesquisa, podeLerCachePesquisas } from "@/lib/cache-pesquisas";
 import { ColecaoNos, envolverEmissor } from "@/services/core/colecao-nos";
 import { redirecionarEtapasPara, reemitirEtapasDoCache } from "@/services/core/etapas-ao-vivo";
 import { buscarCandidatos } from "@/services/core/busca-candidatos";
@@ -18,7 +18,7 @@ import { despesasDaAssembleia } from "@/services/integrations/assembleias/despes
 import { cruzarDoadoresComContratosPublicos } from "@/services/core/doadores-contratos";
 import { normalizarDespesa, nosDeContratosDoEnte, separarPorNatureza } from "@/services/core/despesa-normalizada";
 import { cpfValido, documentoValido } from "@/lib/documento";
-import { documentoFormatado } from "@/lib/format";
+import { declaracoesDoPolitico, nosDasEmpresasDeclaradas } from "@/services/core/empresas-declaradas";
 import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
 import {
@@ -124,49 +124,6 @@ async function resolverNomeCivilReidratacao(data: any): Promise<string | undefin
 		}
 	}
 	return data.nomeCivil || undefined;
-}
-
-function extrairEmpresaDeDescricaoBem(descricao: string): string | null {
-	if (!descricao) return null;
-	let limpo = descricao.replace(/^[\d,.]*%\s*/i, "");
-	limpo = limpo.replace(/^(?:participa[çc][ãa]o|quotas?|quinh[õo]es?|capital|a[çc][õo]es?)\s+(?:de|da|do|na|no|em)?\s*/i, "");
-	limpo = limpo.replace(/^(?:empresa|sociedade)\s+/i, "");
-	limpo = limpo.replace(/[-–—]\s*(?:cnp|valor|quota).*$/i, "");
-	const res = limpo.trim();
-	return res.length > 3 ? res : null;
-}
-
-function ehTipoParticipacaoSocietaria(tipoBem: string, descBem: string): boolean {
-	const texto = `${tipoBem} ${descBem}`.toLowerCase();
-	return /quota|quinh[ãa]o|capital|a[çc][ãa]o|participa[çc][ãa]o|\b(?:ltda|s\/a|eireli|empresa)\b/.test(texto);
-}
-
-function extrairNodeEmpresaDoBem(bem: any, pessoaId: string, idx: number, cnpjResolvido?: string) {
-	const tipoBem = String(bem?.descricaoDeTipoDeBem || "");
-	const descBem = String(bem?.descricao || "").trim();
-	if (descBem.length <= 3 || !ehTipoParticipacaoSocietaria(tipoBem, descBem)) {
-		return null;
-	}
-
-	const nomeEmpresa = extrairEmpresaDeDescricaoBem(descBem) || descBem;
-	const cnpjRegex = /\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/;
-	const mCnpj = descBem.match(cnpjRegex);
-	const cnpjBruto = cnpjResolvido || (mCnpj ? mCnpj[0] : undefined);
-	const cnpj = cnpjBruto ? documentoFormatado(cnpjBruto) : undefined;
-
-	return {
-		id: `empresa-tse-${pessoaId}-${idx}`,
-		type: "EMPRESA" as const,
-		_origemId: pessoaId,
-		data: {
-			label: nomeEmpresa,
-			cnpj,
-			valor: Number(bem?.valor) || 0,
-			tipo: bem?.descricaoDeTipoDeBem || "Participação Societária (TSE)",
-			motivo_ia: `Participação societária oficial declarada pelo parlamentar à Justiça Eleitoral: ${descBem}`,
-			score_letalidade: 40,
-		},
-	};
 }
 
 async function buscarBensPorNomesCandidato(nomes: (string | undefined)[]): Promise<any[]> {
@@ -419,31 +376,12 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			// TENTATIVA DE CACHE HIT (SUPABASE)
 			// ==========================================
 			const isDev = process.env.NODE_ENV === "development";
-			const refEfetiva = refParam || forceRef;
-			const chaveCacheDeLeitura = refEfetiva
-				? `${nomeParaBusca}_${refEfetiva}`
-				: nomeParaBusca;
+			const chaveCacheDeLeitura = chaveCachePesquisa(nomeParaBusca, refParam || forceRef);
 			try {
 				if (podeLerCachePesquisas()) {
 					const limiteCache24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-					let query = supabaseAdmin
-						.from("pesquisas")
-						.select("grafo_dados")
-						.gte("atualizado_em", limiteCache24h)
-						.order("atualizado_em", {
-							ascending: false,
-						})
-						.limit(1);
-
-					if (refEfetiva) {
-						query = query.or(`termo_busca.eq."${chaveCacheDeLeitura}",termo_busca.ilike."%_${refEfetiva}"`);
-					} else {
-						query = query.eq("termo_busca", chaveCacheDeLeitura);
-					}
-
-					const { data: cacheData, error: cacheErr } = await query.maybeSingle();
+					const cacheData = await lerCachePesquisa(supabaseAdmin as never, chaveCacheDeLeitura, refParam || forceRef, limiteCache24h);
 					if (
-						!cacheErr &&
 						cacheData &&
 						cacheData.grafo_dados &&
 						cacheData.grafo_dados.nodes &&
@@ -752,41 +690,24 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		sendEvent("NODE_NOVO", pessoaNodePayload);
 		supabaseNodes.push(pessoaNodePayload);
 
-		// Emissão de nós de empresas societárias declaradas pelo político nos bens do TSE
-		const bensParaAnalise = pessoaNodePayload.data?.bensDeclarados || [];
-		if (Array.isArray(bensParaAnalise)) {
-			for (let idx = 0; idx < bensParaAnalise.length; idx++) {
-				const bem = bensParaAnalise[idx];
-				const tipoBem = String(bem?.descricaoDeTipoDeBem || "");
-				const descBem = String(bem?.descricao || "").trim();
-				let cnpjResolvido: string | undefined = undefined;
-
-				if (ehTipoParticipacaoSocietaria(tipoBem, descBem)) {
-					const nome = extrairEmpresaDeDescricaoBem(descBem) || descBem;
-					try {
-						const { resolverCnpjPorNomeEmpresa } = await import("@/services/core/socio-search");
-						const c = await resolverCnpjPorNomeEmpresa(nome);
-						if (c) cnpjResolvido = c;
-					} catch {}
-				}
-
-				const emp = extrairNodeEmpresaDoBem(bem, pessoaId, idx, cnpjResolvido);
-				if (emp) {
-					malhaOsintBuffer.push(emp);
-					supabaseNodes.push(emp);
-					sendEvent("NODE_NOVO", emp);
-				}
-			}
-		}
+		// Empresas que o político declarou ao TSE: a conferência do CNPJ (Receita + QSA) roda em
+		// paralelo e é aguardada junto da malha societária (services/core/empresas-declaradas.ts).
+		const empresasDeclaradas = nosDasEmpresasDeclaradas({
+			declaracoes: declaracoesDoPolitico(pessoaNodePayload.data),
+			pessoaId,
+			referencia: {
+				nomes: nomesDeReferencia([detalhes?.nomeCivil, tseData?.nome, tseData?.nomeUrna, deputadoBasico.nome]),
+				cpf: identidade.cpf,
+			},
+			status: (msg) => sendEvent("STATUS", { msg }),
+		});
 
 		// ==========================================
 		// PARCIAL CACHE: Cria a linha no DB Cedo!
 		// ==========================================
 		let dbSearchId: string | null = null;
 		const isDev = process.env.NODE_ENV === "development";
-		const chaveCacheDeSalvamento = refParam
-			? `${nomeParaBusca}_${refParam}`
-			: nomeParaBusca;
+		const chaveCacheDeSalvamento = chaveCachePesquisa(nomeParaBusca, refParam || forceRef);
 		if (!isDev) {
 			try {
 				const { data, error } = await supabaseAdmin
@@ -990,9 +911,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				try {
 					if (podeLerCachePesquisas()) {
 						const { supabaseAdmin } = await import("@/lib/supabase-admin");
-						const chaveCacheDeLeitura = refParam
-							? `${nomeParaBusca}_${refParam}`
-							: nomeParaBusca;
+						const chaveCacheDeLeitura = chaveCachePesquisa(nomeParaBusca, refParam || forceRef);
 						const { data: cacheData } = await supabaseAdmin
 							.from("pesquisas")
 							.select("grafo_dados")
@@ -1460,6 +1379,12 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			pessoaId,
 			sendEvent,
 		);
+		for (const no of await empresasDeclaradas) {
+			malhaOsintBuffer.push(no);
+			supabaseNodes.push(no);
+			const cnpjDeclarada = String(no.data.cnpj ?? "").replace(/\D/g, "");
+			if (cnpjDeclarada && !empresasRelacionadasCNPJs.includes(cnpjDeclarada)) empresasRelacionadasCNPJs.push(cnpjDeclarada);
+		}
 
 		// C2. Busca reversa por nome — encontra empresas onde o político é sócio
 		sendEvent("STATUS", {
@@ -2062,7 +1987,6 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 		}
 		if (despesasCruas.length > 0) {
-
 			// PASSO 4: Triagem com IA passando a UF e os Doadores
 			sendEvent("STATUS", {
 				msg: "[POLÍGRAFO IA] Operando Triagem Documental e Cruzamento Geográfico...",
@@ -2095,24 +2019,11 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			// PASSO 5: Roteamento Baseado em Risco
 			const frotaAnacCache = new Map<string, any[]>();
 			const frotaAnacEmitida = new Set<string>();
-			const maioresDespesasIndices = new Set(
-				despesasAvaliadas
-					.map((d, idx) => ({ idx, val: Number(d.valorDocumento ?? d.valorLiquido ?? d.valor ?? 0) }))
-					.sort((a, b) => b.val - a.val)
-					.slice(0, 3)
-					.filter((x) => x.val >= 3000)
-					.map((x) => x.idx),
-			);
 			for (let i = 0; i < despesasAvaliadas.length; i++) {
 				const d = despesasAvaliadas[i];
 				let finalScore = d.score_letalidade || 50;
 				let alertasFinais = [];
 				let dadosSociais = {};
-
-				if (maioresDespesasIndices.has(i)) {
-					if (finalScore < 45) finalScore = 45;
-					alertasFinais.push("[MAIOR GASTO DA COTA] Dentre os maiores desembolsos individuais do mandato no período.");
-				}
 
 				// SE a IA achou muuuito suspeito, rodamos The Full OSINT nas bases de dados estatais
 				if (finalScore >= 85) {

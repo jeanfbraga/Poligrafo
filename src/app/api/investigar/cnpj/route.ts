@@ -3,6 +3,10 @@ import { buscarConveniosEntidade } from "@/services/integrations/transparencia/c
 import { buscarSancoesEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
 import { NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/api-rate-limit";
+import { documentoFormatado } from "@/lib/format";
+import { resolverCnpjDaEmpresa } from "@/services/core/empresas-declaradas";
+import { type EmpresaQsa, nomesDeReferencia } from "@/services/core/socio-confirmacao";
+import { buscarDadosCnpj } from "@/services/integrations/receita/cnpj";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -24,52 +28,46 @@ async function fetchWithTimeout(resource: string, options: any = {}) {
 	}
 }
 
-async function buscarDadosCadastraisCnpj(cnpjLimpo: string): Promise<any | null> {
-	try {
-		const resBrasil = await fetchWithTimeout(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`);
-		if (resBrasil.ok) return await resBrasil.json();
+interface ParametrosPivo {
+	/** 14 dígitos, ou vazio no modo por nome. */
+	cnpj: string;
+	/** Nome da empresa sem CNPJ (empresa declarada ao TSE). */
+	nome: string;
+	/** Nomes do político: no modo por nome, o QSA do CNPJ achado precisa tê-lo. */
+	socios: string[];
+	origemId: string;
+}
 
-		const resWS = await fetchWithTimeout(`https://receitaws.com.br/v1/cnpj/${cnpjLimpo}`);
-		if (resWS.ok) {
-			const wsData = await resWS.json();
-			if (wsData.status !== "ERROR") {
-				return {
-					razao_social: wsData.nome,
-					cnae_fiscal_descricao: wsData.atividade_principal?.[0]?.text,
-					descricao_situacao_cadastral: wsData.situacao,
-					capital_social: wsData.capital_social,
-					municipio: wsData.municipio,
-					uf: wsData.uf,
-					qsa:
-						wsData.qsa?.map((s: any) => ({
-							nome_socio: s.nome,
-							qualificacao_socio: s.qual,
-							faixa_etaria: "",
-						})) || [],
-				};
-			}
-		}
+/** Lê e valida a URL. O cliente antigo mandava o nome da empresa no próprio ?cnpj=. */
+function lerParametros(url: string): ParametrosPivo | null {
+	const sp = new URL(url).searchParams;
+	const cnpjParam = sp.get("cnpj") ?? "";
+	const temLetras = /[a-zA-Z]/.test(cnpjParam);
+	const p: ParametrosPivo = {
+		cnpj: temLetras ? "" : cnpjParam.replace(/\D/g, ""),
+		nome: (sp.get("nome") || (temLetras ? cnpjParam : "")).trim(),
+		socios: sp.getAll("socio").map((s) => s.trim()).filter(Boolean).slice(0, 4),
+		origemId: (sp.get("origemId") ?? "").replace(/[^a-zA-Z0-9\-_]/g, "").trim(),
+	};
+	const alvoValido = p.cnpj.length === 14 || (!p.cnpj && p.nome.length >= 3);
+	return alvoValido && p.origemId ? p : null;
+}
 
-		const resMinha = await fetchWithTimeout(`https://minhareceita.org/${cnpjLimpo}`);
-		if (resMinha.ok) {
-			const mData = await resMinha.json();
-			return {
-				razao_social: mData.razao_social || mData.nome_fantasia,
-				cnae_fiscal_descricao: mData.cnae_fiscal_descricao,
-				descricao_situacao_cadastral: mData.descricao_situacao_cadastral,
-				capital_social: mData.capital_social,
-				municipio: mData.municipio,
-				uf: mData.uf,
-				qsa:
-					mData.qsa?.map((s: any) => ({
-						nome_socio: s.nome_socio,
-						qualificacao_socio: s.qualificacao_socio,
-						faixa_etaria: s.faixa_etaria,
-					})) || [],
-			};
-		}
-	} catch (_e) {}
-	return null;
+/** Modo por nome: só aceita CNPJ com a razão social do nome e o político no QSA (empresas-declaradas.ts). */
+async function cnpjPeloNome(p: ParametrosPivo, sendEvent: any): Promise<string | null> {
+	const nomes = nomesDeReferencia(p.socios);
+	if (nomes.length === 0) {
+		sendEvent("ERROR", { mensagem: `Para achar o CNPJ de "${p.nome}" pelo nome é preciso saber quem é o sócio (o político investigado).` });
+		return null;
+	}
+	sendEvent("STATUS", { msg: `Procurando o CNPJ de "${p.nome}" e conferindo o quadro de sócios na Receita...` });
+	const achado = await resolverCnpjDaEmpresa(p.nome, { nomes, cpf: null });
+	if (!achado) {
+		sendEvent("ERROR", {
+			mensagem: `Não foi possível confirmar o CNPJ de "${p.nome}": nenhum CNPJ encontrado nas fontes abertas tem essa razão social com o político no quadro de sócios.`,
+		});
+	}
+	return achado?.cnpj ?? null;
 }
 
 function emitirQsa(qsa: any[], empresaId: string, cnpjLimpo: string, sendEvent: any) {
@@ -202,24 +200,51 @@ async function executarVarreduraGovFederal(
 	await emitirAeronavesAnac(cnpjLimpo, empresaId, razaoSocial, sendEvent);
 }
 
+/** Nó da empresa. Pivô a partir do próprio nó (empresa declarada sem CNPJ): atualiza o mesmo nó, sem trocar o motivo. */
+function noDaEmpresa(empresa: EmpresaQsa, cnpjLimpo: string, p: ParametrosPivo) {
+	const mesmoNo = p.origemId.startsWith("empresa-");
+	const situacao = empresa.descricao_situacao_cadastral;
+	return {
+		id: mesmoNo ? p.origemId : `empresa-${cnpjLimpo}-${Date.now()}`,
+		type: "EMPRESA",
+		_origemId: p.origemId,
+		data: {
+			label: empresa.razao_social || p.nome || "RAZÃO SOCIAL INDISPONÍVEL",
+			cnpj: documentoFormatado(cnpjLimpo),
+			cnae: empresa.cnae_fiscal_descricao,
+			situacao,
+			capitalSocial: empresa.capital_social,
+			municipio: empresa.municipio,
+			uf: empresa.uf,
+			...(mesmoNo || !situacao ? {} : { motivo_ia: `Empresa com situação cadastral ${situacao} na Receita Federal.` }),
+		},
+	};
+}
+
+async function pivotarEmpresa(p: ParametrosPivo, sendEvent: any): Promise<void> {
+	const cnpjLimpo = p.cnpj || (await cnpjPeloNome(p, sendEvent));
+	if (!cnpjLimpo) return;
+	sendEvent("STATUS", { msg: `Levantando Dossiê Societário do CNPJ ${documentoFormatado(cnpjLimpo)}...` });
+	const r = await buscarDadosCnpj(cnpjLimpo);
+	if (!r.ok) {
+		sendEvent("ERROR", {
+			mensagem: `Não foi possível localizar o CNPJ ${documentoFormatado(cnpjLimpo)} nas bases públicas (BrasilAPI / Minha Receita / ReceitaWS).`,
+		});
+		return;
+	}
+	const no = noDaEmpresa(r.dados, cnpjLimpo, p);
+	sendEvent("NODE_NOVO", no);
+	emitirQsa(r.dados.qsa ?? [], no.id, cnpjLimpo, sendEvent);
+	await executarVarreduraGovFederal(cnpjLimpo, no.id, r.dados.razao_social || "", sendEvent);
+	sendEvent("DONE", { msg: `Expansão de Grafo concluída.` });
+}
+
 export async function GET(request: Request) {
 	// Consulta Receita, Portal da Transparência e contratos: limite contra uso em massa
 	const limitado = checkRateLimit(request, { scope: "cnpj", limit: 30 });
 	if (limitado) return limitado;
-	const { searchParams } = new URL(request.url);
-	const cnpjParam = searchParams.get("cnpj") || "";
-	const nomeParam = searchParams.get("nome") || "";
-	const origemIdBruto = searchParams.get("origemId");
-
-	let cnpjLimpo = cnpjParam.replace(/\D/g, "");
-	const origemId = origemIdBruto
-		? origemIdBruto.replace(/[^a-zA-Z0-9\-_]/g, "").trim()
-		: null;
-
-	const temNome = Boolean(nomeParam?.trim()) || /[a-zA-Z]/.test(cnpjParam);
-	const termoNome = (nomeParam || (temNome ? cnpjParam : "")).trim();
-
-	if ((cnpjLimpo.length !== 14 && (!temNome || termoNome.length < 3)) || !origemId) {
+	const p = lerParametros(request.url);
+	if (!p) {
 		return NextResponse.json(
 			{
 				error:
@@ -250,57 +275,7 @@ export async function GET(request: Request) {
 			};
 
 			try {
-				if (cnpjLimpo.length !== 14 && termoNome.length >= 3) {
-					sendEvent("STATUS", { msg: `Localizando CNPJ para "${termoNome}" nas fontes públicas...` });
-					const { resolverCnpjPorNomeEmpresa } = await import("@/services/core/socio-search");
-					const c = await resolverCnpjPorNomeEmpresa(termoNome);
-					if (c) {
-						cnpjLimpo = c.replace(/\D/g, "");
-					} else {
-						sendEvent("ERROR", {
-							mensagem: `Não foi possível localizar o CNPJ de "${termoNome}" nos registros abertos.`,
-						});
-						safeClose();
-						return;
-					}
-				}
-
-				const { documentoFormatado } = await import("@/lib/format");
-				const cnpjFormatado = documentoFormatado(cnpjLimpo);
-				sendEvent("STATUS", { msg: `Levantando Dossiê Societário do CNPJ ${cnpjFormatado}...` });
-				const empresa = await buscarDadosCadastraisCnpj(cnpjLimpo);
-
-				if (!empresa) {
-					sendEvent("ERROR", {
-						mensagem: `Não foi possível localizar o CNPJ ${cnpjFormatado} nas bases públicas (BrasilAPI / ReceitaWS / MinhaReceita).`,
-					});
-					safeClose();
-					return;
-				}
-
-				const empresaId = origemId.startsWith("empresa-") ? origemId : `empresa-${cnpjLimpo}-${Date.now()}`;
-				sendEvent("NODE_NOVO", {
-					id: empresaId,
-					type: "EMPRESA",
-					_origemId: origemId,
-					data: {
-						label: empresa.razao_social || termoNome || "EMPRESA LOCALIZADA",
-						cnpj: cnpjFormatado,
-						cnae: empresa.cnae_fiscal_descricao,
-						situacao: empresa.descricao_situacao_cadastral,
-						capitalSocial: empresa.capital_social,
-						municipio: empresa.municipio,
-						uf: empresa.uf,
-						motivo_ia: empresa.descricao_situacao_cadastral
-							? `Empresa com situação cadastral ${empresa.descricao_situacao_cadastral} na Receita Federal.`
-							: undefined,
-					},
-				});
-
-				emitirQsa(empresa.qsa, empresaId, cnpjLimpo, sendEvent);
-				await executarVarreduraGovFederal(cnpjLimpo, empresaId, empresa.razao_social || "", sendEvent);
-
-				sendEvent("DONE", { msg: `Expansão de Grafo concluída.` });
+				await pivotarEmpresa(p, sendEvent);
 				safeClose();
 			} catch (err: any) {
 				sendEvent("ERROR", { mensagem: err.message });

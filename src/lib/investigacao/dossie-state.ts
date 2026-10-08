@@ -229,7 +229,7 @@ function adicionarEvidencia(s: DossieState, node: DossieNode): DossieState {
 function aoAdicionarNode(s: DossieState, node: DossieNode): DossieState {
 	if (ehBemLegado(node)) return s;
 	// O resumo da cota não é nó: o total/recorte é calculado de `lib/investigacao/cota` (também p/ caches antigos).
-	if (node.type === "CEAP_RESUMO" || node.type === "RESUMO_GASTOS") return s;
+	if (node.type === "CEAP_RESUMO") return s;
 	if (node.type === "PESSOA") return adicionarPessoa(s, node);
 	if (ESTRUTURAIS.has(node.type ?? "")) return adicionarEstrutural(s, node);
 	if (scoreDe(node) >= SCORE_ATENCAO) return adicionarSuspeito(s, node);
@@ -516,8 +516,21 @@ function empresaExistente(s: DossieState, cnpj: string): DossieNode | undefined 
 	return s.nodes.find((n) => n.type === "EMPRESA" && soDigitos(n.data?.cnpj) === cnpj);
 }
 
+function nomeComparavel(nome: unknown): string {
+	return String(nome ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
+}
+
+/** O sócio do QSA é o próprio investigado (ex.: a empresa que ele declarou ao TSE)? */
+function ehOProprioPolitico(pessoa: DossieNode | undefined, nomeSocio: string): boolean {
+	const socio = nomeComparavel(nomeSocio);
+	return Boolean(socio) && [pessoa?.data?.nomeCivil, pessoa?.data?.label].some((n) => nomeComparavel(n) === socio);
+}
+
 function arestaDoPivoCnpj(s: DossieState, origem: string, node: DossieNode): DossieEdge {
 	const pessoa = s.nodes.find((n) => n.type === "PESSOA");
+	if (node.type === "SOCIO" && ehOProprioPolitico(pessoa, String(node.data?.label ?? ""))) {
+		return novaAresta(origem, node.id, "socio", "SÓCIO (QSA): O PRÓPRIO INVESTIGADO");
+	}
 	if (node.type === "SOCIO") {
 		const parente = possivelParentesco(pessoa?.data?.nomeCivil, String(node.data?.label ?? ""));
 		return novaAresta(origem, node.id, parente ? "parentesco" : "socio", parente ? "ALERTA: POSSÍVEL PARENTESCO" : "SÓCIO (QSA)");

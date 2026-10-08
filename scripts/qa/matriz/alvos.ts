@@ -52,6 +52,14 @@ export const ALVOS: AlvoMatriz[] = [
 		exercita: "CEAPS do Senado; CPF vindo só do TSE",
 	},
 	{
+		id: "senador-rj",
+		descricao: "Senador (RJ) com empresa declarada ao TSE",
+		alcada: "federal",
+		consulta: { nome: "Flávio Bolsonaro", uf: "RJ" },
+		cargoEsperado: "Senador da República",
+		exercita: "rota quebrava ao carregar o playwright (08/10/2026); bens com quotas sem nome de empresa",
+	},
+	{
 		id: "presidente",
 		descricao: "Presidente da República",
 		alcada: "federal",

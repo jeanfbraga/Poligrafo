@@ -20,10 +20,19 @@ import { buscarDadosCnpj } from "@/services/integrations/receita/cnpj";
 export interface SocioQsa {
 	nome_socio?: string;
 	cnpj_cpf_do_socio?: string;
+	qualificacao_socio?: string;
+	faixa_etaria?: string;
 }
 
+/** Campos da Receita no formato da BrasilAPI (o Minha Receita usa o mesmo; a ReceitaWS é convertida). */
 export interface EmpresaQsa {
 	razao_social?: string;
+	nome_fantasia?: string;
+	descricao_situacao_cadastral?: string;
+	cnae_fiscal_descricao?: string;
+	capital_social?: number;
+	municipio?: string;
+	uf?: string;
 	qsa?: SocioQsa[];
 }
 

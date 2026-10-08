@@ -74,7 +74,25 @@ describe("consulta do QSA (BrasilAPI)", () => {
 		expect(String((reserva.mock.calls.at(-1) as unknown[])[0])).toBe("https://minhareceita.org/11222333000181");
 		reiniciarEstadoFonteHttp();
 		const fora = vi.fn(async () => new Response("erro", { status: 403 }));
-		expect(await verificarEmpresaDoPolitico("11222333000181", NOMES, CPF, fora as unknown as typeof fetch)).toEqual({ confirmado: false, motivo: "QSA indisponível (HTTP_4XX; reserva: HTTP_4XX)" });
+		expect(await verificarEmpresaDoPolitico("11222333000181", NOMES, CPF, fora as unknown as typeof fetch)).toEqual({ confirmado: false, motivo: "QSA indisponível (HTTP_4XX; reserva: HTTP_4XX; ReceitaWS: HTTP_4XX)" });
+		expect(String((fora.mock.calls.at(-1) as unknown[])[0])).toBe("https://receitaws.com.br/v1/cnpj/11222333000181");
+	});
+
+	it("BrasilAPI e Minha Receita sem a empresa (baixada, como a Bolsotini em 08/10/2026): a ReceitaWS responde no formato dela", async () => {
+		const { buscarDadosCnpj } = await import("@/services/integrations/receita/cnpj");
+		const so = vi.fn(async (url: string) => (url.includes("receitaws")
+			? new Response(JSON.stringify({ status: "OK", nome: "BOLSOTINI CHOCOLATES E CAFE LTDA", situacao: "BAIXADA", capital_social: "100000.00", qsa: [{ nome: "JOSE DA SILVA JUNIOR", qual: "22-Sócio" }] }), { status: 200 })
+			: new Response("erro", { status: 403 })));
+		const r = await buscarDadosCnpj("21.636.316/0001-44", so as unknown as typeof fetch);
+		expect(r).toMatchObject({ ok: true, via: "ReceitaWS", dados: { razao_social: "BOLSOTINI CHOCOLATES E CAFE LTDA", descricao_situacao_cadastral: "BAIXADA", capital_social: 100000, qsa: [{ nome_socio: "JOSE DA SILVA JUNIOR", qualificacao_socio: "22-Sócio" }] } });
+		// Sem CPF no QSA da ReceitaWS: vale o nome, como no Minha Receita sem miolo.
+		expect(confirmarVinculoSocietario(r.ok ? r.dados : {}, NOMES, CPF)).toMatchObject({ confirmado: true, forca: "NOME" });
+	});
+
+	it("ReceitaWS com status ERROR (CNPJ inexistente) não vira empresa", async () => {
+		const { deReceitaWs } = await import("@/services/integrations/receita/cnpj");
+		expect(deReceitaWs({ status: "ERROR" })).toBeNull();
+		expect(deReceitaWs(null)).toBeNull();
 	});
 
 	it("na tela: a recusa da BrasilAPI vira 'tentando de novo'; a resposta da reserva limpa o aviso", async () => {

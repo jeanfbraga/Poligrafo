@@ -15,6 +15,7 @@
     "update:index": "tsx scripts/update-congresso-index.ts",
     "sync:spu": "tsx scripts/etl/spu-sync.ts",
     "sync:tse-eleitos": "tsx scripts/etl/tse-eleitos-sync.ts",
+    "sync:socios-politicos": "tsx scripts/etl/socios-politicos-sync.ts",
     "sync:tse-campanha": "tsx scripts/etl/tse-contas-campanha-sync.ts",
     "sync:alesp": "tsx scripts/etl/alesp-despesas-sync.ts",
     "sync:alerj": "tsx scripts/etl/alerj-docigp-sync.ts",
