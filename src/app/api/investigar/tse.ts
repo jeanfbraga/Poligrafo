@@ -427,7 +427,7 @@ async function processarCampanhaHistorico(
 	return null;
 }
 
-function calcularVariacoesPatrimonio(historico: ItemHistoricoTse[]) {
+export function calcularVariacoesPatrimonio(historico: ItemHistoricoTse[]) {
 	if (historico.length < 2) {
 		return {};
 	}

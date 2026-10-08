@@ -28,6 +28,14 @@ export const ALVOS: AlvoMatriz[] = [
 		exercita: "caminho principal; CPF da Câmara × TSE",
 	},
 	{
+		id: "dep-federal-sp-tse-base",
+		descricao: "Deputado federal (SP) com eleito e bens na nossa base",
+		alcada: "federal",
+		consulta: { ref: "FEDERAL:CAMARA:178992" },
+		cargoEsperado: "Deputado Federal",
+		exercita: "TSE lido das nossas bases (sem DivulgaCand ao vivo); patrimônio 2022 e 2026",
+	},
+	{
 		id: "dep-federal-rs-gabinete",
 		descricao: "Deputado federal (RS) com funcionários que doaram e um com mandato de vereador",
 		alcada: "federal",

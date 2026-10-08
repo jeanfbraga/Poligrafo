@@ -76,8 +76,12 @@ export const PROVEDORES: Record<IdProvedor, Provedor> = {
 	},
 };
 
-/** Ordem dos provedores no rodízio (o gateway alterna entre eles). */
-export const ORDEM_PROVEDORES: IdProvedor[] = ["groq", "cerebras", "gemini", "openrouter", "mistral", "github", "cloudflare"];
+/**
+ * Ordem dos provedores no rodízio (o gateway alterna entre eles). Gemini primeiro (08/10/2026):
+ * no lote de 20 notas foi o único que entregou o JSON completo em todas as rodadas; o modelo
+ * principal da Groq devolvia resposta fora do contrato (7 s perdidos) e logo batia no limite.
+ */
+export const ORDEM_PROVEDORES: IdProvedor[] = ["gemini", "groq", "cerebras", "openrouter", "mistral", "github", "cloudflare"];
 
 const RACIOCINIO = /(r1|gpt-oss|qwen3|thinking)/i;
 

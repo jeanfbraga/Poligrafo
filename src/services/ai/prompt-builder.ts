@@ -392,8 +392,9 @@ export function construirPromptAchados(achados: AchadoParaIA[]): { sistema: stri
 Cada item abaixo é um CRUZAMENTO DE DADOS já confirmado por regra fixa: o mesmo CNPJ/CPF aparece em dois papéis (ex.: doador da campanha e fornecedor pago com a cota do mandato). A gravidade já foi definida e você NÃO pode mudá-la.
 
 Para cada cruzamento:
-- explique em 2 ou 3 frases por que ele importa e o que alguém deveria conferir (nota fiscal, contrato, data, órgão);
-- use SOMENTE os fatos listados no próprio item, citando-os pelo "ref" (ex.: F1, F2);
+- COMECE dizendo, com clareza, se isso por si só é proibido ou não. Quase sempre NÃO é: escreva algo como "Isso não é proibido por si só, mas é um ponto de atenção porque…". Só diga que é proibido quando houver regra clara (ex.: a cota parlamentar não pode pagar propaganda eleitoral; empresa inidônea não pode ser contratada), e diga qual é a regra;
+- depois explique, em 2 ou 3 frases, o risco e o que alguém deveria conferir (nota fiscal, contrato, data, órgão);
+- use SOMENTE os fatos listados no próprio item. Os códigos "ref" (F1, F2…) vão APENAS em "fatos_citados", nunca no texto: no texto, descreva o fato com palavras ("o pagamento da cota de 2024", "o serviço prestado à campanha");
 - não invente valores, datas, nomes, crimes ou intenções; coincidência não é prova — use "indício", "vale conferir";
 - "prioridade" de 1 (conferir primeiro) a 5 (menos urgente), considerando valores e proximidade com o mandato.
 

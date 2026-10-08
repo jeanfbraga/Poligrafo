@@ -1,0 +1,58 @@
+name: Verificar deploy de produção
+
+# A Vercel avisa o GitHub ao terminar cada publicação (evento deployment_status).
+# Em produção: se a publicação falhou, este check fica vermelho (e o GitHub manda e-mail);
+# se publicou, confere o site no ar — Home, painel da Home e perfil, com dados de verdade.
+on:
+  deployment_status:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment.environment == 'Production' &&
+       contains(fromJSON('["success","failure","error"]'), github.event.deployment_status.state))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SITE: https://www.poligrafo.app.br
+    steps:
+      - name: Publicação da Vercel falhou?
+        if: github.event_name == 'deployment_status' && github.event.deployment_status.state != 'success'
+        run: |
+          echo "::error::A publicação de produção na Vercel terminou como '${{ github.event.deployment_status.state }}'. O site segue na versão anterior."
+          echo "Detalhes: ${{ github.event.deployment_status.target_url }}"
+          exit 1
+
+      - name: Conferir o site no ar
+        run: |
+          set -u
+          falhas=0
+          conferir() {
+            local nome="$1" caminho="$2" filtro="$3"
+            local corpo status
+            corpo=$(curl -sS -L --max-time 90 -w '\n%{http_code}' "$SITE$caminho") || { echo "::error::$nome: sem resposta"; falhas=$((falhas+1)); return; }
+            status=$(printf '%s' "$corpo" | tail -n1)
+            corpo=$(printf '%s' "$corpo" | sed '$d')
+            if [ "$status" != "200" ]; then echo "::error::$nome respondeu HTTP $status"; falhas=$((falhas+1)); return; fi
+            if [ -n "$filtro" ] && ! printf '%s' "$corpo" | jq -e "$filtro" > /dev/null 2>&1; then
+              echo "::error::$nome respondeu 200, mas sem os dados esperados ($filtro)"; falhas=$((falhas+1)); return
+            fi
+            echo "OK  $nome"
+          }
+          # Espera a publicação nova assumir o domínio
+          sleep 20
+          conferir "Página inicial" "/" ""
+          conferir "Painel da Home (Banco Principal)" "/api/dashboard/home" '(.ceapTop10 | length) > 0 and (.pesquisas | length) > 0'
+          conferir "Perfil de deputado (Banco de Perfil)" "/api/perfil/deputado/160535" '(.votos | length) > 0'
+          conferir "Página de perfil" "/perfil/deputado/160535" ""
+          {
+            echo "## Verificação do deploy de produção"
+            echo "- Site: $SITE"
+            echo "- Falhas: $falhas"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$falhas" -eq 0 ]

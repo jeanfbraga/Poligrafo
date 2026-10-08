@@ -29,6 +29,13 @@ describe("explicação dos cruzamentos pela IA", () => {
 		expect(usuario).toContain('"id": "a"');
 	});
 
+	it("prompt manda dizer se é proibido ou só ponto de atenção, sem códigos F1 no texto", () => {
+		const { sistema } = construirPromptAchados(paraIA([no("a")]));
+		expect(sistema).toContain("se isso por si só é proibido ou não");
+		expect(sistema).toContain("Isso não é proibido por si só");
+		expect(sistema).toContain("nunca no texto");
+	});
+
 	it("contrato: descarta id desconhecido, fato de outro achado e texto vazio; prioridade entre 1 e 5", () => {
 		const itens = paraIA([no("a"), no("b", 1)]);
 		const r = validarExplicacoes({

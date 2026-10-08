@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Prazo } from "../../src/lib/prazo";
-import { gerar, lerJsonIA, limparTextoIA } from "../../src/services/ai/gateway";
+import { gerar, lerJsonIA, limparTextoIA, resumoDaFalhaIA } from "../../src/services/ai/gateway";
 import { classificarFalha, lerDuracaoMs } from "../../src/services/ai/gateway/falhas";
 import { modelosEmRodizio } from "../../src/services/ai/gateway/registro";
 import { SaudeIA } from "../../src/services/ai/gateway/saude";
@@ -66,8 +66,8 @@ describe("saúde dos modelos", () => {
 describe("gateway gerar()", () => {
 	it("rodízio alterna provedores e ignora os sem chave", () => {
 		const ordem = modelosEmRodizio("triagem-json", { GROQ_API_KEY: "g", GEMINI_API_KEY: "m" } as unknown as NodeJS.ProcessEnv);
-		expect(ordem[0].provedor).toBe("groq");
-		expect(ordem[1].provedor).toBe("gemini");
+		expect(ordem[0].provedor).toBe("gemini");
+		expect(ordem[1].provedor).toBe("groq");
 		expect(ordem.some((m) => m.provedor === "openrouter")).toBe(false);
 	});
 
@@ -78,16 +78,28 @@ describe("gateway gerar()", () => {
 		expect(fetchFn).not.toHaveBeenCalled();
 	});
 
-	it("429 no Groq pula para o Gemini, que responde JSON válido", async () => {
+	it("429 no Gemini pula para a Groq, que responde JSON válido", async () => {
 		const fetchFn = vi.fn(async (url: string) => {
-			if (url.includes("groq")) return new Response("limite", { status: 429, headers: { "retry-after": "10" } });
-			return respostaGemini('{"avaliacoes": [{"id": "a"}]}');
+			if (url.includes("googleapis")) return new Response("limite", { status: 429, headers: { "retry-after": "10" } });
+			return respostaOpenAI('{"avaliacoes": [{"id": "a"}]}');
 		});
 		const saude = new SaudeIA();
 		const r = await gerar({ tarefa: "triagem-json", sistema: "s", usuario: "u", formato: "json", chaveRaiz: "avaliacoes", env: ENV, fetchFn: fetchFn as never, saude });
-		expect(r).toMatchObject({ ok: true, provedor: "gemini" });
-		expect(r.tentativas[0]).toMatchObject({ provedor: "groq", resultado: "RATE_LIMIT" });
-		expect(saude.disponivel("groq", "openai/gpt-oss-120b")).toBe(false);
+		expect(r).toMatchObject({ ok: true, provedor: "groq" });
+		expect(r.tentativas[0]).toMatchObject({ provedor: "gemini", resultado: "RATE_LIMIT" });
+		expect(saude.disponivel("gemini", r.tentativas[0].modelo)).toBe(false);
+	});
+
+	it("falha registra no log cada tentativa e quantos modelos estavam pausados", () => {
+		const saude = { disponivel: (p: string) => p !== "groq" };
+		const fila = modelosEmRodizio("triagem-json", { GROQ_API_KEY: "g", GEMINI_API_KEY: "m" } as unknown as NodeJS.ProcessEnv);
+		const linha = resumoDaFalhaIA(
+			{ ok: false, motivo: "ESGOTADO", tentativas: [{ provedor: "gemini", modelo: "x", resultado: "RATE_LIMIT", ms: 40 }] },
+			fila,
+			saude,
+		);
+		const pausados = fila.filter((m) => m.provedor === "groq").length;
+		expect(linha).toBe(`[IA] Nenhum modelo respondeu (ESGOTADO). Tentativas: gemini/x=RATE_LIMIT (40 ms). Pausados por falhas recentes: ${pausados} de ${fila.length}.`);
 	});
 
 	it("resposta fora do contrato tenta o próximo modelo", async () => {

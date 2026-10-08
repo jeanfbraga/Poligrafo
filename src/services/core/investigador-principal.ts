@@ -4,7 +4,8 @@ import { podeLerCachePesquisas } from "@/lib/cache-pesquisas";
 import { ColecaoNos, envolverEmissor } from "@/services/core/colecao-nos";
 import { redirecionarEtapasPara, reemitirEtapasDoCache } from "@/services/core/etapas-ao-vivo";
 import { buscarCandidatos } from "@/services/core/busca-candidatos";
-import { buscarEleitoDoAlvo, candidatosDaBaseEleitos } from "@/services/integrations/tse/eleitos";
+import { candidatosDaBaseEleitos } from "@/services/integrations/tse/eleitos";
+import { dadosTseDoAlvo } from "@/services/core/tse-base-primeiro";
 import { perfilDaCasa } from "@/services/core/alcada";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
@@ -581,11 +582,11 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			.trim();
 		// No municipal, a busca no TSE fica no município da ref (antes valia o 1º município com o nome).
 		const municipioDoAlvo = perfilAlcada.esfera === "MUNICIPAL" ? deputadoBasico.uri : undefined;
-		// Eleito da ref na base tse_eleitos (Banco de Perfil), pelo número do candidato ou CPF.
-		const [tseResult, eleitoDaRef] = await Promise.all([
-			buscarCpfNoTSE(nomeParaTSE, deputadoBasico.uf, codigoCargoTse, detalhes?.nomeCivil, municipioDoAlvo),
-			buscarEleitoDoAlvo({ id: deputadoBasico.id, cpfOficial: detalhes?.cpf, nome: nomeParaTSE, uf: deputadoBasico.uf, cargoTse: codigoCargoTse }).catch(() => null),
-		]);
+		// Eleito da ref na base tse_eleitos (Banco de Perfil) + patrimônio da nossa base; o TSE ao vivo só se faltar.
+		const { tseResult, eleito: eleitoDaRef } = await dadosTseDoAlvo(
+			{ alvo: { id: deputadoBasico.id, cpfOficial: detalhes?.cpf, nome: nomeParaTSE, uf: deputadoBasico.uf, cargoTse: codigoCargoTse }, nomeCivil: detalhes?.nomeCivil, municipio: municipioDoAlvo },
+			sendEvent,
+		);
 
 		// Identidade verificada (v2): documento válido, confiança e se os dados do TSE são da
 		// mesma pessoa. Nunca adota CPF achado só pelo nome (ver services/core/identidade.ts).
@@ -634,7 +635,6 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			deputadoBasico.uf,
 			pessoaId,
 			sendEvent,
-			perfilAlcada.cargoTse,
 		);
 
 		// Resolução resiliente do patrimônio do político (TSE DivulgaCand + Fallback em cascata Supabase)

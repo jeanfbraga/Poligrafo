@@ -156,10 +156,21 @@ function sinalizarIA(r: RespostaIA): void {
 	else sinalizarFonte({ tipo: "falhou", url: ENDERECO_IA, erro: r.motivo === "PRAZO" ? "PRAZO" : "FONTE_INDISPONIVEL" });
 }
 
+/**
+ * Linha de log quando nenhum modelo entregou: cada tentativa e quantos modelos estavam pausados
+ * pela saúde (falhas recentes). Sem isso o log da produção só dizia "FALLBACK L4", sem motivo.
+ */
+export function resumoDaFalhaIA(r: Extract<RespostaIA, { ok: false }>, fila: ModeloIA[], saude: Pick<SaudeIA, "disponivel">): string {
+	const tentativas = r.tentativas.map((t) => `${t.provedor}/${t.modelo}=${t.resultado} (${t.ms} ms)`).join(", ") || "nenhuma";
+	const pausados = fila.filter((m) => !saude.disponivel(m.provedor, m.id)).length;
+	return `[IA] Nenhum modelo respondeu (${r.motivo}). Tentativas: ${tentativas}. Pausados por falhas recentes: ${pausados} de ${fila.length}.`;
+}
+
 export async function gerar(pedido: PedidoIA): Promise<RespostaIA> {
 	const st = criarEstado(pedido);
 	const fila = modelosEmRodizio(pedido.tarefa, st.env);
 	const r: RespostaIA = fila.length === 0 ? { ok: false, motivo: "SEM_PROVEDOR", tentativas: [] } : await percorrer(fila, st);
+	if (!r.ok) console.warn(resumoDaFalhaIA(r, fila, st.saude));
 	sinalizarIA(r);
 	return r;
 }

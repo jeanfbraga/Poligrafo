@@ -25,40 +25,6 @@ export interface ResultadoInvestigacaoPolitico {
 	variacaoPatrimonioPercentual?: number;
 }
 
-async function verificarPatrimonioTse(uf: string, nome: string) {
-	let patrimonioTotal = 0;
-	const bensDeclarados: any[] = [];
-	let alertaPatrimonio: string | null = null;
-
-	const urlBusca = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/2026/${uf}/20322002026/6/candidatos`;
-	const resBusca = await fetchWithTimeout(urlBusca, { timeout: 4000 });
-
-	if (resBusca.ok) {
-		const dataBusca = await resBusca.json();
-		const nomeLower = nome.toLowerCase();
-		const candidato = dataBusca.candidatos?.find(
-			(c: any) =>
-				c.nomeUrna?.toLowerCase() === nomeLower ||
-				c.nomeCompleto?.toLowerCase() === nomeLower,
-		);
-
-		if (candidato) {
-			const urlBens = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/candidato/2026/${uf}/20322002026/candidato/${candidato.id}/bens`;
-			const resBens = await fetchWithTimeout(urlBens, { timeout: 4000 });
-			if (resBens.ok) {
-				const dataBens = await resBens.json();
-				patrimonioTotal = dataBens.totalDeBens || 0;
-				if (dataBens.bens) bensDeclarados.push(...dataBens.bens);
-				if (patrimonioTotal > 0) {
-					alertaPatrimonio = `[TSE] Patrimônio Declarado (2026): R$ ${patrimonioTotal.toLocaleString("pt-BR")}`;
-				}
-			}
-		}
-	}
-
-	return { patrimonioTotal, bensDeclarados, alertaPatrimonio };
-}
-
 async function verificarSancoesCache(
 	cpfLimpo: string,
 	pessoaId: string,
@@ -345,10 +311,11 @@ export async function investigarPolitico(
 	uf: string,
 	pessoaId: string,
 	sendEvent: any,
-	/** Cargo no TSE: o patrimônio deste passo só existe para deputado federal (cargo 6, eleição 2026). */
-	cargoTse: string = "6",
 ): Promise<ResultadoInvestigacaoPolitico> {
-	let patrimonioTotal = 0;
+	// Patrimônio não sai daqui: resolverPatrimonioTSE preenche depois, pela nossa base de bens
+	// (ou pelo TSE ao vivo, só se a base não tiver). A busca por nome que havia aqui ia sempre
+	// ao DivulgaCand (recusas 403) e podia trazer bens de homônimo.
+	const patrimonioTotal = 0;
 	let sancoesCgu = false;
 	const alertasPessoais: string[] = [];
 	const bensDeclarados: any[] = [];
@@ -360,15 +327,6 @@ export async function investigarPolitico(
 	const apiKey = process.env.TRANSPARENCIA_API_KEY || "";
 
 	try {
-		// 1. Patrimônio no TSE — a consulta é fixa em deputado federal/2026; para outros cargos ela
-		// trazia bens de homônimos. Os demais cargos usam resolverPatrimonioTSE (cargo certo).
-		if (cargoTse === "6") {
-			const tse = await verificarPatrimonioTse(uf, nome);
-			patrimonioTotal = tse.patrimonioTotal;
-			bensDeclarados.push(...tse.bensDeclarados);
-			if (tse.alertaPatrimonio) alertasPessoais.push(tse.alertaPatrimonio);
-		}
-
 		// 2. Sanções CGU (Cache ou API)
 		const cacheHit = await verificarSancoesCache(cpfLimpo, pessoaId, sendEvent, alertasPessoais);
 		if (!cacheHit && apiKey) {
