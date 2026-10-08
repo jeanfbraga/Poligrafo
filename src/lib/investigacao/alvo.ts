@@ -185,15 +185,25 @@ export interface RotaDoPolitico {
  * Para onde ir ao escolher um político.
  * Só deputados federais e presidentes têm Perfil; os demais vão direto ao Dossiê.
  */
+function ufDossiePolitico(ufIndexado?: string, ufFiltro?: string): string | undefined {
+	const ufValida = ufIndexado && ufIndexado !== "BR" ? ufIndexado : undefined;
+	const ufFiltroValida = ufFiltro && ufFiltro !== "FEDERAL" ? ufFiltro : undefined;
+	return ufFiltroValida ?? ufValida ?? ufFiltro;
+}
+
+function urlPerfilDeputado(p: PoliticoIndexado): string {
+	const q = new URLSearchParams({ nome: p.nome });
+	if (p.partido) q.set("partido", p.partido);
+	if (p.uf) q.set("uf", p.uf);
+	return `/perfil/deputado/${p.id}?${q.toString()}`;
+}
+
 export function rotaDoPolitico(p: PoliticoIndexado, uf?: string): RotaDoPolitico {
 	if (p.isPresidente || p.casa === "PRESIDENCIA_DA_REPUBLICA") {
 		return { tipo: "perfil", href: `/perfil/presidente/${p.id}` };
 	}
 	if (p.casa === "CAMARA" && p.id) {
-		const q = new URLSearchParams({ nome: p.nome });
-		if (p.partido) q.set("partido", p.partido);
-		if (p.uf) q.set("uf", p.uf);
-		return { tipo: "perfil", href: `/perfil/deputado/${p.id}?${q.toString()}` };
+		return { tipo: "perfil", href: urlPerfilDeputado(p) };
 	}
-	return { tipo: "dossie", href: urlDossie({ nome: p.nome, ref: montarRef(p), uf: uf ?? p.uf }) };
+	return { tipo: "dossie", href: urlDossie({ nome: p.nome, ref: montarRef(p), uf: ufDossiePolitico(p.uf, uf) }) };
 }

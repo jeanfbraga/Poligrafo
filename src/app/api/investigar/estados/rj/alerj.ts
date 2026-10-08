@@ -154,8 +154,6 @@ export async function buscarPerfilDOCIGP(
 	}
 }
 
-// Usaremos Playwright nativo conforme solicitado pelo usuário para drilldown completo
-import { chromium } from "playwright";
 
 async function navegarParaPerfilAlerj(
 	page: any,
@@ -399,8 +397,9 @@ export async function buscarDespesasDeputadoEstadualRJ(
 		});
 	}
 
-	let browser;
+	let browser: any;
 	try {
+		const { chromium } = await import("playwright");
 		browser = await chromium.launch({ headless: true });
 		const context = await browser.newContext();
 		const page = await context.newPage();

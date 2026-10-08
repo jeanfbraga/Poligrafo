@@ -375,22 +375,29 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			// TENTATIVA DE CACHE HIT (SUPABASE)
 			// ==========================================
 			const isDev = process.env.NODE_ENV === "development";
-			const chaveCacheDeLeitura = refParam
-				? `${nomeParaBusca}_${refParam}`
+			const refEfetiva = refParam || forceRef;
+			const chaveCacheDeLeitura = refEfetiva
+				? `${nomeParaBusca}_${refEfetiva}`
 				: nomeParaBusca;
 			try {
 				if (podeLerCachePesquisas()) {
 					const limiteCache24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-					const { data: cacheData, error: cacheErr } = await supabaseAdmin
+					let query = supabaseAdmin
 						.from("pesquisas")
 						.select("grafo_dados")
-						.eq("termo_busca", chaveCacheDeLeitura)
 						.gte("atualizado_em", limiteCache24h)
 						.order("atualizado_em", {
 							ascending: false,
 						})
-						.limit(1)
-						.single();
+						.limit(1);
+
+					if (refEfetiva) {
+						query = query.or(`termo_busca.eq."${chaveCacheDeLeitura}",termo_busca.ilike."%_${refEfetiva}"`);
+					} else {
+						query = query.eq("termo_busca", chaveCacheDeLeitura);
+					}
+
+					const { data: cacheData, error: cacheErr } = await query.maybeSingle();
 					if (
 						!cacheErr &&
 						cacheData &&
@@ -1391,7 +1398,23 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			const { buscarEmpresasDoSocio } = await import(
 				"@/services/core/socio-search"
 			);
-			const empresasPorNome = await buscarEmpresasDoSocio(deputadoBasico.nome);
+			const nomesParaBuscarSocio = Array.from(
+				new Set(
+					[
+						deputadoBasico.nome,
+						detalhes?.nomeCivil,
+						deputadoBasico.nomeCivil,
+						(deputadoBasico as any)._tseResult?.nome,
+					].filter((n): n is string => Boolean(n && n.trim().length > 3)),
+				),
+			);
+			let empresasPorNome: any[] = [];
+			for (const n of nomesParaBuscarSocio) {
+				const achadas = await buscarEmpresasDoSocio(n);
+				if (achadas && achadas.length > 0) {
+					empresasPorNome = [...empresasPorNome, ...achadas];
+				}
+			}
 			if (empresasPorNome && empresasPorNome.length > 0) {
 				// ANTI-FALSO-POSITIVO: a busca reversa por nome é fraca (homônimos). A empresa só
 				// entra se o QSA confirmar nome e, com CPF confirmado, os 6 dígitos do meio do CPF
