@@ -265,3 +265,26 @@ DO $$ BEGIN
         CREATE POLICY tse_campanha_contas_service ON public.tse_campanha_contas FOR ALL TO service_role USING (true) WITH CHECK (true);
     END IF;
 END $$;
+
+-- -------------------------------------------------------------------------------
+-- 11. pncp_contratos_cache — contratos de um órgão no PNCP, guardados por CNPJ
+-- Cópia de até 24 h usada direto; até 30 dias só quando o PNCP não responde.
+-- Ver scripts/sql/migracao_perfil_pncp_cache.sql e src/services/integrations/pncp/contratos-guardados.ts
+-- -------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.pncp_contratos_cache (
+    cnpj_orgao     TEXT PRIMARY KEY,
+    consultado_em  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    total          INTEGER NOT NULL DEFAULT 0,
+    contratos      JSONB NOT NULL DEFAULT '[]'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_pncp_contratos_cache_consultado ON public.pncp_contratos_cache (consultado_em);
+
+ALTER TABLE public.pncp_contratos_cache ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pncp_contratos_cache_service' AND tablename = 'pncp_contratos_cache') THEN
+        CREATE POLICY pncp_contratos_cache_service ON public.pncp_contratos_cache FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+
+REVOKE ALL ON public.pncp_contratos_cache FROM anon, authenticated;

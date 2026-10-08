@@ -49,6 +49,8 @@ export interface OpcoesContratosOrgao {
 	agora?: () => Date;
 	/** Teto da coleta inteira (padrão: 80 s a partir da chamada). */
 	prazo?: Prazo;
+	/** "lenta" quando há cópia guardada para usar se o PNCP falhar (contratos-guardados.ts). */
+	avisoDeFalha?: "falhou" | "lenta";
 }
 
 function aaaammdd(d: Date): string {
@@ -87,6 +89,7 @@ async function pagina(cnpj: string, n: number, periodo: string, op: OpcoesContra
 		prazo,
 		memoria: { ttlMs: 6 * 60 * 60 * 1000 },
 		fetchFn: op.fetchFn,
+		avisoDeFalha: op.avisoDeFalha,
 	}));
 	if (r.ok) return { itens: r.dados?.data ?? [], falha: null };
 	// 204 (sem conteúdo) chega como erro de leitura: é "nenhum contrato". Da 2ª página em

@@ -11,6 +11,11 @@
 const METODOS_ESCRITA = new Set(["insert", "upsert", "update", "delete"]);
 const RPCS_LEITURA = new Set<string>(); // nenhuma RPC é liberada por padrão
 const TABELAS_OCULTAS = new Set(["pesquisas"]);
+/**
+ * Cache técnico que pode ser gravado: não aparece para o usuário nem mexe em
+ * ranking. Sem isso a matriz nunca exercitaria a cópia guardada do PNCP.
+ */
+const TABELAS_GRAVAVEIS = new Set(["pncp_contratos_cache"]);
 
 interface RegistroEscrita {
 	tipo: "tabela" | "rpc";
@@ -54,6 +59,7 @@ export function protegerCliente(
 
 	cliente.from = (tabela: string) => {
 		if (TABELAS_OCULTAS.has(tabela)) return resultadoVazio([]);
+		if (TABELAS_GRAVAVEIS.has(tabela)) return fromOriginal(tabela);
 		const construtor = fromOriginal(tabela) as Record<string, unknown>;
 		return new Proxy(construtor, {
 			get(alvo, prop, receptor) {

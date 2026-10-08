@@ -251,8 +251,8 @@ describe("casa legislativa do mandato (câmara, assembleia, CLDF) pela busca do 
 		const todos = emitirColetaDoMandato(coleta, "p", (tipo, payload) => eventos.push({ tipo, payload }));
 		expect(todos).toHaveLength(4);
 		expect(eventos.filter((e) => e.tipo === "STATUS").map((e) => e.payload.msg)).toEqual([
-			"[PNCP] Prefeitura (Cuiabá): 2 contrato(s) nos últimos 12 meses (R$ 3.000). Os 2 maiores aparecem no dossiê; todos entram nos cruzamentos.",
-			"[PNCP] Câmara Municipal (Cuiabá): 2 contrato(s) nos últimos 12 meses (R$ 3.000). Os 2 maiores aparecem no dossiê; todos entram nos cruzamentos.",
+			"[PNCP] Prefeitura (Cuiabá): 2 contrato(s) nos últimos 12 meses (R$ 3.000). Todos aparecem no dossiê e entram nos cruzamentos.",
+			"[PNCP] Câmara Municipal (Cuiabá): 2 contrato(s) nos últimos 12 meses (R$ 3.000). Todos aparecem no dossiê e entram nos cruzamentos.",
 		]);
 		const ids = eventos.filter((e) => e.tipo === "NODE_NOVO").map((e) => e.payload.id);
 		expect(ids).toEqual([`contrato-pncp-${FORN}-0`, `contrato-pncp-${FORN}-1`, `contrato-casa-${FORN}-0`, `contrato-casa-${FORN}-1`]);

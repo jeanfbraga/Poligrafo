@@ -16,7 +16,8 @@
 import { type DespesaNormalizada, nosDeContratosDoEnte } from "@/services/core/despesa-normalizada";
 import { emitirEtapa } from "@/services/core/etapas-ao-vivo";
 import { type AlvoCasa, buscarCasaLegislativa, type CasaLegislativa } from "@/services/integrations/pncp/casa-legislativa";
-import { buscarContratosDoOrgao, type ContratoOrgao } from "@/services/integrations/pncp/contratos-orgao";
+import { contratosComCopia, type ResultadoContratos } from "@/services/integrations/pncp/contratos-guardados";
+import type { ContratoOrgao } from "@/services/integrations/pncp/contratos-orgao";
 import {
 	buscarEnteEstadual,
 	buscarEntePorIbge,
@@ -35,26 +36,47 @@ export interface AlvoEnte {
 	cargoTse?: string | null;
 }
 
+/** Lista de contratos ou o resultado com a origem (ao vivo ou cópia guardada no banco). */
+type FonteDeContratos = (cnpj: string) => Promise<ContratoOrgao[] | ResultadoContratos>;
+
 export interface DepsContratosEnte {
 	porIbge: (cod: string) => Promise<EnteSiconfi | null>;
 	porNome: (uf: string, municipio: string) => Promise<EnteSiconfi | null>;
 	estadual: (uf: string) => Promise<EnteSiconfi | null>;
-	contratos: (cnpj: string) => Promise<ContratoOrgao[]>;
+	contratos: FonteDeContratos;
 	/** CNPJ da casa legislativa (busca do PNCP). */
 	casa?: (alvo: AlvoCasa) => Promise<CasaLegislativa | null>;
 	/** Contratos da casa (sem isto, usa `contratos`). */
-	contratosDaCasa?: (cnpj: string) => Promise<ContratoOrgao[]>;
+	contratosDaCasa?: FonteDeContratos;
 }
 
 const DEPS_PADRAO: Required<DepsContratosEnte> = {
 	porIbge: (cod) => buscarEntePorIbge(cod),
 	porNome: (uf, municipio) => buscarEnteSiconfi(uf, municipio),
 	estadual: (uf) => buscarEnteEstadual(uf),
-	contratos: (cnpj) => buscarContratosDoOrgao(cnpj),
+	// Cópia guardada no Banco de Perfil (24 h; até 30 dias se o PNCP cair): pncp/contratos-guardados.ts
+	contratos: (cnpj) => contratosComCopia(cnpj),
 	casa: (alvo) => buscarCasaLegislativa(alvo),
 	// A casa contrata pouco (ALESP: 287 em 12 meses): uma página de 500 basta e alivia o PNCP.
-	contratosDaCasa: (cnpj) => buscarContratosDoOrgao(cnpj, { paginas: 1 }),
+	contratosDaCasa: (cnpj) => contratosComCopia(cnpj, { paginas: 1 }),
 };
+
+/** De onde vieram os contratos quando não foi ao vivo. */
+export interface CopiaGuardada {
+	/** ISO da consulta guardada. */
+	em: string;
+	/** true = mais de 24 h, usada porque o PNCP não respondeu agora. */
+	antiga: boolean;
+}
+
+function comoResultado(r: ContratoOrgao[] | ResultadoContratos): ResultadoContratos {
+	return Array.isArray(r) ? { contratos: r, origem: "ao_vivo", guardadoEm: null } : r;
+}
+
+function copiaDe(r: ResultadoContratos): CopiaGuardada | null {
+	if (r.origem === "ao_vivo" || !r.guardadoEm) return null;
+	return { em: r.guardadoEm, antiga: r.origem === "guardado_antigo" };
+}
 
 /** Quantos contratos viram nó no dossiê (os demais só entram nos cruzamentos). */
 export const NOS_NO_DOSSIE = 20;
@@ -96,14 +118,31 @@ function rotulo(ente: EnteSiconfi): string {
 	return ente.esfera === "M" ? `Prefeitura (${ente.ente})` : `Governo (${ente.ente})`;
 }
 
-/** Mesma frase para o órgão fiscalizado e para a casa: "Órgão (lugar): N contrato(s)…". */
-function linhaDosContratos(orgao: string, despesas: DespesaNormalizada[]): string {
-	const total = despesas.reduce((s, d) => s + d.valorDocumento, 0);
-	return `[PNCP] ${orgao}: ${despesas.length} contrato(s) nos últimos 12 meses (${brl(total)}). Os ${Math.min(NOS_NO_DOSSIE, despesas.length)} maiores aparecem no dossiê; todos entram nos cruzamentos.`;
+const FUSO = { timeZone: "America/Sao_Paulo" } as const;
+
+function dataDe(iso: string): string {
+	return new Date(iso).toLocaleDateString("pt-BR", FUSO);
 }
 
-function linhaSemContratos(orgao: string): string {
-	return `[PNCP] ${orgao}: nenhum contrato publicado no PNCP nos últimos 12 meses (o órgão pode publicar em portal próprio).`;
+function dataHora(iso: string): string {
+	return `${dataDe(iso)} às ${new Date(iso).toLocaleTimeString("pt-BR", { ...FUSO, hour: "2-digit", minute: "2-digit" })}`;
+}
+
+/** Fim da linha do log quando os contratos vieram da cópia guardada. */
+function notaDaCopia(copia: CopiaGuardada | null): string {
+	if (!copia) return "";
+	return copia.antiga ? ` O PNCP não respondeu agora: são os contratos guardados em ${dataHora(copia.em)}.` : ` Consulta guardada de ${dataHora(copia.em)}.`;
+}
+
+/** Mesma frase para o órgão fiscalizado e para a casa: "Órgão (lugar): N contrato(s)…". */
+function linhaDosContratos(orgao: string, despesas: DespesaNormalizada[], copia: CopiaGuardada | null): string {
+	const total = despesas.reduce((s, d) => s + d.valorDocumento, 0);
+	const noDossie = despesas.length > NOS_NO_DOSSIE ? `Os ${NOS_NO_DOSSIE} maiores aparecem no dossiê; todos entram nos cruzamentos.` : "Todos aparecem no dossiê e entram nos cruzamentos.";
+	return `[PNCP] ${orgao}: ${despesas.length} contrato(s) nos últimos 12 meses (${brl(total)}). ${noDossie}${notaDaCopia(copia)}`;
+}
+
+function linhaSemContratos(orgao: string, copia: CopiaGuardada | null): string {
+	return `[PNCP] ${orgao}: nenhum contrato publicado no PNCP nos últimos 12 meses (o órgão pode publicar em portal próprio).${notaDaCopia(copia)}`;
 }
 
 function linhaFalha(orgao: string): string {
@@ -112,18 +151,25 @@ function linhaFalha(orgao: string): string {
 
 const ORIGEM_PNCP = "PNCP (portal federal de contratos)";
 
+/** "(cópia de 08/10/2026)" ou "(cópia de 01/10/2026; o PNCP não respondeu agora)". */
+function sufixoDaCopia(copia: CopiaGuardada | null): string {
+	if (!copia) return "";
+	return copia.antiga ? ` (cópia de ${dataDe(copia.em)}; o PNCP não respondeu agora)` : ` (cópia de ${dataDe(copia.em)})`;
+}
+
 /** Resultado para a lista de fontes da tela (evento ETAPA): "61 contratos: Governo (Distrito Federal)". */
-function etapaDosContratos(sendEvent: Emissor, orgao: string, despesas: DespesaNormalizada[]): void {
+function etapaDosContratos(sendEvent: Emissor, orgao: string, despesas: DespesaNormalizada[], copia: CopiaGuardada | null): void {
+	const sufixo = sufixoDaCopia(copia);
 	emitirEtapa(sendEvent, despesas.length
-		? { fonte: "pncp", estado: "concluida", origem: ORIGEM_PNCP, detalhe: `${despesas.length} ${despesas.length === 1 ? "contrato" : "contratos"}: ${orgao}` }
-		: { fonte: "pncp", estado: "vazia", origem: ORIGEM_PNCP, detalhe: `${orgao}: nenhum contrato no PNCP em 12 meses` });
+		? { fonte: "pncp", estado: "concluida", origem: ORIGEM_PNCP, detalhe: `${despesas.length} ${despesas.length === 1 ? "contrato" : "contratos"}: ${orgao}${sufixo}` }
+		: { fonte: "pncp", estado: "vazia", origem: ORIGEM_PNCP, detalhe: `${orgao}: nenhum contrato no PNCP em 12 meses${sufixo}` });
 }
 
 export type ColetaEnte =
 	| { situacao: "NAO_SE_APLICA" }
 	| { situacao: "SEM_ENTE" }
 	| { situacao: "FALHA"; erro: unknown; orgao?: string }
-	| { situacao: "OK"; ente: EnteSiconfi; despesas: DespesaNormalizada[] };
+	| { situacao: "OK"; ente: EnteSiconfi; despesas: DespesaNormalizada[]; copia?: CopiaGuardada | null };
 
 /**
  * Só a busca (sem emitir nada): o pipe começa isto logo depois da identidade,
@@ -137,8 +183,8 @@ export async function coletarContratosDoEnte(alvo: AlvoEnte, deps: DepsContratos
 		const ente = await localizarEnte(alvo, deps);
 		if (!ente?.cnpj) return { situacao: "SEM_ENTE" };
 		orgao = rotulo(ente);
-		const despesas = (await deps.contratos(ente.cnpj)).map((c) => contratoParaDespesa(c, ente));
-		return { situacao: "OK", ente, despesas };
+		const r = comoResultado(await deps.contratos(ente.cnpj));
+		return { situacao: "OK", ente, despesas: r.contratos.map((c) => contratoParaDespesa(c, ente)), copia: copiaDe(r) };
 	} catch (erro) {
 		return { situacao: "FALHA", erro, orgao };
 	}
@@ -157,12 +203,13 @@ export function emitirColetaDoEnte(coleta: ColetaEnte, pessoaId: string, sendEve
 		return [];
 	}
 	const { ente, despesas } = coleta;
-	etapaDosContratos(sendEvent, rotulo(ente), despesas);
+	const copia = coleta.copia ?? null;
+	etapaDosContratos(sendEvent, rotulo(ente), despesas, copia);
 	if (despesas.length === 0) {
-		sendEvent("STATUS", { msg: linhaSemContratos(rotulo(ente)) });
+		sendEvent("STATUS", { msg: linhaSemContratos(rotulo(ente), copia) });
 		return [];
 	}
-	sendEvent("STATUS", { msg: linhaDosContratos(rotulo(ente), despesas) });
+	sendEvent("STATUS", { msg: linhaDosContratos(rotulo(ente), despesas, copia) });
 	for (const no of nosDeContratosDoEnte(despesas, pessoaId, NOS_NO_DOSSIE, "contrato-pncp")) sendEvent("NODE_NOVO", no);
 	return despesas;
 }
@@ -173,7 +220,7 @@ export type ColetaCasa =
 	| { situacao: "NAO_SE_APLICA" }
 	| { situacao: "SEM_CASA"; tipo: string }
 	| { situacao: "FALHA"; erro: unknown; orgao: string }
-	| { situacao: "OK"; casa: CasaLegislativa; despesas: DespesaNormalizada[] };
+	| { situacao: "OK"; casa: CasaLegislativa; despesas: DespesaNormalizada[]; copia?: CopiaGuardada | null };
 
 /** "Câmara Municipal", "Assembleia Legislativa" ou "Câmara Legislativa" (para o log). */
 export function tipoDaCasa(alvo: AlvoEnte): string {
@@ -199,8 +246,8 @@ export async function coletarContratosDaCasa(alvo: AlvoEnte, deps: DepsContratos
 		const casa = destino ? await (deps.casa ?? DEPS_PADRAO.casa)(destino) : null;
 		if (!casa) return { situacao: "SEM_CASA", tipo: orgao };
 		orgao = casa.rotulo;
-		const despesas = (await (deps.contratosDaCasa ?? deps.contratos)(casa.cnpj)).map((c) => despesaDoContrato(c, casa.rotulo));
-		return { situacao: "OK", casa, despesas };
+		const r = comoResultado(await (deps.contratosDaCasa ?? deps.contratos)(casa.cnpj));
+		return { situacao: "OK", casa, despesas: r.contratos.map((c) => despesaDoContrato(c, casa.rotulo)), copia: copiaDe(r) };
 	} catch (erro) {
 		return { situacao: "FALHA", erro, orgao };
 	}
@@ -218,12 +265,13 @@ export function emitirColetaDaCasa(coleta: ColetaCasa, pessoaId: string, sendEve
 		return [];
 	}
 	const { casa, despesas } = coleta;
-	etapaDosContratos(sendEvent, casa.rotulo, despesas);
+	const copia = coleta.copia ?? null;
+	etapaDosContratos(sendEvent, casa.rotulo, despesas, copia);
 	if (despesas.length === 0) {
-		sendEvent("STATUS", { msg: linhaSemContratos(casa.rotulo) });
+		sendEvent("STATUS", { msg: linhaSemContratos(casa.rotulo, copia) });
 		return [];
 	}
-	sendEvent("STATUS", { msg: linhaDosContratos(casa.rotulo, despesas) });
+	sendEvent("STATUS", { msg: linhaDosContratos(casa.rotulo, despesas, copia) });
 	for (const no of nosDeContratosDoEnte(despesas, pessoaId, NOS_NO_DOSSIE, "contrato-casa")) sendEvent("NODE_NOVO", no);
 	return despesas;
 }

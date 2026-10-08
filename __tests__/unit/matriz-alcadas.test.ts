@@ -139,6 +139,19 @@ describe("matriz de alçadas — banco somente leitura", () => {
 		]);
 	});
 
+	it("a cópia técnica do PNCP pode ser gravada (não aparece para o usuário nem mexe no ranking)", () => {
+		const chamadas: string[] = [];
+		const cliente = {
+			from: (_t: string) => ({ upsert: () => chamadas.push("upsert-real") }) as unknown,
+			rpc: (_fn: string) => Promise.resolve({}),
+		};
+		const escritas: { tipo: string; alvo: string; metodo: string }[] = [];
+		protegerCliente(cliente, escritas);
+		(cliente.from("pncp_contratos_cache") as any).upsert({});
+		expect(chamadas).toEqual(["upsert-real"]);
+		expect(escritas).toEqual([]);
+	});
+
 	it("resultado vazio é encadeável e aguardável", async () => {
 		const r = await (resultadoVazio() as any).eq("a", 1).order("b").limit(1);
 		expect(r).toMatchObject({ data: null, error: null });
