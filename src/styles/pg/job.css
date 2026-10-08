@@ -144,14 +144,46 @@
 	}
 
 	.pg-stage[data-s="slow"] .pg-stage__ic,
-	.pg-stage[data-s="slow"] .pg-stage__st {
+	.pg-stage[data-s="slow"] .pg-stage__st,
+	.pg-stage[data-s="parcial"] .pg-stage__ic,
+	.pg-stage[data-s="parcial"] .pg-stage__st {
 		color: var(--pg-warn);
+	}
+
+	.pg-stage[data-s="fora"] .pg-stage__ic,
+	.pg-stage[data-s="fora"] .pg-stage__st {
+		color: var(--pg-crit);
+	}
+
+	/* o que deu errado precisa ser lido: a frase da fonte com problema fica mais forte */
+	.pg-stage[data-s="slow"] small,
+	.pg-stage[data-s="parcial"] small,
+	.pg-stage[data-s="fora"] small {
+		color: var(--pg-ink-2);
 	}
 
 	.pg-stage[data-s="wait"],
 	.pg-stage[data-s="cut"],
 	.pg-stage[data-s="na"] {
 		opacity: 0.6;
+	}
+
+	/* ---- quadro "Algumas fontes não responderam" ---- */
+	.pg-problemas {
+		margin: 12px 0;
+	}
+
+	.pg-problemas__lista {
+		margin: 0;
+		padding-left: 18px;
+		display: grid;
+		gap: 4px;
+	}
+
+	.pg-problemas__nota {
+		margin: 0;
+		color: var(--pg-ink-2);
+		font-size: var(--pg-t-micro);
 	}
 
 	.pg-stagesd {

@@ -61,17 +61,22 @@ describe("CLDF — verba indenizatória (CKAN)", () => {
 		const r = await despesasCldfParaOPipe({ nome: "JANE KLEBIA", cpf: CPF }, (tipo, payload) => eventos.push({ tipo, payload }), obter as never);
 		expect(urls).toContain(`${BASE_CLDF}/datastore_search?resource_id=r2026&limit=10000`);
 		expect(r.map((d) => d.valorDocumento)).toEqual([900, 100]);
-		expect(eventos).toEqual([{ tipo: "STATUS", payload: { msg: "[CLDF] 2 lançamento(s) de verba indenizatória de Jane Klébia em 2026 e 2025 (dados abertos da CLDF; deputado achado pelo CPF)." } }]);
+		expect(eventos).toEqual([
+			{ tipo: "STATUS", payload: { msg: "[CLDF] 2 lançamento(s) de verba indenizatória de Jane Klébia em 2026 e 2025 (dados abertos da CLDF; deputado achado pelo CPF)." } },
+			{ tipo: "ETAPA", payload: { fonte: "casa", estado: "concluida", origem: "Câmara Legislativa do DF", detalhe: "2 gastos da verba indenizatória (2026 e 2025)" } },
+		]);
 	});
 
 	it("portal fora do ar e deputado sem lançamento: cada caso com sua linha no log", async () => {
 		const msgs: string[] = [];
-		const status = (_t: string, p: any) => msgs.push(p.msg);
+		const etapas: any[] = [];
+		const status = (t: string, p: any) => (t === "ETAPA" ? etapas.push(p) : msgs.push(p.msg));
 		expect(await despesasCldfParaOPipe({ nome: "X" }, status, (async () => null) as never)).toEqual([]);
 		expect(msgs.at(-1)).toBe("[CLDF] Dados abertos da Câmara Legislativa indisponíveis; verba indenizatória não consultada.");
 		const vazio = vi.fn(async (url: string) => (url.includes("package_show") ? { result: { resources: RECURSOS } } : { result: { records: [] } }));
 		expect(await despesasCldfParaOPipe({ nome: "FÁBIO FELIX", cpf: CPF }, status, vazio as never)).toEqual([]);
 		expect(msgs.at(-1)).toBe("[CLDF] Nenhum lançamento de verba indenizatória de FÁBIO FELIX em 2026 e 2025 (procurado pelo CPF e pelo nome).");
+		expect(etapas).toEqual([{ fonte: "casa", estado: "vazia", origem: "Câmara Legislativa do DF", detalhe: "nenhum gasto de verba indenizatória em 2026 e 2025" }]);
 	});
 
 	it("o roteador de assembleias passa o CPF para a fonte do DF; nome sozinho continua aceito", async () => {

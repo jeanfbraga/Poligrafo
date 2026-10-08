@@ -23,6 +23,7 @@ import {
 	recriarResposta,
 } from "./cache";
 import { Disjuntor } from "./disjuntor";
+import { sinalizarFonte } from "./observador";
 import {
 	CABECALHOS_NAVEGADOR,
 	calcularEsperaMs,
@@ -208,6 +209,7 @@ async function tratarResposta(
 	if (!statusTransitorio(res.status) || ultima) return res;
 	const espera = calcularEsperaMs(n, lerRetryAfterMs(res.headers.get("retry-after")), cfg.espera);
 	if (!cabeNoPrazo(cfg, espera)) return res;
+	sinalizarFonte({ tipo: "lenta", url: cfg.url, fonte: cfg.fonte, motivo: res.status >= 500 ? "HTTP_5XX" : "HTTP_4XX", status: res.status });
 	await descartarCorpo(res);
 	await cfg.dormir(espera);
 	return null;
@@ -219,6 +221,7 @@ async function tratarErro(cfg: Config, erro: unknown, n: number): Promise<void> 
 	registrarSaude(cfg, true);
 	const espera = calcularEsperaMs(n, null, cfg.espera);
 	if (n >= cfg.tentativas - 1 || !cabeNoPrazo(cfg, espera)) throw erro;
+	sinalizarFonte({ tipo: "lenta", url: cfg.url, fonte: cfg.fonte, motivo: classificarErroFonte(erro) });
 	await cfg.dormir(espera);
 }
 
@@ -251,6 +254,30 @@ async function guardarSeCouber(cfg: Config, chave: string | null, res: Response)
 	return recriarResposta(guardada);
 }
 
+/** Problema de conexão para quem usa: 5xx, 429 (limite) e 401/403 (acesso recusado). 404 e outros 4xx são resposta. */
+export function statusDeProblema(status: number): boolean {
+	return status >= 500 || status === 429 || status === 401 || status === 403;
+}
+
+/** Conta ao observador da investigação (observador.ts) como a fonte respondeu. */
+function avisarResultado(cfg: Config, res: Response): void {
+	if (!statusDeProblema(res.status)) {
+		sinalizarFonte({ tipo: "respondeu", url: cfg.url, fonte: cfg.fonte });
+		return;
+	}
+	sinalizarFonte({ tipo: "falhou", url: cfg.url, fonte: cfg.fonte, erro: res.status >= 500 ? "HTTP_5XX" : "HTTP_4XX", status: res.status });
+}
+
+async function consultar(cfg: Config): Promise<Response> {
+	verificarDisponivel(cfg);
+	const chave = chaveCache(cfg);
+	const guardada = chave ? cacheGlobal.ler(chave) : null;
+	if (guardada) return recriarResposta(guardada);
+	const res = await executarComTentativas(cfg);
+	avisarResultado(cfg, res);
+	return guardarSeCouber(cfg, chave, res);
+}
+
 /**
  * Consulta uma fonte governamental. Devolve o `Response` (inclusive 4xx/5xx
  * depois de esgotar as tentativas) e relança o erro original de rede/timeout.
@@ -260,12 +287,12 @@ export async function buscarFonte(
 	opcoes: OpcoesFonte = {},
 ): Promise<Response> {
 	const cfg = normalizar(url, opcoes);
-	verificarDisponivel(cfg);
-	const chave = chaveCache(cfg);
-	const guardada = chave ? cacheGlobal.ler(chave) : null;
-	if (guardada) return recriarResposta(guardada);
-	const res = await executarComTentativas(cfg);
-	return guardarSeCouber(cfg, chave, res);
+	try {
+		return await consultar(cfg);
+	} catch (erro) {
+		sinalizarFonte({ tipo: "falhou", url: cfg.url, fonte: cfg.fonte, erro: classificarErroFonte(erro) });
+		throw erro;
+	}
 }
 
 export type ResultadoJson<T> =

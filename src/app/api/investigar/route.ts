@@ -234,7 +234,10 @@ export async function GET(request: Request) {
 				const { executarInvestigacaoPrincipal } = await import(
 					"@/services/core/investigador-principal"
 				);
-				await executarInvestigacaoPrincipal({
+				const { observarFontes } = await import("@/lib/fonte-http/observador");
+				const { criarOuvinteDeEtapas } = await import("@/services/core/etapas-ao-vivo");
+				// Cada site consultado avisa se respondeu, está lento ou falhou (evento ETAPA para a tela).
+				await observarFontes(criarOuvinteDeEtapas(sendEvent), () => executarInvestigacaoPrincipal({
 					nomeParaBusca,
 					ufScope,
 					cargoParam,
@@ -251,7 +254,7 @@ export async function GET(request: Request) {
 					encoder,
 					controller,
 					reqUrl: request.url,
-				});
+				}));
 			} catch (e) {
 				console.error("Erro fatal:", e);
 				// Antes o stream ficava aberto e o navegador esperava para sempre.

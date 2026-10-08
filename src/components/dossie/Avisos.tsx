@@ -3,9 +3,16 @@
 import { Panel } from "@/components/ds";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
 import type { ApiWarning, Candidato } from "@/lib/investigacao/dossie-state";
+import type { ProblemaDeFonte } from "@/lib/investigacao/etapas";
 import { tituloCaso } from "@/lib/texto";
 
-/** Avisos de fontes fora do ar (não bloqueiam a investigação). */
+/** Problema de conexão (evento ETAPA) no mesmo formato dos avisos: o que falhou e o que isso significa. */
+export function avisoDoProblema(p: ProblemaDeFonte): ApiWarning {
+	const efeito = p.gravidade === "fora" ? "Nada desta fonte entrou no dossiê" : "Parte desta fonte não entrou no dossiê";
+	return { fonte: `${p.nome} · não respondeu`, mensagem: `${p.texto}. ${efeito}; isso não quer dizer que os dados não existam.` };
+}
+
+/** Avisos de fontes (fora do ar, sem resposta, político não identificado na casa…). Não bloqueiam a investigação. */
 export function AvisosApi({ avisos, onFechar }: { avisos: ApiWarning[]; onFechar: (fonte: string) => void }) {
 	if (avisos.length === 0) return null;
 	return (
@@ -13,12 +20,12 @@ export function AvisosApi({ avisos, onFechar }: { avisos: ApiWarning[]; onFechar
 			{avisos.map((w) => (
 				<div key={w.fonte} className="pg-notice">
 					<div className="pg-notice__head">
-						<span>▲ {w.fonte} — fora do ar</span>
+						<span>▲ {w.fonte}</span>
 						<button type="button" className="pg-btn pg-btn--icon pg-btn--ghost" style={{ height: 24, width: 24 }} aria-label={`Dispensar aviso de ${w.fonte}`} onClick={() => onFechar(w.fonte)}>
 							<PixelIcon name="x" size={12} />
 						</button>
 					</div>
-					<span>&gt; {w.mensagem}</span>
+					<span>{w.mensagem}</span>
 				</div>
 			))}
 		</div>

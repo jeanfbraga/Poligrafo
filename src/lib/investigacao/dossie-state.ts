@@ -20,8 +20,10 @@ import {
 	ETAPAS_INICIAIS,
 	type EtapasState,
 	marcarConcluida,
+	registrarEtapa,
 	registrarStatus,
 } from "./etapas";
+import type { EventoEtapa } from "./origens";
 import { LIMITE_ATENCAO, LIMITE_CRITICO, riscoDoNo, scoreDoNo } from "./risco";
 import type { SseEvent } from "./sse";
 
@@ -268,6 +270,9 @@ const aoStatus: Manipulador = (s0, p) => {
 	};
 };
 
+/** O servidor conta, por fonte, o que respondeu, demorou ou falhou (services/core/etapas-ao-vivo.ts). */
+const aoEtapa: Manipulador = (s, p) => ({ ...s, etapas: registrarEtapa(s.etapas, p as EventoEtapa) });
+
 const aoErro: Manipulador = (s, p) => ({
 	...s,
 	erro: String(p?.mensagem || "Erro no pipeline"),
@@ -332,6 +337,7 @@ const aoEdgeNova: Manipulador = (s, p) => {
 
 const MANIPULADORES: Record<string, Manipulador> = {
 	STATUS: aoStatus,
+	ETAPA: aoEtapa,
 	ERROR: aoErro,
 	API_WARNING: aoAvisoApi,
 	CANDIDATOS_ENCONTRADOS: aoCandidatos,

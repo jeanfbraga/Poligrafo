@@ -8,6 +8,7 @@ import { JobBanner, JobChip } from "@/components/investigacao/JobIndicadores";
 import { useInvestigacao, useRelogio } from "@/components/investigacao/InvestigacaoProvider";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { urlDossie } from "@/lib/investigacao/alvo";
+import { problemasDeConexao } from "@/lib/investigacao/etapas";
 import { jobView } from "@/lib/investigacao/job-view";
 import { tituloCaso } from "@/lib/texto";
 import { CommandSearch } from "./CommandSearch";
@@ -92,11 +93,12 @@ function MenuHeader() {
 function LedsDeFontes() {
 	const { state } = useInvestigacao();
 	if (!state.alvo) return null;
-	const fora = state.dossie.warnings.length;
+	// Avisos do servidor + fontes cujo site não respondeu (evento ETAPA).
+	const fora = state.dossie.warnings.length + problemasDeConexao(state.dossie.etapas, state.dossie.status === "running").length;
 	return (
 		<div className="pg-leds" role="status">
 			<span className={`pg-led${fora > 0 ? " pg-led--warn" : ""}`} />
-			{fora > 0 ? `${fora} fonte(s) fora do ar` : "fontes ok"}
+			{fora > 0 ? `${fora} fonte(s) com problema` : "fontes respondendo"}
 		</div>
 	);
 }

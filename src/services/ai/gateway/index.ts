@@ -7,6 +7,7 @@
  * exceção: devolve `{ ok: false, motivo }` para quem chama aplicar a regra
  * local. Ver nota 30 do Obsidian.
  */
+import { sinalizarFonte } from "@/lib/fonte-http/observador";
 import { Prazo } from "@/lib/prazo";
 import { classificarFalha, type Falha } from "./falhas";
 import { chaveDoProvedor, type ModeloIA, modelosEmRodizio, PROVEDORES, type TarefaIA } from "./registro";
@@ -141,9 +142,19 @@ async function percorrer(fila: ModeloIA[], st: Estado): Promise<RespostaIA> {
 	return { ok: false, motivo: "ESGOTADO", tentativas: st.tentativas };
 }
 
+/** Endereço simbólico da IA para o observador (lib/investigacao/origens.ts liga a "Análise de IA"). */
+export const ENDERECO_IA = "ia://gateway";
+
+/** Conta à investigação em curso se a IA respondeu ou se todos os modelos falharam (lista de fontes da tela). */
+function sinalizarIA(r: RespostaIA): void {
+	if (r.ok) sinalizarFonte({ tipo: "respondeu", url: ENDERECO_IA });
+	else sinalizarFonte({ tipo: "falhou", url: ENDERECO_IA, erro: r.motivo === "PRAZO" ? "PRAZO" : "FONTE_INDISPONIVEL" });
+}
+
 export async function gerar(pedido: PedidoIA): Promise<RespostaIA> {
 	const st = criarEstado(pedido);
 	const fila = modelosEmRodizio(pedido.tarefa, st.env);
-	if (fila.length === 0) return { ok: false, motivo: "SEM_PROVEDOR", tentativas: [] };
-	return percorrer(fila, st);
+	const r: RespostaIA = fila.length === 0 ? { ok: false, motivo: "SEM_PROVEDOR", tentativas: [] } : await percorrer(fila, st);
+	sinalizarIA(r);
+	return r;
 }

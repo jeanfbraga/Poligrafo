@@ -8,6 +8,9 @@ import {
 	type EtapaStatus,
 	FONTES,
 	formatarRelogio,
+	notaDaFonte,
+	type ProblemaDeFonte,
+	problemasDeConexao,
 	resumirEtapas,
 	statusDaFonte,
 	TEXTO_ETAPA,
@@ -19,9 +22,12 @@ export type EstadoJob = "idle" | "running" | "partial" | "done" | "error";
 export interface EtapaView {
 	id: string;
 	nome: string;
+	/** Descrição fixa da fonte ("contratos e licitações"). */
 	detalhe: string;
 	status: EtapaStatus;
 	texto: string;
+	/** O que aconteceu agora, em linguagem simples ("61 contratos…", "PNCP: demorou demais…"). */
+	nota: string | null;
 }
 
 export interface JobView {
@@ -38,6 +44,8 @@ export interface JobView {
 	log: string;
 	erro: string;
 	etapas: EtapaView[];
+	/** Fontes em que algum site não respondeu (quadro "Algumas fontes não responderam"). */
+	problemas: ProblemaDeFonte[];
 	/** Há outra investigação (de outro alvo) em andamento. */
 	outraEmAndamento: boolean;
 	temNos: boolean;
@@ -51,8 +59,14 @@ function estadoDo(state: StoreState, alvo: Alvo | null | undefined): EstadoJob {
 function etapasView(state: StoreState, ativo: boolean, rodando: boolean): EtapaView[] {
 	return FONTES.map((f) => {
 		const status: EtapaStatus = ativo ? statusDaFonte(state.dossie.etapas, f.id, rodando) : "wait";
-		return { id: f.id, nome: f.nome, detalhe: f.detalhe, status, texto: TEXTO_ETAPA[status] };
+		const nota = ativo ? notaDaFonte(state.dossie.etapas, f.id, status) : null;
+		return { id: f.id, nome: f.nome, detalhe: f.detalhe, status, texto: TEXTO_ETAPA[status], nota };
 	});
+}
+
+/** "[PNCP] Governo (DF): 61 contrato(s)…" → "PNCP · Governo (DF): 61 contrato(s)…" (sem etiqueta técnica). */
+export function textoDoLog(msg: string): string {
+	return String(msg ?? "").replace(/^\[([^\]]+)\]:?\s*/, "$1 · ");
 }
 
 function viewIdle(state: StoreState, esperavaAlvo: boolean): JobView {
@@ -69,6 +83,7 @@ function viewIdle(state: StoreState, esperavaAlvo: boolean): JobView {
 		log: "",
 		erro: "",
 		etapas: etapasView(state, false, false),
+		problemas: [],
 		outraEmAndamento: esperavaAlvo && state.dossie.status === "running" && state.alvo !== null,
 		temNos: false,
 	};
@@ -89,9 +104,10 @@ function viewAtivo(state: StoreState, estado: EstadoJob, segundos: number): JobV
 		nos: cont.nos,
 		criticos: cont.criticos,
 		atencao: cont.atencao,
-		log: d.log[d.log.length - 1] ?? "",
+		log: textoDoLog(d.log[d.log.length - 1] ?? ""),
 		erro: d.erro,
 		etapas: etapasView(state, true, rodando),
+		problemas: problemasDeConexao(d.etapas, rodando),
 		outraEmAndamento: false,
 		temNos: d.nodes.length > 0,
 	};

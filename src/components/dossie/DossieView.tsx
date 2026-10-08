@@ -18,12 +18,13 @@ import { alvoDosParams, urlDossie } from "@/lib/investigacao/alvo";
 import { contarConexoes, prepararArestas } from "@/lib/investigacao/arestas";
 import { resumirCota } from "@/lib/investigacao/cota";
 import { contarDossie, type DossieNode } from "@/lib/investigacao/dossie-state";
+import { problemasDeConexao } from "@/lib/investigacao/etapas";
 import { exportarDossieDocx } from "@/lib/investigacao/exportar-cliente";
 import { montarShareData } from "@/lib/investigacao/exportacao";
 import type { Direcao } from "@/lib/investigacao/layout";
 import { tituloCaso } from "@/lib/texto";
 import { type AcaoNo, TIPOS_COM_INSPETOR } from "./acoes";
-import { AvisosApi, PainelErro, PainelHomonimos } from "./Avisos";
+import { AvisosApi, avisoDoProblema, PainelErro, PainelHomonimos } from "./Avisos";
 import { DossieCanvas, type DossieCanvasHandle } from "./DossieCanvas";
 import { DossieUiCtx } from "./dossie-ui";
 import { Inspetor } from "./Inspetor";
@@ -159,13 +160,25 @@ function BotaoExportar({ c }: { c: Controle }) {
 	);
 }
 
+/** Avisos do servidor + fontes que não responderam (evento ETAPA); os dispensados somem. */
+function useAvisos(c: Controle) {
+	const [dispensados, setDispensados] = useState<Set<string>>(new Set());
+	const problemas = problemasDeConexao(c.d.etapas, c.rodando).map(avisoDoProblema).filter((a) => !dispensados.has(a.fonte));
+	const fechar = (fonte: string) => {
+		setDispensados((s) => new Set(s).add(fonte));
+		c.inv.descartarAviso(fonte);
+	};
+	return { avisos: [...c.d.warnings, ...problemas], fechar };
+}
+
 function Camadas({ c }: { c: Controle }) {
 	const { d, inv, router } = c;
 	const homonimos = d.candidatos && d.candidatos.length > 0 ? d.candidatos : null;
 	const falhou = Boolean(d.erro) && d.status === "error" && d.nodes.length <= 1;
+	const avisos = useAvisos(c);
 	return (
 		<>
-			<AvisosApi avisos={d.warnings} onFechar={inv.descartarAviso} />
+			<AvisosApi avisos={avisos.avisos} onFechar={avisos.fechar} />
 			{homonimos ? (
 				<PainelHomonimos
 					candidatos={homonimos}

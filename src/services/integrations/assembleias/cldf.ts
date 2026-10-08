@@ -13,6 +13,7 @@
 import { soDigitos } from "@/lib/documento";
 import { buscarJson } from "@/lib/fonte-http";
 import { escolherPorNome } from "@/lib/nome-parlamentar";
+import { emitirEtapa } from "@/services/core/etapas-ao-vivo";
 
 export const BASE_CLDF = "https://dados.cl.df.gov.br/api/3/action";
 export const PAGINA_CLDF = "https://dados.cl.df.gov.br/dataset/verbas-indenizatorias";
@@ -95,6 +96,8 @@ export function lancamentosDoDeputado(lista: LancamentoCldf[], cpf: string | nul
 
 type Emissor = (tipo: string, payload: any) => void;
 
+const ORIGEM_CLDF = "Câmara Legislativa do DF";
+
 export async function despesasCldfParaOPipe(alvo: { nome: string; cpf?: string | null }, sendEvent: Emissor, obter: Obter = obterPadrao): Promise<any[]> {
 	const pacote = await obter<{ result?: { resources?: RecursoCkan[] } }>(`${BASE_CLDF}/package_show?id=verbas-indenizatorias`);
 	const recursos = recursosPorAno(pacote?.result?.resources ?? []);
@@ -107,9 +110,11 @@ export async function despesasCldfParaOPipe(alvo: { nome: string; cpf?: string |
 	const achado = lancamentosDoDeputado(respostas.flatMap((r) => r?.result?.records ?? []), alvo.cpf, alvo.nome);
 	if (!achado) {
 		sendEvent("STATUS", { msg: `[CLDF] Nenhum lançamento de verba indenizatória de ${alvo.nome} em ${anos} (procurado pelo CPF e pelo nome).` });
+		emitirEtapa(sendEvent, { fonte: "casa", estado: "vazia", origem: ORIGEM_CLDF, detalhe: `nenhum gasto de verba indenizatória em ${anos}` });
 		return [];
 	}
 	const despesas = achado.lancamentos.map(lancamentoParaDespesa).sort((a, b) => b.valorDocumento - a.valorDocumento);
 	sendEvent("STATUS", { msg: `[CLDF] ${despesas.length} lançamento(s) de verba indenizatória de ${achado.nomeNaCasa} em ${anos} (dados abertos da CLDF; deputado achado pelo ${achado.por}).` });
+	emitirEtapa(sendEvent, { fonte: "casa", estado: "concluida", origem: ORIGEM_CLDF, detalhe: `${despesas.length} ${despesas.length === 1 ? "gasto" : "gastos"} da verba indenizatória (${anos})` });
 	return despesas.slice(0, 60);
 }

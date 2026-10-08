@@ -8,22 +8,33 @@ const ICONE: Record<Exclude<EtapaStatus, "run">, string> = {
 	slow: "▲",
 	na: "·",
 	cut: "—",
+	vazio: "○",
+	parcial: "◐",
+	fora: "✕",
 };
 
 function Icone({ status }: { status: EtapaStatus }) {
-	return <i className="pg-stage__ic">{status === "run" ? <Spinner /> : ICONE[status]}</i>;
+	return (
+		<i className="pg-stage__ic" aria-hidden="true">
+			{status === "run" ? <Spinner /> : ICONE[status]}
+		</i>
+	);
 }
 
-/** Lista de fontes com o estado de cada uma (aguardando, consultando, ok, lento, não se aplica...). */
+/**
+ * Lista de fontes com o estado de cada uma (aguardando, consultando, ok, sem registros,
+ * respondeu em parte, não respondeu…) e, abaixo do nome, o que aconteceu agora em
+ * linguagem simples ("61 contratos…", "PNCP: demorou demais para responder").
+ */
 export function EtapasPorFonte({ etapas }: { etapas: EtapaView[] }) {
 	return (
 		<div className="pg-stages" role="list" aria-label="Etapas por fonte">
 			{etapas.map((e) => (
-				<div key={e.id} className="pg-stage" data-s={e.status} role="listitem">
+				<div key={e.id} className="pg-stage" data-s={e.status} role="listitem" aria-label={`${e.nome}: ${e.texto}${e.nota ? `. ${e.nota}` : ""}`}>
 					<Icone status={e.status} />
 					<b>{e.nome}</b>
 					<span className="pg-stage__st">{e.texto}</span>
-					<small>{e.detalhe}</small>
+					<small>{e.nota ?? e.detalhe}</small>
 				</div>
 			))}
 		</div>

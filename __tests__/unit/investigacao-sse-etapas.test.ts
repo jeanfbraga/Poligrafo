@@ -161,7 +161,8 @@ describe("etapas por fonte", () => {
 		const r = resumirEtapas(s, false);
 		expect(r.concluidas).toBe(2);
 		expect(r.aplicaveis).toBe(2);
-		expect(r.total).toBe(10);
+		expect(r.total).toBe(11);
+		expect(r.comProblema).toBe(0);
 	});
 });
 

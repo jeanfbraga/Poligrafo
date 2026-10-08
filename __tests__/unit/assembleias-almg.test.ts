@@ -41,7 +41,11 @@ describe("ALMG — verba indenizatória", () => {
 		const eventos: { tipo: string; payload: any }[] = [];
 		const r = await despesasAlmgParaOPipe("ANA PAULA SIQUEIRA DE ARAUJO (Ana Paula Siqueira)", (tipo, payload) => eventos.push({ tipo, payload }), new Date(2026, 9, 7), obter);
 		expect(r).toHaveLength(48);
-		expect(eventos).toEqual([{ tipo: "STATUS", payload: { msg: "[ALMG] 48 nota(s) de verba indenizatória de Ana Paula Siqueira nos últimos 24 meses (dados abertos da ALMG)." } }]);
+		expect(eventos).toEqual([
+			{ tipo: "STATUS", payload: { msg: "[ALMG] 48 nota(s) de verba indenizatória de Ana Paula Siqueira nos últimos 24 meses (dados abertos da ALMG)." } },
+			// A lista de fontes da tela recebe o resultado em linguagem simples.
+			{ tipo: "ETAPA", payload: { fonte: "casa", estado: "concluida", origem: "Assembleia de Minas Gerais", detalhe: "48 notas da verba indenizatória (24 meses)" } },
+		]);
 	});
 
 	it("deputado não achado ou ALMG fora do ar: log na tela, nenhuma despesa", async () => {

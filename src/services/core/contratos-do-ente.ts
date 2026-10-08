@@ -14,6 +14,7 @@
  * CONTRATADO_ENTE (doador ou fornecedor da campanha contratado pelo órgão).
  */
 import { type DespesaNormalizada, nosDeContratosDoEnte } from "@/services/core/despesa-normalizada";
+import { emitirEtapa } from "@/services/core/etapas-ao-vivo";
 import { type AlvoCasa, buscarCasaLegislativa, type CasaLegislativa } from "@/services/integrations/pncp/casa-legislativa";
 import { buscarContratosDoOrgao, type ContratoOrgao } from "@/services/integrations/pncp/contratos-orgao";
 import {
@@ -109,6 +110,15 @@ function linhaFalha(orgao: string): string {
 	return `[PNCP] ${orgao}: o PNCP não respondeu; contratos não consultados (não quer dizer que não existam).`;
 }
 
+const ORIGEM_PNCP = "PNCP (portal federal de contratos)";
+
+/** Resultado para a lista de fontes da tela (evento ETAPA): "61 contratos: Governo (Distrito Federal)". */
+function etapaDosContratos(sendEvent: Emissor, orgao: string, despesas: DespesaNormalizada[]): void {
+	emitirEtapa(sendEvent, despesas.length
+		? { fonte: "pncp", estado: "concluida", origem: ORIGEM_PNCP, detalhe: `${despesas.length} ${despesas.length === 1 ? "contrato" : "contratos"}: ${orgao}` }
+		: { fonte: "pncp", estado: "vazia", origem: ORIGEM_PNCP, detalhe: `${orgao}: nenhum contrato no PNCP em 12 meses` });
+}
+
 export type ColetaEnte =
 	| { situacao: "NAO_SE_APLICA" }
 	| { situacao: "SEM_ENTE" }
@@ -147,6 +157,7 @@ export function emitirColetaDoEnte(coleta: ColetaEnte, pessoaId: string, sendEve
 		return [];
 	}
 	const { ente, despesas } = coleta;
+	etapaDosContratos(sendEvent, rotulo(ente), despesas);
 	if (despesas.length === 0) {
 		sendEvent("STATUS", { msg: linhaSemContratos(rotulo(ente)) });
 		return [];
@@ -207,6 +218,7 @@ export function emitirColetaDaCasa(coleta: ColetaCasa, pessoaId: string, sendEve
 		return [];
 	}
 	const { casa, despesas } = coleta;
+	etapaDosContratos(sendEvent, casa.rotulo, despesas);
 	if (despesas.length === 0) {
 		sendEvent("STATUS", { msg: linhaSemContratos(casa.rotulo) });
 		return [];

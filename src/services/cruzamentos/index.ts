@@ -22,6 +22,7 @@ import {
 	type NoGrafo,
 	semFatoRepetido,
 } from "./adaptadores";
+import { emitirEtapa } from "@/services/core/etapas-ao-vivo";
 import { carregarGabinete } from "@/services/integrations/gabinete/pessoal";
 import { type ExplicacaoAchado, explicarAchados } from "./explicacao-ia";
 import { type AlvoGabinete, type DadosGabinete, fatosDoGabinete, pessoasDoGabinete } from "./gabinete";
@@ -143,6 +144,7 @@ async function explicarComIA(
 export async function emitirCruzamentos(e: EntradaCruzamentos, sendEvent: Emissor): Promise<Achado[]> {
 	try {
 		sendEvent("STATUS", { msg: "Cruzando doadores, empresas, cota, contratos e sanções (regras fixas, sem IA)..." });
+		emitirEtapa(sendEvent, { fonte: "cruzamentos", estado: "consultando" });
 		const { fatos, achados, gabinete } = await cruzarDadosDaInvestigacao(e);
 		if (gabinete) {
 			sendEvent("STATUS", { msg: `[GABINETE] ${pessoasDoGabinete(gabinete.assessores).length} pessoa(s) do gabinete (${gabinete.fonte}) conferidas com os doadores da campanha, os sócios dos fornecedores e os eleitos da UF.` });
@@ -153,6 +155,12 @@ export async function emitirCruzamentos(e: EntradaCruzamentos, sendEvent: Emisso
 			msg: achados.length
 				? `[CRUZAMENTO] ${achados.length} cruzamento(s) entre ${fatos.length} fatos verificados.`
 				: `[CRUZAMENTO] Nenhum cruzamento entre os ${fatos.length} fatos coletados.`,
+		});
+		// "Nenhum cruzamento" também é resultado: a regra olhou os fatos e não achou coincidência.
+		emitirEtapa(sendEvent, {
+			fonte: "cruzamentos",
+			estado: "concluida",
+			detalhe: achados.length ? `${achados.length} cruzamento(s) entre ${fatos.length} fatos` : `nenhuma coincidência entre ${fatos.length} fatos`,
 		});
 		await explicarComIA(nos, e.explicar ?? explicarAchados, sendEvent);
 		return achados;

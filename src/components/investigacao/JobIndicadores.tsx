@@ -20,6 +20,7 @@ function RibbonAndamento({ v, cls, inv }: RibbonProps) {
 			<span className="pg-ribbon__n">{v.pct}%</span>
 			<span className="pg-ribbon__t">
 				{v.concluidas}/{v.aplicaveis} fontes · {v.relogio}
+				{v.problemas.length > 0 ? <span style={{ color: "var(--pg-warn)" }}> · ▲ {v.problemas.length} sem resposta</span> : null}
 			</span>
 			<span className="pg-ribbon__log">&gt; {v.log}</span>
 			<button type="button" className="pg-btn" onClick={inv.cancelar}>
@@ -53,6 +54,7 @@ function RibbonConcluida({ v, cls, inv }: RibbonProps) {
 			<span className="pg-ribbon__t">
 				em {v.relogio} · <span style={{ color: "var(--pg-crit)" }}>◆ {v.criticos}</span> ·{" "}
 				<span style={{ color: "var(--pg-warn)" }}>▲ {v.atencao}</span> · {v.nos} nós
+				{v.problemas.length > 0 ? <span style={{ color: "var(--pg-warn)" }}> · {v.problemas.length} fonte(s) sem resposta</span> : null}
 			</span>
 			<span className="pg-ribbon__log" />
 			<button type="button" className="pg-btn" onClick={inv.recomecar}>

@@ -124,8 +124,14 @@ describe("contratos do órgão ligado ao mandato", () => {
 		expect(await coletarContratosDoEnte({ esfera: "FEDERAL", uf: "MT" }, deps())).toEqual({ situacao: "NAO_SE_APLICA" });
 		const quebrado = { ...deps(), porIbge: vi.fn(async () => Promise.reject(new Error("rede"))) };
 		expect(await coletarContratosDoEnte({ esfera: "MUNICIPAL", uf: "MT", codIbge: "1" }, quebrado)).toMatchObject({ situacao: "FALHA" });
-		expect(emitirColetaDoEnte(r, "p", (t) => eventos.push(t))).toHaveLength(1);
-		expect(eventos).toEqual(["STATUS", "NODE_NOVO"]);
+		const etapas: unknown[] = [];
+		expect(emitirColetaDoEnte(r, "p", (t, p) => {
+			eventos.push(t);
+			if (t === "ETAPA") etapas.push(p);
+		})).toHaveLength(1);
+		expect(eventos).toEqual(["ETAPA", "STATUS", "NODE_NOVO"]);
+		// A lista de fontes da tela recebe o resultado em linguagem simples.
+		expect(etapas).toEqual([{ fonte: "pncp", estado: "concluida", origem: "PNCP (portal federal de contratos)", detalhe: "1 contrato: Prefeitura (Cuiabá)" }]);
 	});
 
 	it("sem contratos, órgão não localizado e falha: cada caso com sua mensagem no log", async () => {

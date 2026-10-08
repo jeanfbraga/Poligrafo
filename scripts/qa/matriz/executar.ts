@@ -54,6 +54,8 @@ function montarUrl(consulta: AlvoMatriz["consulta"], ref?: string | null): strin
 async function rodarPipe(url: string): Promise<{ eventos: EventoCapturado[]; estourou: boolean }> {
 	const { parseInvestigarRequest } = await import("../../../src/services/core/request-parser");
 	const { executarInvestigacaoPrincipal } = await import("../../../src/services/core/investigador-principal");
+	const { observarFontes } = await import("../../../src/lib/fonte-http/observador");
+	const { criarOuvinteDeEtapas } = await import("../../../src/services/core/etapas-ao-vivo");
 	const parsed = parseInvestigarRequest(url) as Record<string, unknown>;
 	const eventos: EventoCapturado[] = [];
 	const inicio = Date.now();
@@ -61,7 +63,8 @@ async function rodarPipe(url: string): Promise<{ eventos: EventoCapturado[]; est
 	const sendEvent = (tipo: string, payload: unknown) => {
 		if (!fechado) eventos.push({ tipo, payload, ms: Date.now() - inicio });
 	};
-	const execucao = executarInvestigacaoPrincipal({
+	// Como na rota: cada site consultado avisa se respondeu, demorou ou falhou (evento ETAPA).
+	const execucao = observarFontes(criarOuvinteDeEtapas(sendEvent), () => executarInvestigacaoPrincipal({
 		...parsed,
 		sendEvent,
 		safeClose: () => {
@@ -70,7 +73,7 @@ async function rodarPipe(url: string): Promise<{ eventos: EventoCapturado[]; est
 		isDev: true,
 		dbSearchId: null,
 		reqUrl: url,
-	}).catch((e: Error) => sendEvent("ERROR", { mensagem: `exceção: ${e.message}` }));
+	})).catch((e: Error) => sendEvent("ERROR", { mensagem: `exceção: ${e.message}` }));
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const estourou = await Promise.race([
 		execucao.then(() => false),

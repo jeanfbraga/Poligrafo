@@ -8,6 +8,7 @@ import { FONTES } from "@/lib/investigacao/etapas";
 import { type JobView, jobView } from "@/lib/investigacao/job-view";
 import { EtapasPorFonte } from "./EtapasPorFonte";
 import { useInvestigacao, useRelogio } from "./InvestigacaoProvider";
+import { ProblemasDeConexao } from "./ProblemasDeConexao";
 
 interface JobPanelProps {
 	alvo: Alvo;
@@ -105,8 +106,9 @@ function EmAndamento({ v, mobile, onAbrir, onCancelar, semBotao }: { v: JobView;
 			</div>
 			{mobile ? <Dica>{v.relogio} decorridos</Dica> : null}
 			<Estatisticas v={v} />
+			<ProblemasDeConexao problemas={v.problemas} rodando />
 			<Etapas v={v} mobile={mobile} />
-			<p className="pg-job__log">&gt; {v.log || "Conectando às fontes…"}</p>
+			<p className="pg-job__log" aria-live="polite">&gt; {v.log || "Conectando às fontes…"}</p>
 			<div className="pg-job__act">
 				{semBotao ? null : (
 					<button type="button" className="pg-btn pg-btn--primary" onClick={onAbrir}>
@@ -134,6 +136,7 @@ function Interrompida({ v, mobile, onAbrir, onRecomecar }: { v: JobView; mobile?
 				podem faltar achados.
 			</p>
 			<Estatisticas v={v} />
+			<ProblemasDeConexao problemas={v.problemas} rodando={false} />
 			<Etapas v={v} mobile={mobile} />
 			<div className="pg-job__act">
 				<button type="button" className="pg-btn pg-btn--primary" onClick={onRecomecar}>
@@ -157,6 +160,7 @@ function Concluida({ v, onAbrir, onRefazer, semBotao }: { v: JobView; onAbrir: (
 				Dossiê pronto em {v.relogio}. Resultado guardado: abrir de novo é imediato.
 			</p>
 			<Estatisticas v={v} />
+			<ProblemasDeConexao problemas={v.problemas} rodando={false} />
 			<div className="pg-job__act">
 				{semBotao ? null : (
 					<button type="button" className="pg-btn pg-btn--primary" onClick={onAbrir}>

@@ -11,6 +11,7 @@
 import { buscarJson } from "@/lib/fonte-http";
 import { soDigitos } from "@/lib/documento";
 import { escolherPorNome } from "@/lib/nome-parlamentar";
+import { emitirEtapa } from "@/services/core/etapas-ao-vivo";
 
 export const BASE_ALMG = "https://dadosabertos.almg.gov.br/api/v2";
 const MESES = 24;
@@ -88,5 +89,8 @@ export async function despesasAlmgParaOPipe(nomePolitico: string, sendEvent: Emi
 	}
 	const despesas = await despesasAlmg(deputado.id, agora, obter);
 	sendEvent("STATUS", { msg: `[ALMG] ${despesas.length} nota(s) de verba indenizatória de ${deputado.nome} nos últimos ${MESES} meses (dados abertos da ALMG).` });
+	emitirEtapa(sendEvent, despesas.length
+		? { fonte: "casa", estado: "concluida", origem: "Assembleia de Minas Gerais", detalhe: `${despesas.length} ${despesas.length === 1 ? "nota" : "notas"} da verba indenizatória (${MESES} meses)` }
+		: { fonte: "casa", estado: "vazia", origem: "Assembleia de Minas Gerais", detalhe: `nenhuma nota de verba indenizatória em ${MESES} meses` });
 	return despesas.slice(0, 60);
 }
