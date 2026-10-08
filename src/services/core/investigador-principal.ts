@@ -1801,11 +1801,13 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				? deputadoBasico.uf
 				: undefined);
 		if (localidadeCodigo) {
+			// Com o número do candidato, das contas de campanha no Banco de Perfil (sem homônimo).
 			const doadoresCnpj = await buscarDoadoresTSE(
 				deputadoBasico.nome,
 				localidadeCodigo,
 				cargoTse,
 				eleicaoIdTse,
+				identidade.sqCandidato,
 			);
 			// Armazena para reutilização na segunda etapa (injeta no contexto da IA)
 			(deputadoBasico as any)._doadoresTseCache = doadoresCnpj;
@@ -1843,6 +1845,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 					deputadoBasico.uf,
 					cargoTse,
 					eleicaoIdTse,
+					identidade.sqCandidato,
 				);
 
 		// =====================================

@@ -617,24 +617,17 @@ async function extrairDetalhesDoTSE(
 	);
 }
 
-async function consultarCacheDoadores(nomePolitico: string, uf: string): Promise<string[] | null> {
-	try {
-		const { supabaseAdmin } = await import("@/lib/supabase-admin");
-		const { data: cacheData, error: cacheErr } = await supabaseAdmin
-			.from("tse_doadores_cache")
-			.select("doadores")
-			.ilike("nome_politico", nomePolitico)
-			.eq("uf", uf.toUpperCase())
-			.limit(1)
-			.single();
-
-		if (!cacheErr && cacheData?.doadores?.length > 0) {
-			return cacheData.doadores;
-		}
-	} catch {
-		// Falha silenciosa no cache
-	}
-	return null;
+/**
+ * Doadores das contas de campanha guardadas no Banco de Perfil, pelo número do candidato
+ * (sem homônimo). Substitui a tabela antiga `tse_doadores_cache` (por nome civil + UF,
+ * confundia homônimos), aposentada em 08/10/2026 para aliviar o Banco Principal.
+ */
+async function doadoresDaBase(sqCandidato: string | null | undefined): Promise<string[]> {
+	if (!sqCandidato) return [];
+	const { buscarContasCampanha } = await import("@/services/integrations/tse/campanha");
+	const contas = await buscarContasCampanha(sqCandidato).catch(() => null);
+	const documentos = (contas?.doadores ?? []).map((d) => String(d.documento ?? "").replace(/\D/g, "")).filter((d) => d.length === 11 || d.length === 14);
+	return [...new Set(documentos)];
 }
 
 function resolverAnoEleicao(idEleicao: string): string {
@@ -682,31 +675,19 @@ async function buscarCandidatoIdParaDoadores(
 	}
 }
 
-async function salvarDoadoresNoCache(nomePolitico: string, uf: string, doadores: string[]) {
-	if (doadores.length === 0) return;
-	try {
-		const { supabaseAdmin } = await import("@/lib/supabase-admin");
-		await supabaseAdmin.from("tse_doadores_cache").upsert(
-			{
-				nome_politico: nomePolitico,
-				uf: uf,
-				doadores,
-			},
-			{ onConflict: "nome_politico, uf" },
-		);
-	} catch (err) {
-		console.warn("[TSE DEBUG] Erro ao salvar doadores no cache", err);
-	}
-}
-
+/**
+ * Doadores da campanha (CPF/CNPJ, só dígitos). Com o número do candidato, das contas
+ * do TSE no Banco de Perfil; sem ele (ou sem contas), o DivulgaCand ao vivo.
+ */
 export async function buscarDoadoresTSE(
 	nomePolitico: string,
 	uf: string,
 	cargoCodigo: string = "6",
 	idEleicao: string = "20322002026",
+	sqCandidato?: string | null,
 ): Promise<string[]> {
-	const cache = await consultarCacheDoadores(nomePolitico, uf);
-	if (cache) return cache;
+	const daBase = await doadoresDaBase(sqCandidato);
+	if (daBase.length > 0) return daBase;
 
 	const ano = resolverAnoEleicao(idEleicao);
 	const candidatoId = await buscarCandidatoIdParaDoadores(ano, uf, idEleicao, cargoCodigo, nomePolitico);
@@ -736,9 +717,7 @@ export async function buscarDoadoresTSE(
 			.map((doacao: any) => (doacao.cpfCnpj ? doacao.cpfCnpj.replace(/\D/g, "") : null))
 			.filter(Boolean);
 
-		const doadoresUnicos = [...new Set<string>(listaDoadores)];
-		await salvarDoadoresNoCache(nomePolitico, uf, doadoresUnicos);
-		return doadoresUnicos;
+		return [...new Set<string>(listaDoadores)];
 	} catch (e) {
 		console.warn(`[TSE] Falha ao buscar doadores para ${nomePolitico}:`, e);
 		return [];

@@ -28,6 +28,8 @@ vercel_logs.txt
 # AI agent configuration
 .agents/
 skills-lock.json
+.claude/settings.local.json
+.claude/worktrees/
 
 # Temporary data downloads
 .tmp_ceap/

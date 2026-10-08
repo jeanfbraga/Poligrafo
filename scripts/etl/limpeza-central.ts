@@ -7,9 +7,9 @@
  *  - já se limpam sozinhas: pesquisas (30 dias, aqui), pncp_contratos_cache (30 dias, a cada
  *    gravação e aqui), e as bases que o ETL apaga e regrava inteiras (cgu_sancoes_cache,
  *    cpgf_despesas_cache, spu_imoveis, cmrj_servidores, emendas_pix por ano);
- *  - crescem sem limite: ceap_despesas_cache (o ETL vai de 2024 até o ano atual e nunca
- *    descarta anos), tse_doadores_cache (o pipe grava a cada investigação) e
- *    tse_bens_historico (acumula eleições).
+ *  - cresciam sem limite: ceap_despesas_cache (o ETL vai de 2024 até o ano atual e nunca
+ *    descartava anos → agora janela de 4 anos), tse_doadores_cache (aposentada) e
+ *    tse_bens_historico (acumula eleições → agora 8 anos).
  *
  * Uso:
  *   npm run sync:cleanup                 → só MEDE: quanto cada regra removeria (nada é apagado)
@@ -51,31 +51,24 @@ export const REGRAS: RegraRetencao[] = [
 		filtro: (q, agora) => q.lt("atualizado_em", antesDe(agora, 30)),
 	},
 	{
-		id: "doadores-vazios", banco: "principal", tabela: "tse_doadores_cache", estado: "ativa",
-		descricao: "Listas de doadores vazias.",
-		filtro: (q) => q.eq("doadores", "{}"),
-	},
-	{
 		id: "pncp-30d", banco: "perfil", tabela: "pncp_contratos_cache", estado: "ativa",
 		descricao: "Cópias de contratos do PNCP com mais de 30 dias (nem servem de reserva).",
 		filtro: (q, agora) => q.lt("consultado_em", antesDe(agora, 30)),
 	},
 	{
-		id: "ceap-janela-3-anos", banco: "principal", tabela: "ceap_despesas_cache", estado: "proposta",
-		descricao: "Cota da Câmara e do Senado: manter o ano atual e os 2 anteriores (o ETL acrescenta um ano por ano e nunca descarta; ~130 MB por ano no Principal).",
-		filtro: (q, agora) => q.lt("ano", agora.getFullYear() - 2),
+		// Decisão do dono (08/10/2026): a cota fica numa janela de 4 anos, o período de um mandato.
+		id: "ceap-janela-4-anos", banco: "principal", tabela: "ceap_despesas_cache", estado: "ativa",
+		descricao: "Cota da Câmara e do Senado: janela de 4 anos (o ano atual e os 3 anteriores, um mandato).",
+		filtro: (q, agora) => q.lt("ano", agora.getFullYear() - 3),
 	},
 	{
-		id: "doadores-por-nome-180d", banco: "principal", tabela: "tse_doadores_cache", estado: "proposta",
-		descricao: "Doadores pelo nome (caminho antigo; as contas de campanha por número do candidato, no Perfil, substituem) sem atualização há 180 dias.",
-		filtro: (q, agora) => q.lt("atualizado_em", antesDe(agora, 180)),
-	},
-	{
-		id: "bens-eleicoes-antigas", banco: "principal", tabela: "tse_bens_historico", estado: "proposta",
+		id: "bens-eleicoes-antigas", banco: "principal", tabela: "tse_bens_historico", estado: "ativa",
 		descricao: "Patrimônio declarado em eleições de mais de 8 anos atrás.",
 		filtro: (q, agora) => q.lt("ano_eleicao", agora.getFullYear() - 8),
 	},
 ];
+// `tse_doadores_cache` (doadores pelo nome) foi aposentada em 08/10/2026: os doadores vêm das
+// contas de campanha por número do candidato (Banco de Perfil). As regras dela saíram daqui.
 
 /** Cliente Supabase (só o que a limpeza usa); injetável nos testes. */
 export interface ClienteLimpeza {
