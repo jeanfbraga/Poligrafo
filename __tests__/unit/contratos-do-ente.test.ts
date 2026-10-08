@@ -60,6 +60,27 @@ describe("PNCP — contratos de um órgão", () => {
 		const fetchFn = vi.fn(async () => new Response(null, { status: 204 }));
 		expect(await buscarContratosDoOrgao("01612092000123", { fetchFn: fetchFn as never })).toEqual([]);
 	});
+
+	it("falha não vira 'sem contratos': 1ª página com erro = exceção; só a 2ª = segue e avisa no log", async () => {
+		const fora = vi.fn(async () => new Response("erro", { status: 404 }));
+		await expect(buscarContratosDoOrgao("03533064000146", { fetchFn: fora as never })).rejects.toThrow("PNCP não respondeu (contratos do órgão 03533064000146): HTTP 404");
+		reiniciarEstadoFonteHttp();
+		const aviso = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const meia = vi.fn(async (url: string) => (new URL(url).searchParams.get("pagina") === "1"
+			? new Response(JSON.stringify({ data: [contratoPncp(1, 100)] }), { status: 200 })
+			: new Response("erro", { status: 404 })));
+		expect(await buscarContratosDoOrgao("03533064000146", { fetchFn: meia as never })).toHaveLength(1);
+		expect(aviso).toHaveBeenCalledWith("[PNCP] 1 página(s) dos contratos do órgão 03533064000146 falharam; seguindo com as que vieram.");
+		aviso.mockClear();
+		reiniciarEstadoFonteHttp();
+		// Órgão com uma página só: o PNCP responde 400 "Página 2 inexistente" — fim, não falha.
+		const umaPagina = vi.fn(async (url: string) => (new URL(url).searchParams.get("pagina") === "1"
+			? new Response(JSON.stringify({ data: [contratoPncp(1, 100)], totalPaginas: 1 }), { status: 200 })
+			: new Response(JSON.stringify({ message: "Página 2 inexistente." }), { status: 400 })));
+		expect(await buscarContratosDoOrgao("03533064000146", { fetchFn: umaPagina as never })).toHaveLength(1);
+		expect(aviso).not.toHaveBeenCalled();
+		aviso.mockRestore();
+	});
 });
 
 describe("contratos do órgão ligado ao mandato", () => {
@@ -119,6 +140,7 @@ describe("contratos do órgão ligado ao mandato", () => {
 		const quebrado = { ...deps(), contratos: vi.fn(async () => Promise.reject(new Error("timeout"))) };
 		expect(await emitirContratosDoEnte({ esfera: "MUNICIPAL", uf: "MT", codIbge: "5103403" }, "p", status, quebrado)).toEqual([]);
 		expect(aviso).toHaveBeenCalledWith("[PNCP] Falha nos contratos do órgão:", expect.objectContaining({ message: "timeout" }));
+		expect(msgs.at(-1)).toBe("[PNCP] Prefeitura (Cuiabá): o PNCP não respondeu; contratos não consultados (não quer dizer que não existam).");
 		aviso.mockRestore();
 		const n = msgs.length;
 		expect(await emitirContratosDoEnte({ esfera: "FEDERAL", uf: "MT" }, "p", status, deps())).toEqual([]);
@@ -242,6 +264,11 @@ describe("casa legislativa do mandato (câmara, assembleia, CLDF) pela busca do 
 		const quebrada = { ...depsCasa(), casa: vi.fn(async () => Promise.reject(new Error("busca do PNCP: HTTP 503"))) };
 		emitirColetaDoMandato(await coletarContratosDoMandato({ ...alvo, uf: "MT", cargoTse: "7" }, quebrada), "p", status);
 		expect(aviso).toHaveBeenCalledWith("[PNCP] Falha nos contratos da casa legislativa:", expect.objectContaining({ message: "busca do PNCP: HTTP 503" }));
+		expect(msgs.at(-1)).toBe("[PNCP] Assembleia Legislativa: o PNCP não respondeu; contratos não consultados (não quer dizer que não existam).");
+		const contratosFora = { ...depsCasa(), contratosDaCasa: vi.fn(async () => Promise.reject(new Error("PNCP não respondeu"))) };
+		emitirColetaDoMandato(await coletarContratosDoMandato({ ...alvo, uf: "MT", cargoTse: "7" }, contratosFora), "p", status);
+		expect(contratosFora.contratosDaCasa).toHaveBeenCalledWith("33710823000160");
+		expect(msgs.at(-1)).toBe("[PNCP] Câmara Municipal (Cuiabá): o PNCP não respondeu; contratos não consultados (não quer dizer que não existam).");
 		aviso.mockRestore();
 	});
 });

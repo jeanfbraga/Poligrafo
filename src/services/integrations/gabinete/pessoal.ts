@@ -4,11 +4,14 @@
  *  - Câmara dos Deputados: Banco de Perfil, `camara_servidores_gabinete` (sync do perfil).
  *  - CMRJ: Banco Principal, `cmrj_vereador_gabinete` (nome de urna → nº do gabinete) e
  *    `cmrj_servidores` (lotação "Gabinete Parlamentar Nº XX").
+ *  - ALEPE (PE): ao vivo, `dadosabertos.alepe.pe.gov.br/api/v1/servidores` (todos os
+ *    servidores, ~600 KB, ~1,5 s; lotação "GAB.DEP. {nome parlamentar}"), em cache por 6 h.
  *
  * Também traz os eleitos da UF com o mesmo nome (Banco de Perfil, `tse_eleitos`) e em
  * quantos gabinetes da casa cada um desses nomes aparece (filtro de homônimo).
  * Base fora do ar vira `null` com um aviso no log; o dossiê segue sem os cruzamentos de assessor.
  */
+import { buscarJson } from "@/lib/fonte-http";
 import { escolherPorNome } from "@/lib/nome-parlamentar";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
@@ -33,11 +36,22 @@ export interface LinhaEleito {
 	ds_sit_tot_turno: string | null;
 }
 
-/** As consultas aos bancos (injetáveis nos testes). Cada uma lança erro se o banco falhar. */
+export interface ServidorAlepe {
+	NOME: string;
+	NOME_LOTACAO: string | null;
+	CARGO_EFETIVO?: string | null;
+	CARGO_NIVEL?: string | null;
+	VINCULO?: string | null;
+	DATA_ADMISSAO?: { date?: string } | null;
+}
+
+/** As consultas às fontes (injetáveis nos testes). Cada uma lança erro se a fonte falhar. */
 export interface ConsultasGabinete {
 	gabineteCamara(deputadoId: number): Promise<{ nome: string; cargo: string | null; periodo: string | null }[]>;
 	gabinetesCmrj(): Promise<{ nome_urna: string; gabinete_numero: string }[]>;
 	servidoresCmrj(lotacao: string): Promise<{ nome: string; cargo: string | null; data_ingresso: string | null }[]>;
+	/** Todos os servidores da ALEPE (a API não filtra por lotação). */
+	servidoresAlepe(): Promise<ServidorAlepe[]>;
 	/** `nomes` já normalizados (maiúsculas, sem acento). */
 	eleitosPorNomes(nomes: string[], uf: string): Promise<LinhaEleito[]>;
 	/** Nomes como a casa grava; devolve um par (nome, gabinete) por linha. */
@@ -60,7 +74,19 @@ function lotes<T>(lista: T[], tamanho: number): T[][] {
 	return Array.from({ length: Math.ceil(lista.length / tamanho) }, (_, i) => lista.slice(i * tamanho, (i + 1) * tamanho));
 }
 
-export const consultasSupabase: ConsultasGabinete = {
+const ALEPE_SERVIDORES = "https://dadosabertos.alepe.pe.gov.br/api/v1/servidores";
+
+export const consultasPadrao: ConsultasGabinete = {
+	async servidoresAlepe() {
+		const r = await buscarJson<ServidorAlepe[]>(ALEPE_SERVIDORES, {
+			fonte: "alepe-servidores",
+			timeoutMs: 20_000,
+			tentativas: 2,
+			memoria: { ttlMs: 6 * 60 * 60 * 1000 },
+		});
+		if (!r.ok) throw new Error(`ALEPE: ${r.mensagem}`);
+		return Array.isArray(r.dados) ? r.dados : [];
+	},
 	async gabineteCamara(deputadoId) {
 		return dados(await supabasePerfilAdmin.from("camara_servidores_gabinete").select("nome, cargo, periodo").eq("deputado_id", deputadoId).limit(2000));
 	},
@@ -83,6 +109,12 @@ export const consultasSupabase: ConsultasGabinete = {
 		return respostas.flatMap((r) => dados(r as { data: LinhaEleito[] | null; error: { message: string } | null }));
 	},
 	async gabinetesPorNomes(casa, nomes) {
+		if (casa === "ALEPE") {
+			const procurados = new Set(nomes.map((n) => n.trim()));
+			return (await consultasPadrao.servidoresAlepe())
+				.filter((s) => procurados.has(String(s.NOME ?? "").trim()))
+				.map((s) => ({ nome: String(s.NOME).trim(), gabinete: String(s.NOME_LOTACAO ?? "") }));
+		}
 		if (casa === "CAMARA") {
 			const linhas = dados(await supabasePerfilAdmin.from("camara_servidores_gabinete").select("nome, deputado_id").in("nome", nomes).limit(5000));
 			return linhas.map((l) => ({ nome: String(l.nome), gabinete: String(l.deputado_id) }));
@@ -127,6 +159,32 @@ async function gabineteDaCmrj(alvo: AlvoGabinete, c: ConsultasGabinete): Promise
 	};
 }
 
+const PREFIXO_GABINETE_ALEPE = /^GAB\.?\s*DEP\.?\s*/i;
+
+/** "2026-05-05 00:00:00.000000" → "Desde 05/05/2026" (a API só traz a admissão). */
+function desdeAdmissao(d: ServidorAlepe["DATA_ADMISSAO"]): string {
+	const m = String(d?.date ?? "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+	return m ? `Desde ${m[3]}/${m[2]}/${m[1]}` : "";
+}
+
+async function gabineteDaAlepe(alvo: AlvoGabinete, c: ConsultasGabinete): Promise<BaseGabinete | null> {
+	const lista = await c.servidoresAlepe();
+	const lotacoes = [...new Set(lista.map((s) => String(s.NOME_LOTACAO ?? "")).filter((l) => PREFIXO_GABINETE_ALEPE.test(l)))];
+	const lotacao = escolherPorNome(lotacoes, alvo.nome, (l) => l.replace(PREFIXO_GABINETE_ALEPE, ""));
+	if (!lotacao) {
+		console.warn(`[GABINETE] Gabinete da ALEPE não encontrado para "${alvo.nome}" (${lotacoes.length} gabinetes na API).`);
+		return null;
+	}
+	return {
+		alvo,
+		fonte: `ALEPE — servidores do ${lotacao}`,
+		url: ALEPE_SERVIDORES,
+		assessores: lista
+			.filter((s) => s.NOME_LOTACAO === lotacao)
+			.map((s) => assessor(s.NOME, s.CARGO_EFETIVO || s.CARGO_NIVEL || s.VINCULO, desdeAdmissao(s.DATA_ADMISSAO))),
+	};
+}
+
 function lerEleito(l: LinhaEleito): EleitoHomonimo {
 	return {
 		sq: String(l.sq_candidato),
@@ -165,10 +223,16 @@ function mensagem(erro: unknown): string {
 	return erro instanceof Error ? erro.message : String(erro);
 }
 
-export async function carregarGabinete(alvo: AlvoGabinete, c: ConsultasGabinete = consultasSupabase): Promise<DadosGabinete | null> {
+const CARREGADORES: Record<CasaComGabinete, (alvo: AlvoGabinete, c: ConsultasGabinete) => Promise<BaseGabinete | null>> = {
+	CAMARA: gabineteDaCamara,
+	CAMARA_MUNICIPAL_RJ: gabineteDaCmrj,
+	ALEPE: gabineteDaAlepe,
+};
+
+export async function carregarGabinete(alvo: AlvoGabinete, c: ConsultasGabinete = consultasPadrao): Promise<DadosGabinete | null> {
 	let base: BaseGabinete | null;
 	try {
-		base = alvo.casa === "CAMARA" ? await gabineteDaCamara(alvo, c) : await gabineteDaCmrj(alvo, c);
+		base = await CARREGADORES[alvo.casa](alvo, c);
 	} catch (erro) {
 		console.warn(`[GABINETE] Base indisponível (${mensagem(erro)}); seguindo sem os cruzamentos de assessor.`);
 		return null;

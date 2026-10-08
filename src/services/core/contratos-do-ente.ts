@@ -41,6 +41,8 @@ export interface DepsContratosEnte {
 	contratos: (cnpj: string) => Promise<ContratoOrgao[]>;
 	/** CNPJ da casa legislativa (busca do PNCP). */
 	casa?: (alvo: AlvoCasa) => Promise<CasaLegislativa | null>;
+	/** Contratos da casa (sem isto, usa `contratos`). */
+	contratosDaCasa?: (cnpj: string) => Promise<ContratoOrgao[]>;
 }
 
 const DEPS_PADRAO: Required<DepsContratosEnte> = {
@@ -49,6 +51,8 @@ const DEPS_PADRAO: Required<DepsContratosEnte> = {
 	estadual: (uf) => buscarEnteEstadual(uf),
 	contratos: (cnpj) => buscarContratosDoOrgao(cnpj),
 	casa: (alvo) => buscarCasaLegislativa(alvo),
+	// A casa contrata pouco (ALESP: 287 em 12 meses): uma página de 500 basta e alivia o PNCP.
+	contratosDaCasa: (cnpj) => buscarContratosDoOrgao(cnpj, { paginas: 1 }),
 };
 
 /** Quantos contratos viram nó no dossiê (os demais só entram nos cruzamentos). */
@@ -101,10 +105,14 @@ function linhaSemContratos(orgao: string): string {
 	return `[PNCP] ${orgao}: nenhum contrato publicado no PNCP nos últimos 12 meses (o órgão pode publicar em portal próprio).`;
 }
 
+function linhaFalha(orgao: string): string {
+	return `[PNCP] ${orgao}: o PNCP não respondeu; contratos não consultados (não quer dizer que não existam).`;
+}
+
 export type ColetaEnte =
 	| { situacao: "NAO_SE_APLICA" }
 	| { situacao: "SEM_ENTE" }
-	| { situacao: "FALHA"; erro: unknown }
+	| { situacao: "FALHA"; erro: unknown; orgao?: string }
 	| { situacao: "OK"; ente: EnteSiconfi; despesas: DespesaNormalizada[] };
 
 /**
@@ -114,13 +122,15 @@ export type ColetaEnte =
  */
 export async function coletarContratosDoEnte(alvo: AlvoEnte, deps: DepsContratosEnte = DEPS_PADRAO): Promise<ColetaEnte> {
 	if (alvo.esfera !== "MUNICIPAL" && alvo.esfera !== "ESTADUAL") return { situacao: "NAO_SE_APLICA" };
+	let orgao: string | undefined;
 	try {
 		const ente = await localizarEnte(alvo, deps);
 		if (!ente?.cnpj) return { situacao: "SEM_ENTE" };
+		orgao = rotulo(ente);
 		const despesas = (await deps.contratos(ente.cnpj)).map((c) => contratoParaDespesa(c, ente));
 		return { situacao: "OK", ente, despesas };
 	} catch (erro) {
-		return { situacao: "FALHA", erro };
+		return { situacao: "FALHA", erro, orgao };
 	}
 }
 
@@ -129,6 +139,7 @@ export function emitirColetaDoEnte(coleta: ColetaEnte, pessoaId: string, sendEve
 	if (coleta.situacao === "NAO_SE_APLICA") return [];
 	if (coleta.situacao === "FALHA") {
 		console.warn("[PNCP] Falha nos contratos do órgão:", coleta.erro);
+		sendEvent("STATUS", { msg: linhaFalha(coleta.orgao ?? "Órgão do mandato") });
 		return [];
 	}
 	if (coleta.situacao === "SEM_ENTE") {
@@ -150,7 +161,7 @@ const CARGOS_COM_CASA = new Set(["13", "7", "8"]);
 export type ColetaCasa =
 	| { situacao: "NAO_SE_APLICA" }
 	| { situacao: "SEM_CASA"; tipo: string }
-	| { situacao: "FALHA"; erro: unknown }
+	| { situacao: "FALHA"; erro: unknown; orgao: string }
 	| { situacao: "OK"; casa: CasaLegislativa; despesas: DespesaNormalizada[] };
 
 /** "Câmara Municipal", "Assembleia Legislativa" ou "Câmara Legislativa" (para o log). */
@@ -171,14 +182,16 @@ async function destinoDaCasa(alvo: AlvoEnte, deps: DepsContratosEnte): Promise<A
 export async function coletarContratosDaCasa(alvo: AlvoEnte, deps: DepsContratosEnte = DEPS_PADRAO): Promise<ColetaCasa> {
 	const temCasa = CARGOS_COM_CASA.has(String(alvo.cargoTse ?? "")) && (alvo.esfera === "MUNICIPAL" || alvo.esfera === "ESTADUAL");
 	if (!temCasa) return { situacao: "NAO_SE_APLICA" };
+	let orgao = tipoDaCasa(alvo);
 	try {
 		const destino = await destinoDaCasa(alvo, deps);
 		const casa = destino ? await (deps.casa ?? DEPS_PADRAO.casa)(destino) : null;
-		if (!casa) return { situacao: "SEM_CASA", tipo: tipoDaCasa(alvo) };
-		const despesas = (await deps.contratos(casa.cnpj)).map((c) => despesaDoContrato(c, casa.rotulo));
+		if (!casa) return { situacao: "SEM_CASA", tipo: orgao };
+		orgao = casa.rotulo;
+		const despesas = (await (deps.contratosDaCasa ?? deps.contratos)(casa.cnpj)).map((c) => despesaDoContrato(c, casa.rotulo));
 		return { situacao: "OK", casa, despesas };
 	} catch (erro) {
-		return { situacao: "FALHA", erro };
+		return { situacao: "FALHA", erro, orgao };
 	}
 }
 
@@ -186,6 +199,7 @@ export function emitirColetaDaCasa(coleta: ColetaCasa, pessoaId: string, sendEve
 	if (coleta.situacao === "NAO_SE_APLICA") return [];
 	if (coleta.situacao === "FALHA") {
 		console.warn("[PNCP] Falha nos contratos da casa legislativa:", coleta.erro);
+		sendEvent("STATUS", { msg: linhaFalha(coleta.orgao) });
 		return [];
 	}
 	if (coleta.situacao === "SEM_CASA") {

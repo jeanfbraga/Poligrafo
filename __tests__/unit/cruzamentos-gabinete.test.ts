@@ -55,6 +55,8 @@ describe("gabinete: quem pode ter a lista de funcionários", () => {
 		expect(alvoDoGabinete({ casa: "CAMARA_MUNICIPAL_RJ", id: "x", nome: "Carlo Caiado" })).toEqual({ casa: "CAMARA_MUNICIPAL_RJ", nome: "Carlo Caiado", uf: "RJ" });
 		expect(alvoDoGabinete({ casa: "CAMARA", nome: "Sem id" })).toBeNull();
 		expect(alvoDoGabinete({ casa: "SENADO", id: 1, nome: "X" })).toBeNull();
+		expect(alvoDoGabinete({ casa: "ASSEMBLEIA_LEGISLATIVA", nome: "Wanderson Florencio", uf: "pe" })).toEqual({ casa: "ALEPE", nome: "Wanderson Florencio", uf: "PE" });
+		expect(alvoDoGabinete({ casa: "ASSEMBLEIA_LEGISLATIVA", nome: "Fulano", uf: "BA" })).toBeNull();
 		expect(alvoDoGabinete(null)).toBeNull();
 	});
 
@@ -168,9 +170,32 @@ describe("carregarGabinete (bancos injetados)", () => {
 				{ sq_candidato: "130007654321", nr_cpf_candidato: null, nm_candidato: "JOÃO BATISTA FERREIRA NETO", ds_cargo: "VEREADOR", ano_eleicao: 2024, nm_ue: "OUTRA", sg_uf: "MG", ds_sit_tot_turno: "ELEITO" },
 			]),
 			gabinetesPorNomes: vi.fn(async () => [{ nome: "João Batista Ferreira", gabinete: "160518" }]),
+			servidoresAlepe: vi.fn(async () => [
+				{ NOME: "ABRAAO SANTOS SILVA", NOME_LOTACAO: "GAB.DEP. WANDERSON FLORENCIO", CARGO_EFETIVO: "Assessor Especial", VINCULO: "Comissionado", DATA_ADMISSAO: { date: "2026-05-05 00:00:00.000000" } },
+				{ NOME: "MARIA DA PENHA LIMA", NOME_LOTACAO: "GAB.DEP. WANDERSON FLORENCIO", CARGO_EFETIVO: "", CARGO_NIVEL: "", VINCULO: "À Disposição", DATA_ADMISSAO: null },
+				{ NOME: "OUTRA PESSOA QUALQUER", NOME_LOTACAO: "GAB.DEP. IZAIAS REGIS", CARGO_EFETIVO: "Assessor", VINCULO: "Comissionado", DATA_ADMISSAO: { date: "2023-02-01 00:00:00.000000" } },
+				{ NOME: "SERVIDOR DA MESA", NOME_LOTACAO: "1ª Secretaria", CARGO_EFETIVO: "Analista", VINCULO: "Efetivo", DATA_ADMISSAO: null },
+			]),
 			...extra,
 		};
 	}
+
+	it("ALEPE: acha o gabinete pelo nome parlamentar na lotação 'GAB.DEP.'; admissão vira 'Desde'; sem gabinete, avisa no log", async () => {
+		const aviso = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const c = consultas({ eleitosPorNomes: vi.fn(async () => []) });
+		const d = await carregarGabinete({ casa: "ALEPE", nome: "WANDERSON FLORENCIO DE OLIVEIRA (WANDERSON FLORENCIO)", uf: "PE" }, c);
+		expect(d).toMatchObject({
+			fonte: "ALEPE — servidores do GAB.DEP. WANDERSON FLORENCIO",
+			url: "https://dadosabertos.alepe.pe.gov.br/api/v1/servidores",
+			assessores: [
+				{ nome: "ABRAAO SANTOS SILVA", cargo: "Assessor Especial", periodo: "Desde 05/05/2026" },
+				{ nome: "MARIA DA PENHA LIMA", cargo: "À Disposição", periodo: "" },
+			],
+		});
+		expect(c.eleitosPorNomes).toHaveBeenCalledWith(["ABRAAO SANTOS SILVA", "MARIA DA PENHA LIMA"], "PE");
+		expect(await carregarGabinete({ casa: "ALEPE", nome: "NINGUEM DESSA CASA", uf: "PE" }, c)).toBeNull();
+		expect(aviso).toHaveBeenCalledWith('[GABINETE] Gabinete da ALEPE não encontrado para "NINGUEM DESSA CASA" (2 gabinetes na API).');
+	});
 
 	it("Câmara: só nomes distintivos vão ao TSE; o prefixo ('... NETO') é descartado; conta os gabinetes do nome que bateu", async () => {
 		const c = consultas();

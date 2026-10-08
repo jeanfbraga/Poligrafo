@@ -92,6 +92,14 @@ export const ALVOS: AlvoMatriz[] = [
 		exercita: "ref ESTADUAL: em UF sem integração estadual",
 	},
 	{
+		id: "dep-estadual-pe",
+		descricao: "Deputado estadual (PE)",
+		alcada: "estadual",
+		consulta: { nome: "Dani Portela", uf: "PE" },
+		cargoEsperado: "Deputado Estadual",
+		exercita: "gabinete pela API da ALEPE; contratos da Assembleia (08/10/2026)",
+	},
+	{
 		id: "dep-distrital-df",
 		descricao: "Deputado distrital (DF)",
 		alcada: "estadual",

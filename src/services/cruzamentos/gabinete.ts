@@ -19,11 +19,11 @@
 import { normalizarNome } from "@/services/core/socio-confirmacao";
 import type { Fato } from "./tipos";
 
-export type CasaComGabinete = "CAMARA" | "CAMARA_MUNICIPAL_RJ";
+export type CasaComGabinete = "CAMARA" | "CAMARA_MUNICIPAL_RJ" | "ALEPE";
 
 export interface AlvoGabinete {
 	casa: CasaComGabinete;
-	/** Id do deputado na Câmara (na CMRJ o gabinete é achado pelo nome de urna). */
+	/** Id do deputado na Câmara (na CMRJ e na ALEPE o gabinete é achado pelo nome). */
 	id?: number;
 	nome: string;
 	uf: string;
@@ -78,13 +78,20 @@ function texto(v: unknown): string {
 	return String(v ?? "").trim();
 }
 
-/** Deputado federal (pelo id da Câmara) ou vereador do Rio; as outras casas não publicam a lista. */
+type MontarAlvo = (nome: string, id: number, uf: string) => AlvoGabinete | null;
+
+/** Casas que publicam a lista do gabinete em formato aberto (casa do pipe → alvo). */
+const ALVOS_COM_GABINETE: Record<string, MontarAlvo> = {
+	CAMARA: (nome, id, uf) => (id > 0 ? { casa: "CAMARA", id, nome, uf } : null),
+	CAMARA_MUNICIPAL_RJ: (nome) => (nome ? { casa: "CAMARA_MUNICIPAL_RJ", nome, uf: "RJ" } : null),
+	// ALEPE: API de dados abertos com a lotação "GAB.DEP. {nome}" (08/10/2026). As outras assembleias não publicam.
+	ASSEMBLEIA_LEGISLATIVA: (nome, _id, uf) => (nome && uf === "PE" ? { casa: "ALEPE", nome, uf } : null),
+};
+
+/** Deputado federal (pelo id da Câmara), vereador do Rio ou deputado estadual de PE; as outras casas não publicam a lista. */
 export function alvoDoGabinete(d: { casa?: unknown; id?: unknown; nome?: unknown; uf?: unknown } | null | undefined): AlvoGabinete | null {
-	const casa = texto(d?.casa);
-	const nome = texto(d?.nome);
-	if (casa === "CAMARA" && Number(d?.id) > 0) return { casa, id: Number(d?.id), nome, uf: texto(d?.uf).toUpperCase() };
-	if (casa === "CAMARA_MUNICIPAL_RJ" && nome) return { casa, nome, uf: "RJ" };
-	return null;
+	const montar = ALVOS_COM_GABINETE[texto(d?.casa)];
+	return montar ? montar(texto(d?.nome), Number(d?.id), texto(d?.uf).toUpperCase()) : null;
 }
 
 export function palavrasProprias(nome: string): string[] {
