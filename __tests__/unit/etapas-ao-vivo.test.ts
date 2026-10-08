@@ -105,6 +105,53 @@ describe("ouvinte de etapas (sinal → evento ETAPA)", () => {
 	});
 });
 
+describe("prazo da investigação (fontes param perto do limite da rota)", () => {
+	beforeEach(() => reiniciarEstadoFonteHttp());
+
+	it("prazo esgotado: a consulta nem sai e a tela recebe 'ficou sem tempo'", async () => {
+		const { Prazo } = await import("@/lib/prazo");
+		const fetchFn = vi.fn(async () => resposta(200));
+		const sinais: SinalFonte[] = [];
+		const r = await observarFontes((s) => sinais.push(s), () => buscarJson(PNCP, { fetchFn: fetchFn as never }), { prazo: new Prazo(0) });
+		expect(r).toMatchObject({ ok: false, erro: "PRAZO" });
+		expect(fetchFn).not.toHaveBeenCalled();
+		expect(sinais).toEqual([{ tipo: "falhou", url: PNCP, fonte: undefined, erro: "PRAZO" }]);
+		expect(motivoAcessivel("PRAZO")).toBe("ficou sem tempo dentro da investigação");
+	});
+
+	it("o que sobra do prazo encurta o tempo de espera de cada consulta", async () => {
+		const { Prazo } = await import("@/lib/prazo");
+		const lenta = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_ok, erro) => {
+			init.signal?.addEventListener("abort", () => erro(Object.assign(new Error("aborted"), { name: "AbortError" })));
+		}));
+		const inicio = Date.now();
+		const r = await observarFontes(() => {}, () => buscarJson(PNCP, { fetchFn: lenta as never, timeoutMs: 8000, tentativas: 1 }), { prazo: new Prazo(60) });
+		expect(r).toMatchObject({ ok: false, erro: "TIMEOUT" });
+		expect(Date.now() - inicio).toBeLessThan(2000);
+	});
+
+	it("IA: sem tempo sobrando, nem chama o modelo", async () => {
+		const { Prazo } = await import("@/lib/prazo");
+		const fetchFn = vi.fn();
+		const sinais: SinalFonte[] = [];
+		const r = await observarFontes((s) => sinais.push(s), () => gerar({ tarefa: "triagem-json", sistema: "s", usuario: "u", formato: "json", env: { GROQ_API_KEY: "x" }, fetchFn: fetchFn as never }), { prazo: new Prazo(300) });
+		expect(r).toMatchObject({ ok: false, motivo: "PRAZO" });
+		expect(fetchFn).not.toHaveBeenCalled();
+		expect(sinais).toEqual([{ tipo: "falhou", url: ENDERECO_IA, erro: "PRAZO" }]);
+	});
+
+	it("teto da rota: se o pipe passar do limite, a tela recebe o aviso e o DONE; se terminar antes, nada", async () => {
+		const { comTetoDeTempo } = await import("@/services/core/teto-investigacao");
+		const eventos: { tipo: string; payload: any }[] = [];
+		expect(await comTetoDeTempo(new Promise(() => {}), (tipo, payload) => eventos.push({ tipo, payload }), 20)).toBe("estourou");
+		expect(eventos.map((e) => e.tipo)).toEqual(["STATUS", "DONE"]);
+		expect(eventos[0].payload.msg).toContain("passou do tempo máximo");
+		const nada: unknown[] = [];
+		expect(await comTetoDeTempo(Promise.resolve(), () => nada.push(1), 1000)).toBe("concluida");
+		expect(nada).toEqual([]);
+	});
+});
+
 describe("etapas no dossiê guardado", () => {
 	it("o pipe redireciona os avisos de conexão para o seu emissor (o que guarda no cache)", async () => {
 		const { redirecionarEtapasPara } = await import("@/services/core/etapas-ao-vivo");

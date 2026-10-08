@@ -23,7 +23,7 @@ import {
 	recriarResposta,
 } from "./cache";
 import { Disjuntor } from "./disjuntor";
-import { sinalizarFonte } from "./observador";
+import { prazoDaInvestigacao, sinalizarFonte } from "./observador";
 import {
 	CABECALHOS_NAVEGADOR,
 	calcularEsperaMs,
@@ -98,6 +98,8 @@ interface Config {
 	dormir: (ms: number) => Promise<void>;
 	espera: ParametrosEspera;
 	avisoDeFalha: "falhou" | "lenta";
+	/** Prazo da investigação em curso (observador.ts): vale junto com o da chamada. */
+	prazoGlobal?: Prazo;
 }
 
 const cacheGlobal = new CacheRespostas();
@@ -140,7 +142,13 @@ function normalizar(url: string | URL, opcoes: OpcoesFonte): Config {
 		dormir: dormir ?? dormirPadrao,
 		espera: espera ?? ESPERA_PADRAO,
 		avisoDeFalha: avisoDeFalha ?? "falhou",
+		prazoGlobal: prazoDaInvestigacao(),
 	};
+}
+
+/** O que ainda resta: o menor entre o prazo da chamada e o da investigação (Infinity = sem prazo). */
+function restanteMs(cfg: Config): number {
+	return Math.min(cfg.prazo?.restanteMs() ?? Infinity, cfg.prazoGlobal?.restanteMs() ?? Infinity);
 }
 
 function chaveCache(cfg: Config): string | null {
@@ -151,7 +159,7 @@ function chaveCache(cfg: Config): string | null {
 }
 
 function verificarDisponivel(cfg: Config): void {
-	if (cfg.prazo?.expirou()) {
+	if (restanteMs(cfg) <= 0) {
 		throw new ErroFonte("PRAZO", `Prazo esgotado antes de consultar ${cfg.fonte ?? cfg.url}`);
 	}
 	if (cfg.fonte && disjuntorGlobal.aberto(cfg.fonte)) {
@@ -171,7 +179,7 @@ function sinalComTimeout(cfg: Config, ms: number) {
 }
 
 async function umaTentativa(cfg: Config): Promise<Response> {
-	const ms = cfg.prazo ? cfg.prazo.limitar(cfg.timeoutMs) : cfg.timeoutMs;
+	const ms = Math.min(cfg.timeoutMs, restanteMs(cfg));
 	if (ms <= 0) throw new ErroFonte("PRAZO", `Prazo esgotado consultando ${cfg.fonte ?? cfg.url}`);
 	const { signal, liberar } = sinalComTimeout(cfg, ms);
 	try {
@@ -188,9 +196,10 @@ function registrarSaude(cfg: Config, falhou: boolean): void {
 }
 
 function cabeNoPrazo(cfg: Config, esperaMs: number): boolean {
-	if (!cfg.prazo) return true;
+	const resto = restanteMs(cfg);
+	if (resto === Infinity) return true;
 	// Depois da espera ainda precisa sobrar tempo para a tentativa.
-	return cfg.prazo.restanteMs() > esperaMs + 250;
+	return resto > esperaMs + 250;
 }
 
 function erroRepetivel(erro: unknown): boolean {

@@ -7,7 +7,7 @@
  * exceção: devolve `{ ok: false, motivo }` para quem chama aplicar a regra
  * local. Ver nota 30 do Obsidian.
  */
-import { sinalizarFonte } from "@/lib/fonte-http/observador";
+import { prazoDaInvestigacao, sinalizarFonte } from "@/lib/fonte-http/observador";
 import { Prazo } from "@/lib/prazo";
 import { classificarFalha, type Falha } from "./falhas";
 import { chaveDoProvedor, type ModeloIA, modelosEmRodizio, PROVEDORES, type TarefaIA } from "./registro";
@@ -119,10 +119,15 @@ async function tentarModelo(m: ModeloIA, st: Estado): Promise<RespostaIA | null>
 	return { ok: true, dados: aprovado.dados, texto: r.texto, provedor: m.provedor, modelo: m.id, tentativas: st.tentativas };
 }
 
+/** 25 s por chamada, nunca além do que sobra do prazo da investigação em curso. */
+function prazoPadrao(): Prazo {
+	return new Prazo(Math.min(25_000, prazoDaInvestigacao()?.restanteMs() ?? 25_000));
+}
+
 function criarEstado(pedido: PedidoIA): Estado {
 	return {
 		pedido,
-		prazo: pedido.prazo ?? new Prazo(25_000),
+		prazo: pedido.prazo ?? prazoPadrao(),
 		saude: pedido.saude ?? saudeIA,
 		fetchFn: pedido.fetchFn ?? ((i, o) => globalThis.fetch(i, o)),
 		env: pedido.env ?? process.env,

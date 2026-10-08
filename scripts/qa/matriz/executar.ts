@@ -63,7 +63,10 @@ async function rodarPipe(url: string): Promise<{ eventos: EventoCapturado[]; est
 	const sendEvent = (tipo: string, payload: unknown) => {
 		if (!fechado) eventos.push({ tipo, payload, ms: Date.now() - inicio });
 	};
-	// Como na rota: cada site consultado avisa se respondeu, demorou ou falhou (evento ETAPA).
+	// Como na rota: cada site consultado avisa se respondeu, demorou ou falhou (evento ETAPA),
+	// e as fontes param no mesmo prazo da produção.
+	const { criarPrazo } = await import("../../../src/lib/prazo");
+	const { PRAZO_FONTES_MS } = await import("../../../src/services/core/teto-investigacao");
 	const execucao = observarFontes(criarOuvinteDeEtapas(sendEvent), () => executarInvestigacaoPrincipal({
 		...parsed,
 		sendEvent,
@@ -73,7 +76,7 @@ async function rodarPipe(url: string): Promise<{ eventos: EventoCapturado[]; est
 		isDev: true,
 		dbSearchId: null,
 		reqUrl: url,
-	})).catch((e: Error) => sendEvent("ERROR", { mensagem: `exceção: ${e.message}` }));
+	}), { prazo: criarPrazo(PRAZO_FONTES_MS) }).catch((e: Error) => sendEvent("ERROR", { mensagem: `exceção: ${e.message}` }));
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const estourou = await Promise.race([
 		execucao.then(() => false),

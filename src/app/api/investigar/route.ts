@@ -236,8 +236,12 @@ export async function GET(request: Request) {
 				);
 				const { observarFontes } = await import("@/lib/fonte-http/observador");
 				const { criarOuvinteDeEtapas } = await import("@/services/core/etapas-ao-vivo");
-				// Cada site consultado avisa se respondeu, está lento ou falhou (evento ETAPA para a tela).
-				await observarFontes(criarOuvinteDeEtapas(sendEvent), () => executarInvestigacaoPrincipal({
+				const { criarPrazo } = await import("@/lib/prazo");
+				const { comTetoDeTempo, PRAZO_FONTES_MS } = await import("@/services/core/teto-investigacao");
+				// Cada site consultado avisa se respondeu, está lento ou falhou (evento ETAPA para a tela);
+				// as fontes param aos 240 s e a rota encerra sozinha aos 285 s (teto-investigacao.ts).
+				const prazo = criarPrazo(PRAZO_FONTES_MS);
+				await comTetoDeTempo(observarFontes(criarOuvinteDeEtapas(sendEvent), () => executarInvestigacaoPrincipal({
 					nomeParaBusca,
 					ufScope,
 					cargoParam,
@@ -254,7 +258,7 @@ export async function GET(request: Request) {
 					encoder,
 					controller,
 					reqUrl: request.url,
-				}));
+				}), { prazo }), sendEvent);
 			} catch (e) {
 				console.error("Erro fatal:", e);
 				// Antes o stream ficava aberto e o navegador esperava para sempre.
