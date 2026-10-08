@@ -1262,8 +1262,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 			despesasCruas = [];
 		} else if (deputadoBasico.casa === "ASSEMBLEIA_LEGISLATIVA") {
-			// Deputado estadual fora de SP/RJ: fonte por UF (MG = ALMG); sem fonte, o log diz isso.
-			despesasCruas = await despesasDaAssembleia(deputadoBasico.uf, deputadoBasico.nome, sendEvent);
+			// Deputado estadual fora de SP/RJ: fonte por UF (MG = ALMG, DF = CLDF pelo CPF); sem fonte, o log diz isso.
+			despesasCruas = await despesasDaAssembleia(deputadoBasico.uf, { nome: deputadoBasico.nome, cpf: cpfLimpo }, sendEvent);
 		}
 
 		// =========================================================

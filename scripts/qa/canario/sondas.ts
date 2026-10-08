@@ -305,6 +305,21 @@ const estaduais: Sonda[] = [
 		`https://dadosabertos.almg.gov.br/api/v2/prestacao_contas/verbas_indenizatorias/deputados/12193/${anoAtual - 1}/3?formato=json`,
 		{ avaliar: (c, res) => (res.ok && Array.isArray((c as { list?: unknown[] })?.list) ? vereditoStatus(res) : { estado: "FALHA", detalhe: `HTTP ${res.status}` }) },
 	)),
+	sonda("cldf-verbas", "estadual", "CLDF — verba indenizatória (CKAN)", "assembleias/cldf.ts", get(
+		"https://dados.cl.df.gov.br/api/3/action/package_show?id=verbas-indenizatorias",
+		{
+			avaliar: (c, res) => {
+				const recursos = ((c as { result?: { resources?: { name?: string; datastore_active?: boolean }[] } })?.result?.resources ?? []);
+				const doAno = recursos.some((r) => r.datastore_active && String(r.name ?? "").includes(String(anoAtual)));
+				if (!res.ok) return { estado: "FALHA", detalhe: `HTTP ${res.status}` };
+				return doAno ? vereditoStatus(res) : { estado: "ALERTA", detalhe: `nenhum recurso de ${anoAtual} com datastore (${recursos.length} recursos)` };
+			},
+		},
+	)),
+	sonda("alepe-servidores", "estadual", "ALEPE — servidores (gabinetes)", "gabinete/pessoal.ts", get(
+		"https://dadosabertos.alepe.pe.gov.br/api/v1/servidores",
+		{ avaliar: (c, res) => (res.ok && Array.isArray(c) && (c as { NOME_LOTACAO?: string }[]).some((s) => /^GAB\.?\s*DEP/i.test(s.NOME_LOTACAO ?? "")) ? vereditoStatus(res) : { estado: "FALHA", detalhe: `HTTP ${res.status} ou sem lotação "GAB.DEP."` }) },
+	)),
 	sonda("tce-sp", "municipal", "TCE-SP — municípios", "sp/tce.ts", get(
 		"https://transparencia.tce.sp.gov.br/api/json/municipios",
 	)),
