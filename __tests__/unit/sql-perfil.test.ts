@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { executarSqlPerfil, lerSql, refDoProjeto } from "../../scripts/utils/sql-perfil";
+import { bancoDosArgumentos, executarSql, executarSqlPerfil, lerSql, refDoProjeto } from "../../scripts/utils/sql-perfil";
 
 describe("SQL no Banco de Perfil (API de gestão do Supabase)", () => {
 	afterEach(() => vi.unstubAllEnvs());
@@ -22,6 +22,20 @@ describe("SQL no Banco de Perfil (API de gestão do Supabase)", () => {
 		expect(url).not.toContain("token-de-teste");
 		expect((init.headers as Record<string, string>).Authorization).toBe("Bearer token-de-teste");
 		expect(JSON.parse(String(init.body))).toEqual({ query: "select 1 as n" });
+	});
+
+	it("Banco Principal: ref da URL principal e token próprio (o do Perfil não enxerga o Principal)", async () => {
+		vi.stubEnv("SUPABASE_PRINCIPAL_ACCESS_TOKEN", "token-principal");
+		vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://principal123.supabase.co");
+		const fetchFn = vi.fn(async () => new Response("[]", { status: 200 }));
+		await executarSql("select 1", "principal", fetchFn as unknown as typeof fetch);
+		const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+		expect(url).toBe("https://api.supabase.com/v1/projects/principal123/database/query");
+		expect((init.headers as Record<string, string>).Authorization).toBe("Bearer token-principal");
+		vi.stubEnv("SUPABASE_PRINCIPAL_ACCESS_TOKEN", "");
+		await expect(executarSql("select 1", "principal", fetchFn as unknown as typeof fetch)).rejects.toThrow("SUPABASE_PRINCIPAL_ACCESS_TOKEN ausente no .env.local");
+		expect(bancoDosArgumentos(["--banco", "principal", "--sql", "x"])).toBe("principal");
+		expect(bancoDosArgumentos(["--sql", "x"])).toBe("perfil");
 	});
 
 	it("arquivo salvo com BOM (PowerShell) chega ao banco sem o BOM", () => {

@@ -28,6 +28,7 @@
     "seed:canonical": "tsx scripts/etl/seed_canonical_tables.ts",
     "doctor": "tsx scripts/utils/doctor.ts",
     "sql:perfil": "tsx scripts/utils/sql-perfil.ts",
+    "sql:principal": "tsx scripts/utils/sql-perfil.ts --banco principal",
     "qa:canario": "tsx scripts/qa/canario-fontes.ts",
     "qa:matriz": "tsx scripts/qa/matriz/executar.ts",
     "qa:matriz:comparar": "tsx scripts/qa/matriz/comparar.ts",
