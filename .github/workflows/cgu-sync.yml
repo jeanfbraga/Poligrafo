@@ -4,6 +4,9 @@ on:
     - cron: '0 4 * * 1,4' # Toda seg e qui as 04:00
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   sync:
     runs-on: ubuntu-latest

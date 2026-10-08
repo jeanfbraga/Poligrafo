@@ -8,6 +8,9 @@ on:
     - cron: '0 3 * * 1'
   workflow_dispatch: # Permite execução manual pelo Github Actions
 
+permissions:
+  contents: read
+
 jobs:
   cleanup_sync:
     runs-on: ubuntu-latest

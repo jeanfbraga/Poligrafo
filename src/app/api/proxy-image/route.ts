@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import { fetchImageAsBase64 } from "@/lib/image-proxy";
 
 export async function GET(request: Request) {
+	const limitado = checkRateLimit(request, { scope: "proxy-image", limit: 120 });
+	if (limitado) return limitado;
 	const { searchParams } = new URL(request.url);
 	const url = searchParams.get("url");
 	const raw = searchParams.get("raw") === "true";

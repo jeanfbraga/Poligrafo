@@ -2,6 +2,7 @@ import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/
 import { buscarConveniosEntidade } from "@/services/integrations/transparencia/convenios-client";
 import { buscarSancoesEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -183,6 +184,9 @@ async function executarVarreduraGovFederal(
 }
 
 export async function GET(request: Request) {
+	// Consulta Receita, Portal da Transparência e contratos: limite contra uso em massa
+	const limitado = checkRateLimit(request, { scope: "cnpj", limit: 30 });
+	if (limitado) return limitado;
 	const { searchParams } = new URL(request.url);
 	const cnpj = searchParams.get("cnpj");
 	const origemIdBruto = searchParams.get("origemId");

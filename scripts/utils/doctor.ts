@@ -46,15 +46,13 @@ if (hasEnvLocal) {
 
 // 3. Credenciais do Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseService = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (supabaseUrl && supabaseAnon && supabaseService) {
-	console.log("✅ [SUPABASE] Credenciais essenciais configuradas (URL, Anon Key, Service Role).");
+if (supabaseUrl && supabaseService) {
+	console.log("✅ [SUPABASE] Credenciais essenciais configuradas (URL e Service Role).");
 } else {
 	console.log("⚠️  [SUPABASE] Credenciais ausentes no .env.local:");
 	if (!supabaseUrl) console.log("   - NEXT_PUBLIC_SUPABASE_URL está vazia");
-	if (!supabaseAnon) console.log("   - NEXT_PUBLIC_SUPABASE_ANON_KEY está vazia");
 	if (!supabaseService) console.log("   - SUPABASE_SERVICE_ROLE_KEY está vazia");
 	console.log("   💡 Sem Supabase, o sistema usará fallback para APIs externas (sem cache/dashboard).");
 	warnings++;

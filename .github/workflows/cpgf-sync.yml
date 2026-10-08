@@ -5,6 +5,9 @@ on:
     - cron: '0 3 1 * *' # Todo dia 1 do mês às 03:00 UTC
   workflow_dispatch: # Permite disparo manual pelo painel do GitHub
 
+permissions:
+  contents: read
+
 jobs:
   sync-cpgf:
     runs-on: ubuntu-latest

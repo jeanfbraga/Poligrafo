@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
 import { buscarCotaDeputado, buscarServidoresDeputado, buscarVotosDeputado } from "@/lib/perfil-deputado/consultas";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
@@ -350,6 +351,8 @@ export async function GET(
   request: Request,
   props: { params: Promise<{ id: string }> }
 ) {
+  const limitado = checkRateLimit(request, { scope: "perfil-deputado", limit: 60 });
+  if (limitado) return limitado;
   const params = await props.params;
   const parsed = parseIdDeputado(params.id);
   if (!parsed) {

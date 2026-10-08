@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import { gerarDossieDocx } from "@/lib/investigacao/dossie-docx/documento";
 import { idCamaraValido } from "@/lib/investigacao/dossie-docx/modelo";
 import { montarPerfilDossie, PERFIL_INDISPONIVEL, type PerfilNoDossie } from "@/lib/investigacao/dossie-docx/perfil";
@@ -19,6 +20,9 @@ async function perfilDoDeputado(idCamara: string, agora: Date): Promise<PerfilNo
 	return dados ? montarPerfilDossie(idCamara, dados, agora) : PERFIL_INDISPONIVEL;
 }
 export async function POST(req: NextRequest) {
+	// Gerar o DOCX é pesado: limite contra uso em massa
+	const limitado = checkRateLimit(req, { scope: "exportar-dossie", limit: 10 });
+	if (limitado) return limitado;
 	try {
 		const body = (await req.json()) as Partial<PayloadExportacao>;
 		const nomePolitico = typeof body.nomePolitico === "string" ? body.nomePolitico.trim() : "";

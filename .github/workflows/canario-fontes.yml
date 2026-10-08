@@ -6,6 +6,9 @@ on:
     - cron: '0 9 * * 1' # Toda segunda as 09:00 UTC (06:00 em Brasilia)
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   canario:
     runs-on: ubuntu-latest

@@ -1,19 +1,20 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import {
 	agregarEmendasPorUf,
 	agruparCeapPorUf,
 	agruparPesquisas,
 } from "@/lib/dashboard-aggregations";
 import { rankingMenosPresentes } from "@/lib/frequencia";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
 
 export const revalidate = 0; // Temporariamente sem cache para dev
 
-// Esta rota lê apenas views/tabelas com policy SELECT pública (USING true),
-// portanto a anon key basta — service role violaria o menor privilégio.
+// Os bancos não têm leitura pública (a chave anon é pública por natureza e daria acesso
+// direto às tabelas, inclusive CPFs). Só o servidor lê, pela chave de serviço.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const temChaveDeServico = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const removerAcentos = (str: string) =>
 	str
@@ -200,8 +201,10 @@ function montarRespostaDashboard(resultados: any[], supabaseUrl: string) {
 	};
 }
 
-export async function GET() {
-	if (!supabaseUrl || !supabaseAnonKey) {
+export async function GET(request: Request) {
+	const limitado = checkRateLimit(request, { scope: "dashboard-home", limit: 60 });
+	if (limitado) return limitado;
+	if (!supabaseUrl || !temChaveDeServico) {
 		console.error("[DASHBOARD HOME] Variáveis do Supabase não configuradas.");
 		return NextResponse.json(
 			{ error: "Serviço indisponível no momento" },
@@ -209,12 +212,8 @@ export async function GET() {
 		);
 	}
 
-	const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-		auth: { autoRefreshToken: false, persistSession: false },
-	});
-
 	try {
-		const resultados = await consultarViewsDashboard(supabase);
+		const resultados = await consultarViewsDashboard(supabaseAdmin);
 		const payload = montarRespostaDashboard(resultados, supabaseUrl);
 		return NextResponse.json(payload);
 	} catch (error: any) {

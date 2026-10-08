@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import { fetchContratosByCNPJ } from "@/services/integrations/pncp/client";
 
 async function buscarContratosComoOrgao(cnpj: string, yearsToFetch = 2) {
@@ -41,6 +42,9 @@ async function buscarContratosComoOrgao(cnpj: string, yearsToFetch = 2) {
 }
 
 export async function GET(request: Request) {
+	// O PNCP bloqueia quem consulta demais: limite para não perder o acesso do servidor
+	const limitado = checkRateLimit(request, { scope: "contratos-beneficiario", limit: 20 });
+	if (limitado) return limitado;
 	const { searchParams } = new URL(request.url);
 	const cnpj = searchParams.get("cnpj");
 

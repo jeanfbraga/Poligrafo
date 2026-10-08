@@ -1,6 +1,7 @@
 import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/fornecedor";
 import { NextResponse } from "next/server";
 import { buscarEmpresasDoSocio } from "@/services/core/socio-search";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,9 @@ async function verificarContratosEmpresas(empresasAssociadas: any[], sendEvent: 
 }
 
 export async function GET(request: Request) {
+	// Busca empresas do sócio (Receita e contratos): limite contra uso em massa
+	const limitado = checkRateLimit(request, { scope: "socio", limit: 30 });
+	if (limitado) return limitado;
 	const { searchParams } = new URL(request.url);
 	const nomeBruto = searchParams.get("nome");
 	const origemIdBruto = searchParams.get("origemId");

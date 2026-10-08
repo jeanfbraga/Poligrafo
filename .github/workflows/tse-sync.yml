@@ -9,6 +9,9 @@ on:
         required: false
         default: 'todos'
 
+permissions:
+  contents: read
+
 jobs:
   sync:
     runs-on: ubuntu-latest

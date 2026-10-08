@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost";
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
+process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
 
 import * as tseModule from "../../tse";
 import {

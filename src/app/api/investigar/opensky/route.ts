@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import { buscarVoosAeronave } from "@/services/integrations/opensky/client";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+	// A OpenSky tem cota diária pequena: limite contra uso em massa
+	const limitado = checkRateLimit(req, { scope: "opensky", limit: 20 });
+	if (limitado) return limitado;
 	try {
 		const body = await req.json();
 		const { icao24 } = body;

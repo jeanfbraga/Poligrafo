@@ -4,6 +4,9 @@ on:
     - cron: '0 3 */2 * *' # A cada 2 dias as 03:00
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   sync:
     runs-on: ubuntu-latest

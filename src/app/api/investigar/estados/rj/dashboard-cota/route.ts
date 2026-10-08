@@ -1,10 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+import { checkRateLimit } from "@/lib/api-rate-limit";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 export async function GET(req: NextRequest) {
+	const limitado = checkRateLimit(req, { scope: "dashboard-cota", limit: 30 });
+	if (limitado) return limitado;
 	const { searchParams } = new URL(req.url);
 	const nome = searchParams.get("nome");
 
@@ -16,8 +16,6 @@ export async function GET(req: NextRequest) {
 	}
 
 	try {
-		const supabase = createClient(supabaseUrl, supabaseKey);
-
 		const { data, error } = await supabase
 			.from("cmrj_despesas")
 			.select("*")

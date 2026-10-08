@@ -5,10 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 // Assim, desenvolvedores open source não precisam configurar 2 bancos de dados para rodar o projeto localmente.
 
 const urlPerfil = process.env.NEXT_PUBLIC_SUPABASE_PERFIL_URL;
-const keyPerfil =
-	process.env.SUPABASE_PERFIL_SERVICE_ROLE_KEY ||
-	process.env.NEXT_PUBLIC_SUPABASE_PERFIL_ANON_KEY ||
-	process.env.SUPABASE_PERFIL_ANON_KEY;
+// Só a chave de serviço: os bancos não têm leitura pública (a chave anon não lê nada).
+const keyPerfil = process.env.SUPABASE_PERFIL_SERVICE_ROLE_KEY;
 
 const urlPrincipal = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const keyPrincipal = process.env.SUPABASE_SERVICE_ROLE_KEY;

@@ -5,6 +5,9 @@ on:
     - cron: '0 4 20 * *' # Todo dia 20 às 04:00 UTC
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   sync-anac:
     runs-on: ubuntu-latest

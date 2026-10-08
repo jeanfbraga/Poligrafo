@@ -1,7 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 
 export async function buscarServidoresCMRJ(
 	nomeVereador: string,
@@ -14,8 +11,6 @@ export async function buscarServidoresCMRJ(
 	const servidoresRelacionados: any[] = [];
 
 	try {
-		const supabase = createClient(supabaseUrl, supabaseKey);
-
 		// 1. Find the cabinet number for this vereador
 		const { data: gabineteData, error: gabineteError } = await supabase
 			.from("cmrj_vereador_gabinete")

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/api-rate-limit";
 import { buscarCpfNoTSE } from "@/app/api/investigar/tse";
 
 import presidentesTse from "@/services/integrations/data/presidentes.json";
@@ -56,6 +57,8 @@ export async function GET(
 	request: Request,
 	context: { params: Promise<{ id: string }> },
 ) {
+	const limitado = checkRateLimit(request, { scope: "perfil-presidente", limit: 60 });
+	if (limitado) return limitado;
 	const { id } = await context.params;
 	const targetId = id?.toLowerCase() || "";
 	const vipInfo = VIP_MAP[targetId];
