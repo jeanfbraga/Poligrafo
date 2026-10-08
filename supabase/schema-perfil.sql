@@ -317,3 +317,45 @@ DO $$ BEGIN
 END $$;
 
 REVOKE ALL ON public.ceap_fornecedores_ano FROM anon, authenticated;
+
+-- =====================================================================
+-- SEÇÃO FINAL — SEM LEITURA PÚBLICA (08/10/2026)
+-- =====================================================================
+-- Roda por último: remove as políticas de leitura para anon/authenticated criadas acima e tira
+-- as permissões públicas. Só o servidor lê, pela chave de serviço. A chave anon é pública por
+-- natureza e daria acesso direto às tabelas (inclusive CPFs). Detalhes em
+-- scripts/sql/migracao_bancos_sem_leitura_publica.sql.
+
+DO $$
+DECLARE r record;
+BEGIN
+	FOR r IN
+		SELECT tablename, policyname FROM pg_policies
+		WHERE schemaname = 'public' AND roles && ARRAY['anon', 'authenticated', 'public']::name[]
+	LOOP
+		EXECUTE format('DROP POLICY %I ON public.%I', r.policyname, r.tablename);
+	END LOOP;
+END $$;
+
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated, public;
+
+DO $$
+DECLARE f record;
+BEGIN
+	FOR f IN
+		SELECT p.oid::regprocedure AS assinatura FROM pg_proc p
+		JOIN pg_namespace n ON n.oid = p.pronamespace
+		WHERE n.nspname = 'public' AND p.proname IN ('incrementar_pesquisa', 'refresh_ceap_materialized_views')
+	LOOP
+		EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM public, anon, authenticated', f.assinatura);
+		EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', f.assinatura);
+	END LOOP;
+	IF to_regprocedure('public.set_atualizado_em()') IS NOT NULL THEN
+		ALTER FUNCTION public.set_atualizado_em() SET search_path = public, pg_temp;
+	END IF;
+END $$;
