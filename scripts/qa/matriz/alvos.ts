@@ -92,6 +92,14 @@ export const ALVOS: AlvoMatriz[] = [
 		exercita: "ref ESTADUAL: em UF sem integração estadual",
 	},
 	{
+		id: "dep-distrital-df",
+		descricao: "Deputado distrital (DF)",
+		alcada: "estadual",
+		consulta: { nome: "Fábio Felix", uf: "DF" },
+		cargoEsperado: "Deputado Distrital",
+		exercita: "contratos do governo do DF e da Câmara Legislativa (PNCP, 08/10/2026)",
+	},
+	{
 		id: "prefeito-sp-capital",
 		descricao: "Prefeito de São Paulo",
 		alcada: "municipal",

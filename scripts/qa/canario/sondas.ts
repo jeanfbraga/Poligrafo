@@ -185,6 +185,18 @@ const federais: Sonda[] = [
 		"https://pncp.gov.br/api/search/?q=petroleo%20brasileiro&tipos_documento=contrato&pagina=1&tam_pagina=5",
 		{ avaliar: (c) => avaliarBuscaPncp(c) },
 	)),
+	sonda("pncp-busca-casa-legislativa", "municipal", "PNCP — busca da câmara municipal (Legislativo)", "contratos da casa legislativa (pncp/casa-legislativa.ts)", get(
+		"https://pncp.gov.br/api/search/?q=camara&municipios=3550308&poderes=L&esferas=M&tipos_documento=contrato&ordenacao=-data&pagina=1&tam_pagina=20&status=todos",
+		{
+			avaliar: (c) => {
+				const itens = ((c as { items?: { orgao_nome?: string; poder_id?: string }[] })?.items ?? []);
+				const camara = itens.filter((i) => /CAMARA/i.test(i.orgao_nome ?? "") && i.poder_id === "L").length;
+				return camara > 0
+					? { estado: "OK", detalhe: `${camara} de ${itens.length} resultado(s) da Câmara Municipal de São Paulo` }
+					: { estado: "ALERTA", detalhe: `a busca não trouxe a câmara (${itens.length} resultado(s)); formato ou filtro mudou` };
+			},
+		},
+	)),
 	sonda("compras-contratos-fornecedor", "federal", "Compras.gov — contratos ?niFornecedor", "PNCP por fornecedor (Fase 1)", get(
 		`https://dadosabertos.compras.gov.br/modulo-contratos/1_consultarContratos?pagina=1&tamanhoPagina=10&niFornecedor=${CNPJ_REF}&dataVigenciaInicialMin=${iso(diasAtras(730))}&dataVigenciaInicialMax=${iso(new Date())}`,
 		{
