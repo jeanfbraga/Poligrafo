@@ -58,9 +58,31 @@ describe("consulta do QSA (BrasilAPI)", () => {
 		expect(v).toMatchObject({ confirmado: true, forca: "CPF_E_NOME" });
 	});
 
-	it("QSA fora do ar: não confirma e o motivo (que vai para o log da tela) diz por quê", async () => {
+	it("CNPJ inexistente (404): não confirma, diz por quê e não gasta a reserva", async () => {
 		const fetchFn = vi.fn(async () => new Response("não encontrado", { status: 404 }));
 		const v = await verificarEmpresaDoPolitico("99888777000155", NOMES, CPF, fetchFn as unknown as typeof fetch);
 		expect(v).toEqual({ confirmado: false, motivo: "QSA indisponível (HTTP_4XX)" });
+		expect(fetchFn).toHaveBeenCalledTimes(1);
+	});
+
+	it("BrasilAPI recusa (429/403): o Minha Receita responde com o mesmo formato; as duas fora = motivo das duas", async () => {
+		const reserva = vi.fn(async (url: string) => (url.includes("brasilapi")
+			? new Response("limite", { status: 403 })
+			: new Response(JSON.stringify({ qsa: [{ nome_socio: "JOSE DA SILVA JUNIOR", cnpj_cpf_do_socio: "***982247**" }] }), { status: 200 })));
+		const v = await verificarEmpresaDoPolitico("11.222.333/0001-81", NOMES, CPF, reserva as unknown as typeof fetch);
+		expect(v).toMatchObject({ confirmado: true, forca: "CPF_E_NOME" });
+		expect(String((reserva.mock.calls.at(-1) as unknown[])[0])).toBe("https://minhareceita.org/11222333000181");
+		reiniciarEstadoFonteHttp();
+		const fora = vi.fn(async () => new Response("erro", { status: 403 }));
+		expect(await verificarEmpresaDoPolitico("11222333000181", NOMES, CPF, fora as unknown as typeof fetch)).toEqual({ confirmado: false, motivo: "QSA indisponível (HTTP_4XX; reserva: HTTP_4XX)" });
+	});
+
+	it("na tela: a recusa da BrasilAPI vira 'tentando de novo'; a resposta da reserva limpa o aviso", async () => {
+		const { observarFontes } = await import("@/lib/fonte-http/observador");
+		const sinais: { tipo: string; url: string }[] = [];
+		const reserva = vi.fn(async (url: string) => (url.includes("brasilapi") ? new Response("x", { status: 429 }) : new Response(JSON.stringify({ qsa: [] }), { status: 200 })));
+		await observarFontes((s) => sinais.push(s), () => verificarEmpresaDoPolitico("11222333000181", NOMES, CPF, reserva as unknown as typeof fetch));
+		// Nova tentativa + passagem para a reserva (o ouvinte de etapas manda um "lenta" só); nunca "falhou".
+		expect(sinais.map((s) => `${s.tipo} ${new URL(s.url).host}`)).toEqual(["lenta brasilapi.com.br", "lenta brasilapi.com.br", "respondeu minhareceita.org"]);
 	});
 });

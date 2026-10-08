@@ -1,4 +1,5 @@
 // lib/services/socio-search.ts
+import { buscarDadosCnpj } from "@/services/integrations/receita/cnpj";
 
 function normalizeStringLocal(str: string): string {
 	if (!str) return "";
@@ -65,22 +66,10 @@ async function coletarCnpjsMotoresBusca(nomeSocio: string): Promise<string[]> {
 	return Array.from(cnpjs);
 }
 
+/** BrasilAPI com reserva no Minha Receita, cache e fila (receita/cnpj.ts). */
 async function fetchCompanyData(cnpj: string): Promise<any> {
-	try {
-		const mrRes = await fetch(`https://minhareceita.org/${cnpj}`, {
-			signal: AbortSignal.timeout(5000),
-		});
-		if (mrRes.ok) return await mrRes.json();
-	} catch {}
-
-	try {
-		const bRes = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, {
-			signal: AbortSignal.timeout(5000),
-		});
-		if (bRes.ok) return await bRes.json();
-	} catch {}
-
-	return null;
+	const r = await buscarDadosCnpj(cnpj);
+	return r.ok ? r.dados : null;
 }
 
 function verificarEhSocio(

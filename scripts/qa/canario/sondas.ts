@@ -305,6 +305,10 @@ const estaduais: Sonda[] = [
 		`https://dadosabertos.almg.gov.br/api/v2/prestacao_contas/verbas_indenizatorias/deputados/12193/${anoAtual - 1}/3?formato=json`,
 		{ avaliar: (c, res) => (res.ok && Array.isArray((c as { list?: unknown[] })?.list) ? vereditoStatus(res) : { estado: "FALHA", detalhe: `HTTP ${res.status}` }) },
 	)),
+	sonda("minhareceita-cnpj", "federal", "Minha Receita — CNPJ e QSA (reserva da BrasilAPI)", "receita/cnpj.ts", get(
+		"https://minhareceita.org/41685059000148",
+		{ avaliar: (c, res) => (res.ok && Array.isArray((c as { qsa?: unknown[] })?.qsa) ? vereditoStatus(res) : { estado: "FALHA", detalhe: `HTTP ${res.status} ou sem QSA` }) },
+	)),
 	sonda("cldf-verbas", "estadual", "CLDF — verba indenizatória (CKAN)", "assembleias/cldf.ts", get(
 		"https://dados.cl.df.gov.br/api/3/action/package_show?id=verbas-indenizatorias",
 		{

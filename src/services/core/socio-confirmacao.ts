@@ -14,8 +14,8 @@
  *  - QSA vazio (MEI/empresário individual): razão social com o nome; se trouxer
  *    um CPF inteiro (padrão do MEI), ele precisa ser o do político.
  */
-import { buscarJson } from "@/lib/fonte-http";
 import { mioloCpf, soDigitos } from "@/lib/documento";
+import { buscarDadosCnpj } from "@/services/integrations/receita/cnpj";
 
 export interface SocioQsa {
 	nome_socio?: string;
@@ -84,20 +84,14 @@ export function confirmarVinculoSocietario(empresa: EmpresaQsa, nomes: string[],
 	return melhor ?? vereditos[0] ?? { confirmado: false, motivo: "nenhum sócio no QSA com o nome do político" };
 }
 
-/** Consulta o QSA (BrasilAPI, com cache) e decide. Falha na consulta = não confirmado. */
+/** Consulta o QSA (BrasilAPI, reserva Minha Receita, com cache) e decide. Falha na consulta = não confirmado. */
 export async function verificarEmpresaDoPolitico(
 	cnpj: string,
 	nomes: string[],
 	cpf: string | null,
 	fetchFn?: typeof fetch,
 ): Promise<Veredito> {
-	const r = await buscarJson<EmpresaQsa>(`https://brasilapi.com.br/api/cnpj/v1/${soDigitos(cnpj)}`, {
-		fonte: "brasilapi-cnpj",
-		timeoutMs: 5000,
-		tentativas: 2,
-		memoria: { ttlMs: 6 * 60 * 60 * 1000 },
-		fetchFn,
-	});
-	if (!r.ok) return { confirmado: false, motivo: `QSA indisponível (${r.erro})` };
+	const r = await buscarDadosCnpj(cnpj, fetchFn);
+	if (!r.ok) return { confirmado: false, motivo: `QSA indisponível (${r.motivo})` };
 	return confirmarVinculoSocietario(r.dados, nomes, cpf);
 }

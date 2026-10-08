@@ -3,7 +3,7 @@ import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/
 import { buscarSancoesEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
 import { buscarNomeacoesDOU } from "@/services/integrations/dou/client";
 import { buscarDiariosMunicipais } from "@/services/integrations/dou/queridodiario";
-import { fetchWithTimeout } from "../tse";
+import { buscarDadosCnpj } from "@/services/integrations/receita/cnpj";
 import { buscarConveniosTransferegov } from "./osint-contratos";
 
 /** Sanções da empresa em CEIS/CNEP/CEPIM (o antigo /sancoes não existe). */
@@ -174,13 +174,11 @@ export async function expandirMalhaSocietaria(
 	if (docLimpo.length !== 14) return [];
 
 	try {
-		const res = await fetchWithTimeout(
-			`https://brasilapi.com.br/api/cnpj/v1/${docLimpo}`,
-			{ timeout: 6000 },
-		);
+		// BrasilAPI com reserva no Minha Receita e fila (receita/cnpj.ts).
+		const res = await buscarDadosCnpj(docLimpo);
 		if (!res.ok) return [];
 
-		const empresa = await res.json();
+		const empresa: any = res.dados;
 		emitirNodeEmpresa(empresa, docLimpo, pessoaId, sendEvent);
 		await processarListaSocios(empresa.qsa || [], docLimpo, pessoaId, sendEvent);
 		return [docLimpo];

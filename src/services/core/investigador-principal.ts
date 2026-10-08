@@ -9,6 +9,7 @@ import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
 import { nomesDeReferencia, verificarEmpresaDoPolitico } from "@/services/core/socio-confirmacao";
 import { alvoDoGabinete, emitirCruzamentos } from "@/services/cruzamentos";
+import { buscarDadosCnpj } from "@/services/integrations/receita/cnpj";
 import { coletarContratosDoMandato, emitirColetaDoMandato } from "@/services/core/contratos-do-ente";
 import { despesasAlerjParaOPipe } from "@/services/integrations/alerj/despesas-base";
 import { despesasDaAssembleia } from "@/services/integrations/assembleias/despesas";
@@ -2117,14 +2118,10 @@ export async function executarInvestigacaoPrincipal(params: any) {
 
 							// 5. QSA reverso: checar se o político é sócio da empresa de táxi aéreo
 							try {
-								const resFornQsa = await fetchWithTimeout(
-									`https://brasilapi.com.br/api/cnpj/v1/${cnpjForn}`,
-									{
-										timeout: 4000,
-									},
-								);
+								// BrasilAPI com reserva no Minha Receita e fila (receita/cnpj.ts).
+								const resFornQsa = await buscarDadosCnpj(cnpjForn);
 								if (resFornQsa.ok) {
-									const empForn = await resFornQsa.json();
+									const empForn: any = resFornQsa.dados;
 									const qsaForn = empForn.qsa || [];
 									const nomeNorm = normalizeString(deputadoBasico.nome);
 									const nomeCivilNorm = normalizeString(

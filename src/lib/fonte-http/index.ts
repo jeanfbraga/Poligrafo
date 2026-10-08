@@ -79,6 +79,11 @@ export interface OpcoesFonte extends RequestInit {
 	fetchFn?: typeof fetch;
 	dormir?: (ms: number) => Promise<void>;
 	espera?: ParametrosEspera;
+	/**
+	 * Como a falha definitiva aparece para a investigação (observador.ts). "lenta" quando
+	 * há uma fonte reserva a tentar em seguida: a tela mostra "tentando de novo", não "não respondeu".
+	 */
+	avisoDeFalha?: "falhou" | "lenta";
 }
 
 interface Config {
@@ -92,6 +97,7 @@ interface Config {
 	fetchFn: typeof fetch;
 	dormir: (ms: number) => Promise<void>;
 	espera: ParametrosEspera;
+	avisoDeFalha: "falhou" | "lenta";
 }
 
 const cacheGlobal = new CacheRespostas();
@@ -119,7 +125,7 @@ function montarCabecalhos(url: string, opcoes: OpcoesFonte): Headers {
 function normalizar(url: string | URL, opcoes: OpcoesFonte): Config {
 	const {
 		fonte, timeoutMs, tentativas, prazo, memoria, navegador: _n,
-		aplicarPoliticas: _p, fetchFn, dormir, espera, ...init
+		aplicarPoliticas: _p, fetchFn, dormir, espera, avisoDeFalha, ...init
 	} = opcoes;
 	const href = String(url);
 	return {
@@ -133,6 +139,7 @@ function normalizar(url: string | URL, opcoes: OpcoesFonte): Config {
 		fetchFn: fetchFn ?? ((input, i) => globalThis.fetch(input, i)),
 		dormir: dormir ?? dormirPadrao,
 		espera: espera ?? ESPERA_PADRAO,
+		avisoDeFalha: avisoDeFalha ?? "falhou",
 	};
 }
 
@@ -259,13 +266,19 @@ export function statusDeProblema(status: number): boolean {
 	return status >= 500 || status === 429 || status === 401 || status === 403;
 }
 
+/** Falha definitiva para o observador: "falhou", ou "lenta" quando há reserva a tentar. */
+function avisarFalha(cfg: Config, erro: TipoErroFonte, status?: number): void {
+	if (cfg.avisoDeFalha === "lenta") sinalizarFonte({ tipo: "lenta", url: cfg.url, fonte: cfg.fonte, motivo: erro, status });
+	else sinalizarFonte({ tipo: "falhou", url: cfg.url, fonte: cfg.fonte, erro, status });
+}
+
 /** Conta ao observador da investigação (observador.ts) como a fonte respondeu. */
 function avisarResultado(cfg: Config, res: Response): void {
 	if (!statusDeProblema(res.status)) {
 		sinalizarFonte({ tipo: "respondeu", url: cfg.url, fonte: cfg.fonte });
 		return;
 	}
-	sinalizarFonte({ tipo: "falhou", url: cfg.url, fonte: cfg.fonte, erro: res.status >= 500 ? "HTTP_5XX" : "HTTP_4XX", status: res.status });
+	avisarFalha(cfg, res.status >= 500 ? "HTTP_5XX" : "HTTP_4XX", res.status);
 }
 
 async function consultar(cfg: Config): Promise<Response> {
@@ -290,7 +303,7 @@ export async function buscarFonte(
 	try {
 		return await consultar(cfg);
 	} catch (erro) {
-		sinalizarFonte({ tipo: "falhou", url: cfg.url, fonte: cfg.fonte, erro: classificarErroFonte(erro) });
+		avisarFalha(cfg, classificarErroFonte(erro));
 		throw erro;
 	}
 }

@@ -1,7 +1,7 @@
 import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/fornecedor";
 import { buscarPagamentosFederais } from "@/services/integrations/transparencia/pagamentos";
 import { buscarSancoesEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
-import { fetchWithTimeout } from "./tse";
+import { buscarDadosCnpj } from "@/services/integrations/receita/cnpj";
 
 // ==========================================
 // Proxy OSINT — Busca Indireta via APIs Federais
@@ -93,12 +93,10 @@ async function coletarSociosBrasilApi(
 ): Promise<{ empresas: any[]; statusParte?: string }> {
 	const empresas: any[] = [];
 	try {
-		const res = await fetchWithTimeout(
-			`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`,
-			{ timeout: 6000 },
-		);
+		// BrasilAPI com reserva no Minha Receita e fila (receita/cnpj.ts).
+		const res = await buscarDadosCnpj(cnpj);
 		if (!res.ok) return { empresas };
-		const empresa = await res.json();
+		const empresa: any = res.dados;
 		const qsa = empresa.qsa || [];
 		qsa.forEach((socio: any) => {
 			empresas.push({

@@ -11,9 +11,9 @@
  *    porque a casa não publica o CPF) → fato EMPRESA_DE_ASSESSOR no CNPJ.
  * Nome igual com dígitos diferentes não conta (homônimo).
  */
-import { mioloCpf, soDigitos } from "@/lib/documento";
+import { mioloCpf } from "@/lib/documento";
 import { type EmpresaQsa, normalizarNome } from "@/services/core/socio-confirmacao";
-import { buscarJson } from "@/lib/fonte-http";
+import { buscarDadosCnpj } from "@/services/integrations/receita/cnpj";
 import { nomeDistintivo, type PessoaDoGabinete, resumoVinculos } from "./gabinete";
 import type { Fato, Papel } from "./tipos";
 
@@ -34,13 +34,9 @@ export interface Politico {
 
 type BuscarQsa = (cnpj: string) => Promise<EmpresaQsa | null>;
 
+/** BrasilAPI com reserva no Minha Receita (receita/cnpj.ts): a BrasilAPI dá 429/403 com frequência. */
 export const buscarQsaPadrao: BuscarQsa = async (cnpj) => {
-	const r = await buscarJson<EmpresaQsa>(`https://brasilapi.com.br/api/cnpj/v1/${soDigitos(cnpj)}`, {
-		fonte: "brasilapi-cnpj",
-		timeoutMs: 5000,
-		tentativas: 2,
-		memoria: { ttlMs: 6 * 60 * 60 * 1000 },
-	});
+	const r = await buscarDadosCnpj(cnpj);
 	return r.ok ? r.dados : null;
 };
 
@@ -65,7 +61,7 @@ function papeisDoCnpj(fatos: Fato[], cnpj: string): string {
 }
 
 function procedenciaQsa(cnpj: string, coletadoEm: string) {
-	return { fonte: "Receita Federal — QSA (BrasilAPI)", chave: `cnpj=${cnpj}`, coletadoEm, url: `https://brasilapi.com.br/api/cnpj/v1/${cnpj}` };
+	return { fonte: "Receita Federal — QSA (BrasilAPI ou Minha Receita)", chave: `cnpj=${cnpj}`, coletadoEm, url: `https://minhareceita.org/${cnpj}` };
 }
 
 /** Doadores pessoa física indexados por nome normalizado + miolo do CPF. */
