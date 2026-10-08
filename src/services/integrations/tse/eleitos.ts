@@ -132,7 +132,17 @@ export interface AlvoEleito {
 }
 
 /** Eleito achado por nome: identidade média — o número do candidato serve, o CPF não é adotado. */
-export type EleitoDoAlvo = Eleito & { porNome?: boolean };
+export type EleitoDoAlvo = Eleito & { porNome?: boolean; confirmadoPor?: string };
+
+/**
+ * Eleito achado por nome confirmado pelo nome civil de outra fonte oficial (o Senado, que
+ * não publica CPF): nome civil idêntico → o CPF da base passa a valer. Senão, nada muda.
+ */
+export function confirmarPeloNomeCivil(eleito: EleitoDoAlvo | null, nomeCivil: string | null, fonte: string): EleitoDoAlvo | null {
+	if (!eleito?.porNome || !nomeCivil) return eleito;
+	if (palavrasBusca(nomeCivil).join(" ") !== palavrasBusca(eleito.nm_candidato).join(" ")) return eleito;
+	return { ...eleito, porNome: false, confirmadoPor: fonte };
+}
 
 function nomeExato(e: Eleito, nome: string): boolean {
 	const alvo = palavrasBusca(nome).join(" ");

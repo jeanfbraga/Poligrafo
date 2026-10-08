@@ -78,7 +78,7 @@ describe("investigação lê a base antes do TSE ao vivo", () => {
 	const consulta = { alvo: { id: "178992", cpfOficial: CPF, nome: "FULANO", uf: "SP", cargoTse: "6" } };
 
 	function deps(daBase: DependenciasTse["daBase"]) {
-		return { buscarEleito: vi.fn(async () => eleito), daBase, aoVivo: vi.fn(async () => null) };
+		return { buscarEleito: vi.fn(async () => eleito), daBase, aoVivo: vi.fn(async () => null), nomeCivilSenador: vi.fn(async () => null) };
 	}
 
 	it("base com o eleito: não chama o TSE ao vivo e avisa na tela que veio da base", async () => {
@@ -96,5 +96,48 @@ describe("investigação lê a base antes do TSE ao vivo", () => {
 		const d = deps(async () => { throw new Error("base fora"); });
 		await dadosTseDoAlvo({ ...consulta, nomeCivil: "FULANO DE TAL", municipio: "x" }, () => {}, d);
 		expect(d.aoVivo).toHaveBeenCalledWith("FULANO", "SP", "6", "FULANO DE TAL", "x");
+		expect(d.nomeCivilSenador).not.toHaveBeenCalled();
+	});
+});
+
+describe("senador: nome civil do Senado confirma o eleito achado pelo nome de urna", () => {
+	// Flávio Bolsonaro (08/10/2026): a base acha o eleito de 2018 só pelo nome de urna; o DivulgaCand
+	// recusa a Vercel (403) e, sem a confirmação, nenhum senador tinha CPF em produção.
+	const senador: EleitoDoAlvo = { ...eleito, ano_eleicao: 2018, cd_cargo: "5", ds_cargo: "SENADOR", sg_uf: "RJ", nm_ue: "RIO DE JANEIRO", nm_candidato: "FLAVIO NANTES BOLSONARO", nm_urna_candidato: "FLÁVIO BOLSONARO", porNome: true };
+	const consulta = { alvo: { id: "5894", nome: "Flávio Bolsonaro", uf: "RJ", cargoTse: "5" } };
+
+	function deps(civil: string | null) {
+		return {
+			buscarEleito: vi.fn(async () => senador),
+			daBase: vi.fn((e: EleitoDoAlvo | null) => tseDaBase(e, async () => [])),
+			aoVivo: vi.fn(async () => null),
+			nomeCivilSenador: vi.fn(async () => civil),
+		};
+	}
+
+	it("nome civil igual (sem acento e caixa): o CPF da base vale e o TSE ao vivo não é chamado", async () => {
+		const eventos: [string, any][] = [];
+		const d = deps("Flávio Nantes Bolsonaro");
+		const r = await dadosTseDoAlvo(consulta, (t, p) => eventos.push([t, p]), d);
+		expect(d.nomeCivilSenador).toHaveBeenCalledWith("5894");
+		expect(r.eleito).toMatchObject({ porNome: false, confirmadoPor: "nome civil confirmado pelo Senado Federal" });
+		expect(r.tseResult?.cpf).toBe(CPF);
+		expect(d.aoVivo).not.toHaveBeenCalled();
+		expect(eventos.find(([t]) => t === "STATUS")?.[1].msg).toContain("lidos da nossa base");
+	});
+
+	it("nome civil diferente ou Senado fora do ar: segue achado só por nome e vai ao TSE ao vivo", async () => {
+		for (const civil of ["Flávio Bolsonaro Filho", null]) {
+			const d = deps(civil);
+			const r = await dadosTseDoAlvo(consulta, () => {}, d);
+			expect(r.eleito?.porNome).toBe(true);
+			expect(d.aoVivo).toHaveBeenCalled();
+		}
+	});
+
+	it("outros cargos não consultam o Senado", async () => {
+		const d = { ...deps("x"), buscarEleito: vi.fn(async () => ({ ...senador, cd_cargo: "7" })) };
+		await dadosTseDoAlvo({ alvo: { ...consulta.alvo, cargoTse: "7" } }, () => {}, d);
+		expect(d.nomeCivilSenador).not.toHaveBeenCalled();
 	});
 });

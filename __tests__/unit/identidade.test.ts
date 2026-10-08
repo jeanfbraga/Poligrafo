@@ -70,6 +70,13 @@ describe("resolverIdentidade (v2, base de eleitos)", () => {
 		expect(podeConsultarPorCpf(id)).toBe(false);
 	});
 
+	it("eleito achado por nome e confirmado por outra fonte oficial (Senado): CPF adotado e a fonte aparece", () => {
+		const id = resolverIdentidade({ eleito: { ...PREFEITO, nr_cpf_candidato: CPF_A, porNome: false, confirmadoPor: "nome civil confirmado pelo Senado Federal" } });
+		expect(id).toMatchObject({ cpf: CPF_A, confianca: "alta" });
+		expect(id.evidencias.join(" ")).toContain("Eleito confirmado na base do TSE (nome civil confirmado pelo Senado Federal)");
+		expect(podeConsultarPorCpf(id)).toBe(true);
+	});
+
 	it("eleito com CPF diferente do oficial é ignorado", () => {
 		const id = resolverIdentidade({ cpfOficial: CPF_A, eleito: { ...PREFEITO, nr_cpf_candidato: CPF_B } });
 		expect(id).toMatchObject({ cpf: CPF_A, sqCandidato: null });
