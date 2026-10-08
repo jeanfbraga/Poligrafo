@@ -2,6 +2,7 @@ import { analyzeGraphNetwork } from "@/lib/graph-analysis";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { podeLerCachePesquisas } from "@/lib/cache-pesquisas";
 import { ColecaoNos, envolverEmissor } from "@/services/core/colecao-nos";
+import { redirecionarEtapasPara, reemitirEtapasDoCache } from "@/services/core/etapas-ao-vivo";
 import { buscarCandidatos } from "@/services/core/busca-candidatos";
 import { buscarEleitoDoAlvo, candidatosDaBaseEleitos } from "@/services/integrations/tse/eleitos";
 import { perfilDaCasa } from "@/services/core/alcada";
@@ -321,6 +322,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		// Tudo que vai para a tela também vai para o cache, com o score final da IA.
 		const supabaseNodes = new ColecaoNos();
 		const sendEvent = envolverEmissor(emitirParaTela, supabaseNodes);
+		// Os avisos de conexão (ETAPA) também passam pelo emissor que guarda no cache.
+		redirecionarEtapasPara(sendEvent);
 		const malhaOsintBuffer: any[] = [];
 		if (!forceRef) {
 			// MODO BUSCA (sem ref): alçadas em paralelo, ordenadas pela semelhança do nome
@@ -423,6 +426,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 							}
 						}
 
+						// De quando é o dossiê e o que cada fonte respondeu naquela investigação.
+						reemitirEtapasDoCache(cacheData.grafo_dados, sendEvent);
 						sendEvent("DONE", {
 							msg: "Dossiê finalizado (restaurado do cache).",
 						});
@@ -2258,6 +2263,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 							grafo_dados: {
 								timestamp: new Date().toISOString(),
 								nodes: supabaseNodes,
+								etapas: supabaseNodes.etapas,
 								escopo: deputadoBasico?.casa || "GLOBAL",
 								final: true,
 							},
@@ -2275,6 +2281,7 @@ export async function executarInvestigacaoPrincipal(params: any) {
 							grafo_dados: {
 								timestamp: new Date().toISOString(),
 								nodes: supabaseNodes,
+								etapas: supabaseNodes.etapas,
 								escopo: deputadoBasico?.casa || "GLOBAL",
 								final: true,
 							},

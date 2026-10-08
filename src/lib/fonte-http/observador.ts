@@ -24,6 +24,11 @@ export function observarFontes<T>(ouvinte: OuvinteDeFontes, executar: () => Prom
 	return contexto.run(ouvinte, executar);
 }
 
+/** O ouvinte da investigação em curso (undefined fora de `observarFontes`). */
+export function ouvinteAtual(): OuvinteDeFontes | undefined {
+	return contexto.getStore();
+}
+
 /** Avisa o ouvinte da investigação em curso (se houver). Nunca lança. */
 export function sinalizarFonte(sinal: SinalFonte): void {
 	try {

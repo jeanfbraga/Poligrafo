@@ -105,6 +105,35 @@ describe("ouvinte de etapas (sinal → evento ETAPA)", () => {
 	});
 });
 
+describe("etapas no dossiê guardado", () => {
+	it("o pipe redireciona os avisos de conexão para o seu emissor (o que guarda no cache)", async () => {
+		const { redirecionarEtapasPara } = await import("@/services/core/etapas-ao-vivo");
+		const rota: string[] = [];
+		const pipe: string[] = [];
+		await observarFontes(criarOuvinteDeEtapas((t) => rota.push(t)), async () => {
+			redirecionarEtapasPara((t) => pipe.push(t));
+			await buscarJson(PNCP, { fetchFn: (async () => resposta(200)) as never });
+		});
+		expect(rota).toEqual([]);
+		expect(pipe).toEqual(["ETAPA"]);
+		redirecionarEtapasPara(() => {}); // fora de uma investigação: nada acontece
+	});
+
+	it("dossiê restaurado: diz de quando é e reenvia as etapas; dossiê antigo avisa que não tem o registro", async () => {
+		const { reemitirEtapasDoCache } = await import("@/services/core/etapas-ao-vivo");
+		const eventos: { tipo: string; payload: any }[] = [];
+		const etapa = { fonte: "receita", estado: "falhou", origem: "Receita Federal (dados de CNPJ)", detalhe: "recusou o acesso" };
+		reemitirEtapasDoCache({ timestamp: "2026-10-08T16:09:00Z", etapas: [etapa] }, (tipo, payload) => eventos.push({ tipo, payload }));
+		expect(eventos).toEqual([
+			{ tipo: "STATUS", payload: { msg: "[CACHE] Dossiê guardado em 08/10/2026 às 13:09. A lista de fontes mostra o que respondeu naquela investigação." } },
+			{ tipo: "ETAPA", payload: etapa },
+		]);
+		const antigos: any[] = [];
+		reemitirEtapasDoCache({ timestamp: "2026-09-01T12:00:00Z" }, (_t, p) => antigos.push(p));
+		expect(antigos).toEqual([{ msg: "[CACHE] Dossiê guardado em 01/09/2026 às 09:00, antes do registro por fonte: não dá para dizer quais fontes responderam." }]);
+	});
+});
+
 describe("etapas pela tela (evento ETAPA)", () => {
 	const PNCP_NOME = "PNCP (portal federal de contratos)";
 	const reg = (...evs: EventoEtapa[]) => evs.reduce(registrarEtapa, ETAPAS_INICIAIS);
