@@ -1,18 +1,11 @@
-import { buscarDespesasBA } from "../estados/ba/tce";
-import {
-	buscarDespesasMunicipalCE,
-	buscarMunicipalCE,
-} from "../estados/ce/tce";
+import { buscarMunicipalCE } from "../estados/ce/tce";
 import { buscarDespesasES } from "../estados/es/tce";
-import { buscarDespesasMG } from "../estados/mg/tce";
 import { buscarDespesasPA } from "../estados/pa/tce";
-import { buscarDespesasMunicipalPB } from "../estados/pb/tce";
 import {
 	buscarDespesasMunicipalPE,
 	buscarMunicipalPE,
 } from "../estados/pe/tce";
 import { buscarDespesasPI } from "../estados/pi/tce";
-import { buscarDespesasPR } from "../estados/pr/tce";
 import { buscarDespesasVereadorRJ, buscarMunicipalRJ } from "../estados/rj/tce";
 import { buscarDespesasRN } from "../estados/rn/tce";
 import {
@@ -32,7 +25,6 @@ import { buscarDespesasSE } from "../estados/se/tce";
 import { buscarDespesasTO } from "../estados/to/tce";
 import { buscarProxyOsint } from "../proxy_osint";
 import { buscarCpfNoTSE } from "../tse";
-import { buscarDespesasTcmSP } from "./tcm-sp";
 
 type HandlerMunicipal = (nome: string) => Promise<any[]>;
 
@@ -126,12 +118,27 @@ async function fallbackProxyFederal(ctx: ContextoDespesa): Promise<any[]> {
 	return res.despesasFederais || [];
 }
 
+/** TCM-SP (capital) saiu: a API respondia 404 (canário de 07/10/2026). */
 async function rotearDespesasSP(ctx: ContextoDespesa): Promise<any[]> {
-	if (ctx.municipioUri === "sao-paulo" || ctx.municipioUri === "sao_paulo") {
-		const tcmDespesas = await buscarDespesasTcmSP(ctx.nomeParaBusca);
-		if (tcmDespesas.length > 0) return tcmDespesas;
-	}
 	return buscarDespesasVereadorSP(ctx.identificador, ctx.nomeParaBusca || "");
+}
+
+/**
+ * TCEs com fonte morta no canário de 07/10/2026: o pipe não chama mais endereço
+ * que não existe. Os contratos da prefeitura vêm do PNCP (services/core/contratos-do-ente.ts).
+ * Os clientes continuam em estados/{uf}/tce.ts para voltar fácil se a fonte voltar.
+ */
+export const TCES_APOSENTADOS: Record<string, string> = {
+	MG: "TCE-MG: CKAN sem resource_id, falha de rede",
+	BA: "TCM-BA: endpoint inexistente (404)",
+	PR: "TCE-PR: endpoint inexistente (404)",
+	CE: "TCE-CE: os dois endereços fora do ar",
+	PB: "TCE-PB (Sagres): acesso negado (403)",
+};
+
+async function fonteAposentada(uf: string): Promise<any[]> {
+	console.warn(`[TCE-${uf}] Fonte aposentada (${TCES_APOSENTADOS[uf]}); despesas do município por TCE não consultadas. Os contratos da prefeitura vêm do PNCP.`);
+	return [];
 }
 
 async function rotearDespesasUri(
@@ -160,19 +167,19 @@ async function rotearDespesasTO(ctx: ContextoDespesa): Promise<any[]> {
 
 const ROTEADORES_DESPESA: Record<string, (ctx: ContextoDespesa) => Promise<any[]>> = {
 	SP: rotearDespesasSP,
-	MG: (ctx) => rotearDespesasUri(ctx, buscarDespesasMG),
-	BA: (ctx) => rotearDespesasUri(ctx, buscarDespesasBA),
-	PR: (ctx) => rotearDespesasUri(ctx, buscarDespesasPR),
+	MG: () => fonteAposentada("MG"),
+	BA: () => fonteAposentada("BA"),
+	PR: () => fonteAposentada("PR"),
 	ES: (ctx) => rotearDespesasUri(ctx, buscarDespesasES),
 	PI: (ctx) => rotearDespesasUri(ctx, buscarDespesasPI),
 	RN: (ctx) => rotearDespesasUri(ctx, buscarDespesasRN),
 	PA: (ctx) => (ctx.municipioUri ? buscarDespesasPA(ctx.identificador, ctx.municipioUri, ctx.nomeParaBusca) : fallbackProxyFederal(ctx)),
 	RJ: (ctx) => buscarDespesasVereadorRJ(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
 	PE: (ctx) => buscarDespesasMunicipalPE(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
-	CE: (ctx) => buscarDespesasMunicipalCE(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
+	CE: () => fonteAposentada("CE"),
 	RS: (ctx) => buscarDespesasMunicipalRS(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
 	SC: (ctx) => buscarDespesasMunicipalSC(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
-	PB: (ctx) => buscarDespesasMunicipalPB(ctx.identificador, ctx.nomeParaBusca, ctx.municipioUri, ctx.casa),
+	PB: () => fonteAposentada("PB"),
 	SE: rotearDespesasSE,
 	TO: rotearDespesasTO,
 };

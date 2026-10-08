@@ -165,7 +165,21 @@ const beneficiarioDeEmenda: LeitorNo = (no, coletadoEm) => {
 	})].map((f) => ({ ...f, id: `${f.id}-${no.id}` }));
 };
 
-const LEITORES: LeitorNo[] = [contratoDoEnte, contratosDeDoador, beneficiarioDeEmenda];
+/** Pagamento do governo federal (Portal, documentos-por-favorecido) ao documento do nó. */
+const pagamentoFederal: LeitorNo = (no, coletadoEm) => {
+	const d = no.data ?? {};
+	const doc = documentoOuNulo(d.documento);
+	if (!no.id.startsWith("cgu-pagamento-") || !doc) return [];
+	return [fato("CONTRATADO_PUBLICO", doc, 0, {
+		nome: "",
+		valor: Number(d.valor) || undefined,
+		data: d.dataDocumento || undefined,
+		detalhe: [d.orgao, d.tipo, d.autorEmenda ? `emenda de ${d.autorEmenda}` : ""].filter(Boolean).join(" — "),
+		procedencia: procedencia(String(d.fonte ?? "Portal da Transparência — pagamentos"), `codigoPessoa=${doc}`, coletadoEm, d.urlDocumento),
+	})].map((f) => ({ ...f, id: `${f.id}-${no.id}` }));
+};
+
+const LEITORES: LeitorNo[] = [contratoDoEnte, contratosDeDoador, beneficiarioDeEmenda, pagamentoFederal];
 
 export function fatosDeNos(nos: NoGrafo[], coletadoEm: string): Fato[] {
 	return nos.flatMap((no) => LEITORES.flatMap((ler) => ler(no, coletadoEm)));

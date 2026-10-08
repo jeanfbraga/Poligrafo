@@ -1,4 +1,5 @@
 import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/fornecedor";
+import { buscarPagamentosFederais } from "@/services/integrations/transparencia/pagamentos";
 import { buscarSancoesEmpresa } from "@/services/integrations/transparencia/sancoes-empresa";
 import { fetchWithTimeout } from "./tse";
 
@@ -20,42 +21,30 @@ export interface ProxyOsintResult {
 async function coletarDespesasCgu(
 	docLimpo: string,
 	docParaCgu: string,
-	usaCnpjParam: boolean,
 	apiKey: string,
 	nomeVereador?: string,
 ): Promise<{ despesas: any[]; statusParte?: string }> {
-	const despesas: any[] = [];
-	if (!apiKey) return { despesas };
-
+	if (!apiKey) return { despesas: [] };
+	// Endpoint certo: /despesas/documentos-por-favorecido?codigoPessoa= (o antigo /por-favorecido dava 403).
 	try {
-		const paramCgu = usaCnpjParam
-			? `cnpjFornecedor=${docParaCgu}&pagina=1`
-			: `cpfFornecedor=${docParaCgu}&pagina=1`;
-		const res = await fetchWithTimeout(
-			`https://api.portaldatransparencia.gov.br/api-de-dados/despesas/por-favorecido?${paramCgu}`,
-			{ headers: { "chave-api-dados": apiKey }, timeout: 8000 },
-		);
-		if (!res.ok) return { despesas };
-		const json = await res.json();
-		const items = Array.isArray(json) ? json : json.data || [];
-		items.slice(0, 20).forEach((item: any) => {
-			despesas.push({
-				cnpjCpfFornecedor: docLimpo,
-				nomeFornecedor:
-					item.nomeFavorecido || item.nomeCredor || nomeVereador || "N/A",
-				tipoDespesa:
-					item.funcao || item.elementoDespesa || "Despesa Federal",
-				valorDocumento: Number(item.valor || item.valorPago || 0),
-				dataDocumento: item.data || item.dataDocumento || "",
-				urlDocumento: "https://portaldatransparencia.gov.br/",
-			});
-		});
+		const ano = new Date().getFullYear();
+		const pagamentos = await buscarPagamentosFederais(docParaCgu || docLimpo, [ano, ano - 1], apiKey);
+		const despesas = pagamentos.slice(0, 20).map((p) => ({
+			cnpjCpfFornecedor: docLimpo,
+			nomeFornecedor: p.favorecido || nomeVereador || "N/A",
+			tipoDespesa: [p.funcao, p.programa].filter(Boolean).join(" — ") || "Pagamento federal",
+			valorDocumento: p.valor,
+			dataDocumento: p.data ?? "",
+			orgao: p.orgao || null,
+			numeroDocumento: p.documento || null,
+			urlDocumento: "https://portaldatransparencia.gov.br/despesas/favorecido",
+		}));
 		return {
 			despesas,
-			statusParte: items.length > 0 ? `${items.length} pagamentos federais localizados` : undefined,
+			statusParte: pagamentos.length > 0 ? `${pagamentos.length} pagamentos federais localizados` : undefined,
 		};
 	} catch {
-		return { despesas };
+		return { despesas: [] };
 	}
 }
 
@@ -196,7 +185,7 @@ function dispararConsultasProxy(
 	const usaCnpj = Boolean(cnpjParaEmpresas);
 
 	return Promise.allSettled([
-		coletarDespesasCgu(docLimpo, docParaCgu, usaCnpj, apiKey, nomeVereador),
+		coletarDespesasCgu(docLimpo, docParaCgu, apiKey, nomeVereador),
 		isCnpj ? coletarSancoesCgu(docLimpo, apiKey) : Promise.resolve(null),
 		isCnpj
 			? coletarContratosCompras(docLimpo, nomeVereador)

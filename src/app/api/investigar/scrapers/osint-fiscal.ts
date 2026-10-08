@@ -1,5 +1,6 @@
 import { cpfValido, documentoValido } from "@/lib/documento";
 import { buscarContratosPorFornecedor } from "@/services/integrations/contratos/fornecedor";
+import { buscarPagamentosFederais, type PagamentoFederal } from "@/services/integrations/transparencia/pagamentos";
 import { transparenciaLimiter } from "@/services/core/rate-limiter";
 import { listarAtividadesAuditoria } from "@/services/integrations/denasus/client";
 import {
@@ -397,18 +398,28 @@ export async function investigarPolitico(
 	return { patrimonioTotal, sancoesCgu, alertasPessoais, bensDeclarados };
 }
 
-function emitirItemReceitaFederal(item: any, docLimpo: string, i: number, pessoaId: string, sendEvent: any) {
+/**
+ * Pagamento federal → nó de contexto (sem nota fixa: antes era 70 "Repasse Federal Direto"
+ * para qualquer pagamento). O id `cgu-pagamento-` faz o motor de cruzamentos ler o fato.
+ */
+function emitirItemReceitaFederal(p: PagamentoFederal, docLimpo: string, i: number, pessoaId: string, sendEvent: any) {
 	sendEvent("NODE_NOVO", {
-		id: `cgu-desp-${docLimpo}-${i}`,
+		id: `cgu-pagamento-${docLimpo}-${i}`,
 		type: "DESPESA",
 		_origemId: pessoaId,
 		data: {
-			label: item.nomeFavorecido || item.nomeCredor || "Recebedor",
-			valor: Number(item.valor || item.valorPago || 0),
-			type: item.funcao || item.elementoDespesa || "Despesa Federal (CGU)",
-			dataDocumento: item.data || item.dataDocumento || "",
-			score_letalidade: 70,
-			motivo_ia: "[CGU] Repasse Federal Direto detectado.",
+			label: p.orgao || "Governo federal",
+			valor: p.valor,
+			tipo: [p.funcao, p.programa].filter(Boolean).join(" — ") || "Pagamento federal",
+			dataDocumento: p.data ?? "",
+			documento: docLimpo,
+			numeroDocumento: p.documento || null,
+			orgao: p.orgao || null,
+			descricao: p.observacao || null,
+			autorEmenda: p.autorEmenda || null,
+			urlDocumento: "https://portaldatransparencia.gov.br/despesas/favorecido",
+			fonte: "Portal da Transparência — pagamentos do governo federal",
+			motivo_ia: `Pagamento do governo federal (${p.orgao || "órgão não informado"})${p.autorEmenda ? `, emenda de ${p.autorEmenda}` : ""}. Contexto, não é gasto do mandato.`,
 		},
 	});
 }
@@ -439,28 +450,18 @@ export async function buscarReceitasFederais(
 	pessoaId: string,
 	sendEvent: any,
 ) {
-	const isCnpj = docLimpo.length === 14;
-	const apiKey = process.env.TRANSPARENCIA_API_KEY || "";
-	if (!apiKey) return;
-
+	const ano = new Date().getFullYear();
 	try {
-		const paramCgu = isCnpj ? `cnpjFornecedor=${docLimpo}&pagina=1` : `cpfFornecedor=${docLimpo}&pagina=1`;
-		const res = await fetchWithTimeout(
-			`https://api.portaldatransparencia.gov.br/api-de-dados/despesas/por-favorecido?${paramCgu}`,
-			{ headers: { "chave-api-dados": apiKey }, timeout: 8000 },
-		);
-		if (res.ok) {
-			const json = await res.json();
-			const items = Array.isArray(json) ? json : json.data || [];
-			items.slice(0, 5).forEach((item: any, i: number) => {
-				emitirItemReceitaFederal(item, docLimpo, i, pessoaId, sendEvent);
-			});
+		const pagamentos = await buscarPagamentosFederais(docLimpo, [ano, ano - 1]);
+		if (pagamentos.length > 0) {
+			sendEvent("STATUS", { msg: `[CGU] ${pagamentos.length} pagamento(s) do governo federal ao documento ${docLimpo.length === 14 ? docLimpo : "do político"} em ${ano - 1}–${ano}.` });
 		}
+		pagamentos.slice(0, 5).forEach((p, i) => emitirItemReceitaFederal(p, docLimpo, i, pessoaId, sendEvent));
 	} catch (e) {
 		console.error("Erro CGU:", e);
 	}
 
-	if (isCnpj) {
+	if (docLimpo.length === 14) {
 		await consultarComprasContratos(docLimpo, pessoaId, sendEvent);
 	}
 }
