@@ -312,6 +312,8 @@ END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 1.5 tse_doadores_cache — Cache de doadores de campanha (bypass WAF do TSE)
+-- APOSENTADA em 08/10/2026 (scripts/sql/migracao_principal_aposenta_tse_doadores.sql):
+-- os doadores vêm de tse_campanha_contas (Banco de Perfil). Mantida aqui só para restauração.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.tse_doadores_cache (
     id             BIGSERIAL PRIMARY KEY,
