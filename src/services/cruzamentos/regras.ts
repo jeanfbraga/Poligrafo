@@ -29,7 +29,29 @@ export function contratoDuranteSancao(sancoes: Fato[], contratos: Fato[]): { sev
 	};
 }
 
+/**
+ * Doador com cargo de confiança: MÉDIA; ALTA se a função começou DEPOIS da
+ * eleição em que ele doou (o fato DOADOR das contas de campanha traz o ano).
+ */
+export function nomeadoDepoisDaEleicao(doacoes: Fato[], funcoes: Fato[]): { severidade?: "ALTA"; nota: string } | null {
+	const anos = doacoes.map((d) => Number(String(d.data ?? "").slice(0, 4))).filter((a) => a > 2000);
+	if (anos.length === 0) return null;
+	const eleicao = `${Math.min(...anos)}-10-01`;
+	if (funcoes.some((f) => (f.data ?? "") >= eleicao)) {
+		return { severidade: "ALTA", nota: "Nomeação depois da eleição em que doou: vale conferir se houve indicação política." };
+	}
+	return { nota: "A função começou antes da eleição em que doou." };
+}
+
 export const REGRAS: Regra[] = [
+	{
+		id: "doador-cargo-confianca",
+		titulo: "Doador de campanha com cargo de confiança no governo federal",
+		papeis: ["DOADOR", "SERVIDOR_COMISSIONADO"],
+		severidade: "MEDIA",
+		porque: "quem financiou a campanha ocupa função comissionada ou cargo de confiança no Executivo federal",
+		ajustar: nomeadoDepoisDaEleicao,
+	},
 	{
 		id: "doador-fornecedor-cota",
 		titulo: "Doador de campanha pago com a cota do mandato",

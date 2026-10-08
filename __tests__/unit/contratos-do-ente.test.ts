@@ -111,7 +111,7 @@ describe("contratos do órgão ligado ao mandato", () => {
 			contratosDoEnte: [contrato],
 			sqCandidato: "110002118922",
 			buscarContas: async () => ({ doadores: [], fornecedores: [{ sq_candidato: "110002118922", ano_eleicao: 2024, tipo: "FORNECEDOR", documento: FORN, nome: "AGENCIA Y LTDA", valor_total: 80000, quantidade: 1, origem: "Publicidade" }] }),
-			buscarSancoes: async () => [], buscarQsa: async () => null, explicar: async () => [],
+			buscarSancoes: async () => [], buscarQsa: async () => null, buscarFuncoes: async () => [], explicar: async () => [],
 		});
 		expect(fatos.filter((f) => f.papel === "CONTRATADO_ENTE")).toHaveLength(1);
 		expect(achados.map((a) => [a.regra, a.severidade])).toEqual([["fornecedor-campanha-ente", "ALTA"]]);

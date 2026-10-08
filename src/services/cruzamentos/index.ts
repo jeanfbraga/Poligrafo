@@ -25,7 +25,9 @@ import {
 import { type ExplicacaoAchado, explicarAchados } from "./explicacao-ia";
 import { executarCruzamentos } from "./motor";
 import { fatosDeSancoes } from "./sancoes";
+import { fatosDeServidores } from "./servidores";
 import { fatosDeSocios, type Politico } from "./socios";
+import type { FuncaoComissionada } from "@/services/integrations/transparencia/servidores";
 import type { Achado, Fato, Severidade } from "./tipos";
 
 export type { Achado, Fato } from "./tipos";
@@ -50,6 +52,7 @@ export interface EntradaCruzamentos {
 	buscarSancoes?: (cnpj: string) => Promise<SancaoEmpresa[]>;
 	buscarContas?: (sq: string | null | undefined) => Promise<ContasCampanha | null>;
 	buscarQsa?: (cnpj: string) => Promise<EmpresaQsa | null>;
+	buscarFuncoes?: (cpf: string) => Promise<FuncaoComissionada[]>;
 	/** IA que só explica (padrão: gateway gratuito); injetável nos testes. */
 	explicar?: (nos: ReturnType<typeof achadoParaNo>[]) => Promise<ExplicacaoAchado[]>;
 }
@@ -77,11 +80,12 @@ export async function cruzarDadosDaInvestigacao(e: EntradaCruzamentos): Promise<
 	const coletadoEm = (e.agora?.() ?? new Date()).toISOString();
 	const contas = await (e.buscarContas ?? buscarContasCampanha)(e.sqCandidato).catch(() => null);
 	const base = fatosColetados(e, contas, coletadoEm);
-	const [sancoes, socios] = await Promise.all([
+	const [sancoes, socios, servidores] = await Promise.all([
 		fatosDeSancoes(base, coletadoEm, e.buscarSancoes),
 		fatosDeSocios(base, e.politico ?? null, coletadoEm, e.buscarQsa),
+		fatosDeServidores(base, coletadoEm, e.buscarFuncoes),
 	]);
-	const fatos = completarNomes([...base, ...sancoes, ...socios]);
+	const fatos = completarNomes([...base, ...sancoes, ...socios, ...servidores]);
 	return { fatos, achados: executarCruzamentos(fatos) };
 }
 

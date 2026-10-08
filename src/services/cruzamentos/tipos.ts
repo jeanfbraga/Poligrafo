@@ -17,7 +17,9 @@ export type Papel =
 	| "CONTRATADO_PUBLICO"
 	| "SANCIONADO"
 	/** Pessoa sócia (QSA: nome + 6 dígitos do meio do CPF) de empresa paga pelo mandato/órgão. */
-	| "SOCIO_DE_FORNECEDOR";
+	| "SOCIO_DE_FORNECEDOR"
+	/** Pessoa com função/cargo de confiança no Executivo federal (Portal da Transparência). */
+	| "SERVIDOR_COMISSIONADO";
 
 export interface Procedencia {
 	/** Nome legível da fonte (ex.: "Câmara dos Deputados — CEAP"). */

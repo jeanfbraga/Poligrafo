@@ -210,7 +210,7 @@ describe("contas de campanha e sócios de fornecedores", () => {
 			pessoaId: "p", casa: "CAMARA", doadores: [MATRIZ], empresasDoPolitico: [], despesasMandato: [], nos: [],
 			sqCandidato: "130001", agora: () => new Date(AGORA),
 			buscarContas: async () => ({ doadores: [contas[0]], fornecedores: [contas[1]] }) as never,
-			buscarSancoes: async () => [], buscarQsa: async () => null, explicar: async () => [],
+			buscarSancoes: async () => [], buscarQsa: async () => null, buscarFuncoes: async () => [], explicar: async () => [],
 		});
 		expect(fatos.some((x) => x.documento === MATRIZ)).toBe(false);
 		expect(fatos.map((x) => x.papel)).toEqual(["DOADOR", "FORNECEDOR_CAMPANHA"]);
@@ -276,6 +276,7 @@ describe("entrada do pipe", () => {
 		// IA, QSA e contas falsos: nenhum teste sai para a rede.
 		explicar: async () => [],
 		buscarQsa: async () => null,
+		buscarFuncoes: async () => [],
 		buscarContas: async () => null,
 	};
 
