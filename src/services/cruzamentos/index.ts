@@ -23,7 +23,9 @@ import {
 	semFatoRepetido,
 } from "./adaptadores";
 import { emitirEtapa } from "@/services/core/etapas-ao-vivo";
+import { type AlvoCota, buscarFornecedoresDaCota, type FornecedorDaCota } from "@/services/integrations/camara/cota-agrupada";
 import { carregarGabinete } from "@/services/integrations/gabinete/pessoal";
+import { fatosDaCotaAgrupada, resumoDaCotaAgrupada } from "./cota";
 import { type ExplicacaoAchado, explicarAchados } from "./explicacao-ia";
 import { type AlvoGabinete, type DadosGabinete, fatosDoGabinete, pessoasDoGabinete } from "./gabinete";
 import { documentoLegivel, executarCruzamentos } from "./motor";
@@ -33,6 +35,7 @@ import { fatosDeSocios, LIMITE_QSA, type Politico } from "./socios";
 import type { FuncaoComissionada } from "@/services/integrations/transparencia/servidores";
 import type { Achado, Fato, Severidade } from "./tipos";
 
+export { alvoDaCota } from "./cota";
 export { alvoDoGabinete } from "./gabinete";
 export type { Achado, Fato } from "./tipos";
 
@@ -60,6 +63,9 @@ export interface EntradaCruzamentos {
 	/** Gabinete do próprio político (Câmara ou CMRJ); `alvoDoGabinete` decide. Outras casas: null. */
 	gabinete?: AlvoGabinete | null;
 	carregarGabinete?: (alvo: AlvoGabinete) => Promise<DadosGabinete | null>;
+	/** Cota inteira (4 anos, agrupada por fornecedor) do deputado federal ou senador; `alvoDaCota` decide. */
+	cota?: AlvoCota | null;
+	buscarFornecedoresCota?: (alvo: AlvoCota) => Promise<FornecedorDaCota[] | null>;
 	/** IA que só explica (padrão: gateway gratuito); injetável nos testes. */
 	explicar?: (nos: ReturnType<typeof achadoParaNo>[]) => Promise<ExplicacaoAchado[]>;
 }
@@ -88,13 +94,27 @@ async function gabineteDoAlvo(e: EntradaCruzamentos): Promise<DadosGabinete | nu
 	return (e.carregarGabinete ?? carregarGabinete)(e.gabinete).catch(() => null);
 }
 
-export async function cruzarDadosDaInvestigacao(e: EntradaCruzamentos): Promise<{ fatos: Fato[]; achados: Achado[]; gabinete: DadosGabinete | null }> {
+async function cotaDoAlvo(e: EntradaCruzamentos): Promise<FornecedorDaCota[]> {
+	if (!e.cota) return [];
+	return ((await (e.buscarFornecedoresCota ?? buscarFornecedoresDaCota)(e.cota).catch(() => null)) ?? []);
+}
+
+export interface ResultadoCruzamentos {
+	fatos: Fato[];
+	achados: Achado[];
+	gabinete: DadosGabinete | null;
+	/** Linhas da cota agrupada que entraram no motor (vazio = só as notas do dossiê). */
+	cota: FornecedorDaCota[];
+}
+
+export async function cruzarDadosDaInvestigacao(e: EntradaCruzamentos): Promise<ResultadoCruzamentos> {
 	const coletadoEm = (e.agora?.() ?? new Date()).toISOString();
-	const [contas, gabinete] = await Promise.all([
+	const [contas, gabinete, cota] = await Promise.all([
 		(e.buscarContas ?? buscarContasCampanha)(e.sqCandidato).catch(() => null),
 		gabineteDoAlvo(e),
+		cotaDoAlvo(e),
 	]);
-	const base = fatosColetados(e, contas, coletadoEm);
+	const base = completarNomes(semFatoRepetido([...fatosColetados(e, contas, coletadoEm), ...fatosDaCotaAgrupada(cota, coletadoEm)]));
 	const doGabinete = gabinete ? fatosDoGabinete(gabinete, base, coletadoEm) : [];
 	const pessoas = gabinete ? pessoasDoGabinete(gabinete.assessores) : [];
 	const [sancoes, socios, servidores] = await Promise.all([
@@ -103,7 +123,7 @@ export async function cruzarDadosDaInvestigacao(e: EntradaCruzamentos): Promise<
 		fatosDeServidores(base, coletadoEm, e.buscarFuncoes),
 	]);
 	const fatos = completarNomes([...base, ...doGabinete, ...sancoes, ...socios, ...servidores]);
-	return { fatos, achados: executarCruzamentos(fatos), gabinete };
+	return { fatos, achados: executarCruzamentos(fatos), gabinete, cota };
 }
 
 /** Severidade → nota no padrão do dossiê (lib/investigacao/risco.ts: ≥85 crítico, ≥60 atenção). */
@@ -145,7 +165,10 @@ export async function emitirCruzamentos(e: EntradaCruzamentos, sendEvent: Emisso
 	try {
 		sendEvent("STATUS", { msg: "Cruzando doadores, empresas, cota, contratos e sanções (regras fixas, sem IA)..." });
 		emitirEtapa(sendEvent, { fonte: "cruzamentos", estado: "consultando" });
-		const { fatos, achados, gabinete } = await cruzarDadosDaInvestigacao(e);
+		const { fatos, achados, gabinete, cota } = await cruzarDadosDaInvestigacao(e);
+		if (cota.length) {
+			sendEvent("STATUS", { msg: `[COTA] ${resumoDaCotaAgrupada(cota)} entram no cruzamento (o dossiê mostra as 60 notas de maior valor).` });
+		}
 		if (gabinete) {
 			sendEvent("STATUS", { msg: `[GABINETE] ${pessoasDoGabinete(gabinete.assessores).length} pessoa(s) do gabinete (${gabinete.fonte}) conferidas com os doadores da campanha, os sócios dos fornecedores e os eleitos da UF.` });
 		}

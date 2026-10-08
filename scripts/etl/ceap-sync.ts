@@ -119,7 +119,8 @@ function parseRegistroCeap(record: RegistroCsv, ano: number): Despesa | null {
 	};
 }
 
-async function* lerRegistros(csvPath: string, ano: number): AsyncGenerator<Despesa> {
+/** Notas válidas do CSV oficial da Câmara (também usada pela cota agrupada, ceap-fornecedores-sync.ts). */
+export async function* lerRegistros(csvPath: string, ano: number): AsyncGenerator<Despesa> {
 	const input = fs.createReadStream(csvPath, 'utf8');
 	const parser = parse({
 		bom: true,

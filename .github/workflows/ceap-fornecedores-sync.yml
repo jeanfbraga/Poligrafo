@@ -1,0 +1,33 @@
+name: Cota parlamentar agrupada por fornecedor (Banco de Perfil)
+
+# scripts/etl/ceap-fornecedores-sync.ts: Câmara e Senado, janela de 4 anos do mandato,
+# agrupada por parlamentar + ano + fornecedor + tipo. Alimenta o motor de cruzamentos.
+on:
+  schedule:
+    # Toda terça-feira às 08:00 UTC (05:00 BRT), depois da manutenção noturna da Câmara
+    - cron: '0 8 * * 2'
+  workflow_dispatch:
+
+jobs:
+  ceap-fornecedores-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Agrupar e gravar a cota (4 anos)
+        env:
+          NEXT_PUBLIC_SUPABASE_PERFIL_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_PERFIL_URL }}
+          SUPABASE_PERFIL_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PERFIL_SERVICE_ROLE_KEY }}
+        run: npm run sync:ceap-fornecedores -- --gravar

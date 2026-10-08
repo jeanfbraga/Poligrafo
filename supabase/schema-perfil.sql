@@ -288,3 +288,32 @@ DO $$ BEGIN
 END $$;
 
 REVOKE ALL ON public.pncp_contratos_cache FROM anon, authenticated;
+
+-- -------------------------------------------------------------------------------
+-- 12. ceap_fornecedores_ano — cota (CEAP) da Câmara e do Senado agrupada por
+-- parlamentar + ano + fornecedor + tipo, janela de 4 anos (alimenta os cruzamentos).
+-- Ver scripts/sql/migracao_perfil_ceap_fornecedores.sql e scripts/etl/ceap-fornecedores-sync.ts
+-- -------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.ceap_fornecedores_ano (
+    casa            TEXT NOT NULL CHECK (casa IN ('CAMARA', 'SENADO')),
+    id_parlamentar  INTEGER NOT NULL,
+    ano             INTEGER NOT NULL,
+    documento       TEXT NOT NULL,
+    tipo_despesa    TEXT NOT NULL,
+    fornecedor      TEXT,
+    valor_total     NUMERIC(14, 2) NOT NULL,
+    notas           INTEGER NOT NULL,
+    primeira_data   DATE,
+    ultima_data     DATE,
+    atualizado_em   TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    PRIMARY KEY (casa, id_parlamentar, ano, documento, tipo_despesa)
+);
+
+ALTER TABLE public.ceap_fornecedores_ano ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'ceap_fornecedores_ano_service' AND tablename = 'ceap_fornecedores_ano') THEN
+        CREATE POLICY ceap_fornecedores_ano_service ON public.ceap_fornecedores_ano FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+
+REVOKE ALL ON public.ceap_fornecedores_ano FROM anon, authenticated;

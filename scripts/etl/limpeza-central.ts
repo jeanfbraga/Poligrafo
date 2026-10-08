@@ -62,6 +62,11 @@ export const REGRAS: RegraRetencao[] = [
 		filtro: (q, agora) => q.lt("ano", agora.getFullYear() - 3),
 	},
 	{
+		id: "cota-agrupada-janela-4-anos", banco: "perfil", tabela: "ceap_fornecedores_ano", estado: "ativa",
+		descricao: "Cota agrupada por fornecedor (cruzamentos): mesma janela de 4 anos da cota.",
+		filtro: (q, agora) => q.lt("ano", agora.getFullYear() - 3),
+	},
+	{
 		id: "bens-eleicoes-antigas", banco: "principal", tabela: "tse_bens_historico", estado: "ativa",
 		descricao: "Patrimônio declarado em eleições de mais de 8 anos atrás.",
 		filtro: (q, agora) => q.lt("ano_eleicao", agora.getFullYear() - 8),

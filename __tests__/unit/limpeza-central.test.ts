@@ -66,7 +66,7 @@ describe("limpeza central dos bancos", () => {
 	});
 
 	it("regras aprovadas pelo dono em 08/10/2026; a tabela antiga de doadores saiu", () => {
-		expect(REGRAS.map((r) => `${r.id}:${r.estado}`)).toEqual(["pesquisas-30d:ativa", "pncp-30d:ativa", "ceap-janela-4-anos:ativa", "bens-eleicoes-antigas:ativa"]);
+		expect(REGRAS.map((r) => `${r.id}:${r.estado}`)).toEqual(["pesquisas-30d:ativa", "pncp-30d:ativa", "ceap-janela-4-anos:ativa", "cota-agrupada-janela-4-anos:ativa", "bens-eleicoes-antigas:ativa"]);
 		expect(REGRAS.some((r) => r.tabela === "tse_doadores_cache")).toBe(false);
 	});
 });

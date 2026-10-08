@@ -9,7 +9,7 @@ import { perfilDaCasa } from "@/services/core/alcada";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { resolverIdentidade } from "@/services/core/identidade";
 import { nomesDeReferencia, verificarEmpresaDoPolitico } from "@/services/core/socio-confirmacao";
-import { alvoDoGabinete, emitirCruzamentos } from "@/services/cruzamentos";
+import { alvoDaCota, alvoDoGabinete, emitirCruzamentos } from "@/services/cruzamentos";
 import { buscarDadosCnpj } from "@/services/integrations/receita/cnpj";
 import { coletarContratosDoMandato, emitirColetaDoMandato } from "@/services/core/contratos-do-ente";
 import { despesasAlerjParaOPipe } from "@/services/integrations/alerj/despesas-base";
@@ -2251,6 +2251,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				politico: { nomes: nomesDeReferencia([deputadoBasico.nome, detalhes?.nomeCivil, eleitoDaRef?.nm_candidato]), cpf: identidade.cpf },
 				// Funcionários do gabinete (Câmara/CMRJ) × doadores, sócios de fornecedores e eleitos: cruzamentos/gabinete.ts
 				gabinete: alvoDoGabinete(deputadoBasico),
+				// A cota inteira (4 anos, agrupada por fornecedor) entra no cruzamento: cruzamentos/cota.ts
+				cota: alvoDaCota(deputadoBasico),
 			},
 			sendEvent,
 		);

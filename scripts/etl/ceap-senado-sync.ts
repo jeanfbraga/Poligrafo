@@ -81,7 +81,8 @@ export function minimoRegistros(ano: number, hoje: Date = new Date()): number {
 	return ano < hoje.getFullYear() ? MINIMO_REGISTROS_ANO_ANTERIOR : MINIMO_REGISTROS_ANO_ATUAL;
 }
 
-function baixarCsv(ano: number, diretorio: string): string {
+/** Baixa o CSV oficial do ano (também usada pela cota agrupada, ceap-fornecedores-sync.ts). */
+export function baixarCsv(ano: number, diretorio: string): string {
 	const destino = path.join(diretorio, `Senado-${ano}.csv`);
 	const url = `https://adm.senado.gov.br/adm-dadosabertos/api/v1/senadores/despesas_ceaps/${ano}/csv`;
 	console.log(`[SENADO SYNC] Baixando ${url}`);
