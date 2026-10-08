@@ -146,7 +146,7 @@ export function criarStore(inicial: StoreState = STORE_INICIAL): Store {
 /* Persistência (sessionStorage)                                              */
 /* -------------------------------------------------------------------------- */
 
-export const CHAVE_SESSAO = "pg:dossie:v2";
+export const CHAVE_SESSAO = "pg:dossie:v3";
 
 export interface Persistido {
 	alvo: Alvo;
@@ -176,7 +176,7 @@ export function serializar(s: StoreState): string | null {
 
 /** Sessões salvas antes de o resumo da cota deixar de ser nó ainda o carregam: descarta. */
 function semResumoLegado(p: Persistido): Persistido {
-	const fora = (n: { type?: string }) => n.type !== "CEAP_RESUMO";
+	const fora = (n: { type?: string }) => n.type !== "CEAP_RESUMO" && n.type !== "RESUMO_GASTOS";
 	const d = p.dossie;
 	return { ...p, dossie: { ...d, nodes: d.nodes.filter(fora), evidencias: (d.evidencias ?? []).filter(fora) } };
 }

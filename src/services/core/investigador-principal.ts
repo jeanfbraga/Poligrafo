@@ -18,6 +18,7 @@ import { despesasDaAssembleia } from "@/services/integrations/assembleias/despes
 import { cruzarDoadoresComContratosPublicos } from "@/services/core/doadores-contratos";
 import { normalizarDespesa, nosDeContratosDoEnte, separarPorNatureza } from "@/services/core/despesa-normalizada";
 import { cpfValido, documentoValido } from "@/lib/documento";
+import { documentoFormatado } from "@/lib/format";
 import { analisarConflitoVotacoes } from "@/services/integrations/camara/conflito-legislativo";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
 import {
@@ -140,7 +141,7 @@ function ehTipoParticipacaoSocietaria(tipoBem: string, descBem: string): boolean
 	return /quota|quinh[ãa]o|capital|a[çc][ãa]o|participa[çc][ãa]o|\b(?:ltda|s\/a|eireli|empresa)\b/.test(texto);
 }
 
-function extrairNodeEmpresaDoBem(bem: any, pessoaId: string, idx: number) {
+function extrairNodeEmpresaDoBem(bem: any, pessoaId: string, idx: number, cnpjResolvido?: string) {
 	const tipoBem = String(bem?.descricaoDeTipoDeBem || "");
 	const descBem = String(bem?.descricao || "").trim();
 	if (descBem.length <= 3 || !ehTipoParticipacaoSocietaria(tipoBem, descBem)) {
@@ -148,12 +149,18 @@ function extrairNodeEmpresaDoBem(bem: any, pessoaId: string, idx: number) {
 	}
 
 	const nomeEmpresa = extrairEmpresaDeDescricaoBem(descBem) || descBem;
+	const cnpjRegex = /\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/;
+	const mCnpj = descBem.match(cnpjRegex);
+	const cnpjBruto = cnpjResolvido || (mCnpj ? mCnpj[0] : undefined);
+	const cnpj = cnpjBruto ? documentoFormatado(cnpjBruto) : undefined;
+
 	return {
 		id: `empresa-tse-${pessoaId}-${idx}`,
 		type: "EMPRESA" as const,
 		_origemId: pessoaId,
 		data: {
 			label: nomeEmpresa,
+			cnpj,
 			valor: Number(bem?.valor) || 0,
 			tipo: bem?.descricaoDeTipoDeBem || "Participação Societária (TSE)",
 			motivo_ia: `Participação societária oficial declarada pelo parlamentar à Justiça Eleitoral: ${descBem}`,
@@ -748,14 +755,28 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		// Emissão de nós de empresas societárias declaradas pelo político nos bens do TSE
 		const bensParaAnalise = pessoaNodePayload.data?.bensDeclarados || [];
 		if (Array.isArray(bensParaAnalise)) {
-			bensParaAnalise.forEach((bem: any, idx: number) => {
-				const emp = extrairNodeEmpresaDoBem(bem, pessoaId, idx);
+			for (let idx = 0; idx < bensParaAnalise.length; idx++) {
+				const bem = bensParaAnalise[idx];
+				const tipoBem = String(bem?.descricaoDeTipoDeBem || "");
+				const descBem = String(bem?.descricao || "").trim();
+				let cnpjResolvido: string | undefined = undefined;
+
+				if (ehTipoParticipacaoSocietaria(tipoBem, descBem)) {
+					const nome = extrairEmpresaDeDescricaoBem(descBem) || descBem;
+					try {
+						const { resolverCnpjPorNomeEmpresa } = await import("@/services/core/socio-search");
+						const c = await resolverCnpjPorNomeEmpresa(nome);
+						if (c) cnpjResolvido = c;
+					} catch {}
+				}
+
+				const emp = extrairNodeEmpresaDoBem(bem, pessoaId, idx, cnpjResolvido);
 				if (emp) {
 					malhaOsintBuffer.push(emp);
 					supabaseNodes.push(emp);
 					sendEvent("NODE_NOVO", emp);
 				}
-			});
+			}
 		}
 
 		// ==========================================
@@ -2041,33 +2062,6 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 		}
 		if (despesasCruas.length > 0) {
-			// Emite o Nó Estrutural de Cota Parlamentar para o Canvas
-			const somaCotaTotal = despesasCruas.reduce((acc: number, d: any) => {
-				return acc + Number(d.valorDocumento ?? d.valorLiquido ?? d.valor ?? 0);
-			}, 0);
-			const nomeCasaExibicao =
-				deputadoBasico.casa === "SENADO"
-					? "Senado Federal"
-					: deputadoBasico.casa === "CAMARA"
-						? "Câmara dos Deputados"
-						: String(deputadoBasico.casa);
-
-			const resumoCotaNode = {
-				id: `resumo-cota-${String(deputadoBasico.casa).toLowerCase()}-${pessoaId}`,
-				type: "RESUMO_GASTOS" as const,
-				_origemId: pessoaId,
-				data: {
-					label: `Cota Parlamentar (${nomeCasaExibicao})`,
-					valor: somaCotaTotal,
-					ano: "2024–2026",
-					totalNotas: despesasCruas.length,
-					score_letalidade: 30,
-					motivo_ia: `${despesasCruas.length} notas fiscais auditadas da Cota Parlamentar no ${nomeCasaExibicao}. Total acumulado: R$ ${somaCotaTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}.`,
-				},
-			};
-			malhaOsintBuffer.push(resumoCotaNode);
-			supabaseNodes.push(resumoCotaNode);
-			sendEvent("NODE_NOVO", resumoCotaNode);
 
 			// PASSO 4: Triagem com IA passando a UF e os Doadores
 			sendEvent("STATUS", {

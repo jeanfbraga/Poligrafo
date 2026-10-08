@@ -49,6 +49,25 @@ async function buscarDadosCadastraisCnpj(cnpjLimpo: string): Promise<any | null>
 				};
 			}
 		}
+
+		const resMinha = await fetchWithTimeout(`https://minhareceita.org/${cnpjLimpo}`);
+		if (resMinha.ok) {
+			const mData = await resMinha.json();
+			return {
+				razao_social: mData.razao_social || mData.nome_fantasia,
+				cnae_fiscal_descricao: mData.cnae_fiscal_descricao,
+				descricao_situacao_cadastral: mData.descricao_situacao_cadastral,
+				capital_social: mData.capital_social,
+				municipio: mData.municipio,
+				uf: mData.uf,
+				qsa:
+					mData.qsa?.map((s: any) => ({
+						nome_socio: s.nome_socio,
+						qualificacao_socio: s.qualificacao_socio,
+						faixa_etaria: s.faixa_etaria,
+					})) || [],
+			};
+		}
 	} catch (_e) {}
 	return null;
 }
@@ -188,15 +207,19 @@ export async function GET(request: Request) {
 	const limitado = checkRateLimit(request, { scope: "cnpj", limit: 30 });
 	if (limitado) return limitado;
 	const { searchParams } = new URL(request.url);
-	const cnpj = searchParams.get("cnpj");
+	const cnpjParam = searchParams.get("cnpj") || "";
+	const nomeParam = searchParams.get("nome") || "";
 	const origemIdBruto = searchParams.get("origemId");
 
-	const cnpjLimpo = cnpj ? cnpj.replace(/\D/g, "") : "";
+	let cnpjLimpo = cnpjParam.replace(/\D/g, "");
 	const origemId = origemIdBruto
 		? origemIdBruto.replace(/[^a-zA-Z0-9\-_]/g, "").trim()
 		: null;
 
-	if (cnpjLimpo?.length !== 14 || !origemId) {
+	const temNome = Boolean(nomeParam?.trim()) || /[a-zA-Z]/.test(cnpjParam);
+	const termoNome = (nomeParam || (temNome ? cnpjParam : "")).trim();
+
+	if ((cnpjLimpo.length !== 14 && (!temNome || termoNome.length < 3)) || !origemId) {
 		return NextResponse.json(
 			{
 				error:
@@ -227,30 +250,50 @@ export async function GET(request: Request) {
 			};
 
 			try {
-				sendEvent("STATUS", { msg: `Levantando Dossiê Societário do CNPJ ${cnpj}...` });
+				if (cnpjLimpo.length !== 14 && termoNome.length >= 3) {
+					sendEvent("STATUS", { msg: `Localizando CNPJ para "${termoNome}" nas fontes públicas...` });
+					const { resolverCnpjPorNomeEmpresa } = await import("@/services/core/socio-search");
+					const c = await resolverCnpjPorNomeEmpresa(termoNome);
+					if (c) {
+						cnpjLimpo = c.replace(/\D/g, "");
+					} else {
+						sendEvent("ERROR", {
+							mensagem: `Não foi possível localizar o CNPJ de "${termoNome}" nos registros abertos.`,
+						});
+						safeClose();
+						return;
+					}
+				}
+
+				const { documentoFormatado } = await import("@/lib/format");
+				const cnpjFormatado = documentoFormatado(cnpjLimpo);
+				sendEvent("STATUS", { msg: `Levantando Dossiê Societário do CNPJ ${cnpjFormatado}...` });
 				const empresa = await buscarDadosCadastraisCnpj(cnpjLimpo);
 
 				if (!empresa) {
 					sendEvent("ERROR", {
-						mensagem: `Não foi possível localizar o CNPJ ${cnpj} nas bases públicas (BrasilAPI / ReceitaWS).`,
+						mensagem: `Não foi possível localizar o CNPJ ${cnpjFormatado} nas bases públicas (BrasilAPI / ReceitaWS / MinhaReceita).`,
 					});
 					safeClose();
 					return;
 				}
 
-				const empresaId = `empresa-${cnpjLimpo}-${Date.now()}`;
+				const empresaId = origemId.startsWith("empresa-") ? origemId : `empresa-${cnpjLimpo}-${Date.now()}`;
 				sendEvent("NODE_NOVO", {
 					id: empresaId,
 					type: "EMPRESA",
 					_origemId: origemId,
 					data: {
-						label: empresa.razao_social || "RAZÃO SOCIAL INDISPONÍVEL",
-						cnpj,
+						label: empresa.razao_social || termoNome || "EMPRESA LOCALIZADA",
+						cnpj: cnpjFormatado,
 						cnae: empresa.cnae_fiscal_descricao,
 						situacao: empresa.descricao_situacao_cadastral,
 						capitalSocial: empresa.capital_social,
 						municipio: empresa.municipio,
 						uf: empresa.uf,
+						motivo_ia: empresa.descricao_situacao_cadastral
+							? `Empresa com situação cadastral ${empresa.descricao_situacao_cadastral} na Receita Federal.`
+							: undefined,
 					},
 				});
 

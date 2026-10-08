@@ -229,7 +229,7 @@ function adicionarEvidencia(s: DossieState, node: DossieNode): DossieState {
 function aoAdicionarNode(s: DossieState, node: DossieNode): DossieState {
 	if (ehBemLegado(node)) return s;
 	// O resumo da cota não é nó: o total/recorte é calculado de `lib/investigacao/cota` (também p/ caches antigos).
-	if (node.type === "CEAP_RESUMO") return s;
+	if (node.type === "CEAP_RESUMO" || node.type === "RESUMO_GASTOS") return s;
 	if (node.type === "PESSOA") return adicionarPessoa(s, node);
 	if (ESTRUTURAIS.has(node.type ?? "")) return adicionarEstrutural(s, node);
 	if (scoreDe(node) >= SCORE_ATENCAO) return adicionarSuspeito(s, node);
@@ -529,7 +529,7 @@ function arestaDoPivoCnpj(s: DossieState, origem: string, node: DossieNode): Dos
 export function aplicarNoDoPivoCnpj(s: DossieState, node: DossieNode): DossieState {
 	const origem = String(node.data?._origemId ?? (node as { _origemId?: string })._origemId ?? "");
 	const n = { ...node, position: node.position ?? { x: 0, y: 0 } };
-	const edges = origem ? upsertEdge(s.edges, arestaDoPivoCnpj(s, origem, node)) : s.edges;
+	const edges = origem && origem !== node.id ? upsertEdge(s.edges, arestaDoPivoCnpj(s, origem, node)) : s.edges;
 	return { ...s, nodes: upsertNode(s.nodes, n), edges };
 }
 

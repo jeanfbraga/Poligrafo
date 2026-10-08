@@ -74,13 +74,23 @@ export function hrefPerfil(d: Dados, nodeId?: string): string | undefined {
 
 function acaoPivot(type: string, d: Dados, jaFeito: boolean): AcaoNo[] {
 	const cnpj = cnpjDoNo(type, d);
-	if (!cnpj || ehCampanha(d)) return [];
-	const label = type === "EMPRESA" ? "Expandir teia societária" : "Aprofundar investigação";
+	if (ehCampanha(d)) return [];
+	if (!cnpj) {
+		if (type === "EMPRESA" && d.label) {
+			return [{ id: "pivot-cnpj", label: "Fazer drilldown (QSA e Sócios)", arg: String(d.label), primary: true, concluida: jaFeito }];
+		}
+		return [];
+	}
+	const label = type === "EMPRESA" ? "Fazer drilldown (QSA e Sócios)" : "Aprofundar investigação";
 	return [{ id: "pivot-cnpj", label, arg: cnpj, primary: type !== "SOCIO", concluida: jaFeito }];
 }
 
 function acaoMapa(type: string, d: Dados): AcaoNo[] {
-	if (type === "SOCIO" || !documentoLongo(type, d) || ehCampanha(d)) return [];
+	if (type === "SOCIO" || ehCampanha(d)) return [];
+	if (type === "EMPRESA" && (d.label || d.cnpj)) {
+		return [{ id: "mapa", label: "Analisar endereço (Street View)", href: linkMapa(d) }];
+	}
+	if (!documentoLongo(type, d)) return [];
 	return [{ id: "mapa", label: "Analisar endereço (Street View)", href: linkMapa(d) }];
 }
 

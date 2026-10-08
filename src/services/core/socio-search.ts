@@ -32,8 +32,8 @@ async function scrapeCnpjsFromUrl(
 	}
 }
 
-async function coletarCnpjsMotoresBusca(nomeSocio: string): Promise<string[]> {
-	const query = encodeURIComponent(`${nomeSocio} cnpj`);
+export async function coletarCnpjsMotoresBusca(termo: string): Promise<string[]> {
+	const query = encodeURIComponent(`${termo} cnpj`);
 	const engines: Array<{ url: string; headers: Record<string, string> }> = [
 		{
 			url: `https://html.duckduckgo.com/html/?q=${query}`,
@@ -64,6 +64,12 @@ async function coletarCnpjsMotoresBusca(nomeSocio: string): Promise<string[]> {
 		if (cnpjs.size > 0) break;
 	}
 	return Array.from(cnpjs);
+}
+
+export async function resolverCnpjPorNomeEmpresa(nomeEmpresa: string): Promise<string | null> {
+	if (!nomeEmpresa || nomeEmpresa.trim().length < 3) return null;
+	const cnpjs = await coletarCnpjsMotoresBusca(nomeEmpresa.trim());
+	return cnpjs.length > 0 ? cnpjs[0] : null;
 }
 
 /** BrasilAPI com reserva no Minha Receita, cache e fila (receita/cnpj.ts). */
