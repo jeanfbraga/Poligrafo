@@ -18,6 +18,7 @@
     "sync:tse-eleitos": "tsx scripts/etl/tse-eleitos-sync.ts",
     "sync:tse-campanha": "tsx scripts/etl/tse-contas-campanha-sync.ts",
     "sync:alesp": "tsx scripts/etl/alesp-despesas-sync.ts",
+    "sync:alerj": "tsx scripts/etl/alerj-docigp-sync.ts",
     "sync:perfil": "tsx scripts/etl/perfil-politico-sync.ts",
     "sync:votos": "tsx scripts/etl/votos-detalhados-sync.ts",
     "sync:frequencia": "tsx scripts/etl/frequencia-sync.ts",

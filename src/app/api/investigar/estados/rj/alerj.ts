@@ -1,3 +1,4 @@
+import { buscarDespesasAlerjDaBase } from "@/services/integrations/alerj/despesas-base";
 import { buscarCpfNoTSE } from "../../tse";
 
 const DOCIGP_BASE = "https://docigp.alerj.rj.gov.br/api/v1";
@@ -386,6 +387,12 @@ export async function buscarDespesasDeputadoEstadualRJ(
 	nomeDeputado: string,
 	sendEvent?: any,
 ) {
+	// Base do DOCIGP no Banco de Perfil primeiro; o robô de navegador fica só como reserva.
+	const daBase = await buscarDespesasAlerjDaBase(nomeDeputado, new Date().getFullYear() - 1).catch(() => null);
+	if (daBase?.deputado) {
+		sendEvent?.("STATUS", { msg: `[ALERJ] ${daBase.despesas.length} despesa(s) de ${daBase.deputado.deputado} pela base do DOCIGP.` });
+		return daBase.despesas.slice(0, 60);
+	}
 	if (sendEvent) {
 		sendEvent("STATUS", {
 			msg: `[OSINT ALERJ] Iniciando robô visual em 2º plano para buscar: ${nomeDeputado}...`,

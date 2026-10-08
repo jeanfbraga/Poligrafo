@@ -10,6 +10,7 @@ import { resolverIdentidade } from "@/services/core/identidade";
 import { nomesDeReferencia, verificarEmpresaDoPolitico } from "@/services/core/socio-confirmacao";
 import { emitirCruzamentos } from "@/services/cruzamentos";
 import { coletarContratosDoEnte, emitirColetaDoEnte } from "@/services/core/contratos-do-ente";
+import { despesasAlerjParaOPipe } from "@/services/integrations/alerj/despesas-base";
 import { cruzarDoadoresComContratosPublicos } from "@/services/core/doadores-contratos";
 import { normalizarDespesa, nosDeContratosDoEnte, separarPorNatureza } from "@/services/core/despesa-normalizada";
 import { cpfValido, documentoValido } from "@/lib/documento";
@@ -1226,8 +1227,9 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				});
 			}
 
-			// Em vez de raspar as despesas agora (que é muito demorado via Playwright),
-			// emitimos o nó do Órgão (ALERJ) para que o usuário faça o deep dive manual.
+			// Despesas de gabinete pela base do DOCIGP (Banco de Perfil): src/services/integrations/alerj/despesas-base.ts.
+			// O nó do Órgão (ALERJ) continua para o deep dive manual no painel.
+			despesasCruas = await despesasAlerjParaOPipe(deputadoBasico.nome, sendEvent);
 			sendEvent("STATUS", {
 				msg: "Instanciando núcleo da Assembleia Legislativa do RJ...",
 			});
@@ -1245,7 +1247,6 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			};
 			malhaOsintBuffer.push(orgaoPayload);
 			supabaseNodes.push(orgaoPayload);
-			// despesasCruas permanece vazio para não passar pra IA central
 		} else if (deputadoBasico.casa === "ALESP") {
 			sendEvent("STATUS", {
 				msg: "Buscando Cotas da Assembleia Legislativa de São Paulo (ALESP)...",

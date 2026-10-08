@@ -6,6 +6,7 @@
  * O deputado é achado pelo nome na visão `alesp_deputados` (138 nomes). Nome
  * ambíguo não escolhe ninguém. Base fora do ar: null (o pipe usa o XML ao vivo).
  */
+import { escolherPorNome, nomesBatem } from "@/lib/nome-parlamentar";
 import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
 
 export const URL_XML_ALESP = "https://www.al.sp.gov.br/repositorioDados/deputados/despesas_gabinetes.xml";
@@ -18,26 +19,12 @@ export interface DeputadoAlesp {
 
 type ClienteSupabase = Pick<typeof supabasePerfilAdmin, "from">;
 
-export function normalizaNomeAlesp(s: string): string {
-	return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
-}
-
-/** Mesmo critério da leitura ao vivo: nome contido, ou todas as palavras do menor no maior. */
-export function nomesBatemAlesp(nomeAlesp: string, alvo: string): boolean {
-	const n = normalizaNomeAlesp(nomeAlesp);
-	const a = normalizaNomeAlesp(alvo);
-	if (!n || !a) return false;
-	if (n === a || a.includes(n) || n.includes(a)) return true;
-	const [menor, maior] = [n.split(" "), a.split(" ")].sort((x, y) => x.length - y.length);
-	return menor.every((t) => maior.includes(t));
-}
+/** Mesmo critério da leitura ao vivo (src/lib/nome-parlamentar.ts). */
+export const nomesBatemAlesp = nomesBatem;
 
 /** Um deputado só: o nome exato, ou o único que bate; ambíguo = nenhum. */
 export function escolherDeputado(lista: DeputadoAlesp[], nome: string): DeputadoAlesp | null {
-	const batem = lista.filter((d) => nomesBatemAlesp(d.deputado, nome));
-	const exato = batem.filter((d) => normalizaNomeAlesp(d.deputado) === normalizaNomeAlesp(nome));
-	if (exato.length === 1) return exato[0];
-	return batem.length === 1 ? batem[0] : null;
+	return escolherPorNome(lista, nome, (d) => d.deputado);
 }
 
 function paraDespesa(r: Record<string, any>) {
