@@ -125,6 +125,43 @@ async function resolverNomeCivilReidratacao(data: any): Promise<string | undefin
 	return data.nomeCivil || undefined;
 }
 
+function extrairEmpresaDeDescricaoBem(descricao: string): string | null {
+	if (!descricao) return null;
+	let limpo = descricao.replace(/^[\d,.]*%\s*/i, "");
+	limpo = limpo.replace(/^(?:participa[çc][ãa]o|quotas?|quinh[õo]es?|capital|a[çc][õo]es?)\s+(?:de|da|do|na|no|em)?\s*/i, "");
+	limpo = limpo.replace(/^(?:empresa|sociedade)\s+/i, "");
+	limpo = limpo.replace(/[-–—]\s*(?:cnp|valor|quota).*$/i, "");
+	const res = limpo.trim();
+	return res.length > 3 ? res : null;
+}
+
+function ehTipoParticipacaoSocietaria(tipoBem: string, descBem: string): boolean {
+	const texto = `${tipoBem} ${descBem}`.toLowerCase();
+	return /quota|quinh[ãa]o|capital|a[çc][ãa]o|participa[çc][ãa]o|\b(?:ltda|s\/a|eireli|empresa)\b/.test(texto);
+}
+
+function extrairNodeEmpresaDoBem(bem: any, pessoaId: string, idx: number) {
+	const tipoBem = String(bem?.descricaoDeTipoDeBem || "");
+	const descBem = String(bem?.descricao || "").trim();
+	if (descBem.length <= 3 || !ehTipoParticipacaoSocietaria(tipoBem, descBem)) {
+		return null;
+	}
+
+	const nomeEmpresa = extrairEmpresaDeDescricaoBem(descBem) || descBem;
+	return {
+		id: `empresa-tse-${pessoaId}-${idx}`,
+		type: "EMPRESA" as const,
+		_origemId: pessoaId,
+		data: {
+			label: nomeEmpresa,
+			valor: Number(bem?.valor) || 0,
+			tipo: bem?.descricaoDeTipoDeBem || "Participação Societária (TSE)",
+			motivo_ia: `Participação societária oficial declarada pelo parlamentar à Justiça Eleitoral: ${descBem}`,
+			score_letalidade: 40,
+		},
+	};
+}
+
 async function buscarBensPorNomesCandidato(nomes: (string | undefined)[]): Promise<any[]> {
 	const { buscarBensPorNomeTSE } = await import("@/services/integrations/tse/bens");
 	const nomesValidos = Array.from(new Set(nomes.filter((n): n is string => Boolean(n))));
@@ -707,6 +744,19 @@ export async function executarInvestigacaoPrincipal(params: any) {
 		};
 		sendEvent("NODE_NOVO", pessoaNodePayload);
 		supabaseNodes.push(pessoaNodePayload);
+
+		// Emissão de nós de empresas societárias declaradas pelo político nos bens do TSE
+		const bensParaAnalise = pessoaNodePayload.data?.bensDeclarados || [];
+		if (Array.isArray(bensParaAnalise)) {
+			bensParaAnalise.forEach((bem: any, idx: number) => {
+				const emp = extrairNodeEmpresaDoBem(bem, pessoaId, idx);
+				if (emp) {
+					malhaOsintBuffer.push(emp);
+					supabaseNodes.push(emp);
+					sendEvent("NODE_NOVO", emp);
+				}
+			});
+		}
 
 		// ==========================================
 		// PARCIAL CACHE: Cria a linha no DB Cedo!
@@ -1991,6 +2041,34 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			});
 		}
 		if (despesasCruas.length > 0) {
+			// Emite o Nó Estrutural de Cota Parlamentar para o Canvas
+			const somaCotaTotal = despesasCruas.reduce((acc: number, d: any) => {
+				return acc + Number(d.valorDocumento ?? d.valorLiquido ?? d.valor ?? 0);
+			}, 0);
+			const nomeCasaExibicao =
+				deputadoBasico.casa === "SENADO"
+					? "Senado Federal"
+					: deputadoBasico.casa === "CAMARA"
+						? "Câmara dos Deputados"
+						: String(deputadoBasico.casa);
+
+			const resumoCotaNode = {
+				id: `resumo-cota-${String(deputadoBasico.casa).toLowerCase()}-${pessoaId}`,
+				type: "RESUMO_GASTOS" as const,
+				_origemId: pessoaId,
+				data: {
+					label: `Cota Parlamentar (${nomeCasaExibicao})`,
+					valor: somaCotaTotal,
+					ano: "2024–2026",
+					totalNotas: despesasCruas.length,
+					score_letalidade: 30,
+					motivo_ia: `${despesasCruas.length} notas fiscais auditadas da Cota Parlamentar no ${nomeCasaExibicao}. Total acumulado: R$ ${somaCotaTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}.`,
+				},
+			};
+			malhaOsintBuffer.push(resumoCotaNode);
+			supabaseNodes.push(resumoCotaNode);
+			sendEvent("NODE_NOVO", resumoCotaNode);
+
 			// PASSO 4: Triagem com IA passando a UF e os Doadores
 			sendEvent("STATUS", {
 				msg: "[POLÍGRAFO IA] Operando Triagem Documental e Cruzamento Geográfico...",
@@ -2023,11 +2101,24 @@ export async function executarInvestigacaoPrincipal(params: any) {
 			// PASSO 5: Roteamento Baseado em Risco
 			const frotaAnacCache = new Map<string, any[]>();
 			const frotaAnacEmitida = new Set<string>();
+			const maioresDespesasIndices = new Set(
+				despesasAvaliadas
+					.map((d, idx) => ({ idx, val: Number(d.valorDocumento ?? d.valorLiquido ?? d.valor ?? 0) }))
+					.sort((a, b) => b.val - a.val)
+					.slice(0, 3)
+					.filter((x) => x.val >= 3000)
+					.map((x) => x.idx),
+			);
 			for (let i = 0; i < despesasAvaliadas.length; i++) {
 				const d = despesasAvaliadas[i];
 				let finalScore = d.score_letalidade || 50;
 				let alertasFinais = [];
 				let dadosSociais = {};
+
+				if (maioresDespesasIndices.has(i)) {
+					if (finalScore < 45) finalScore = 45;
+					alertasFinais.push("[MAIOR GASTO DA COTA] Dentre os maiores desembolsos individuais do mandato no período.");
+				}
 
 				// SE a IA achou muuuito suspeito, rodamos The Full OSINT nas bases de dados estatais
 				if (finalScore >= 85) {
