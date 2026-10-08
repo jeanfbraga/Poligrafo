@@ -83,7 +83,7 @@
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "csv-parse": "^6.2.1",
+    "csv-parse": "^7.0.3",
     "cytoscape": "^3.34.0",
     "dagre": "^0.8.5",
     "docx": "^9.6.1",
