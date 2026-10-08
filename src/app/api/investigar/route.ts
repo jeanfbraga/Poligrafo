@@ -187,7 +187,8 @@ async function _buscarViagensFAB(
 // ==========================================
 export async function GET(request: Request) {
 	// Proteção de entrada: esta rota consome quotas pagas de LLM
-	const limited = checkRateLimit(request, { scope: "investigar", limit: 10 });
+	const limite = process.env.NODE_ENV === "development" ? 100 : 10;
+	const limited = checkRateLimit(request, { scope: "investigar", limit: limite });
 	if (limited) return limited;
 
 	const { parseInvestigarRequest } = await import(

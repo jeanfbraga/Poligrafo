@@ -24,6 +24,7 @@ import {
 	desserializar,
 	mesmoAlvo,
 	serializar,
+	temConteudoDossie,
 	type Store,
 	type StoreState,
 } from "@/lib/investigacao/store";
@@ -109,9 +110,10 @@ export function InvestigacaoProvider({
 
 	const restaurar = useCallback(
 		(alvo: Alvo) => {
-			if (mesmoAlvo(store.getState().alvo, alvo)) return true;
+			const atual = store.getState();
+			if (mesmoAlvo(atual.alvo, alvo) && temConteudoDossie(atual.dossie)) return true;
 			const p = lerSessao();
-			if (!p || !mesmoAlvo(p.alvo, alvo)) return false;
+			if (!p || !mesmoAlvo(p.alvo, alvo) || !temConteudoDossie(p.dossie)) return false;
 			store.dispatch({ t: "RESTAURAR", alvo: p.alvo, dossie: p.dossie, inicio: p.inicio, fim: p.fim });
 			return true;
 		},

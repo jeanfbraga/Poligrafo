@@ -23,6 +23,7 @@ import {
 	interromper,
 	marcarNoBuscando,
 	substituirPosicoes,
+	PESSOA_PLACEHOLDER_ID,
 } from "./dossie-state";
 import type { SseEvent } from "./sse";
 
@@ -154,11 +155,17 @@ export interface Persistido {
 	fim: number | null;
 }
 
-/** O que vale guardar: dossiês concluídos ou parciais com algo para mostrar. */
+/** Verifica se o dossiê tem conteúdo real além do placeholder inicial de carregamento. */
+export function temConteudoDossie(dossie: DossieState): boolean {
+	const nosReais = (dossie.nodes ?? []).filter((n) => n.id !== PESSOA_PLACEHOLDER_ID);
+	return nosReais.length > 0 || (dossie.evidencias ?? []).length > 0;
+}
+
+/** O que vale guardar: dossiês concluídos ou parciais com algo para mostrar além do placeholder. */
 export function devePersistir(s: StoreState): boolean {
 	if (!s.alvo) return false;
-	const { status, nodes } = s.dossie;
-	return (status === "done" || status === "partial") && nodes.length > 0;
+	const { status } = s.dossie;
+	return (status === "done" || status === "partial") && temConteudoDossie(s.dossie);
 }
 
 export function serializar(s: StoreState): string | null {
@@ -178,7 +185,9 @@ export function desserializar(raw: string | null): Persistido | null {
 	if (!raw) return null;
 	try {
 		const p = JSON.parse(raw) as Persistido;
-		return p?.alvo && p?.dossie?.nodes ? semResumoLegado(p) : null;
+		if (!p?.alvo || !p?.dossie?.nodes) return null;
+		const limpo = semResumoLegado(p);
+		return temConteudoDossie(limpo.dossie) ? limpo : null;
 	} catch {
 		return null;
 	}

@@ -3,7 +3,7 @@
    Sem React: testável com fetch falso. Complexidade ≤ 10 por função.
    ========================================================================== */
 import { type Alvo, identidadeInicial, type PoliticoIndexado } from "./alvo";
-import { type DossieNode, iniciarDossie } from "./dossie-state";
+import { type DossieNode, iniciarDossie, PESSOA_PLACEHOLDER_ID } from "./dossie-state";
 import { consumirSse, type SseEvent } from "./sse";
 import type { Store } from "./store";
 
@@ -127,6 +127,10 @@ export function criarControlador(deps: DependenciasControlador): Controlador {
 		const seguir: { candidato: Alvo | null } = { candidato: null };
 		try {
 			const res = await fetchFn(urlApiInvestigar(alvo), { signal: exec.ctrl.signal });
+			if (!res.ok) {
+				const body = await res.json().catch(() => null);
+				throw new Error(body?.error || `Falha na requisição (HTTP ${res.status})`);
+			}
 			await lerStream(res, (ev) => aoEventoPrincipal(ev, seguir, alvo));
 		} catch (err) {
 			tratarFalhaPrincipal(err, exec);
