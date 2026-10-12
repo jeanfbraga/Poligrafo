@@ -16,6 +16,7 @@
  * Funções pequenas e dependências injetáveis (testes sem rede).
  */
 import { normalizeString } from "@/app/api/investigar/tse";
+import { legislaturaVigente } from "@/lib/janela-mandato";
 
 export interface Candidato {
 	id?: string;
@@ -74,8 +75,8 @@ export interface ResultadoBusca {
 }
 
 const PALAVRAS_VAZIAS = new Set(["de", "da", "do", "das", "dos", "e"]);
-/** 57ª Legislatura da Câmara (2023–2027). */
-export const LEGISLATURA_ATUAL = 57;
+/** Legislatura vigente da Câmara (57ª: 2023–2027), pela janela de mandato. */
+export const LEGISLATURA_ATUAL = legislaturaVigente();
 
 /**
  * Mandato atual numa casa oficial? Candidatura só do TSE e deputado de

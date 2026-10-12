@@ -21,6 +21,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { fetchCamaraJson } from './camara-http';
 import { credenciaisBancoPerfil } from './banco-perfil';
+import { inicioLegislaturaVigente } from '../../src/lib/janela-mandato';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
@@ -33,7 +34,8 @@ const supabaseAdmin = createClient(bancoPerfil.url, bancoPerfil.key, {
 const API_BASE = 'https://dadosabertos.camara.leg.br/api/v2';
 const ARQUIVOS_BASE = 'https://dadosabertos.camara.leg.br/arquivos';
 const BATCH_SIZE = 1000;
-const ANO_INICIO_LEGISLATURA = 2023; // 57ª Legislatura
+/** Primeiro ano da legislatura vigente (57ª: 2023), pela janela de mandato. */
+const ANO_INICIO_LEGISLATURA = Number(inicioLegislaturaVigente().slice(0, 4));
 const ANO_ATUAL = new Date().getFullYear();
 
 const DEFAULT_HEADERS = {
@@ -426,7 +428,7 @@ async function run() {
         }
         await processarAnoCSV(ano, validDeputados);
     } else if (flags.todos) {
-        console.log(`[VOTOS SYNC] Sincronizando toda a 57ª Legislatura (${ANO_INICIO_LEGISLATURA} a ${ANO_ATUAL})...`);
+        console.log(`[VOTOS SYNC] Sincronizando toda a legislatura vigente (${ANO_INICIO_LEGISLATURA} a ${ANO_ATUAL})...`);
         for (let a = ANO_INICIO_LEGISLATURA; a <= ANO_ATUAL; a++) {
             await processarAnoCSV(a, validDeputados);
         }

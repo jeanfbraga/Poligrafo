@@ -5,9 +5,10 @@
       conforme o cenário (mandato inteiro, posse tardia, retorno, suplência, licença…).
    ========================================================================== */
 
-/** Início da 57ª legislatura (posse dos eleitos em 2022). */
-export const INICIO_LEGISLATURA = "2023-02-01";
-const LEGISLATURA_ATUAL = 57;
+import { inicioLegislaturaVigente, legislaturaVigente } from "./janela-mandato";
+
+/** Início da legislatura vigente (57ª: 2023-02-01); muda sozinho na posse de 2027 (janela-mandato.ts). */
+export const INICIO_LEGISLATURA = inicioLegislaturaVigente();
 
 export type SituacaoMandato = "Exercício" | "Licença" | "Suplência";
 export type OrigemPosse = "recontagem" | "convocacao" | "";
@@ -33,7 +34,8 @@ const dia = (dataHora?: string): string => (dataHora ?? "").slice(0, 10);
 
 function eventosDaLegislatura(historico: Evento[]): Evento[] {
 	if (!Array.isArray(historico)) return [];
-	const atuais = historico.filter((h) => h.idLegislatura === LEGISLATURA_ATUAL || !h.idLegislatura);
+	const legislatura = legislaturaVigente();
+	const atuais = historico.filter((h) => h.idLegislatura === legislatura || !h.idLegislatura);
 	return [...(atuais.length > 0 ? atuais : historico)].sort((a, b) => (a.dataHora ?? "").localeCompare(b.dataHora ?? ""));
 }
 

@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { fetchCamaraJson as fetchJson, exigirDeputados } from './camara-http';
 import { credenciaisBancoPerfil } from './banco-perfil';
 import { ehTipoDeProducao, filtroTiposCamara } from '../../src/lib/producao-tipos';
+import { inicioLegislaturaVigente, legislaturaVigente } from '../../src/lib/janela-mandato';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
@@ -57,7 +58,8 @@ const MAX_PAGINAS = 50;
  */
 export async function buscarProposicoesDoDeputado(depId: number, anoAtual: number): Promise<any[]> {
     let anosQuery = '';
-    for (let ano = 2023; ano <= anoAtual; ano++) {
+    const primeiroAno = Number(inicioLegislaturaVigente().slice(0, 4));
+    for (let ano = primeiroAno; ano <= anoAtual; ano++) {
         anosQuery += `&ano=${ano}`;
     }
     let url: string | null = `${API_BASE}/proposicoes?idDeputadoAutor=${depId}${anosQuery}${filtroTiposCamara()}&itens=100&ordem=DESC&ordenarPor=id`;
@@ -77,8 +79,9 @@ export async function run() {
     const anoAtual = new Date().getFullYear();
     
     try {
-        console.log("[PRODUCAO LEGISLATIVA SYNC] Buscando lista completa de deputados da 57ª Legislatura...");
-        const depsReq = await fetchJson(`${API_BASE}/deputados?idLegislatura=57&itens=1000`);
+        const legislatura = legislaturaVigente();
+        console.log(`[PRODUCAO LEGISLATIVA SYNC] Buscando lista completa de deputados da ${legislatura}ª Legislatura...`);
+        const depsReq = await fetchJson(`${API_BASE}/deputados?idLegislatura=${legislatura}&itens=1000`);
         const deputados = exigirDeputados(depsReq);
 
         console.log(`[PRODUCAO LEGISLATIVA SYNC] Encontrados ${deputados.length} deputados.`);
