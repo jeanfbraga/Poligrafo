@@ -18,8 +18,9 @@
  *   npm run sync:socios-politicos -- --manter        (não apaga os zips de .tmp_receita/)
  */
 import fs from "node:fs";
+import type { IncomingMessage } from "node:http";
+import https from "node:https";
 import path from "node:path";
-import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse";
@@ -52,18 +53,48 @@ const PARTES = Array.from({ length: 10 }, (_, i) => i);
 /** Abaixo disso algo deu errado nos arquivos: nada é gravado nem apagado. */
 const MINIMO = 500;
 const LOTE = 1000;
+/**
+ * Pausas entre tentativas de download. Depois de alguns arquivos seguidos o servidor da
+ * Receita passa a responder HTML vazio a qualquer cliente por alguns minutos (12/10/2026).
+ */
+const ESPERAS_S = [30, 60, 120, 240, 480];
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Pedido ao WebDAV com node:https, não com fetch: desde 12/10/2026 o Nextcloud da Receita
+ * responde 200 com HTML vazio aos cabeçalhos de navegador que o fetch do Node manda
+ * (sec-fetch-mode, accept-language); curl e https puro recebem o arquivo normalmente.
+ */
+function pedirReceita(caminho: string, opcoes: { method?: string; headers?: Record<string, string>; timeoutMs: number }): Promise<IncomingMessage> {
+	return new Promise((resolve, reject) => {
+		const req = https.request(`${WEBDAV}/${caminho}`, { method: opcoes.method ?? "GET", headers: { Authorization: AUTH, ...opcoes.headers } }, resolve);
+		req.setTimeout(opcoes.timeoutMs, () => req.destroy(new Error(`sem resposta em ${opcoes.timeoutMs / 1000} s`)));
+		req.on("error", reject);
+		req.end();
+	});
+}
+
+async function textoDe(res: IncomingMessage): Promise<string> {
+	const partes: Buffer[] = [];
+	for await (const parte of res) partes.push(parte as Buffer);
+	return Buffer.concat(partes).toString("utf8");
+}
+
+const ehZip = (res: IncomingMessage) => String(res.headers["content-type"] ?? "").includes("zip");
+
 async function listarUmaVez(): Promise<string[]> {
-	const res = await fetch(`${WEBDAV}/`, { method: "PROPFIND", headers: { Authorization: AUTH, Depth: "1" }, signal: AbortSignal.timeout(60_000) });
-	if (!res.ok) throw new Error(`[RECEITA] Listagem do compartilhamento: HTTP ${res.status}`);
-	return [...(await res.text()).matchAll(/<d:href>([^<]+)<\/d:href>/g)].map((m) => m[1]);
+	const res = await pedirReceita("", { method: "PROPFIND", headers: { Depth: "1" }, timeoutMs: 60_000 });
+	const corpo = await textoDe(res);
+	// 200 com HTML em vez de 207 (XML do WebDAV): conta como listagem vazia.
+	if ((res.statusCode ?? 500) >= 400) throw new Error(`[RECEITA] Listagem do compartilhamento: HTTP ${res.statusCode}`);
+	return [...corpo.matchAll(/<d:href>([^<]+)<\/d:href>/g)].map((m) => m[1]);
 }
 
 async function pastaExiste(mes: string): Promise<boolean> {
-	const res = await fetch(`${WEBDAV}/${mes}/Socios0.zip`, { headers: { Authorization: AUTH, Range: "bytes=0-0" }, signal: AbortSignal.timeout(60_000) });
-	return res.ok;
+	const res = await pedirReceita(`${mes}/Socios0.zip`, { headers: { Range: "bytes=0-0" }, timeoutMs: 60_000 });
+	res.resume();
+	return res.statusCode === 206 && ehZip(res);
 }
 
 /** Sem listagem: a pasta mais recente entre o mês atual e os 3 anteriores que tenha os arquivos. */
@@ -92,12 +123,15 @@ async function listarMeses(): Promise<string[]> {
 	return mesPorTentativa();
 }
 
-async function baixarUmaVez(url: string, destino: string): Promise<void> {
-	const res = await fetch(url, { headers: { Authorization: AUTH }, signal: AbortSignal.timeout(30 * 60_000) });
-	if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+async function baixarUmaVez(caminho: string, destino: string): Promise<void> {
+	const res = await pedirReceita(caminho, { timeoutMs: 5 * 60_000 });
+	if (res.statusCode !== 200 || !ehZip(res)) {
+		res.resume();
+		throw new Error(`HTTP ${res.statusCode} (${res.headers["content-type"] ?? "sem tipo"})`);
+	}
 	const parcial = `${destino}.parcial`;
-	await pipeline(Readable.fromWeb(res.body as never), fs.createWriteStream(parcial));
-	const problema = downloadIncompleto(Number(res.headers.get("content-length")), fs.statSync(parcial).size);
+	await pipeline(res, fs.createWriteStream(parcial));
+	const problema = downloadIncompleto(Number(res.headers["content-length"]), fs.statSync(parcial).size);
 	if (problema) {
 		fs.rmSync(parcial, { force: true });
 		throw new Error(problema);
@@ -111,13 +145,14 @@ async function baixar(mes: string, arquivo: string): Promise<string> {
 	fs.mkdirSync(path.dirname(destino), { recursive: true });
 	for (let tentativa = 1; ; tentativa++) {
 		try {
-			console.log(`[RECEITA] Baixando ${mes}/${arquivo} (tentativa ${tentativa}/3)...`);
-			await baixarUmaVez(`${WEBDAV}/${mes}/${arquivo}`, destino);
+			console.log(`[RECEITA] Baixando ${mes}/${arquivo} (tentativa ${tentativa}/${ESPERAS_S.length + 1})...`);
+			await baixarUmaVez(`${mes}/${arquivo}`, destino);
 			return destino;
 		} catch (e) {
-			if (tentativa >= 3) throw new Error(`[RECEITA] ${arquivo}: ${(e as Error).message}`);
-			console.warn(`[RECEITA] Falha em ${arquivo}: ${(e as Error).message}; nova tentativa em ${10 * tentativa} s.`);
-			await esperar(10_000 * tentativa);
+			const espera = ESPERAS_S[tentativa - 1];
+			if (espera === undefined) throw new Error(`[RECEITA] ${arquivo}: ${(e as Error).message}`);
+			console.warn(`[RECEITA] Falha em ${arquivo}: ${(e as Error).message}; nova tentativa em ${espera} s.`);
+			await esperar(espera * 1000);
 		}
 	}
 }
