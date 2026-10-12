@@ -139,6 +139,27 @@ export async function gravarLinhas(banco: BancoGravacao, linhas: LinhaEleito[], 
 	}
 }
 
+export interface EleitoNaBase {
+	sq_candidato: string;
+	nm_candidato: string;
+	ds_cargo: string | null;
+	sg_uf: string;
+}
+
+/** Acima disso, sair de uma vez indica arquivo com defeito: nada é apagado. */
+export const LIMITE_SAIDA = 0.05;
+
+/**
+ * Quem estava na base e não está mais no arquivo do TSE (ex.: diploma cassado e votos
+ * anulados — Rodrigo Bacellar, 2026). O arquivo é regerado todo dia; o upsert sozinho
+ * nunca tirava ninguém. null = saída grande demais (arquivo suspeito): não apagar.
+ */
+export function quemSaiu(naBase: EleitoNaBase[], novos: LinhaEleito[]): EleitoNaBase[] | null {
+	const atuais = new Set(novos.map((l) => l.sq_candidato));
+	const sairam = naBase.filter((e) => !atuais.has(e.sq_candidato));
+	return naBase.length > 0 && sairam.length / naBase.length > LIMITE_SAIDA ? null : sairam;
+}
+
 /** Ciclos carregados e cargos de cada um (2018: só senadores, ainda em mandato até 2027). */
 export const CICLOS: { ano: number; cargos?: string[]; eleicaoMunicipal?: string }[] = [
 	{ ano: 2018, cargos: ["5"] },

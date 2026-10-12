@@ -15,7 +15,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse";
 import dotenv from "dotenv";
 import { credenciaisBancoPerfil } from "./banco-perfil";
@@ -23,6 +23,9 @@ import {
 	type BancoGravacao,
 	CICLOS,
 	deduplicar,
+	type EleitoNaBase,
+	LIMITE_SAIDA,
+	quemSaiu,
 	gravarLinhas,
 	type LinhaEleito,
 	linhaParaEleito,
@@ -64,10 +67,44 @@ async function lerCsv(arquivo: string, ano: number, cargos: string[] | undefined
 	return deduplicar(linhas);
 }
 
-async function gravar(linhas: LinhaEleito[]) {
+function bancoPerfil(): SupabaseClient {
 	const { url, key } = credenciaisBancoPerfil();
-	const banco = createClient(url, key, { auth: { persistSession: false } });
+	return createClient(url, key, { auth: { persistSession: false } });
+}
+
+async function lerCiclo(banco: SupabaseClient, ciclo: (typeof CICLOS)[number]): Promise<EleitoNaBase[]> {
+	const todos: EleitoNaBase[] = [];
+	for (let de = 0; ; de += LOTE) {
+		let consulta = banco.from("tse_eleitos").select("sq_candidato,nm_candidato,ds_cargo,sg_uf").eq("ano_eleicao", ciclo.ano);
+		if (ciclo.cargos) consulta = consulta.in("cd_cargo", ciclo.cargos);
+		const { data, error } = await consulta.order("sq_candidato").range(de, de + LOTE - 1);
+		if (error) throw new Error(`[TSE ELEITOS ${ciclo.ano}] Leitura da base: ${error.message}`);
+		todos.push(...((data ?? []) as EleitoNaBase[]));
+		if (!data || data.length < LOTE) return todos;
+	}
+}
+
+/** Tira quem saiu do arquivo do TSE (cada nome vai ao log, que é a cópia do que sai). */
+async function removerQuemSaiu(banco: SupabaseClient, ciclo: (typeof CICLOS)[number], naBase: EleitoNaBase[], linhas: LinhaEleito[]): Promise<void> {
+	const sairam = quemSaiu(naBase, linhas);
+	if (sairam === null) {
+		console.warn(`[TSE ELEITOS ${ciclo.ano}] Mais de ${LIMITE_SAIDA * 100}% dos eleitos sumiriam do arquivo: nada apagado (confira o arquivo do TSE).`);
+		return;
+	}
+	for (const e of sairam) console.log(`[TSE ELEITOS ${ciclo.ano}] Saiu do arquivo do TSE: ${e.nm_candidato} (${e.ds_cargo ?? "?"}, ${e.sg_uf}, sq ${e.sq_candidato})`);
+	for (let i = 0; i < sairam.length; i += LOTE) {
+		const lote = sairam.slice(i, i + LOTE).map((e) => e.sq_candidato);
+		const { error } = await banco.from("tse_eleitos").delete().eq("ano_eleicao", ciclo.ano).in("sq_candidato", lote);
+		if (error) throw new Error(`[TSE ELEITOS ${ciclo.ano}] Remoção falhou: ${error.message}`);
+	}
+	console.log(`[TSE ELEITOS ${ciclo.ano}] ${sairam.length} registro(s) que saíram do arquivo do TSE removido(s).`);
+}
+
+async function gravar(ciclo: (typeof CICLOS)[number], linhas: LinhaEleito[]) {
+	const banco = bancoPerfil();
+	const naBase = await lerCiclo(banco, ciclo);
 	await gravarLinhas(banco as unknown as BancoGravacao, linhas, LOTE);
+	await removerQuemSaiu(banco, ciclo, naBase, linhas);
 }
 
 async function sincronizarCiclo(ciclo: (typeof CICLOS)[number], seco: boolean): Promise<number> {
@@ -80,7 +117,7 @@ async function sincronizarCiclo(ciclo: (typeof CICLOS)[number], seco: boolean): 
 	if (linhas.length < minimo) {
 		throw new Error(`[TSE ELEITOS ${ciclo.ano}] ${linhas.length} registros, abaixo do mínimo ${minimo}: nada gravado.`);
 	}
-	if (!seco) await gravar(linhas);
+	if (!seco) await gravar(ciclo, linhas);
 	const comCpf = linhas.filter((l) => l.nr_cpf_candidato).length;
 	console.log(`[TSE ELEITOS ${ciclo.ano}] ${linhas.length} registros ${seco ? "lidos (modo seco, nada gravado)" : "gravados"} (${comCpf} com CPF válido).`);
 	if (seco) console.log(JSON.stringify(linhas.slice(0, 2)));

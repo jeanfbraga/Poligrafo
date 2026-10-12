@@ -7,6 +7,7 @@ import {
 	linhaParaEleito,
 	montarMapaIbge,
 	nomesBusca,
+	quemSaiu,
 	situacaoInteressa,
 } from "../../scripts/etl/tse-eleitos";
 import { interpretarRef } from "../../src/services/core/alvo-ref";
@@ -97,6 +98,24 @@ const ELEITO: Eleito = {
 	municipio_slug: "rio-de-janeiro", cd_municipio_ibge: "3304557", nm_candidato: "RAFAEL ALOISIO FREITAS",
 	nm_urna_candidato: "RAFAEL ALOISIO FREITAS", nr_cpf_candidato: null, sg_partido: "PSD", ds_sit_tot_turno: "ELEITO POR QP",
 };
+
+describe("ETL tse_eleitos — quem saiu do arquivo do TSE", () => {
+	const naBase = (n: number) => Array.from({ length: n }, (_, i) => ({ sq_candidato: String(i), nm_candidato: `ELEITO ${i}`, ds_cargo: "DEPUTADO ESTADUAL", sg_uf: "RJ" }));
+	const novos = (sqs: string[]) => sqs.map((sq) => ({ sq_candidato: sq }) as LinhaEleito);
+
+	it("quem não está mais no arquivo (ex.: diploma cassado) sai da base", () => {
+		// Rodrigo Bacellar (2026): votos de 2022 anulados; o arquivo regerado passou a dizer NÃO ELEITO.
+		const base = naBase(100);
+		expect(quemSaiu(base, novos(base.slice(1).map((e) => e.sq_candidato)))).toEqual([base[0]]);
+		expect(quemSaiu(base, novos(base.map((e) => e.sq_candidato)))).toEqual([]);
+	});
+
+	it("saída maior que 5% é arquivo suspeito: não apaga ninguém", () => {
+		const base = naBase(100);
+		expect(quemSaiu(base, novos(base.slice(10).map((e) => e.sq_candidato)))).toBeNull();
+		expect(quemSaiu([], novos(["1"]))).toEqual([]);
+	});
+});
 
 describe("base de eleitos → candidatos da busca", () => {
 	it("vereador do Rio: ref municipal com o número do candidato (nunca confundido com CPF)", () => {
