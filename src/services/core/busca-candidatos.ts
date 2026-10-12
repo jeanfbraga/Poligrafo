@@ -83,7 +83,8 @@ export const LEGISLATURA_ATUAL = 57;
  * como "Deputado Federal" e a busca municipal era pulada.
  */
 export function mandatoAtual(c: Candidato): boolean {
-	if (c.casa === "CANDIDATO_TSE" || c.suplente === true) return false;
+	// emExercicio false: sem verba de gabinete nos últimos meses (ex.: mandato cassado).
+	if (c.casa === "CANDIDATO_TSE" || c.suplente === true || c.emExercicio === false) return false;
 	return !(c.casa === "CAMARA" && c.idLegislatura !== undefined && c.idLegislatura < LEGISLATURA_ATUAL);
 }
 const UFS_SEM_UF_PADRAO = ["SP", "RJ", "PE", "CE", "PB", "SE"];

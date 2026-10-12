@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS public.alesp_despesas (
 
 -- Lista de deputados (para achar a matrícula pelo nome sem baixar 80 mil linhas).
 CREATE OR REPLACE VIEW public.alesp_deputados AS
-SELECT matricula, max(deputado) AS deputado, min(ano) AS primeiro_ano, max(ano) AS ultimo_ano
+SELECT matricula, max(deputado) AS deputado, min(ano) AS primeiro_ano, max(ano) AS ultimo_ano,
+       max(make_date(ano, greatest(least(coalesce(mes, 1), 12), 1), 1)) AS ultimo_mes
   FROM public.alesp_despesas
  GROUP BY matricula;
 

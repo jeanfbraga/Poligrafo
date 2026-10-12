@@ -17,7 +17,6 @@ import {
 	interromper,
 	marcarNoBuscando,
 	PESSOA_PLACEHOLDER_ID,
-	possivelParentesco,
 } from "@/lib/investigacao/dossie-state";
 import { GLIFO_RISCO, regraCritica, riscoDoNo, scoreDoNo } from "@/lib/investigacao/risco";
 
@@ -375,22 +374,20 @@ describe("evidenciaParaCanvas", () => {
 describe("pivôs", () => {
 	const base = () => aplicarEvento(rodando(), ev("NODE_NOVO", pessoa()));
 
-	it("possivelParentesco: sobrenome raro igual alerta; comum ou curto não", () => {
-		expect(possivelParentesco("Alice Monteiro Barbosa", "Rui Barbosa")).toBe(true);
-		expect(possivelParentesco("Alice Silva", "Rui Silva")).toBe(false);
-		expect(possivelParentesco("Alice Paz", "Rui Paz")).toBe(false);
-		expect(possivelParentesco(undefined, "Rui Barbosa")).toBe(false);
-	});
-
 	it("pivô por CNPJ liga o sócio com o rótulo SÓCIO (QSA)", () => {
 		const s = aplicarNoDoPivoCnpj(base(), { id: "s1", type: "SOCIO", data: { label: "Rui Teixeira", _origemId: "emp-1" } } as DossieNode);
 		expect(s.edges.find((e) => e.target === "s1")?.label).toBe("SÓCIO (QSA)");
 	});
 
-	it("pivô por CNPJ sinaliza possível parentesco com a pessoa investigada", () => {
+	it("sobrenome igual ao do investigado não vira alerta de parentesco (sem acusação por sobrenome)", () => {
+		// 12/10/2026: 31% dos eleitos têm último sobrenome comum fora da antiga lista (Júnior, Lima, Filho, Neto...).
 		const s0 = aplicarEvento(rodando(), ev("NODE_NOVO", { ...pessoa(), data: { label: "A", nomeCivil: "Alice Monteiro Barbosa" } }));
-		const s = aplicarNoDoPivoCnpj(s0, { id: "s1", type: "SOCIO", data: { label: "Rui Barbosa", _origemId: "emp-1" } } as DossieNode);
-		expect(s.edges.find((e) => e.target === "s1")?.label).toBe("ALERTA: POSSÍVEL PARENTESCO");
+		for (const socio of ["Rui Barbosa", "Pedro Lima Junior"]) {
+			const s = aplicarNoDoPivoCnpj(s0, { id: "s1", type: "SOCIO", data: { label: socio, _origemId: "emp-1" } } as DossieNode);
+			const aresta = s.edges.find((e) => e.target === "s1");
+			expect(aresta?.label).toBe("SÓCIO (QSA)");
+			expect(JSON.stringify(aresta)).not.toMatch(/parentesco/i);
+		}
 	});
 
 	it("o próprio investigado no QSA não vira 'possível parentesco' com ele mesmo", () => {

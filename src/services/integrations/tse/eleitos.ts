@@ -131,6 +131,40 @@ export interface AlvoEleito {
 	cargoTse?: string | null;
 }
 
+/** Cargos com um titular só: presidente (no país) e governador (na UF). */
+export const CARGOS_TITULAR_UNICO = new Set(["1", "3"]);
+
+function nomeCompativel(e: Eleito, nome: string): boolean {
+	const doEleito = new Set([e.nm_candidato, e.nm_urna_candidato].flatMap((n) => (n ? palavrasBusca(n) : [])));
+	const buscadas = palavrasBusca(nome);
+	return buscadas.length > 0 && buscadas.every((p) => doEleito.has(p));
+}
+
+/**
+ * Titular do cargo de presidente ou governador na eleição mais recente da base, se o nome
+ * da ref for compatível ("Tarcísio" ou "Tarcísio de Freitas" × TARCISIO GOMES DE FREITAS).
+ * O cargo tem um titular só por UF: não há homônimo possível. As refs de governador e
+ * presidente trazem só o nome, e o CPF dependia do DivulgaCand, que recusa a Vercel (403).
+ */
+export async function titularDoCargo(
+	cargo: string,
+	uf: string | null,
+	nome: string,
+	cliente: ClienteSupabase = supabasePerfilAdmin,
+): Promise<Eleito | null> {
+	if (!CARGOS_TITULAR_UNICO.has(cargo)) return null;
+	let consulta = cliente.from("tse_eleitos").select(COLUNAS).eq("cd_cargo", cargo);
+	if (cargo === "3") consulta = consulta.eq("sg_uf", ufValida(uf) ? uf : "--");
+	const { data, error } = await consulta.order("ano_eleicao", { ascending: false }).limit(5);
+	if (error) {
+		avisar(error.message);
+		return null;
+	}
+	const lista = (data ?? []) as unknown as Eleito[];
+	const daUltima = lista.filter((e) => e.ano_eleicao === lista[0]?.ano_eleicao);
+	return daUltima.length === 1 && nomeCompativel(daUltima[0], nome) ? daUltima[0] : null;
+}
+
 /** Eleito achado por nome: identidade média — o número do candidato serve, o CPF não é adotado. */
 export type EleitoDoAlvo = Eleito & { porNome?: boolean; confirmadoPor?: string };
 

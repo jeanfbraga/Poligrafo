@@ -33,6 +33,8 @@ export interface EmpresaQsa {
 	capital_social?: number;
 	municipio?: string;
 	uf?: string;
+	natureza_juridica?: string;
+	codigo_natureza_juridica?: number | string;
 	qsa?: SocioQsa[];
 }
 
@@ -84,7 +86,14 @@ function avaliarRazaoSocial(razao: string | undefined, nomes: string[], cpf: str
 	return { confirmado: true, forca: "RAZAO_SOCIAL", motivo: "empresa individual com o nome do político na razão social" };
 }
 
+/** Natureza 409-0 "Candidato a Cargo Político Eletivo": CNPJ de campanha, não empresa. */
+export function ehCnpjDeCampanha(empresa: EmpresaQsa): boolean {
+	return Number(empresa.codigo_natureza_juridica) === 4090 || /candidato a cargo pol/i.test(normalizarNome(empresa.natureza_juridica));
+}
+
 export function confirmarVinculoSocietario(empresa: EmpresaQsa, nomes: string[], cpf: string | null): Veredito {
+	// Antes o CNPJ de campanha ("ELEICAO 2026 FULANO DEPUTADO") passava como empresa individual.
+	if (ehCnpjDeCampanha(empresa)) return { confirmado: false, motivo: "CNPJ de campanha eleitoral, não empresa" };
 	const qsa = empresa.qsa ?? [];
 	if (qsa.length === 0) return avaliarRazaoSocial(empresa.razao_social, nomes, cpf);
 	const miolo = mioloCpf(cpf);

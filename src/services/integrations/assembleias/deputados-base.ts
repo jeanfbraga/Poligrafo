@@ -19,11 +19,34 @@ export interface CandidatoAssembleia<C extends CasaEstadual = CasaEstadual> {
 	cargo: string;
 	uf: string;
 	casa: C;
+	/** false = sem verba de gabinete nos últimos meses da base (ex.: mandato cassado). */
+	emExercicio?: boolean;
 }
 
 interface LinhaDeputado {
 	deputado: string;
 	ultimo_ano: number;
+	/** Último mês com despesa (visão atualizada em 12/10/2026); ausente nas bases antigas. */
+	ultimo_mes?: string | null;
+}
+
+/** Sem verba há mais que isto (contando do mês mais recente da base) = fora do exercício. */
+const MESES_SEM_VERBA = 3;
+
+function mesesEntre(de: string, ate: string): number {
+	const [a, b] = [new Date(de), new Date(ate)];
+	return (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth());
+}
+
+/** Exercício pelo último mês com verba; sem a coluna (base antiga), vale como antes. */
+function emExercicio(d: LinhaDeputado, maisRecente: string | null): boolean {
+	if (!d.ultimo_mes || !maisRecente) return true;
+	return mesesEntre(d.ultimo_mes, maisRecente) <= MESES_SEM_VERBA;
+}
+
+function mesAno(data: string): string {
+	const d = new Date(data);
+	return `${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
 }
 
 const CASAS: Record<CasaEstadual, { visao: string; uf: string }> = {
@@ -43,12 +66,21 @@ function bateComBusca(nomeCasa: string, busca: string): boolean {
 	return formas(nomeCasa).some((f) => nomesBatem(f, busca));
 }
 
-/** Candidato no formato de ref que o pipe já entende (sem documento: a assembleia não publica CPF). */
-export function candidatoDaAssembleia<C extends CasaEstadual>(casa: C, deputado: string): CandidatoAssembleia<C> {
+/**
+ * Candidato no formato de ref que o pipe já entende (sem documento: a assembleia não publica CPF).
+ * Fora do exercício, o cargo diz desde quando não há verba (a busca põe atrás de quem está no mandato).
+ */
+export function candidatoDaAssembleia<C extends CasaEstadual>(casa: C, deputado: string, semVerbaDesde?: string): CandidatoAssembleia<C> {
 	const [civil] = formas(deputado);
 	const nome = civil.toUpperCase();
 	const uf = CASAS[casa].uf;
-	return { ref: `${casa}:DEPUTADO_ESTADUAL:${encodeURIComponent(nome)}:`, id: nome, nome: deputado.toUpperCase(), cargo: `Deputado Estadual (${uf})`, uf, casa };
+	const base = { ref: `${casa}:DEPUTADO_ESTADUAL:${encodeURIComponent(nome)}:`, id: nome, nome: deputado.toUpperCase(), uf, casa };
+	if (!semVerbaDesde) return { ...base, cargo: `Deputado Estadual (${uf})` };
+	return { ...base, cargo: `Ex-deputado estadual (${uf}) — sem verba de gabinete desde ${mesAno(semVerbaDesde)}`, emExercicio: false };
+}
+
+function maisRecenteDaBase(linhas: LinhaDeputado[]): string | null {
+	return linhas.reduce<string | null>((m, d) => (d.ultimo_mes && (!m || d.ultimo_mes > m) ? d.ultimo_mes : m), null);
 }
 
 /** Deputados com verba no ano passado ou neste e com o nome buscado. Base fora do ar: []. */
@@ -58,16 +90,20 @@ export async function deputadosDaAssembleiaNaBase<C extends CasaEstadual>(
 	agora = new Date(),
 	cliente: ClienteSupabase = supabasePerfilAdmin,
 ): Promise<CandidatoAssembleia<C>[]> {
-	const { data, error } = await cliente.from(CASAS[casa].visao).select("deputado,ultimo_ano");
+	const { data, error } = await cliente.from(CASAS[casa].visao).select("deputado,ultimo_ano,ultimo_mes");
 	if (error) {
 		console.warn(`[${casa}] Lista de deputados indisponível (${error.message}); seguindo sem ela.`);
 		return [];
 	}
-	const recentes = ((data ?? []) as LinhaDeputado[]).filter((d) => d.ultimo_ano >= agora.getFullYear() - 1);
+	const linhas = (data ?? []) as LinhaDeputado[];
+	const maisRecente = maisRecenteDaBase(linhas);
+	const recentes = linhas.filter((d) => d.ultimo_ano >= agora.getFullYear() - 1);
 	const batem = recentes.filter((d) => bateComBusca(d.deputado, busca));
 	// Com um nome exato entre vários parecidos, fica só ele (mesma regra das despesas).
 	const exato = escolherPorNome(batem, busca, (d) => d.deputado);
-	return (exato ? [exato] : batem).slice(0, 5).map((d) => candidatoDaAssembleia(casa, d.deputado));
+	return (exato ? [exato] : batem)
+		.slice(0, 5)
+		.map((d) => candidatoDaAssembleia(casa, d.deputado, emExercicio(d, maisRecente) ? undefined : (d.ultimo_mes ?? undefined)));
 }
 
 /**

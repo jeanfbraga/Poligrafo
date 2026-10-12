@@ -502,23 +502,6 @@ export function descartarAviso(s: DossieState, fonte: string): DossieState {
 
 export type ModoPivo = "cnpj" | "socio";
 
-const SOBRENOMES_COMUNS = new Set([
-	"silva", "santos", "oliveira", "souza", "pereira", "costa", "carvalho", "almeida", "ferreira", "ribeiro",
-]);
-
-function ultimoSobrenome(nome: string): string {
-	const partes = nome.trim().split(/\s+/);
-	return (partes[partes.length - 1] ?? "").toLowerCase();
-}
-
-/** Alerta de possível parentesco: mesmo sobrenome raro entre o político e um sócio. */
-export function possivelParentesco(nomeCivilPolitico: string | undefined, nomeSocio: string): boolean {
-	if (!nomeCivilPolitico) return false;
-	const a = ultimoSobrenome(nomeCivilPolitico);
-	const b = ultimoSobrenome(nomeSocio);
-	return a === b && a.length > 3 && !SOBRENOMES_COMUNS.has(a);
-}
-
 function soDigitos(v: unknown): string {
 	return String(v ?? "").replace(/\D/g, "");
 }
@@ -537,16 +520,17 @@ function ehOProprioPolitico(pessoa: DossieNode | undefined, nomeSocio: string): 
 	return Boolean(socio) && [pessoa?.data?.nomeCivil, pessoa?.data?.label].some((n) => nomeComparavel(n) === socio);
 }
 
+/**
+ * Sócio do QSA: "SÓCIO (QSA)", ou o próprio investigado. Sem "possível parentesco" por
+ * sobrenome (removido em 12/10/2026): 31% dos 85 mil eleitos têm último sobrenome comum
+ * fora da antiga lista de exceção (Júnior, Lima, Filho, Neto, Sousa, Araújo...), e o
+ * Polígrafo não acusa por nome ou sobrenome — só com vínculo provado em documento.
+ */
 function arestaDoPivoCnpj(s: DossieState, origem: string, node: DossieNode): DossieEdge {
+	if (node.type !== "SOCIO") return novaAresta(origem, node.id, "fornecedor", "FORNECEDOR");
 	const pessoa = s.nodes.find((n) => n.type === "PESSOA");
-	if (node.type === "SOCIO" && ehOProprioPolitico(pessoa, String(node.data?.label ?? ""))) {
-		return novaAresta(origem, node.id, "socio", "SÓCIO (QSA): O PRÓPRIO INVESTIGADO");
-	}
-	if (node.type === "SOCIO") {
-		const parente = possivelParentesco(pessoa?.data?.nomeCivil, String(node.data?.label ?? ""));
-		return novaAresta(origem, node.id, parente ? "parentesco" : "socio", parente ? "ALERTA: POSSÍVEL PARENTESCO" : "SÓCIO (QSA)");
-	}
-	return novaAresta(origem, node.id, "fornecedor", "FORNECEDOR");
+	const proprio = ehOProprioPolitico(pessoa, String(node.data?.label ?? ""));
+	return novaAresta(origem, node.id, "socio", proprio ? "SÓCIO (QSA): O PRÓPRIO INVESTIGADO" : "SÓCIO (QSA)");
 }
 
 /** Novo nó vindo de um pivô por CNPJ (QSA, contratos, sanções...). */

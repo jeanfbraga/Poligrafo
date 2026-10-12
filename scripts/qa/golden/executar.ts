@@ -100,6 +100,9 @@ async function rodarAlvo(alvo: AlvoMatriz, ref: string): Promise<EventoGolden[]>
 	const { criarOuvinteDeEtapas } = await import("../../../src/services/core/etapas-ao-vivo");
 	const { criarPrazo } = await import("../../../src/lib/prazo");
 	const { PRAZO_FONTES_MS } = await import("../../../src/services/core/teto-investigacao");
+	// Cada alvo começa limpo: disjuntores e cache em memória de um alvo não vazam para o seguinte.
+	const { reiniciarEstadoFonteHttp } = await import("../../../src/lib/fonte-http");
+	reiniciarEstadoFonteHttp();
 	const q = new URLSearchParams({ nome: alvo.consulta.nome ?? "", ref: decodeURIComponent(ref) });
 	if (alvo.consulta.uf) q.set("uf", alvo.consulta.uf);
 	const url = `http://localhost/api/investigar?${q}`;

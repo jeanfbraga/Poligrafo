@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS public.alerj_despesas (
 CREATE INDEX IF NOT EXISTS idx_alerj_despesas_deputado ON public.alerj_despesas (deputado_id, ano);
 
 CREATE OR REPLACE VIEW public.alerj_deputados AS
-SELECT deputado_id, max(deputado) AS deputado, min(ano) AS primeiro_ano, max(ano) AS ultimo_ano
+SELECT deputado_id, max(deputado) AS deputado, min(ano) AS primeiro_ano, max(ano) AS ultimo_ano,
+       max(make_date(ano, greatest(least(coalesce(mes, 1), 12), 1), 1)) AS ultimo_mes
   FROM public.alerj_despesas
  GROUP BY deputado_id;
 

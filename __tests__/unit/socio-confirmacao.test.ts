@@ -40,6 +40,15 @@ describe("confirmação de sócio pelo QSA", () => {
 		expect(confirmarVinculoSocietario({ qsa: [{ nome_socio: "MARIA SOUZA" }] }, NOMES, CPF).confirmado).toBe(false);
 	});
 
+	it("CNPJ de campanha (natureza 409-0) não é empresa, mesmo com o nome do político na razão social", () => {
+		// 12/10/2026: "ELEICAO 2026 NIKOLAS FERREIRA DE OLIVEIRA DEPUTADO" entrava como empresa individual.
+		const campanha = { razao_social: "ELEICAO 2026 JOSE DA SILVA JUNIOR DEPUTADO", qsa: [] };
+		for (const natureza of [{ codigo_natureza_juridica: 4090 }, { natureza_juridica: "Candidato a Cargo Político Eletivo" }, { natureza_juridica: "409-0 - Candidato a Cargo Politico Eletivo" }]) {
+			expect(confirmarVinculoSocietario({ ...campanha, ...natureza }, NOMES, CPF)).toEqual({ confirmado: false, motivo: "CNPJ de campanha eleitoral, não empresa" });
+		}
+		expect(confirmarVinculoSocietario({ ...campanha, natureza_juridica: "Empresário (Individual)" }, NOMES, CPF).confirmado).toBe(true);
+	});
+
 	it("MEI sem QSA: razão social com o nome; CPF inteiro na razão precisa ser o do político", () => {
 		expect(confirmarVinculoSocietario({ razao_social: `JOSE DA SILVA JUNIOR ${CPF}`, qsa: [] }, NOMES, CPF))
 			.toMatchObject({ confirmado: true, forca: "RAZAO_SOCIAL" });

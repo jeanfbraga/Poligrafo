@@ -7,6 +7,7 @@ import { buscarPolitico, buscarSenadoresLista } from "@/app/api/investigar/scrap
 import { buscarCpfNoTSE } from "@/app/api/investigar/tse";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
+import { PREFIXO_SQ, titularDoCargo } from "@/services/integrations/tse/eleitos";
 import { type Execucao, status } from "./contexto";
 
 type Casa = "CAMARA" | "SENADO";
@@ -48,7 +49,17 @@ async function senador(e: Execucao, id: string): Promise<any> {
 const CARGO_TSE: Record<string, string> = { GOVERNADOR: "3", PRESIDENTE: "1", PREFEITO: "11" };
 const CASA_EXECUTIVO: Record<string, string> = { GOVERNADOR: "GOVERNO_ESTADUAL", PRESIDENTE: "PRESIDENCIA_DA_REPUBLICA", PREFEITO: "PREFEITURA" };
 
-/** GOVERNADOR|PREFEITO|PRESIDENTE:{UF}:{nome}: documento pelo TSE ao vivo. */
+/**
+ * Presidente e governador: o titular do cargo na nossa base (um por UF), pelo número do
+ * candidato — a identificação acha o CPF na base, sem o DivulgaCand (que recusa a Vercel).
+ */
+async function titularDaBase(cargoTipo: string, uf: string, nome: string): Promise<any | null> {
+	const eleito = await titularDoCargo(CARGO_TSE[cargoTipo], uf, nome).catch(() => null);
+	if (!eleito) return null;
+	return { id: `${PREFIXO_SQ}${eleito.sq_candidato}`, uri: "", nome: eleito.nm_candidato, uf, idLegislatura: eleito.ano_eleicao, casa: CASA_EXECUTIVO[cargoTipo] };
+}
+
+/** GOVERNADOR|PREFEITO|PRESIDENTE:{UF}:{nome}: titular da base ou documento pelo TSE ao vivo. */
 async function executivo(e: Execucao, ref: string): Promise<any> {
 	const partes = ref.split(":");
 	const cargoTipo = partes[0];
@@ -56,6 +67,8 @@ async function executivo(e: Execucao, ref: string): Promise<any> {
 	const nome = partes.length >= 3 ? partes[2] : e.p.nomeParaBusca;
 	// Tenta buscar o documento no TSE dinamicamente
 	status(e, `Buscando ${cargoTipo} "${nome}" na base eleitoral TSE...`);
+	const daBase = await titularDaBase(cargoTipo, uf, nome);
+	if (daBase) return daBase;
 	const tseDados = await buscarCpfNoTSE(nome, uf, CARGO_TSE[cargoTipo]);
 	return {
 		id: tseDados?.documentoPrincipal?.replace(/\D/g, "") || nome,

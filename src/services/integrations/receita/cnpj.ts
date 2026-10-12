@@ -38,6 +38,7 @@ interface RespostaReceitaWs {
 	nome?: string;
 	fantasia?: string;
 	situacao?: string;
+	natureza_juridica?: string;
 	capital_social?: string;
 	municipio?: string;
 	uf?: string;
@@ -52,6 +53,7 @@ export function deReceitaWs(r: RespostaReceitaWs | null | undefined): EmpresaQsa
 		razao_social: r.nome,
 		nome_fantasia: r.fantasia || undefined,
 		descricao_situacao_cadastral: r.situacao,
+		natureza_juridica: r.natureza_juridica,
 		cnae_fiscal_descricao: r.atividade_principal?.[0]?.text,
 		capital_social: Number(r.capital_social) || undefined,
 		municipio: r.municipio,

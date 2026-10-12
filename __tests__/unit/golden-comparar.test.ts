@@ -26,6 +26,8 @@ describe("golden master — comparação de eventos", () => {
 
 	it("ordem: avisos de conexão (ETAPA) de fontes em paralelo podem trocar; o resto não", () => {
 		expect(compararEventos([etapa("emendas", "respondeu"), etapa("receita", "lenta"), st("a")], [etapa("receita", "lenta"), etapa("emendas", "respondeu"), st("a")])).toEqual([]);
+		const declaradas = st("[TSE] 6 empresa(s) declarada(s) pelo político; CNPJ conferido em 3.");
+		expect(compararEventos([declaradas, st("a"), st("b")], [st("a"), declaradas, st("b")])).toEqual([]);
 		const dif = compararEventos([st("a"), st("b")], [st("b"), st("a")]);
 		expect(dif).toHaveLength(1);
 		expect(dif[0]).toMatch(/^ordem mudou no evento 0/);

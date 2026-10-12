@@ -59,12 +59,15 @@ function faltando(de: Map<string, number>, em: Map<string, number>, rotulo: stri
 	return dif;
 }
 
+/** Eventos de tarefas em segundo plano: avisos de conexão e o resumo das empresas declaradas. */
+const SEM_ORDEM = [/^\{"tipo":"ETAPA"/, /^\{"tipo":"STATUS","payload":\{"msg":"\[TSE\] \d+ empresa\(s\) declarada\(s\)/];
+
 /**
- * Avisos de conexão (ETAPA) vêm de fontes em paralelo (ex.: a conferência das empresas
- * declaradas roda em segundo plano): contam como conjunto. O resto, em ordem exata.
+ * Eventos de fontes em paralelo (ex.: a conferência das empresas declaradas roda em segundo
+ * plano) contam como conjunto, já conferido antes. O resto, em ordem exata.
  */
 function mudancaDeOrdem(a: string[], b: string[]): string[] {
-	const semEtapa = (l: string[]) => l.filter((k) => !k.startsWith('{"tipo":"ETAPA"'));
+	const semEtapa = (l: string[]) => l.filter((k) => !SEM_ORDEM.some((r) => r.test(k)));
 	const [sa, sb] = [semEtapa(a), semEtapa(b)];
 	const i = sa.findIndex((k, j) => k !== sb[j]);
 	return i >= 0 ? [`ordem mudou no evento ${i} (sem ETAPA): era ${curto(sa[i])} | agora ${curto(sb[i])}`] : [];

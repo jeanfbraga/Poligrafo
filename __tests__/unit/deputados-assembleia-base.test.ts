@@ -49,6 +49,23 @@ describe("deputado estadual pela lista da própria assembleia", () => {
 		aviso.mockRestore();
 	});
 
+	it("sem verba há mais de 3 meses (mandato cassado): ex-deputado, com a data, e sem mandato atual na ordenação", async () => {
+		// Bacellar: diploma cassado pelo TSE em 2026; última verba 03/2026, base da ALERJ até 07/2026.
+		const linhas = [
+			{ deputado: "Rodrigo Da Silva Bacellar (Rodrigo Bacellar)", ultimo_ano: 2026, ultimo_mes: "2026-03-01" },
+			{ deputado: "Carlos Augusto Nogueira Pinto (Delegado Carlos Augusto)", ultimo_ano: 2026, ultimo_mes: "2026-07-01" },
+			{ deputado: "Rodrigo Amorim Dos Santos (Rodrigo Amorim)", ultimo_ano: 2026, ultimo_mes: "2026-06-01" },
+		];
+		const r = await deputadosDaAssembleiaNaBase("ALERJ", "Rodrigo", AGORA, cliente(linhas).c);
+		expect(r.map((x) => [x.id, x.cargo, x.emExercicio])).toEqual([
+			["RODRIGO DA SILVA BACELLAR", "Ex-deputado estadual (RJ) — sem verba de gabinete desde 03/2026", false],
+			["RODRIGO AMORIM DOS SANTOS", "Deputado Estadual (RJ)", undefined],
+		]);
+		const { mandatoAtual, ordenarCandidatos } = await import("@/services/core/busca-candidatos");
+		expect(mandatoAtual(r[0])).toBe(false);
+		expect(ordenarCandidatos(r, "Rodrigo", "RJ").map((x) => x.id)).toEqual(["RODRIGO AMORIM DOS SANTOS", "RODRIGO DA SILVA BACELLAR"]);
+	});
+
 	it("com o TSE respondendo, a mesma pessoa não aparece duas vezes (o do TSE traz o CPF)", () => {
 		const doTse = [{ ...candidatoDaAssembleia("ALERJ", "RODRIGO DA SILVA BACELLAR"), ref: "ALERJ:DEPUTADO_ESTADUAL:RODRIGO%20DA%20SILVA%20BACELLAR:08661032792" }];
 		const daBase = [candidatoDaAssembleia("ALERJ", "Rodrigo Da Silva Bacellar (Rodrigo Bacellar)"), candidatoDaAssembleia("ALERJ", "Rodrigo Amorim Dos Santos (Rodrigo Amorim)")];

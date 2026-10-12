@@ -132,15 +132,22 @@ export async function buscarSenador(
 	}
 }
 
+/**
+ * A UF é filtrada aqui, não na URL: nome + siglaUf + idLegislatura juntos deixam a API da
+ * Câmara em 12–15 s (muitas vezes 504), e o pipe desistia aos 10 s em toda busca por UF
+ * (medido em 12/10/2026; com dois desses filtros ela responde em 0,1–3 s).
+ */
+function daUf<T extends { siglaUf?: string }>(dados: T[], ufScope?: string | null): T[] {
+	if (!ufScope || ufScope === "FEDERAL" || ufScope === "BR") return dados;
+	return dados.filter((d) => d.siglaUf === ufScope);
+}
+
 export async function buscarPoliticosCamaraLista(
 	nome: string,
 	ufScope?: string | null,
 ): Promise<ParlamentarBasico[]> {
 	try {
-		let url = `https://dadosabertos.camara.leg.br/api/v2/deputados?nome=${encodeURIComponent(nome)}&idLegislatura=57&idLegislatura=56&idLegislatura=55&idLegislatura=54&ordem=ASC&ordenarPor=nome`;
-		if (ufScope && ufScope !== "FEDERAL" && ufScope !== "BR") {
-			url += `&siglaUf=${ufScope}`;
-		}
+		const url = `https://dadosabertos.camara.leg.br/api/v2/deputados?nome=${encodeURIComponent(nome)}&idLegislatura=57&idLegislatura=56&idLegislatura=55&idLegislatura=54&ordem=ASC&ordenarPor=nome`;
 		const response = await fetchWithTimeout(url, {
 			timeout: 10000,
 			headers: {
@@ -154,8 +161,8 @@ export async function buscarPoliticosCamaraLista(
 			return [];
 		}
 		const json = await response.json();
-		const dados = json.dados;
-		if (!dados || dados.length === 0) return [];
+		const dados = daUf(json.dados ?? [], ufScope);
+		if (dados.length === 0) return [];
 		const termoNorm = normalizeString(nome);
 		const dadosOrdenados = dados.sort((a: any, b: any) => {
 			const nomeA = normalizeString(a.nome);
