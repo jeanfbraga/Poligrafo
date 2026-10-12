@@ -235,13 +235,15 @@ const federais: Sonda[] = [
 	sonda("tcu-inabilitados-ords", "federal", "TCU — inabilitados (contas.tcu.gov.br)", "alternativa ao host bloqueado", get(
 		"https://contas.tcu.gov.br/ords/condenacao/consulta/inabilitados",
 	)),
-	sonda("tse-divulgacand", "federal", "TSE — DivulgaCand", "identidade, patrimônio, doadores", get(
+	// Não crítica: o DivulgaCand recusa IP de nuvem (Vercel em iad1 e em gru1, GitHub Actions) e
+	// o pipe lê identidade e bens das bases tse_eleitos/tse_bens (12/10/2026). Crítico é o CSV abaixo.
+	sonda("tse-divulgacand", "federal", "TSE — DivulgaCand", "reserva ao vivo (só responde a IP do Brasil fora de nuvem)", get(
 		"https://divulgacandcontas.tse.jus.br/divulga/rest/v1/eleicao/ordinarias",
-	), true),
+	)),
 	sonda("tse-cdn-candidatos", "federal", "TSE — CSV nacional de candidatos 2024", "ETL tse_eleitos (Fase 3)", get(
 		"https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2024.zip",
 		{ metodo: "HEAD", soStatus: true },
-	)),
+	), true),
 	sonda("tse-mapa-municipios", "municipal", "TSE — mapa municípios TSE↔IBGE", "ETL tse_eleitos (Fase 3)", get(
 		"https://resultados.tse.jus.br/oficial/ele2024/619/config/mun-e000619-cm.json",
 		{ avaliar: (c, res) => (res.ok && typeof c === "object" ? vereditoStatus(res) : { estado: "FALHA", detalhe: `HTTP ${res.status}` }) },
