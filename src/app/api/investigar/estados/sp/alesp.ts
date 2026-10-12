@@ -1,54 +1,12 @@
 import { buscarDespesasAlespDaBase } from "@/services/integrations/alesp/despesas-base";
-import { deputadosDaAssembleiaNaBase, juntarCandidatosEstaduais } from "@/services/integrations/assembleias/deputados-base";
-import { buscarCpfNoTSE } from "../../tse";
+import { type CandidatoAssembleia, deputadosDaAssembleiaNaBase } from "@/services/integrations/assembleias/deputados-base";
 
-export async function buscarDeputadoEstadualSP(nomeBuscado: string): Promise<
-	{
-		ref: string;
-		id: string;
-		nome: string;
-		cargo: string;
-		uf: string;
-		casa: "ALESP";
-	}[]
-> {
-	const termo = nomeBuscado.toLowerCase().trim();
-	const resultados: {
-		ref: string;
-		id: string;
-		nome: string;
-		cargo: string;
-		uf: string;
-		casa: "ALESP";
-	}[] = [];
-
-	// CPF no TSE (cargo 7, SP) e, em paralelo, a lista da ALESP (o TSE ao vivo recusa a Vercel).
-	const [tseResult, daBase] = await Promise.all([
-		buscarCpfNoTSE(termo, "SP", "7").catch(() => null),
-		deputadosDaAssembleiaNaBase("ALESP", nomeBuscado).catch(() => []),
-	]);
-
-	if (tseResult) {
-		const nomeCompleto =
-			tseResult.nome?.toUpperCase() || nomeBuscado.toUpperCase();
-		const nomeUrna = (tseResult as any).nomeUrna?.toUpperCase() || null;
-		const documento = tseResult.documentoPrincipal || tseResult.cpf;
-		const nomeExibicao =
-			nomeUrna && nomeUrna !== nomeCompleto
-				? `${nomeCompleto} (${nomeUrna})`
-				: nomeCompleto;
-		resultados.push({
-			// Ref agora carrega NOME e DOCUMENTO separados: ALESP:DEPUTADO_ESTADUAL:{nome}:{documento}
-			ref: `ALESP:DEPUTADO_ESTADUAL:${encodeURIComponent(nomeCompleto)}:${documento}`,
-			id: nomeCompleto, // O ID é o NOME — o scraper da ALESP filtra por nome
-			nome: nomeExibicao,
-			cargo: "Deputado Estadual (SP)",
-			uf: "SP",
-			casa: "ALESP",
-		});
-	}
-
-	return juntarCandidatosEstaduais(resultados, daBase);
+/**
+ * Deputados da ALESP com o nome buscado, pela lista de dados abertos da ALESP (inclui quem
+ * saiu no mandato, marcado). O CPF vem da base de eleitos, juntada na busca (busca-candidatos.ts).
+ */
+export async function buscarDeputadoEstadualSP(nomeBuscado: string): Promise<CandidatoAssembleia<"ALESP">[]> {
+	return deputadosDaAssembleiaNaBase("ALESP", nomeBuscado).catch(() => []);
 }
 
 function normalizaNome(s: string): string {

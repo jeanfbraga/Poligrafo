@@ -70,8 +70,8 @@ Crie o arquivo em `src/app/api/investigar/estados/[uf]/[municipio].ts` (ou `tce.
 
 #### Passo 2 — Conectar ao Roteador Municipal Mestre
 No arquivo `src/app/api/investigar/municipios/router.ts`:
-* Importe seu extrator e adicione o case `"[UF]"` dentro de `buscarMunicipalMestre` e `buscarDespesasMunicipalMestre`.
-* Adicione a UF nas listas de varredura assíncrona de `src/services/core/identificacao-candidato.ts` e `investigador-principal.ts`.
+* Importe seu extrator de despesas e adicione a UF em `ROTEADORES_DESPESA` (usado por `buscarDespesasMunicipalMestre`).
+* Quem é o prefeito ou vereador vem da base de eleitos (`tse_eleitos`, ver `src/services/core/busca-candidatos.ts`); não há mais varredura de municípios nem consulta ao TSE ao vivo.
 
 #### Passo 3 — Cadastrar Parlamentares no Autocomplete da SearchBar
 Adicione os vereadores ou prefeitos em `src/services/integrations/data/municipais-index.json`:

@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { buscarProxyOsint } from "../../proxy_osint";
-import { buscarCpfNoTSE, fetchWithTimeout } from "../../tse";
+import { fetchWithTimeout } from "../../tse";
 import { buscarDespesasSE } from "./tce";
 
 // ==========================================
@@ -16,54 +16,6 @@ export interface CandidatoMunicipalSE {
 	isCnpj?: boolean;
 	casa: "CAMARA_MUNICIPAL" | "PREFEITURA";
 	uri?: string;
-}
-
-/**
- * Resolução de candidatos e vereadores no estado de Sergipe.
- * Prioriza busca de vereadores (cargo 13) e prefeitos (cargo 11) no TSE.
- */
-export async function buscarMunicipalSE(
-	nomeBuscado: string,
-): Promise<CandidatoMunicipalSE[]> {
-	const termo = nomeBuscado.toLowerCase().trim();
-	console.log(`[>> MUNICIPAL SE ENTRY] buscarMunicipalSE chamado para: ${nomeBuscado}`);
-	const resultados: CandidatoMunicipalSE[] = [];
-
-	// 1. Tenta achar Vereador (13)
-	let tseResult = await buscarCpfNoTSE(termo, "SE", "13");
-	let tipoCargo: "CAMARA_MUNICIPAL" | "PREFEITURA" = "CAMARA_MUNICIPAL";
-	let tituloCargo = "Vereador";
-
-	// 2. Se não achar, tenta Prefeito (11)
-	if (!tseResult) {
-		tseResult = await buscarCpfNoTSE(termo, "SE", "11");
-		if (tseResult) {
-			tipoCargo = "PREFEITURA";
-			tituloCargo = "Prefeito";
-		}
-	}
-
-	if (tseResult) {
-		const nomeCompleto = tseResult.nome?.toUpperCase() || nomeBuscado.toUpperCase();
-		const nomeUrna = (tseResult as any).nomeUrna?.toUpperCase() || null;
-		const nomeExibicao =
-			nomeUrna && nomeUrna !== nomeCompleto
-				? `${nomeCompleto} (${nomeUrna})`
-				: nomeCompleto;
-
-		resultados.push({
-			ref: `SE:${tituloCargo.toUpperCase()}:${tseResult.municipio}:${tseResult.documentoPrincipal}`,
-			id: tseResult.documentoPrincipal,
-			nome: nomeExibicao,
-			cargo: `${tituloCargo} em ${tseResult.municipio.replace(/-/g, " ").toUpperCase()}`,
-			uf: "SE",
-			isCnpj: tseResult.isCnpj,
-			casa: tipoCargo,
-			uri: tseResult.municipio,
-		});
-	}
-
-	return resultados;
 }
 
 /**

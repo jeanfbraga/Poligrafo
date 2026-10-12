@@ -24,7 +24,7 @@ import { montarShareData } from "@/lib/investigacao/exportacao";
 import type { Direcao } from "@/lib/investigacao/layout";
 import { tituloCaso } from "@/lib/texto";
 import { type AcaoNo, TIPOS_COM_INSPETOR } from "./acoes";
-import { AvisosApi, avisoDoProblema, PainelErro, PainelHomonimos } from "./Avisos";
+import { AvisosApi, avisoDoProblema, PainelErro, PainelForaDaJanela, PainelHomonimos } from "./Avisos";
 import { DossieCanvas, type DossieCanvasHandle } from "./DossieCanvas";
 import { DossieUiCtx } from "./dossie-ui";
 import { Inspetor } from "./Inspetor";
@@ -190,6 +190,7 @@ function Camadas({ c }: { c: Controle }) {
 				/>
 			) : null}
 			{falhou ? <PainelErro mensagem={d.erro} onTentar={() => void inv.recomecar()} onFechar={() => router.push("/")} /> : null}
+			{d.naoEncontrado ? <PainelForaDaJanela termo={d.naoEncontrado.termo} onNovaBusca={() => router.push("/")} /> : null}
 		</>
 	);
 }

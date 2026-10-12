@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-perfil", () => ({ supabasePerfilAdmin: {} }));
+
 import {
 	buscarCandidatos,
 	coberturaNome,
 	type DependenciasBusca,
+	naJanelaDaBusca,
 	ordenarCandidatos,
 } from "../../src/services/core/busca-candidatos";
 
@@ -10,10 +14,9 @@ function deps(over: Partial<DependenciasBusca> = {}): DependenciasBusca {
 	return {
 		camara: vi.fn().mockResolvedValue([]),
 		senado: vi.fn().mockResolvedValue([]),
-		tse: vi.fn().mockResolvedValue(null),
 		alesp: vi.fn().mockResolvedValue([]),
 		alerj: vi.fn().mockResolvedValue([]),
-		municipal: vi.fn().mockResolvedValue([]),
+		eleitos: vi.fn().mockResolvedValue([]),
 		status: vi.fn(),
 		...over,
 	};
@@ -37,86 +40,6 @@ describe("cobertura do nome", () => {
 		const r = ordenarCandidatos(lista, "André do Prado", "SP");
 		expect(r.map((c) => c.ref)).toEqual(["ALESP:DEPUTADO_ESTADUAL:x:1", "FEDERAL:CAMARA:1"]);
 	});
-});
-
-describe("buscarCandidatos", () => {
-	it("deputado estadual de SP não vira parlamentar federal de nome parecido", async () => {
-		const d = deps({
-			senado: vi.fn().mockResolvedValue([{ id: 9, nome: "André Amaral", uf: "PB" }]),
-			alesp: vi.fn().mockResolvedValue([{ nome: "ANDRÉ DO PRADO", uf: "SP", ref: "ALESP:DEPUTADO_ESTADUAL:ANDRE:1", cargo: "Deputado Estadual" }]),
-		});
-		const r = await buscarCandidatos({ ...base, nome: "André do Prado", uf: "SP" }, d);
-		expect(r.candidatos[0].ref).toBe("ALESP:DEPUTADO_ESTADUAL:ANDRE:1");
-		expect(d.municipal).not.toHaveBeenCalled(); // já houve cobertura total
-	});
-
-	it("deputado estadual fora de SP/RJ vem do TSE (cargo 7) com ref ESTADUAL", async () => {
-		const d = deps({
-			camara: vi.fn().mockResolvedValue([{ id: 5, nome: "Bruno Ganem", uf: "SP" }]),
-			tse: vi.fn().mockImplementation(async (_n: string, _uf: string, cargo: string) =>
-				cargo === "7" ? { documentoPrincipal: "52998224725", nome: "BRUNO PEIXOTO", nomeUrna: "Bruno Peixoto", idTse: 1 } : null),
-		});
-		const r = await buscarCandidatos({ ...base, nome: "Bruno Peixoto", uf: "GO" }, d);
-		expect(r.candidatos[0]).toMatchObject({ ref: "ESTADUAL:GO:52998224725", cargo: "Deputado Estadual" });
-	});
-
-	it("vereador: sem cobertura total no federal, roda a varredura municipal e ela vence", async () => {
-		const d = deps({
-			camara: vi.fn().mockResolvedValue([{ id: 7, nome: "Rafael Prudente", uf: "RJ" }]),
-			municipal: vi.fn().mockResolvedValue([{ nome: "RAFAEL ALOISIO FREITAS", uf: "RJ", ref: "RJ:VEREADOR:rio-de-janeiro:1" }]),
-		});
-		const r = await buscarCandidatos({ ...base, nome: "Rafael Aloisio Freitas", uf: "RJ" }, d);
-		expect(d.municipal).toHaveBeenCalledWith("RJ", "Rafael Aloisio Freitas");
-		expect(r.candidatos[0].ref).toBe("RJ:VEREADOR:rio-de-janeiro:1");
-	});
-
-	it("alçada FEDERAL explícita não busca estado nem município", async () => {
-		const d = deps({ camara: vi.fn().mockResolvedValue([{ id: 1, nome: "Fulano", uf: "SP" }]) });
-		await buscarCandidatos({ ...base, nome: "Fulano de Tal", uf: null, somenteFederal: true }, d);
-		expect(d.municipal).not.toHaveBeenCalled();
-		expect(d.alesp).not.toHaveBeenCalled();
-	});
-
-	it("prefeito pedido explicitamente vai direto ao TSE (cargo 11)", async () => {
-		const d = deps({
-			tse: vi.fn().mockResolvedValue({ documentoPrincipal: "52998224725", nome: "SANDRO MABEL", municipio: "goiania" }),
-		});
-		const r = await buscarCandidatos({ ...base, cargo: "PREFEITO", nome: "Sandro Mabel", uf: "GO" }, d);
-		expect(d.tse).toHaveBeenCalledWith("Sandro Mabel", "GO", "11");
-		expect(r.candidatos[0].ref).toBe("GO:PREFEITO:goiania:52998224725");
-	});
-
-	it("candidato ao Senado no TSE não passa à frente do mandato atual na ALESP", async () => {
-		const d = deps({
-			alesp: vi.fn().mockResolvedValue([{ nome: "ANDRE LUIS DO PRADO (ANDRÉ DO PRADO)", uf: "SP", ref: "ALESP:DEPUTADO_ESTADUAL:x:1" }]),
-			tse: vi.fn().mockResolvedValue({ documentoPrincipal: "52998224725", nome: "ANDRE LUIS DO PRADO", nomeUrna: "ANDRÉ DO PRADO" }),
-		});
-		const r = await buscarCandidatos({ ...base, nome: "André do Prado", uf: "SP" }, d);
-		expect(r.candidatos[0].ref).toBe("ALESP:DEPUTADO_ESTADUAL:x:1");
-		expect(r.candidatos.some((c) => c.ref.startsWith("FEDERAL:SENADO"))).toBe(false); // reserva do TSE nem roda
-	});
-
-	it("candidatura federal só no TSE não impede a busca municipal (vereador do Rio)", async () => {
-		const d = deps({
-			camara: vi.fn().mockRejectedValue(new Error("timeout")),
-			tse: vi.fn().mockImplementation(async (_n: string, _uf: string, cargo: string) =>
-				cargo === "6" ? { documentoPrincipal: "52998224725", nome: "RAFAEL ALOISIO FREITAS", idTse: 9 } : null),
-			municipal: vi.fn().mockResolvedValue([{ nome: "RAFAEL ALOISIO FREITAS", uf: "RJ", ref: "RJ:VEREADOR:rio-de-janeiro:08249495799" }]),
-		});
-		const r = await buscarCandidatos({ ...base, nome: "Rafael Aloisio Freitas", uf: "RJ" }, d);
-		expect(d.municipal).toHaveBeenCalled();
-		expect(r.candidatos[0].ref).toBe("RJ:VEREADOR:rio-de-janeiro:08249495799");
-	});
-
-	it("ex-deputado federal hoje prefeito: legislatura passada não pula a busca municipal", async () => {
-		const d = deps({
-			camara: vi.fn().mockResolvedValue([{ id: 74000, nome: "Sandro Mabel", uf: "GO", idLegislatura: 54, casa: "CAMARA" }]),
-			municipal: vi.fn().mockResolvedValue([{ nome: "SANDRO MABEL", uf: "GO", ref: "GO:PREFEITO:goiania:52998224725", casa: "PREFEITURA" }]),
-		});
-		const r = await buscarCandidatos({ ...base, nome: "Sandro Mabel", uf: "GO" }, d);
-		expect(d.municipal).toHaveBeenCalled();
-		expect(r.candidatos[0].ref).toBe("GO:PREFEITO:goiania:52998224725");
-	});
 
 	it("deputado atual com linhas de várias legislaturas fica com a mais recente", () => {
 		const lista = [
@@ -135,79 +58,99 @@ describe("buscarCandidatos", () => {
 		];
 		expect(ordenarCandidatos(lista, "André do Prado", "SP")[0].ref).toBe("B");
 	});
+});
 
-	it("sinaliza erro de API quando uma fonte cai e nada é encontrado", async () => {
-		const d = deps({ camara: vi.fn().mockRejectedValue(new Error("timeout")) });
-		const r = await buscarCandidatos({ ...base, nome: "Ninguém", uf: null }, d);
-		expect(r).toEqual({ candidatos: [], houveErroApi: true });
+describe("janela de mandato na busca (12/10/2026)", () => {
+	it("fora: deputado de legislatura passada e suplente que não assumiu; dentro: quem saiu no mandato (marcado)", () => {
+		expect(naJanelaDaBusca({ nome: "X", ref: "FEDERAL:CAMARA:1", casa: "CAMARA", idLegislatura: 56 })).toBe(false);
+		expect(naJanelaDaBusca({ nome: "X", ref: "ESTADUAL:GO:SQ-1", suplente: true })).toBe(false);
+		expect(naJanelaDaBusca({ nome: "X", ref: "ALERJ:DEPUTADO_ESTADUAL:X:", casa: "ALERJ", emExercicio: false })).toBe(true);
+		expect(naJanelaDaBusca({ nome: "X", ref: "FEDERAL:CAMARA:1", casa: "CAMARA", idLegislatura: 57 })).toBe(true);
+	});
+
+	it("ex-deputado federal (legislatura 54) hoje prefeito: só o prefeito aparece", async () => {
+		const d = deps({
+			camara: vi.fn().mockResolvedValue([{ id: 74000, nome: "Sandro Mabel", uf: "GO", idLegislatura: 54, casa: "CAMARA" }]),
+			eleitos: vi.fn().mockResolvedValue([{ nome: "SANDRO MABEL", uf: "GO", ref: "GO:PREFEITO:goiania:SQ-7", casa: "PREFEITURA" }]),
+		});
+		const r = await buscarCandidatos({ ...base, nome: "Sandro Mabel", uf: "GO" }, d);
+		expect(r.candidatos.map((c) => c.ref)).toEqual(["GO:PREFEITO:goiania:SQ-7"]);
+	});
+
+	it("ninguém na janela: lista vazia sem erro (a tela explica a regra, não é falha)", async () => {
+		const r = await buscarCandidatos({ ...base, nome: "Pessoa Comum", uf: "GO" }, deps());
+		expect(r).toEqual({ candidatos: [], houveErroApi: false });
+	});
+
+	it("base de eleitos fora do ar (null) ou fonte que cai: lista vazia COM erro (aí é falha)", async () => {
+		expect((await buscarCandidatos({ ...base, nome: "X", uf: "GO" }, deps({ eleitos: vi.fn().mockResolvedValue(null) }))).houveErroApi).toBe(true);
+		expect((await buscarCandidatos({ ...base, nome: "X", uf: null }, deps({ camara: vi.fn().mockRejectedValue(new Error("timeout")) }))).houveErroApi).toBe(true);
 	});
 });
 
-describe("buscarCandidatos com a base de eleitos (Banco de Perfil)", () => {
-	const vereadorGo = { nome: "FULANO DE TAL", uf: "GO", ref: "GO:VEREADOR:goiania:SQ-90001", casa: "CAMARA_MUNICIPAL_LOCAL", idLegislatura: 2024 };
-
-	it("achou na base: sem TSE ao vivo para assembleia e sem varredura municipal (e o log de status mostra isso)", async () => {
-		const d = deps({ eleitos: vi.fn().mockResolvedValue([vereadorGo]) });
-		const r = await buscarCandidatos({ ...base, nome: "Fulano de Tal", uf: "GO" }, d);
-		expect(d.eleitos).toHaveBeenCalledWith("Fulano de Tal", "GO", undefined);
-		expect(d.tse).not.toHaveBeenCalled();
-		expect(d.municipal).not.toHaveBeenCalled();
-		expect(r.candidatos[0].ref).toBe("GO:VEREADOR:goiania:SQ-90001");
-		const logs = vi.mocked(d.status).mock.calls.map((c) => c[0]);
-		expect(logs).toEqual(["Buscando nas esferas Federal e Estadual (GO)..."]);
-	});
-
-	it("sem a base, o log mostra a varredura municipal antiga", async () => {
-		const d = deps({ eleitos: vi.fn().mockResolvedValue(null) });
-		await buscarCandidatos({ ...base, nome: "Fulano de Tal", uf: "GO" }, d);
-		const logs = vi.mocked(d.status).mock.calls.map((c) => c[0]);
-		expect(logs).toContain("Buscando na malha Municipal (Prefeitos e Vereadores)...");
-	});
-
-	it("SP: a base substitui a busca da ALESP (que era só o TSE ao vivo)", async () => {
-		const d = deps({ eleitos: vi.fn().mockResolvedValue([{ nome: "ANDRE LUIS DO PRADO (ANDRE DO PRADO)", uf: "SP", ref: "ALESP:DEPUTADO_ESTADUAL:X:52998224725", casa: "ALESP" }]) });
+describe("buscarCandidatos (só nossas bases e fontes que respondem à Vercel)", () => {
+	it("deputado estadual de SP não vira parlamentar federal de nome parecido", async () => {
+		const d = deps({
+			senado: vi.fn().mockResolvedValue([{ id: 9, nome: "André Amaral", uf: "PB" }]),
+			alesp: vi.fn().mockResolvedValue([{ nome: "ANDRÉ DO PRADO", uf: "SP", ref: "ALESP:DEPUTADO_ESTADUAL:ANDRE:", cargo: "Deputado Estadual", casa: "ALESP" }]),
+		});
 		const r = await buscarCandidatos({ ...base, nome: "André do Prado", uf: "SP" }, d);
-		expect(d.alesp).not.toHaveBeenCalled();
-		expect(r.candidatos[0].casa).toBe("ALESP");
+		expect(r.candidatos[0].ref).toBe("ALESP:DEPUTADO_ESTADUAL:ANDRE:");
 	});
 
-	it("base fora do ar (null) ou sem resultado: segue o caminho antigo", async () => {
-		for (const resposta of [null, []]) {
-			const d = deps({ eleitos: vi.fn().mockResolvedValue(resposta) });
-			await buscarCandidatos({ ...base, nome: "Fulano de Tal", uf: "GO" }, d);
-			expect(d.tse).toHaveBeenCalledWith("Fulano de Tal", "GO", "7");
-			expect(d.municipal).toHaveBeenCalledWith("GO", "Fulano de Tal");
-		}
+	it("SP/RJ: base (com CPF) e lista da assembleia juntas — Bacellar, cassado e fora da base, aparece marcado", async () => {
+		const amorim = { nome: "RODRIGO AMORIM DOS SANTOS (RODRIGO AMORIM)", uf: "RJ", ref: "ALERJ:DEPUTADO_ESTADUAL:RODRIGO%20AMORIM%20DOS%20SANTOS:52998224725", casa: "ALERJ", cargo: "Deputado Estadual (RJ)" };
+		const d = deps({
+			eleitos: vi.fn().mockResolvedValue([amorim]),
+			alerj: vi.fn().mockResolvedValue([
+				{ nome: "RODRIGO DA SILVA BACELLAR (RODRIGO BACELLAR)", uf: "RJ", ref: "ALERJ:DEPUTADO_ESTADUAL:RODRIGO%20DA%20SILVA%20BACELLAR:", casa: "ALERJ", cargo: "Ex-deputado estadual (RJ) — sem verba de gabinete desde 03/2026", emExercicio: false },
+				{ nome: "RODRIGO AMORIM DOS SANTOS (RODRIGO AMORIM)", uf: "RJ", ref: "ALERJ:DEPUTADO_ESTADUAL:RODRIGO%20AMORIM%20DOS%20SANTOS:", casa: "ALERJ", cargo: "Deputado Estadual (RJ)" },
+			]),
+		});
+		const r = await buscarCandidatos({ ...base, nome: "Rodrigo", uf: "RJ" }, d);
+		expect(d.alerj).toHaveBeenCalledWith("Rodrigo");
+		expect(r.candidatos.map((c) => c.ref)).toEqual([amorim.ref, "ALERJ:DEPUTADO_ESTADUAL:RODRIGO%20DA%20SILVA%20BACELLAR:"]);
 	});
 
-	it("base que lança erro não derruba a busca", async () => {
-		const d = deps({ eleitos: vi.fn().mockRejectedValue(new Error("rede")), alesp: vi.fn().mockResolvedValue([{ nome: "X", ref: "ALESP:1", uf: "SP" }]) });
-		const r = await buscarCandidatos({ ...base, nome: "X", uf: "SP" }, d);
-		expect(r.candidatos[0].ref).toBe("ALESP:1");
+	it("vereador: vem da base de eleitos e o log diz que a busca cobre estado e município", async () => {
+		const vereador = { nome: "RAFAEL ALOISIO FREITAS", uf: "RJ", ref: "RJ:VEREADOR:rio-de-janeiro:SQ-1", casa: "CAMARA_MUNICIPAL_RJ" };
+		const d = deps({
+			camara: vi.fn().mockResolvedValue([{ id: 7, nome: "Rafael Prudente", uf: "RJ" }]),
+			eleitos: vi.fn().mockResolvedValue([vereador]),
+		});
+		const r = await buscarCandidatos({ ...base, nome: "Rafael Aloisio Freitas", uf: "RJ" }, d);
+		expect(d.eleitos).toHaveBeenCalledWith("Rafael Aloisio Freitas", "RJ", undefined);
+		expect(r.candidatos[0].ref).toBe("RJ:VEREADOR:rio-de-janeiro:SQ-1");
+		expect(vi.mocked(d.status).mock.calls.map((c) => c[0])).toEqual(["Buscando nas esferas Federal, Estadual e Municipal (RJ)..."]);
 	});
 
-	it("alçada FEDERAL explícita não consulta a base", async () => {
-		const d = deps({ eleitos: vi.fn().mockResolvedValue([vereadorGo]) });
-		await buscarCandidatos({ ...base, nome: "Fulano de Tal", uf: null, somenteFederal: true }, d);
+	it("alçada FEDERAL explícita não consulta a base nem as assembleias", async () => {
+		const d = deps({ camara: vi.fn().mockResolvedValue([{ id: 1, nome: "Fulano", uf: "SP" }]) });
+		await buscarCandidatos({ ...base, nome: "Fulano de Tal", uf: "SP", somenteFederal: true }, d);
 		expect(d.eleitos).not.toHaveBeenCalled();
+		expect(d.alesp).not.toHaveBeenCalled();
 	});
 
-	it("suplente não conta como mandato atual (fica atrás do eleito e não pula a varredura)", () => {
-		const lista = [
-			{ nome: "Fulano de Tal", ref: "ESTADUAL:GO:SQ-1", uf: "GO", suplente: true },
-			{ nome: "Fulano de Tal", ref: "GO:VEREADOR:goiania:SQ-2", uf: "GO" },
-		];
-		expect(ordenarCandidatos(lista, "Fulano de Tal", "GO")[0].ref).toBe("GO:VEREADOR:goiania:SQ-2");
-	});
-
-	it("prefeito pedido explicitamente: base com cargo 11 antes do TSE ao vivo", async () => {
+	it("prefeito pedido explicitamente: só a base, no cargo 11", async () => {
 		const prefeito = { nome: "SANDRO MABEL", uf: "GO", ref: "GO:PREFEITO:goiania:SQ-7", casa: "PREFEITURA" };
 		const d = deps({ eleitos: vi.fn().mockResolvedValue([prefeito]) });
 		const r = await buscarCandidatos({ ...base, cargo: "PREFEITO", nome: "Sandro Mabel", uf: "GO" }, d);
 		expect(d.eleitos).toHaveBeenCalledWith("Sandro Mabel", "GO", ["11"]);
-		expect(d.tse).not.toHaveBeenCalled();
+		expect(d.camara).not.toHaveBeenCalled();
 		expect(r.candidatos[0].ref).toBe("GO:PREFEITO:goiania:SQ-7");
-		// Achou na base: o aviso de busca ao vivo no TSE nem aparece.
-		expect(d.status).not.toHaveBeenCalled();
+	});
+
+	it("governador sugerido pela correção de nome ('tarcisio'): governador da UF na base", async () => {
+		const gov = { nome: "TARCISIO GOMES DE FREITAS", uf: "SP", ref: "GOVERNADOR:SP:TARCISIO GOMES DE FREITAS", casa: "GOVERNO_ESTADUAL" };
+		const eleitos = vi.fn().mockImplementation(async (_n: string, _uf: string | null, cargos?: string[]) => (cargos?.[0] === "3" ? [gov] : []));
+		const r = await buscarCandidatos({ ...base, nome: "tarcisio", uf: "SP", refGovernadorSugerida: "GOVERNADOR:SP:Tarcísio de Freitas" }, deps({ eleitos }));
+		expect(eleitos).toHaveBeenCalledWith("Tarcísio de Freitas", "SP", ["3"]);
+		expect(r.candidatos[0].ref).toBe(gov.ref);
+	});
+
+	it("base que lança erro não derruba a busca (a assembleia ainda responde)", async () => {
+		const d = deps({ eleitos: vi.fn().mockRejectedValue(new Error("rede")), alesp: vi.fn().mockResolvedValue([{ nome: "X", ref: "ALESP:1", uf: "SP", casa: "ALESP" }]) });
+		const r = await buscarCandidatos({ ...base, nome: "X", uf: "SP" }, d);
+		expect(r.candidatos[0].ref).toBe("ALESP:1");
 	});
 });

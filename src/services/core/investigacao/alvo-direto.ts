@@ -4,7 +4,7 @@
  * Formatos de ref em services/core/alvo-ref.ts.
  */
 import { buscarPolitico, buscarSenadoresLista } from "@/app/api/investigar/scrapers/legislativo";
-import { buscarCpfNoTSE } from "@/app/api/investigar/tse";
+import { legislaturaVigente } from "@/lib/janela-mandato";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
 import { cargoForaDoExercicio } from "@/services/integrations/assembleias/deputados-base";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
@@ -23,7 +23,7 @@ function nomeDigitado(e: Execucao): string {
 }
 
 function basicoFederal(e: Execucao, casa: Casa, id: string, nome: string, uf?: string) {
-	return { id, uri: URI_CASA[casa](id), nome, uf: uf || e.p.ufScope || "BR", idLegislatura: 57, casa };
+	return { id, uri: URI_CASA[casa](id), nome, uf: uf || e.p.ufScope || "BR", idLegislatura: legislaturaVigente(), casa };
 }
 
 function doIndice(id: string): any {
@@ -60,27 +60,15 @@ async function titularDaBase(cargoTipo: string, uf: string, nome: string): Promi
 	return { id: `${PREFIXO_SQ}${eleito.sq_candidato}`, uri: "", nome: eleito.nm_candidato, uf, idLegislatura: eleito.ano_eleicao, casa: CASA_EXECUTIVO[cargoTipo] };
 }
 
-/** GOVERNADOR|PREFEITO|PRESIDENTE:{UF}:{nome}: titular da base ou documento pelo TSE ao vivo. */
+/** GOVERNADOR|PREFEITO|PRESIDENTE:{UF}:{nome}: titular da base; sem ele, só o nome (sem TSE ao vivo). */
 async function executivo(e: Execucao, ref: string): Promise<any> {
 	const partes = ref.split(":");
 	const cargoTipo = partes[0];
 	const uf = partes.length >= 2 ? partes[1].toUpperCase() : "BR";
 	const nome = partes.length >= 3 ? partes[2] : e.p.nomeParaBusca;
-	// Tenta buscar o documento no TSE dinamicamente
-	status(e, `Buscando ${cargoTipo} "${nome}" na base eleitoral TSE...`);
+	status(e, `Buscando ${cargoTipo} "${nome}" na base de eleitos do TSE...`);
 	const daBase = await titularDaBase(cargoTipo, uf, nome);
-	if (daBase) return daBase;
-	const tseDados = await buscarCpfNoTSE(nome, uf, CARGO_TSE[cargoTipo]);
-	return {
-		id: tseDados?.documentoPrincipal?.replace(/\D/g, "") || nome,
-		uri: "",
-		nome: tseDados?.nome || nome,
-		uf,
-		idLegislatura: tseDados?.anoEleicao || 2023,
-		casa: CASA_EXECUTIVO[cargoTipo],
-		// Preserva os dados do TSE para o nó PESSOA
-		_tseResult: tseDados,
-	};
+	return daBase ?? { id: nome, uri: "", nome, uf, idLegislatura: legislaturaVigente(), casa: CASA_EXECUTIVO[cargoTipo] };
 }
 
 const EXECUTIVOS = /^(GOVERNADOR|PREFEITO|PRESIDENTE):/;

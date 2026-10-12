@@ -56,3 +56,14 @@ export async function buscarContasCampanha(sq: string | null | undefined, client
 	}
 	return { doadores: (d.data ?? []) as ContaCampanha[], fornecedores: (f.data ?? []) as ContaCampanha[] };
 }
+
+/**
+ * Documentos (CPF ou CNPJ, só dígitos, sem repetir) dos doadores da campanha, pelo número do
+ * candidato. Sem o número ou sem contas na base: [] — o TSE ao vivo recusa servidores de nuvem
+ * e não é consultado (12/10/2026).
+ */
+export async function doadoresDaCampanha(sq: string | null | undefined, cliente: ClienteSupabase = supabasePerfilAdmin): Promise<string[]> {
+	const contas = await buscarContasCampanha(sq, cliente).catch(() => null);
+	const documentos = (contas?.doadores ?? []).map((d) => String(d.documento ?? "").replace(/\D/g, "")).filter((d) => d.length === 11 || d.length === 14);
+	return [...new Set(documentos)];
+}

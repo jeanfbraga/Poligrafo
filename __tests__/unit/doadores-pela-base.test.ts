@@ -1,36 +1,38 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-afterEach(() => {
-	vi.doUnmock("@/services/integrations/tse/campanha");
-	vi.unstubAllGlobals();
-	vi.resetModules();
-});
+vi.mock("@/lib/supabase-perfil", () => ({ supabasePerfilAdmin: {} }));
 
-describe("doadores da campanha (a tabela antiga por nome foi aposentada)", () => {
-	it("com o número do candidato: vêm das contas de campanha no Banco de Perfil, sem chamar o TSE ao vivo", async () => {
-		const buscarContasCampanha = vi.fn(async () => ({
-			doadores: [
-				{ documento: "529.982.247-25" }, { documento: "52998224725" }, { documento: "" }, { documento: "11222333000181" },
-			],
-			fornecedores: [{ documento: "99888777000155" }],
-		}));
-		vi.doMock("@/services/integrations/tse/campanha", () => ({ buscarContasCampanha }));
+import { doadoresDaCampanha } from "@/services/integrations/tse/campanha";
+
+function cliente(doadores: { documento: string }[], erro: { message: string } | null = null) {
+	const consulta = (tipo: string) => ({
+		select: () => ({
+			eq: () => ({
+				eq: () => ({
+					order: () => ({ limit: async () => ({ data: tipo === "DOADOR" ? doadores : [], error: erro }) }),
+				}),
+			}),
+		}),
+	});
+	let chamadas = 0;
+	return { from: () => consulta(chamadas++ % 2 === 0 ? "DOADOR" : "FORNECEDOR") } as never;
+}
+
+describe("doadores da campanha (só a base; o TSE ao vivo saiu em 12/10/2026)", () => {
+	it("pelo número do candidato: CPF e CNPJ só com dígitos, sem repetir e sem documento vazio", async () => {
 		const fetchFn = vi.fn();
 		vi.stubGlobal("fetch", fetchFn);
-		const { buscarDoadoresTSE } = await import("../../src/app/api/investigar/tse");
-		expect(await buscarDoadoresTSE("FULANO", "MG", "6", "2040602022", "130001234567")).toEqual(["52998224725", "11222333000181"]);
-		expect(buscarContasCampanha).toHaveBeenCalledWith("130001234567");
+		const docs = [{ documento: "529.982.247-25" }, { documento: "52998224725" }, { documento: "" }, { documento: "11222333000181" }];
+		expect(await doadoresDaCampanha("130001234567", cliente(docs))).toEqual(["52998224725", "11222333000181"]);
 		expect(fetchFn).not.toHaveBeenCalled();
+		vi.unstubAllGlobals();
 	});
 
-	it("sem número do candidato: não consulta a base e segue para o TSE ao vivo (sem cache por nome)", async () => {
-		const buscarContasCampanha = vi.fn();
-		vi.doMock("@/services/integrations/tse/campanha", () => ({ buscarContasCampanha }));
-		const fetchFn = vi.fn(async () => new Response("bloqueado", { status: 403 }));
-		vi.stubGlobal("fetch", fetchFn);
-		const { buscarDoadoresTSE } = await import("../../src/app/api/investigar/tse");
-		expect(await buscarDoadoresTSE("FULANO", "MG")).toEqual([]);
-		expect(buscarContasCampanha).not.toHaveBeenCalled();
-		expect(String(fetchFn.mock.calls[0]?.[0])).toContain("divulgacandcontas.tse.jus.br");
+	it("sem número do candidato ou com a base fora do ar: lista vazia, sem consulta ao vivo", async () => {
+		const aviso = vi.spyOn(console, "warn").mockImplementation(() => {});
+		expect(await doadoresDaCampanha(null, cliente([]))).toEqual([]);
+		expect(await doadoresDaCampanha("1", cliente([], { message: "timeout" }))).toEqual([]);
+		expect(aviso).toHaveBeenCalledWith("[TSE CAMPANHA] Base indisponível (timeout); seguindo sem ela.");
+		aviso.mockRestore();
 	});
 });

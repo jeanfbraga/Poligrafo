@@ -3,15 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
 
-import * as tseModule from "../../tse";
-import {
-	buscarDeputadoEstadualSP,
-	buscarDespesasDeputadoEstadualSP,
-} from "./alesp";
-
-vi.mock("../../tse", () => ({
-	buscarCpfNoTSE: vi.fn(),
-}));
+import { buscarDespesasDeputadoEstadualSP } from "./alesp";
 
 // Estes testes cobrem a leitura ao vivo do XML (reserva): a base alesp_despesas fica "fora do ar".
 vi.mock("@/services/integrations/alesp/despesas-base", () => ({
@@ -61,40 +53,6 @@ function blocoDespesa(
 describe("Módulo de Extração: ALESP", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-	});
-
-	describe("buscarDeputadoEstadualSP", () => {
-		it("deve retornar DEPUTADO_ESTADUAL e formatar a ref corretamente se encontrado no TSE", async () => {
-			vi.mocked(tseModule.buscarCpfNoTSE).mockResolvedValueOnce({
-				cpf: "99988877766",
-				nome: "EDUARDO",
-				documentoPrincipal: "99988877766",
-				isCnpj: false,
-				idUe: "71072",
-				municipio: "sao-paulo",
-			});
-
-			const resultados = await buscarDeputadoEstadualSP("Eduardo");
-
-			expect(resultados).toHaveLength(1);
-			expect(resultados[0].ref).toBe(
-				"ALESP:DEPUTADO_ESTADUAL:EDUARDO:99988877766",
-			);
-			expect(resultados[0].casa).toBe("ALESP");
-			expect(tseModule.buscarCpfNoTSE).toHaveBeenCalledWith(
-				"eduardo",
-				"SP",
-				"7",
-			);
-		});
-
-		it("deve retornar vazio se o político não for encontrado no TSE", async () => {
-			vi.mocked(tseModule.buscarCpfNoTSE).mockResolvedValue(null);
-
-			const resultados = await buscarDeputadoEstadualSP("Desconhecido Silva");
-
-			expect(resultados).toHaveLength(0);
-		});
 	});
 
 	describe("buscarDespesasDeputadoEstadualSP", () => {

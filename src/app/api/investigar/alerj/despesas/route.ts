@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/api-rate-limit";
 import { analisarLoteComInteligencia } from "../../ai_helpers";
+import { doadoresDaCampanha } from "@/services/integrations/tse/campanha";
+import { buscarEleitoDoAlvo } from "@/services/integrations/tse/eleitos";
 import { buscarDespesasDeputadoEstadualRJ } from "../../estados/rj/alerj";
-import { buscarDoadoresTSE } from "../../tse";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
+
+/** Doadores pelo número do candidato na base de eleitos (nome exato + cargo + UF, resultado único). */
+async function doadoresDoDeputadoRJ(nome: string): Promise<string[]> {
+	const eleito = await buscarEleitoDoAlvo({ id: null, nome, uf: "RJ", cargoTse: "7" }).catch(() => null);
+	return doadoresDaCampanha(eleito?.sq_candidato);
+}
 
 export async function GET(request: Request) {
 	// Proteção de entrada: esta rota dispara scraper Playwright (headless browser)
@@ -79,7 +86,7 @@ export async function GET(request: Request) {
 				sendEvent("STATUS", {
 					msg: `Recuperando doadores de campanha para triagem heurística...`,
 				});
-				const doadores = await buscarDoadoresTSE(nome, "RJ");
+				const doadores = await doadoresDoDeputadoRJ(nome);
 
 				// 3. Aplica o Gemini
 				sendEvent("STATUS", {

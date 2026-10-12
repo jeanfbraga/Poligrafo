@@ -39,23 +39,26 @@ describe('TSE Histórico Client Supabase', () => {
     expect(result).toEqual([]);
   });
 
-  it('should return historico de bens por nome', async () => {
+  it('por nome: só o nome completo idêntico (o nome de urna curto não basta)', async () => {
+    const linhas = [{ cpf_candidato: '12345678900', nome_candidato: 'MARIO LUIS FRIAS', ano_eleicao: 2022, valor_total: 500000 }];
     supabaseAdmin.from.mockReturnValue({
       select: vi.fn().mockReturnValue({
         ilike: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValueOnce({
-            data: [{ cpf_candidato: '12345678900', nome_candidato: 'MARIO LUIS FRIAS', ano_eleicao: 2022, valor_total: 500000 }],
-            error: null,
-          }),
-        }),
+        order: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue({ data: linhas, error: null }) }),
       }),
     } as any);
 
     const { buscarBensPorNomeTSE } = await import('../../src/services/integrations/tse/bens');
-    const result = await buscarBensPorNomeTSE('Mario Frias');
-    expect(result).toHaveLength(1);
-    expect(result[0].nome_candidato).toBe('MARIO LUIS FRIAS');
+    expect(await buscarBensPorNomeTSE('Mario Frias')).toEqual([]);
+    expect(await buscarBensPorNomeTSE('Mário Luís Frias')).toEqual(linhas);
+  });
+
+  it('por nome: dois CPFs com o mesmo nome completo (homônimos) = nada, para não misturar patrimônios', async () => {
+    const { bensDeUmaPessoa } = await import('../../src/services/integrations/tse/bens');
+    const a = { cpf_candidato: '11111111111', nome_candidato: 'JOSE DA SILVA', ano_eleicao: 2022, valor_total: 1, descricao_bens: [] };
+    const b = { ...a, cpf_candidato: '22222222222' };
+    expect(bensDeUmaPessoa([a, b], 'José da Silva')).toEqual([]);
+    expect(bensDeUmaPessoa([a, { ...a, ano_eleicao: 2018 }], 'José da Silva')).toHaveLength(2);
   });
 });
 

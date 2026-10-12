@@ -1,31 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { buscarMunicipalMestre, buscarDespesasMunicipalMestre } from '../../src/app/api/investigar/municipios/router';
+import * as roteador from '../../src/app/api/investigar/municipios/router';
 import * as aracajuModule from '../../src/app/api/investigar/estados/se/aracaju';
+
+const { buscarDespesasMunicipalMestre } = roteador;
 
 describe('Municipal Router: Sergipe & Aracaju (SE)', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 	});
 
-	it('deve rotear UF=SE para buscarMunicipalSE no buscarMunicipalMestre', async () => {
-		const mockCandidato = {
-			ref: 'SE:VEREADOR:aracaju:12345678900',
-			id: '12345678900',
-			nome: 'ELBER BATALHA',
-			cargo: 'Vereador em ARACAJU',
-			uf: 'SE',
-			casa: 'CAMARA_MUNICIPAL' as const,
-			uri: 'aracaju'
-		};
-
-		const spy = vi.spyOn(aracajuModule, 'buscarMunicipalSE').mockResolvedValueOnce([mockCandidato]);
-
-		const resultado = await buscarMunicipalMestre('SE', 'Elber Batalha');
-
-		expect(spy).toHaveBeenCalledWith('Elber Batalha');
-		expect(resultado).toHaveLength(1);
-		expect(resultado[0].nome).toBe('ELBER BATALHA');
-		expect(resultado[0].casa).toBe('CAMARA_MUNICIPAL');
+	it('a varredura de municípios no TSE ao vivo saiu (o vereador vem da base de eleitos)', () => {
+		expect('buscarMunicipalMestre' in roteador).toBe(false);
+		expect('buscarMunicipalSE' in aracajuModule).toBe(false);
 	});
 
 	it('deve rotear UF=SE para buscarDespesasAracaju no buscarDespesasMunicipalMestre', async () => {

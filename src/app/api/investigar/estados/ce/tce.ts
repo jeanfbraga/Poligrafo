@@ -1,62 +1,9 @@
 import { buscarProxyOsint } from "../../proxy_osint";
-import { buscarCpfNoTSE, fetchWithTimeout } from "../../tse";
+import { fetchWithTimeout } from "../../tse";
 
 // ==========================================
 // Extrator NATIVO: TCE Ceará (CE)
 // ==========================================
-
-export async function buscarMunicipalCE(nomeBuscado: string): Promise<
-	{
-		ref: string;
-		id: string;
-		nome: string;
-		cargo: string;
-		uf: string;
-		isCnpj?: boolean;
-		casa: "CAMARA_MUNICIPAL" | "PREFEITURA";
-	}[]
-> {
-	const termo = nomeBuscado.toLowerCase().trim();
-	console.log(
-		`[>> MUNICIPAL CE ENTRY] buscarMunicipalCE chamado para: ${nomeBuscado}`,
-	);
-	const resultados: any[] = [];
-
-	// Tenta achar Vereador (13)
-	let tseResult = await buscarCpfNoTSE(termo, "CE", "13");
-	let tipoCargo: "CAMARA_MUNICIPAL" | "PREFEITURA" = "CAMARA_MUNICIPAL";
-	let tituloCargo = "Vereador";
-
-	if (!tseResult) {
-		// Tenta achar Prefeito (11)
-		tseResult = await buscarCpfNoTSE(termo, "CE", "11");
-		if (tseResult) {
-			tipoCargo = "PREFEITURA";
-			tituloCargo = "Prefeito";
-		}
-	}
-
-	if (tseResult) {
-		const nomeCompleto =
-			tseResult.nome?.toUpperCase() || nomeBuscado.toUpperCase();
-		const nomeUrna = (tseResult as any).nomeUrna?.toUpperCase() || null;
-		const nomeExibicao =
-			nomeUrna && nomeUrna !== nomeCompleto
-				? `${nomeCompleto} (${nomeUrna})`
-				: nomeCompleto;
-		resultados.push({
-			ref: `CE:${tituloCargo.toUpperCase()}:${tseResult.municipio}:${tseResult.documentoPrincipal}`,
-			id: tseResult.documentoPrincipal,
-			nome: nomeExibicao,
-			cargo: `${tituloCargo} em ${tseResult.municipio.replace(/-/g, " ").toUpperCase()}`,
-			uf: "CE",
-			isCnpj: tseResult.isCnpj,
-			casa: tipoCargo,
-		});
-	}
-
-	return resultados;
-}
 
 const API_BASE = "https://dados.tce.ce.gov.br/api";
 const TIMEOUT_CEARA = 15000;

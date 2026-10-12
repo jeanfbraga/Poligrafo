@@ -3,12 +3,13 @@
  * TSE por scripts/etl/tse-eleitos-sync.ts. Ver nota 31 do Obsidian.
  *
  * Serve para achar prefeitos, vereadores, deputados estaduais e governadores
- * das 27 UFs numa consulta só, sem varrer centenas de municípios no
- * DivulgaCand (que bloqueou o IP local com 403 em 06/10/2026).
+ * das 27 UFs numa consulta só. É a fonte de identidade eleitoral do Polígrafo:
+ * o DivulgaCand do TSE ao vivo recusa servidores de nuvem e não é consultado.
  *
- * Base fora do ar ou tabela ainda não criada (migração não rodada): as funções
- * devolvem null e o pipe segue pelo caminho antigo.
+ * Base fora do ar: as funções devolvem null e quem chama avisa que a busca
+ * falhou (não confundir com "fora da janela de mandato").
  */
+import { naJanela } from "@/lib/janela-mandato";
 import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
 import { cpfValido, soDigitos } from "@/lib/documento";
 import { casaDoVereador } from "@/services/core/alcada";
@@ -80,7 +81,7 @@ function avisar(mensagem: string) {
  */
 export async function buscarEleitosPorNome(
 	nome: string,
-	opcoes: { uf?: string | null; cargos?: string[] } = {},
+	opcoes: { uf?: string | null; cargos?: string[]; semSuplentes?: boolean } = {},
 	cliente: ClienteSupabase = supabasePerfilAdmin,
 ): Promise<Eleito[] | null> {
 	const palavras = palavrasBusca(nome);
@@ -88,6 +89,8 @@ export async function buscarEleitosPorNome(
 	let consulta = cliente.from("tse_eleitos").select(COLUNAS).in("cd_cargo", opcoes.cargos ?? CARGOS_BUSCA);
 	for (const p of palavras) consulta = consulta.filter("nomes_busca", "imatch", `\\m${p}\\M`);
 	if (ufValida(opcoes.uf)) consulta = consulta.eq("sg_uf", opcoes.uf);
+	// Os 14 mil suplentes de 2022 ocupariam o limite da busca e esconderiam os eleitos.
+	if (opcoes.semSuplentes) consulta = consulta.not("ds_sit_tot_turno", "ilike", "%SUPLENTE%");
 	const { data, error } = await consulta.order("ano_eleicao", { ascending: false }).limit(LIMITE_BUSCA);
 	if (error) {
 		avisar(error.message);
@@ -155,14 +158,25 @@ export async function titularDoCargo(
 	cliente: ClienteSupabase = supabasePerfilAdmin,
 ): Promise<Eleito | null> {
 	if (!CARGOS_TITULAR_UNICO.has(cargo)) return null;
+	const lista = await titularesDaBase(cargo, uf, cliente);
+	return lista ? escolherTitular(cargo, lista, nome) : null;
+}
+
+/** Titulares do cargo, do mais recente para o mais antigo (governador: só a UF). null = base fora. */
+async function titularesDaBase(cargo: string, uf: string | null, cliente: ClienteSupabase): Promise<Eleito[] | null> {
 	let consulta = cliente.from("tse_eleitos").select(COLUNAS).eq("cd_cargo", cargo);
 	if (cargo === "3") consulta = consulta.eq("sg_uf", ufValida(uf) ? uf : "--");
-	const { data, error } = await consulta.order("ano_eleicao", { ascending: false }).limit(5);
+	const { data, error } = await consulta.order("ano_eleicao", { ascending: false }).limit(cargo === "1" ? 20 : 5);
 	if (error) {
 		avisar(error.message);
 		return null;
 	}
-	const lista = (data ?? []) as unknown as Eleito[];
+	return (data ?? []) as unknown as Eleito[];
+}
+
+function escolherTitular(cargo: string, lista: Eleito[], nome: string): Eleito | null {
+	// Presidentes ficam sempre (janela-mandato.ts): o ex-presidente é o titular da eleição que venceu.
+	if (cargo === "1") return lista.find((e) => nomeCompativel(e, nome)) ?? null;
 	const daUltima = lista.filter((e) => e.ano_eleicao === lista[0]?.ano_eleicao);
 	return daUltima.length === 1 && nomeCompativel(daUltima[0], nome) ? daUltima[0] : null;
 }
@@ -258,9 +272,17 @@ export function eleitoParaCandidato(e: Eleito): Candidato | null {
 	};
 }
 
-/** Dependência `eleitos` da busca de candidatos. null = base indisponível. */
+/** Mandato no período atual (janela-mandato.ts) e não suplente: quem a busca pode mostrar. */
+export function eleitoNaJanela(e: Eleito, agora: Date = new Date()): boolean {
+	return naJanela(Number(e.cd_cargo), e.ano_eleicao, agora) && !/suplente/i.test(e.ds_sit_tot_turno ?? "");
+}
+
+/** Dependência `eleitos` da busca de candidatos, só com quem está na janela. null = base indisponível. */
 export async function candidatosDaBaseEleitos(nome: string, uf: string | null, cargos?: string[]): Promise<Candidato[] | null> {
-	const eleitos = await buscarEleitosPorNome(nome, { uf, cargos });
+	const eleitos = await buscarEleitosPorNome(nome, { uf, cargos, semSuplentes: true });
 	if (eleitos === null) return null;
-	return eleitos.map(eleitoParaCandidato).filter((c): c is Candidato => c !== null);
+	return eleitos
+		.filter((e) => eleitoNaJanela(e))
+		.map(eleitoParaCandidato)
+		.filter((c): c is Candidato => c !== null);
 }

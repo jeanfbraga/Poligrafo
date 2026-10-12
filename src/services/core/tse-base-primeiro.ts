@@ -1,12 +1,13 @@
 /**
- * Identificação eleitoral do alvo lendo PRIMEIRO as nossas bases (eleitos + patrimônio) e só
- * depois, se faltar, o DivulgaCand do TSE ao vivo. Fora da função legada do investigador.
+ * Identificação eleitoral do alvo pelas nossas bases (eleitos + patrimônio). O DivulgaCand
+ * do TSE ao vivo recusa servidores de nuvem (Vercel em iad1 e gru1) e saiu em 12/10/2026:
+ * sem o eleito na base, o alvo segue sem dados do TSE (não há consulta que responda).
  *
  * Senador: a base acha o eleito só pelo nome de urna (o Senado não publica CPF), e eleito
  * achado por nome não tem o CPF adotado. O nome civil oficial do Senado igual ao do eleito
- * confirma a pessoa. Sem isso o CPF só vinha do DivulgaCand, que recusa a Vercel (403).
+ * confirma a pessoa.
  */
-import { buscarCpfNoTSE, type TseCandidateResult } from "@/app/api/investigar/tse";
+import type { TseCandidateResult } from "@/app/api/investigar/tse";
 import { nomeCivilDoSenador } from "@/services/integrations/senado/nome-civil";
 import { buscarEleitoDoAlvo, confirmarPeloNomeCivil, type AlvoEleito, type EleitoDoAlvo } from "@/services/integrations/tse/eleitos";
 import { tseDaBase } from "@/services/integrations/tse/tse-da-base";
@@ -23,14 +24,12 @@ export interface ConsultaTseDoAlvo {
 export interface DependenciasTse {
 	buscarEleito: (alvo: AlvoEleito) => Promise<EleitoDoAlvo | null>;
 	daBase: (eleito: EleitoDoAlvo | null) => Promise<TseCandidateResult | null>;
-	aoVivo: typeof buscarCpfNoTSE;
 	nomeCivilSenador: (id: unknown) => Promise<string | null>;
 }
 
 const PADRAO: DependenciasTse = {
 	buscarEleito: buscarEleitoDoAlvo,
 	daBase: tseDaBase,
-	aoVivo: buscarCpfNoTSE,
 	nomeCivilSenador: (id) => nomeCivilDoSenador(id),
 };
 
@@ -57,11 +56,10 @@ export async function dadosTseDoAlvo(
 	const eleito = await eleitoDoAlvo(consulta, deps);
 	const daBase = await deps.daBase(eleito).catch(() => null);
 	if (daBase) {
-		sendEvent("STATUS", { msg: "[TSE] Dados eleitorais e patrimônio lidos da nossa base (sem consultar o site do TSE)." });
+		sendEvent("STATUS", { msg: "[TSE] Dados eleitorais e patrimônio lidos da nossa base (arquivos oficiais do TSE)." });
 		emitirEtapa(sendEvent, { fonte: "tse", estado: "concluida", origem: ORIGEM_BASE, detalhe: detalheDaBase(daBase) });
 		return { tseResult: daBase, eleito };
 	}
-	const { nome, uf, cargoTse } = consulta.alvo;
-	const aoVivo = await deps.aoVivo(nome, uf, cargoTse, consulta.nomeCivil, consulta.municipio);
-	return { tseResult: aoVivo, eleito };
+	emitirEtapa(sendEvent, { fonte: "tse", estado: "vazia", origem: ORIGEM_BASE, detalhe: "Sem eleito correspondente na base do TSE" });
+	return { tseResult: null, eleito };
 }

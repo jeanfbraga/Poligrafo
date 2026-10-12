@@ -53,6 +53,8 @@ export interface DossieState {
 	evidencias: DossieNode[];
 	warnings: ApiWarning[];
 	candidatos: Candidato[] | null;
+	/** Busca sem ninguém com mandato no período atual: a tela explica a regra (não é falha). */
+	naoEncontrado: { termo: string } | null;
 	erro: string;
 	status: JobStatus;
 	mensagem: string;
@@ -75,6 +77,7 @@ export const DOSSIE_VAZIO: DossieState = {
 	evidencias: [],
 	warnings: [],
 	candidatos: null,
+	naoEncontrado: null,
 	erro: "",
 	status: "idle",
 	mensagem: "",
@@ -300,6 +303,13 @@ const aoCandidatos: Manipulador = (s, p) => ({
 	candidatos: Array.isArray(p?.candidatos) ? (p.candidatos as Candidato[]) : null,
 });
 
+/** Ninguém com mandato no período atual com esse nome (modo-busca.ts). */
+const aoNaoEncontrado: Manipulador = (s, p) => ({
+	...finalizarBusca(s),
+	naoEncontrado: { termo: String(p?.termo ?? "") },
+	status: "done",
+});
+
 const aoDone: Manipulador = (s, p) => ({
 	...finalizarBusca(s),
 	mensagem: p?.msg ? String(p.msg) : s.mensagem,
@@ -352,6 +362,7 @@ const MANIPULADORES: Record<string, Manipulador> = {
 	ERROR: aoErro,
 	API_WARNING: aoAvisoApi,
 	CANDIDATOS_ENCONTRADOS: aoCandidatos,
+	NAO_ENCONTRADO: aoNaoEncontrado,
 	DONE: aoDone,
 	NODE_NOVO: aoNodeNovo,
 	ADD_ALERT: aoAlerta,

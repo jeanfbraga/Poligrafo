@@ -157,9 +157,20 @@ function aplicarSinal(atual: SinaisFonte, ev: EventoEtapa): SinaisFonte {
 
 const SINAIS_VAZIOS: SinaisFonte = { respondeu: [], falhou: [], lenta: [] };
 
+/**
+ * Consultas ao vivo aposentadas: o DivulgaCand do TSE recusava os servidores de nuvem e saiu
+ * em 12/10/2026. Dossiês guardados antes disso ainda trazem a falha dele; não vira aviso.
+ */
+const ORIGENS_APOSENTADAS = new Set(["TSE (Justiça Eleitoral)"]);
+
+function etapaValida(ev: EventoEtapa): boolean {
+	if (!ev?.fonte || !FONTES.some((f) => f.id === ev.fonte)) return false;
+	return !ORIGENS_APOSENTADAS.has(ev.origem ?? "");
+}
+
 /** Registra um evento ETAPA do servidor. */
 export function registrarEtapa(prev: EtapasState, ev: EventoEtapa): EtapasState {
-	if (!ev?.fonte || !FONTES.some((f) => f.id === ev.fonte)) return prev;
+	if (!etapaValida(ev)) return prev;
 	const contador = prev.contador + 1;
 	const ativa = ev.estado === "consultando" || ev.estado === "lenta";
 	return comPico(prev, {

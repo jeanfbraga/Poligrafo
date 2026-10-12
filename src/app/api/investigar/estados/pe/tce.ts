@@ -1,4 +1,4 @@
-import { buscarCpfNoTSE, fetchWithTimeout } from "../../tse";
+import { fetchWithTimeout } from "../../tse";
 
 // ==========================================
 // Extrator NATIVO: TCE Pernambuco
@@ -129,61 +129,6 @@ function mapearContratoPE(c: LinhaContratoPE) {
 		dataDocumento: `${c.AnoContrato || new Date().getFullYear()}-01-01`,
 		urlDocumento: c.LinkArquivo || "https://sistemas.tce.pe.gov.br/",
 	};
-}
-
-export async function buscarMunicipalPE(nomeBuscado: string): Promise<
-	{
-		ref: string;
-		id: string;
-		nome: string;
-		cargo: string;
-		uf: string;
-		isCnpj?: boolean;
-		casa: "CAMARA_MUNICIPAL" | "PREFEITURA";
-		uri?: string;
-	}[]
-> {
-	const termo = nomeBuscado.toLowerCase().trim();
-	console.log(
-		`[>> MUNICIPAL PE ENTRY] buscarMunicipalPE chamado para: ${nomeBuscado}`,
-	);
-	const resultados: any[] = [];
-
-	// Tenta achar Vereador (13)
-	let tseResult = await buscarCpfNoTSE(termo, "PE", "13");
-	let tipoCargo: "CAMARA_MUNICIPAL" | "PREFEITURA" = "CAMARA_MUNICIPAL";
-	let tituloCargo = "Vereador";
-
-	if (!tseResult) {
-		// Tenta achar Prefeito (11)
-		tseResult = await buscarCpfNoTSE(termo, "PE", "11");
-		if (tseResult) {
-			tipoCargo = "PREFEITURA";
-			tituloCargo = "Prefeito";
-		}
-	}
-
-	if (tseResult) {
-		const nomeCompleto =
-			tseResult.nome?.toUpperCase() || nomeBuscado.toUpperCase();
-		const nomeUrna = (tseResult as any).nomeUrna?.toUpperCase() || null;
-		const nomeExibicao =
-			nomeUrna && nomeUrna !== nomeCompleto
-				? `${nomeCompleto} (${nomeUrna})`
-				: nomeCompleto;
-		resultados.push({
-			ref: `PE:${tituloCargo.toUpperCase()}:${tseResult.municipio}:${tseResult.documentoPrincipal}`,
-			id: tseResult.documentoPrincipal,
-			nome: nomeExibicao,
-			cargo: `${tituloCargo} em ${tseResult.municipio.replace(/-/g, " ").toUpperCase()}`,
-			uf: "PE",
-			isCnpj: tseResult.isCnpj,
-			casa: tipoCargo,
-			uri: tseResult.municipio,
-		});
-	}
-
-	return resultados;
 }
 
 export async function buscarDespesasMunicipalPE(

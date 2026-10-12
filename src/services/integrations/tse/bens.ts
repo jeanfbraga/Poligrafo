@@ -46,12 +46,31 @@ export async function buscarBensHistoricoTSE(
 	}
 }
 
+const nomeNormalizado = (n: string | undefined) =>
+	String(n ?? "")
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.toUpperCase()
+		.replace(/\s+/g, " ")
+		.trim();
+
+/**
+ * Sem CPF (ex.: deputado da ALERJ cassado, que saiu da base de eleitos): só o NOME COMPLETO
+ * idêntico e um CPF só entre as linhas achadas. A busca antiga juntava linhas de pessoas
+ * diferentes que tinham as 3 primeiras palavras do nome (homônimos) — 12/10/2026.
+ */
+export function bensDeUmaPessoa(linhas: TseBensHistorico[], nome: string): TseBensHistorico[] {
+	const alvo = nomeNormalizado(nome);
+	const iguais = linhas.filter((l) => nomeNormalizado(l.nome_candidato) === alvo);
+	return new Set(iguais.map((l) => l.cpf_candidato)).size === 1 ? iguais : [];
+}
+
 export async function buscarBensPorNomeTSE(
 	nome: string,
 ): Promise<TseBensHistorico[]> {
 	try {
 		const tokens = extrairTokensBusca(nome);
-		if (tokens.length === 0) return [];
+		if (tokens.length < 2) return [];
 
 		let query = supabaseAdmin.from("tse_bens_historico").select("*");
 		for (const token of tokens) {
@@ -63,7 +82,7 @@ export async function buscarBensPorNomeTSE(
 			.limit(10);
 
 		if (error) throw error;
-		return data || [];
+		return bensDeUmaPessoa(data || [], nome);
 	} catch (e: any) {
 		console.warn(
 			"[TSE] Erro ao buscar bens por nome no Supabase:",

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/api-rate-limit";
-import { buscarCpfNoTSE } from "@/app/api/investigar/tse";
 
 import presidentesTse from "@/services/integrations/data/presidentes.json";
 import { supabaseAdmin } from "@/lib/supabase-admin";

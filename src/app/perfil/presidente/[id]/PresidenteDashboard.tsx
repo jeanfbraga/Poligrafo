@@ -17,13 +17,12 @@ const ITENS_POR_PAGINA = 50;
 
 function Foto({ perfil, tse }: { perfil: Dados; tse: Dados }) {
 	const [falhou, setFalhou] = useState(false);
-	const url = tse?.fotoUrl
-		? `/api/proxy-image?url=${encodeURIComponent(tse.fotoUrl)}&raw=true`
-		: `/api/proxy-image?url=${encodeURIComponent(`https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/img/${tse?.idEleicao}/${tse?.idTse}/${tse?.idUe}`)}&raw=true`;
+	// Foto guardada no nosso armazenamento (presidentes.json); o TSE ao vivo recusa servidores de nuvem.
+	const url = `/api/proxy-image?url=${encodeURIComponent(tse?.fotoUrl ?? "")}&raw=true`;
 	return (
 		<div className="pg-photo">
 			<Corners />
-			{tse?.idTse && !falhou ? (
+			{tse?.fotoUrl && !falhou ? (
 				// eslint-disable-next-line @next/next/no-img-element
 				<img src={url} alt={perfil.nome} onError={() => setFalhou(true)} />
 			) : (

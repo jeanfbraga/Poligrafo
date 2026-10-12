@@ -48,6 +48,7 @@ function mesclarPerfilComIndex(perfilData: any, info: any) {
 import { fetchWithTimeout } from "@/app/api/investigar/tse";
 import { type MandatoHistorico, mandatoDoHistorico } from "@/lib/mandato";
 import { ehTipoDeProducao, filtroTiposCamara, TIPOS_PRODUCAO } from "@/lib/producao-tipos";
+import { cpfValido } from "@/lib/documento";
 
 /** Fatos do mandato (posse, retorno, saída, origem) a partir do histórico da Câmara; a tela decide o texto (lib/mandato.ts). */
 function camposDoMandato(mandato: MandatoHistorico) {
@@ -283,67 +284,21 @@ function montarRespostaBensHistorico(bens: any[]) {
   };
 }
 
+/**
+ * Bens declarados ao TSE pela nossa base, só pelo CPF que a Câmara publica. Sem o TSE ao vivo
+ * (recusa servidores de nuvem) e sem procurar pelo nome, que trazia bens de homônimo (12/10/2026).
+ */
 async function buscarBensBancoPerfil(perfil: any): Promise<any[]> {
-  const { buscarBensHistoricoTSE, buscarBensPorNomeTSE } = await import(
-    "@/services/integrations/tse/bens"
-  );
   const cpf = perfil?.cpf ? String(perfil.cpf).replace(/\D/g, "") : null;
-  if (cpf && cpf.length === 11 && cpf !== "00000000000") {
-    const porCpf = await buscarBensHistoricoTSE(cpf);
-    if (porCpf.length > 0) return porCpf;
-  }
-  if (perfil?.nome_civil) {
-    const porCivil = await buscarBensPorNomeTSE(perfil.nome_civil);
-    if (porCivil.length > 0) return porCivil;
-  }
-  if (perfil?.nome_eleitoral) {
-    return buscarBensPorNomeTSE(perfil.nome_eleitoral);
-  }
-  return [];
-}
-
-function extrairCpfPerfil(perfil: any, liveTse: any): string | null {
-  const raw = perfil?.cpf || liveTse?.documentoPrincipal;
-  const clean = raw ? String(raw).replace(/\D/g, "") : "";
-  return clean && clean.length === 11 && clean !== "00000000000" ? clean : null;
-}
-
-function montarRespostaTseLivePerfil(liveTse: any) {
-  return {
-    patrimonioTotal: liveTse.patrimonioTotal,
-    anoEleicao: liveTse.anoEleicao || 2026,
-    bensDeclarados: liveTse.bensDeclarados || [],
-    patrimonioAnterior: liveTse.patrimonioAnterior,
-    anoPatrimonioAnterior: liveTse.anoPatrimonioAnterior,
-    variacaoPatrimonio: liveTse.variacaoPatrimonio,
-    variacaoPatrimonioPercentual: liveTse.variacaoPatrimonioPercentual,
-    historicoPatrimonio: liveTse.historicoPatrimonio || [],
-  };
-}
-
-async function consultarTseLiveParaPerfil(perfil: any): Promise<any | null> {
-  const { buscarCpfNoTSE } = await import("@/app/api/investigar/tse");
-  const { persistirBensHistoricosTSE } = await import("@/services/integrations/tse/bens");
-  const nomeBusca = perfil?.nome_eleitoral || perfil?.nome_civil || "";
-  const nomeSecundario = perfil?.nome_civil || undefined;
-  const uf = perfil?.uf || "BR";
-
-  const liveTse = await buscarCpfNoTSE(nomeBusca, uf, "6", nomeSecundario);
-  if (!liveTse?.patrimonioTotal || liveTse.patrimonioTotal <= 0) return null;
-
-  const cpf = extrairCpfPerfil(perfil, liveTse);
-  if (cpf) {
-    void persistirBensHistoricosTSE(cpf, nomeBusca, liveTse);
-  }
-
-  return montarRespostaTseLivePerfil(liveTse);
+  if (!cpf || !cpfValido(cpf)) return [];
+  const { buscarBensHistoricoTSE } = await import("@/services/integrations/tse/bens");
+  return buscarBensHistoricoTSE(cpf);
 }
 
 async function buscarPatrimonioTseDeputado(perfil: any): Promise<any | null> {
   try {
     const bens = await buscarBensBancoPerfil(perfil);
-    if (bens.length > 0) return montarRespostaBensHistorico(bens);
-    return await consultarTseLiveParaPerfil(perfil);
+    return bens.length > 0 ? montarRespostaBensHistorico(bens) : null;
   } catch (err) {
     console.warn("[API Perfil Deputado] Erro ao buscar dados do TSE:", err);
     return null;

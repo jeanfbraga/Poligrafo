@@ -1,44 +1,14 @@
 import { buscarDespesasAlerjDaBase } from "@/services/integrations/alerj/despesas-base";
-import { deputadosDaAssembleiaNaBase, juntarCandidatosEstaduais } from "@/services/integrations/assembleias/deputados-base";
-import { buscarCpfNoTSE } from "../../tse";
+import { type CandidatoAssembleia, deputadosDaAssembleiaNaBase } from "@/services/integrations/assembleias/deputados-base";
 
 const DOCIGP_BASE = "https://docigp.alerj.rj.gov.br/api/v1";
 
-export async function buscarDeputadoEstadualRJ(nomeBuscado: string): Promise<
-	{
-		ref: string;
-		id: string;
-		nome: string;
-		cargo: string;
-		uf: string;
-		casa: "ALERJ";
-	}[]
-> {
-	const termo = nomeBuscado.toLowerCase().trim();
-	const resultados: any[] = [];
-
-	// A lista do DOCIGP funciona na Vercel; o TSE ao vivo, não (403): os dois em paralelo.
-	const [tseResult, daBase] = await Promise.all([
-		buscarCpfNoTSE(termo, "RJ", "7").catch(() => null),
-		deputadosDaAssembleiaNaBase("ALERJ", nomeBuscado).catch(() => []),
-	]);
-
-	if (tseResult) {
-		const nomeCompleto =
-			tseResult.nome?.toUpperCase() || nomeBuscado.toUpperCase();
-		const documento = tseResult.documentoPrincipal || tseResult.cpf;
-
-		resultados.push({
-			ref: `ALERJ:DEPUTADO_ESTADUAL:${encodeURIComponent(nomeCompleto)}:${documento}`,
-			id: nomeCompleto,
-			nome: nomeCompleto,
-			cargo: "Deputado Estadual (RJ)",
-			uf: "RJ",
-			casa: "ALERJ",
-		});
-	}
-
-	return juntarCandidatosEstaduais(resultados, daBase);
+/**
+ * Deputados da ALERJ com o nome buscado, pela lista do DOCIGP (inclui quem saiu no mandato,
+ * marcado). O CPF vem da base de eleitos, juntada na busca (busca-candidatos.ts).
+ */
+export async function buscarDeputadoEstadualRJ(nomeBuscado: string): Promise<CandidatoAssembleia<"ALERJ">[]> {
+	return deputadosDaAssembleiaNaBase("ALERJ", nomeBuscado).catch(() => []);
 }
 
 function normalizarTexto(s: string): string {

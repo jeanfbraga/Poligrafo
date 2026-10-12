@@ -53,6 +53,31 @@ export function PainelErro({ mensagem, onTentar, onFechar }: { mensagem: string;
 	);
 }
 
+/**
+ * Ninguém com mandato no período atual com esse nome. Não é falha: é a regra do produto
+ * (janela de mandato, nota 3 do Obsidian), então o texto explica quem o Polígrafo investiga.
+ */
+export function PainelForaDaJanela({ termo, onNovaBusca }: { termo: string; onNovaBusca: () => void }) {
+	return (
+		<div className="pg-center" role="alertdialog" aria-label="Político não encontrado">
+			<Panel title="Político não encontrado" sub={termo ? `Busca por "${termo}"` : undefined}>
+				<div className="pg-riskbox">
+					<p>Não encontramos ninguém com esse nome entre os políticos com mandato no período atual.</p>
+					<p>
+						O Polígrafo investiga apenas quem exerce mandato hoje — deputados, senadores, governadores, prefeitos e vereadores, inclusive quem saiu no meio do mandato — e os presidentes da República. Ex-políticos sem mandato no período e pessoas sem cargo eletivo não são investigados.
+					</p>
+					<p>Confira a grafia do nome e a UF escolhida.</p>
+				</div>
+				<div className="pg-job__act">
+					<button type="button" className="pg-btn pg-btn--primary" onClick={onNovaBusca}>
+						Nova busca
+					</button>
+				</div>
+			</Panel>
+		</div>
+	);
+}
+
 /** Vários perfis com o mesmo nome: o usuário escolhe o alvo certo. */
 export function PainelHomonimos({ candidatos, onEscolher, onCancelar }: { candidatos: Candidato[]; onEscolher: (c: Candidato) => void; onCancelar: () => void }) {
 	return (

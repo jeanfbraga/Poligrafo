@@ -1,22 +1,21 @@
 /**
  * Busca de candidatos (modo sem ref): quem é o político que o usuário digitou?
  *
- * Antes era uma cascata: Câmara/Senado primeiro e, só se viesse vazio,
- * assembleias e depois municípios. Qualquer parlamentar federal com nome
- * parecido "ganhava" — a matriz de alçadas de 06/10/2026 mostrou deputado
- * estadual de SP virando senador, de GO virando deputado federal e vereador
- * do Rio virando deputado federal.
+ * Só quem tem mandato no período atual (e presidentes), pela janela de mandato
+ * (src/lib/janela-mandato.ts, decisão de 12/10/2026). Fontes, todas nossas ou oficiais
+ * que respondem à Vercel — o TSE ao vivo (DivulgaCand) recusa servidores de nuvem:
+ *  - Câmara e Senado (legislatura vigente);
+ *  - base de eleitos `tse_eleitos` (governadores, assembleias, prefeitos e vereadores
+ *    das 27 UFs), já filtrada pela janela e sem suplentes que nunca assumiram;
+ *  - em SP e RJ, a lista da própria assembleia, que marca quem saiu no mandato.
  *
- * Agora:
- *  - federal e estadual da UF pedida rodam em paralelo;
- *  - a varredura municipal (cara) só roda se ninguém cobrir todas as
- *    palavras do nome buscado;
- *  - a lista volta ordenada pela cobertura do nome (e UF igual à pedida).
- *
+ * A lista volta ordenada pela cobertura do nome (e UF igual à pedida); quem saiu no
+ * meio do mandato (cassado, afastado) fica atrás de quem está no exercício.
  * Funções pequenas e dependências injetáveis (testes sem rede).
  */
 import { normalizeString } from "@/app/api/investigar/tse";
 import { legislaturaVigente } from "@/lib/janela-mandato";
+import { juntarComAssembleia } from "@/services/integrations/assembleias/deputados-base";
 
 export interface Candidato {
 	id?: string;
@@ -32,29 +31,13 @@ export interface Candidato {
 	[k: string]: unknown;
 }
 
-type ResultadoTse = {
-	documentoPrincipal?: string;
-	cpf?: string;
-	idTse?: number;
-	idEleicao?: string;
-	anoEleicao?: number;
-	nome?: string;
-	nomeUrna?: string | null;
-	municipio?: string;
-	isCnpj?: boolean;
-} | null;
-
 export interface DependenciasBusca {
 	camara: (nome: string, uf: string | null) => Promise<any[]>;
 	senado: (nome: string) => Promise<any[]>;
-	tse: (nome: string, uf: string, cargo: string) => Promise<ResultadoTse>;
+	/** Listas das assembleias de SP e RJ (incluem quem saiu no mandato, marcado). */
 	alesp: (nome: string) => Promise<any[]>;
 	alerj: (nome: string) => Promise<any[]>;
-	municipal: (uf: string, nome: string) => Promise<any[]>;
-	/**
-	 * Base `tse_eleitos` do Banco de Perfil (governador, assembleias, prefeitos e
-	 * vereadores das 27 UFs). null = base indisponível → caminho antigo (TSE ao vivo).
-	 */
+	/** Base `tse_eleitos` do Banco de Perfil, já na janela de mandato. null = base indisponível. */
 	eleitos?: (nome: string, uf: string | null, cargos?: string[]) => Promise<Candidato[] | null>;
 	status: (msg: string) => void;
 }
@@ -71,6 +54,7 @@ export interface ParametrosBusca {
 
 export interface ResultadoBusca {
 	candidatos: Candidato[];
+	/** Alguma fonte falhou (ou a base de eleitos está fora do ar): lista vazia não é "fora da janela". */
 	houveErroApi: boolean;
 }
 
@@ -78,17 +62,21 @@ const PALAVRAS_VAZIAS = new Set(["de", "da", "do", "das", "dos", "e"]);
 /** Legislatura vigente da Câmara (57ª: 2023–2027), pela janela de mandato. */
 export const LEGISLATURA_ATUAL = legislaturaVigente();
 
+const deLegislaturaPassada = (c: Candidato) => c.casa === "CAMARA" && c.idLegislatura !== undefined && c.idLegislatura < LEGISLATURA_ATUAL;
+
 /**
- * Mandato atual numa casa oficial? Candidatura só do TSE e deputado de
- * legislatura passada não são: um ex-deputado federal hoje prefeito aparecia
- * como "Deputado Federal" e a busca municipal era pulada.
+ * No exercício do mandato hoje? Quem saiu no meio do mandato (emExercicio false, ex.:
+ * cassado) continua na busca, mas atrás de quem está no exercício.
  */
 export function mandatoAtual(c: Candidato): boolean {
-	// emExercicio false: sem verba de gabinete nos últimos meses (ex.: mandato cassado).
-	if (c.casa === "CANDIDATO_TSE" || c.suplente === true || c.emExercicio === false) return false;
-	return !(c.casa === "CAMARA" && c.idLegislatura !== undefined && c.idLegislatura < LEGISLATURA_ATUAL);
+	if (c.suplente === true || c.emExercicio === false) return false;
+	return !deLegislaturaPassada(c);
 }
-const UFS_SEM_UF_PADRAO = ["SP", "RJ", "PE", "CE", "PB", "SE"];
+
+/** Entra na lista: mandato no período atual. Fora: deputado de legislatura passada e suplente que não assumiu. */
+export function naJanelaDaBusca(c: Candidato): boolean {
+	return c.suplente !== true && !deLegislaturaPassada(c);
+}
 
 function tokens(nome: string): string[] {
 	return normalizeString(nome)
@@ -112,20 +100,14 @@ function variantesNome(nome: string): string[] {
 	return [civil, urna].filter((v): v is string => Boolean(v)).map(normalizeString);
 }
 
-/**
- * Cobertura das palavras (peso 2) + nome exato (civil ou urna) + mesma UF.
- * Candidatura que só existe no TSE (ex.: candidato ao Senado em 2026) fica
- * atrás do mandato atual numa casa oficial — senão um deputado estadual
- * candidato a senador aparecia como "Senador".
- */
+/** Cobertura das palavras (peso 2) + nome exato (civil ou urna) + mesma UF; fora do exercício vai para trás. */
 function pontuacao(c: Candidato, nome: string, uf: string | null): number {
 	const exato = variantesNome(c.nome).includes(normalizeString(nome)) ? 0.5 : 0;
 	const mesmaUf = uf && c.uf === uf ? 0.25 : 0;
-	const foraDoMandato = mandatoAtual(c) ? 0 : 1;
-	return coberturaNome(nome, c.nome) * 2 + exato + mesmaUf - foraDoMandato;
+	const foraDoExercicio = mandatoAtual(c) ? 0 : 1;
+	return coberturaNome(nome, c.nome) * 2 + exato + mesmaUf - foraDoExercicio;
 }
 
-/** Ordena pela cobertura do nome (e UF igual) e remove refs repetidas. */
 /** Uma linha por ref; a Câmara devolve uma por legislatura — fica a mais recente. */
 function semRepetir(lista: Candidato[]): Candidato[] {
 	const porRef = new Map<string, Candidato>();
@@ -136,6 +118,7 @@ function semRepetir(lista: Candidato[]): Candidato[] {
 	return [...porRef.values()];
 }
 
+/** Ordena pela cobertura do nome (e UF igual) e remove refs repetidas. */
 export function ordenarCandidatos(lista: Candidato[], nome: string, uf: string | null): Candidato[] {
 	const unicos = semRepetir(lista);
 	return unicos
@@ -144,64 +127,14 @@ export function ordenarCandidatos(lista: Candidato[], nome: string, uf: string |
 		.map((x) => x.c);
 }
 
-/**
- * Melhor cobertura entre mandatos em casas oficiais. Candidatura que só existe
- * no TSE não conta: um vereador candidato a deputado federal em 2026 fazia a
- * busca municipal ser pulada e ele aparecia como "Deputado Federal".
- */
-function melhorCobertura(lista: Candidato[], nome: string): number {
-	return lista
-		.filter(mandatoAtual)
-		.reduce((m, c) => Math.max(m, coberturaNome(nome, c.nome)), 0);
-}
-
-function urlTse(t: NonNullable<ResultadoTse>, uf: string): string {
-	return `https://divulgacandcontas.tse.jus.br/divulga/#/candidato/${t.anoEleicao}/${t.idEleicao}/${uf}/${t.idTse}`;
-}
-
-function candidatoTse(t: ResultadoTse, uf: string, nome: string, casa: string, cargo: string, ref: (doc: string) => string): Candidato[] {
-	if (!t) return [];
-	const doc = String(t.documentoPrincipal || t.idTse || "");
-	return [{
-		id: doc,
-		uri: urlTse(t, uf),
-		nome: t.nomeUrna || t.nome || nome,
-		uf,
-		casa,
-		cargo,
-		ref: ref(doc),
-		cpfOuCnpj: t.documentoPrincipal,
-		isCnpj: t.isCnpj,
-	}];
-}
-
 async function coletar(promessas: Promise<Candidato[]>[]): Promise<{ lista: Candidato[]; erro: boolean }> {
 	const res = await Promise.allSettled(promessas);
 	const lista = res.flatMap((r) => (r.status === "fulfilled" ? r.value ?? [] : []));
 	return { lista, erro: res.some((r) => r.status === "rejected") };
 }
 
-interface PerfilExecutivo {
-	cargoTse: string;
-	casa: string;
-	cargo: string;
-	ref: (uf: string, nome: string, municipio: string, doc: string) => string;
-}
-
-const EXECUTIVOS: Record<string, PerfilExecutivo> = {
-	GOVERNADOR: {
-		cargoTse: "3",
-		casa: "GOVERNO_ESTADUAL",
-		cargo: "Governador de Estado",
-		ref: (uf, nome) => `GOVERNADOR:${uf}:${nome}`,
-	},
-	PREFEITO: {
-		cargoTse: "11",
-		casa: "PREFEITURA",
-		cargo: "Prefeito Municipal",
-		ref: (uf, _nome, municipio, doc) => `${uf}:PREFEITO:${municipio}:${doc}`,
-	},
-};
+/** Cargo pedido explicitamente na URL → código do TSE na base de eleitos. */
+const EXECUTIVOS: Record<string, string> = { GOVERNADOR: "3", PREFEITO: "11" };
 
 /** Consulta a base de eleitos; sem a dependência, ou sem resposta, devolve null. */
 async function daBaseEleitos(deps: DependenciasBusca, nome: string, uf: string | null, cargos?: string[]): Promise<Candidato[] | null> {
@@ -213,29 +146,16 @@ async function daBaseEleitos(deps: DependenciasBusca, nome: string, uf: string |
 	}
 }
 
-/** Governador/prefeito pedidos explicitamente: base de eleitos e, sem ela, o TSE ao vivo. */
-async function buscarExecutivo(p: ParametrosBusca, deps: DependenciasBusca): Promise<Candidato[]> {
-	const perfil = EXECUTIVOS[p.cargo];
-	const daBase = await daBaseEleitos(deps, p.nome, p.uf, [perfil.cargoTse]);
-	if (daBase?.length) return ordenarCandidatos(daBase, p.nome, p.uf);
-	deps.status(`Buscando ${p.cargo} diretamente na base eleitoral (TSE)...`);
-	const uf = p.uf || "BR";
-	const t = await deps.tse(p.nome, uf, perfil.cargoTse);
-	const doc = String(t?.documentoPrincipal || t?.cpf || "").replace(/\D/g, "");
-	if (!t || !doc) return [];
-	const nome = t.nome || p.nome;
-	const municipio = t.municipio || "";
-	return [{
-		id: doc,
-		uri: municipio,
-		nome,
-		uf,
-		idLegislatura: t.anoEleicao || 2024,
-		casa: perfil.casa,
-		cargo: perfil.cargo,
-		ref: perfil.ref(uf, nome, municipio, doc),
-	}];
+function resultado(lista: Candidato[], p: ParametrosBusca, erro: boolean): ResultadoBusca {
+	return { candidatos: ordenarCandidatos(lista.filter(naJanelaDaBusca), p.nome, p.uf), houveErroApi: erro };
 }
+
+/** Governador/prefeito pedidos explicitamente: só a base de eleitos, no cargo pedido. */
+async function buscarExecutivo(p: ParametrosBusca, deps: DependenciasBusca): Promise<ResultadoBusca> {
+	const daBase = await daBaseEleitos(deps, p.nome, p.uf, [EXECUTIVOS[p.cargo]]);
+	return resultado(daBase ?? [], p, daBase === null);
+}
+
 function federais(p: ParametrosBusca, deps: DependenciasBusca): Promise<Candidato[]>[] {
 	return [
 		deps.camara(p.nome, p.uf).then((l) => (l ?? []).map((c) => ({ ...c, ref: `FEDERAL:CAMARA:${c.id}`, cargo: "Deputado Federal" }))),
@@ -243,91 +163,39 @@ function federais(p: ParametrosBusca, deps: DependenciasBusca): Promise<Candidat
 	];
 }
 
-function estaduais(p: ParametrosBusca, deps: DependenciasBusca): Promise<Candidato[]>[] {
-	if (p.somenteFederal || !p.uf) return [];
+/** Lista da assembleia (SP e RJ): quem saiu no mandato só aparece por ela. */
+function daAssembleia(p: ParametrosBusca, deps: DependenciasBusca): Promise<Candidato[]>[] {
 	if (p.uf === "SP") return [deps.alesp(p.nome)];
 	if (p.uf === "RJ") return [deps.alerj(p.nome)];
-	const uf = p.uf;
-	// DF: deputado distrital é o cargo 8 no TSE.
-	const [cargoTse, rotulo] = uf === "DF" ? ["8", "Deputado Distrital"] : ["7", "Deputado Estadual"];
-	return [deps.tse(p.nome, uf, cargoTse).then((t) =>
-		candidatoTse(t, uf, p.nome, "ASSEMBLEIA_LEGISLATIVA", rotulo, (doc) => `ESTADUAL:${uf}:${doc}`))];
+	return [];
 }
 
-/** Federais que só existem no TSE (não eleitos, ou Câmara/Senado fora do ar). */
-function federaisTse(p: ParametrosBusca, deps: DependenciasBusca): Promise<Candidato[]>[] {
-	const uf = p.uf;
-	if (!uf || uf === "FEDERAL" || uf === "BR") return [];
-	return [
-		deps.tse(p.nome, uf, "6").then((t) => candidatoTse(t, uf, p.nome, "CANDIDATO_TSE", "Deputado Federal (TSE)", (d) => `FEDERAL:CAMARA:${d}`)),
-		deps.tse(p.nome, uf, "5").then((t) => candidatoTse(t, uf, p.nome, "CANDIDATO_TSE", "Senador (TSE)", (d) => `FEDERAL:SENADO:${d}`)),
-	];
-}
-
+/** Ref de governador sugerida pela correção de nome ("tarcisio"): o governador da UF na base. */
 async function governadorSugerido(p: ParametrosBusca, deps: DependenciasBusca): Promise<Candidato[]> {
 	if (!p.refGovernadorSugerida) return [];
 	const [, ufRef, nomeRef] = p.refGovernadorSugerida.split(":");
-	const uf = ufRef || p.uf || "BR";
+	const uf = ufRef || p.uf;
 	const nome = nomeRef || p.nome;
-	deps.status(`Buscando Governador "${nome}" na base eleitoral TSE (${uf})...`);
-	const t = await deps.tse(nome, uf, "3");
-	if (!t) return [];
-	return [{
-		id: String(t.documentoPrincipal || t.idTse || nome),
-		uri: "",
-		nome: t.nome || nome,
-		uf,
-		idLegislatura: t.anoEleicao || 2023,
-		casa: "GOVERNO_ESTADUAL",
-		cargo: "Governador de Estado",
-		ref: `GOVERNADOR:${uf}:${nome}`,
-	}];
+	deps.status(`Buscando Governador "${nome}" na base de eleitos (${uf ?? "BR"})...`);
+	return (await daBaseEleitos(deps, nome, uf, [EXECUTIVOS.GOVERNADOR])) ?? [];
 }
 
-function municipais(p: ParametrosBusca, deps: DependenciasBusca): Promise<Candidato[]>[] {
-	const ufs = p.uf ? [p.uf] : UFS_SEM_UF_PADRAO;
-	return ufs.map((uf) => deps.municipal(uf, p.nome));
-}
-
-/**
- * Federal (Câmara/Senado) em paralelo com a base de eleitos. Se a base achar
- * alguém, ela substitui o TSE ao vivo para assembleias e municípios; sem
- * resultado (ou fora do ar), segue o caminho antigo.
- */
-async function primeiraRodada(p: ParametrosBusca, deps: DependenciasBusca) {
-	const federal = coletar(federais(p, deps));
-	const daBase = p.somenteFederal ? null : await daBaseEleitos(deps, p.nome, p.uf);
-	const achouNaBase = Boolean(daBase?.length);
-	const estadual = achouNaBase ? { lista: daBase as Candidato[], erro: false } : await coletar(estaduais(p, deps));
-	const f = await federal;
-	return { lista: [...f.lista, ...estadual.lista], erro: f.erro || estadual.erro, achouNaBase };
+/** Estadual e municipal: base de eleitos + lista da assembleia (SP/RJ). */
+async function estaduaisEMunicipais(p: ParametrosBusca, deps: DependenciasBusca) {
+	if (p.somenteFederal) return { lista: [] as Candidato[], erro: false };
+	const [daBase, assembleia] = await Promise.all([daBaseEleitos(deps, p.nome, p.uf), coletar(daAssembleia(p, deps))]);
+	return { lista: juntarComAssembleia(daBase ?? [], assembleia.lista), erro: daBase === null || assembleia.erro };
 }
 
 async function buscarLegislativosEMunicipais(p: ParametrosBusca, deps: DependenciasBusca): Promise<ResultadoBusca> {
-	deps.status(`Buscando nas esferas Federal${p.uf && !p.somenteFederal ? ` e Estadual (${p.uf})` : ""}...`);
-	const g1 = await primeiraRodada(p, deps);
-	let lista = g1.lista;
-	let erro = g1.erro;
-	// Reserva do TSE para federais (não eleitos ou Câmara/Senado fora do ar): só sem nenhum resultado.
-	if (lista.length === 0) {
-		const g2 = await coletar(federaisTse(p, deps));
-		lista = g2.lista;
-	}
+	deps.status(`Buscando nas esferas Federal${p.uf && !p.somenteFederal ? `, Estadual e Municipal (${p.uf})` : ""}...`);
+	const [federal, locais] = await Promise.all([coletar(federais(p, deps)), estaduaisEMunicipais(p, deps)]);
+	let lista = [...federal.lista, ...locais.lista];
 	if (lista.length === 0) lista = await governadorSugerido(p, deps);
-	// A base de eleitos já cobre prefeitos e vereadores das 27 UFs: varredura municipal só sem ela.
-	if (!p.somenteFederal && !g1.achouNaBase && melhorCobertura(lista, p.nome) < 1) {
-		deps.status("Buscando na malha Municipal (Prefeitos e Vereadores)...");
-		const g3 = await coletar(municipais(p, deps));
-		lista = [...lista, ...g3.lista];
-		erro = erro || g3.erro;
-	}
-	return { candidatos: ordenarCandidatos(lista, p.nome, p.uf), houveErroApi: erro };
+	return resultado(lista, p, federal.erro || locais.erro);
 }
 
 export async function buscarCandidatos(p: ParametrosBusca, deps: DependenciasBusca): Promise<ResultadoBusca> {
-	if (EXECUTIVOS[p.cargo]) {
-		const candidatos = await buscarExecutivo(p, deps);
-		return { candidatos, houveErroApi: false };
-	}
+	if (EXECUTIVOS[p.cargo]) return buscarExecutivo(p, deps);
 	return buscarLegislativosEMunicipais(p, deps);
 }

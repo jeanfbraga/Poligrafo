@@ -1,15 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-	buscarCpfNoTSE,
-	CAMPANHAS_GERAIS,
-	CAMPANHAS_MUNICIPAIS,
-} from "../../src/app/api/investigar/tse";
+import { describe, expect, it } from "vitest";
+import { CAMPANHAS_GERAIS, CAMPANHAS_MUNICIPAIS, calcularVariacoesPatrimonio } from "../../src/app/api/investigar/tse";
 
-describe("TSE Integração e Evolução Patrimonial", () => {
-	beforeEach(() => {
-		vi.restoreAllMocks();
-	});
+const item = (ano: number, patrimonioTotal: number) => ({ ano, idEleicao: String(ano), cargo: "Deputado Federal", patrimonioTotal, bensDeclarados: [] });
 
+describe("TSE: eleições e evolução patrimonial", () => {
 	it("deve incluir a eleição de 2026 como a primeira campanha geral", () => {
 		expect(CAMPANHAS_GERAIS[0].ano).toBe("2026");
 		expect(CAMPANHAS_GERAIS[0].idEleicao).toBe("20322002026");
@@ -20,101 +14,16 @@ describe("TSE Integração e Evolução Patrimonial", () => {
 		expect(CAMPANHAS_MUNICIPAIS[0].idEleicao).toBe("2045202024");
 	});
 
-	it("deve calcular corretamente a variação patrimonial entre eleições", async () => {
-		const fetchMock = vi.fn();
-		global.fetch = fetchMock;
+	it("variação entre as duas declarações mais recentes (de 18 mil para 5,49 milhões)", () => {
+		const r = calcularVariacoesPatrimonio([item(2026, 5487552.64), item(2022, 18327.66)]);
+		expect(r.patrimonioAnterior).toBe(18327.66);
+		expect(r.anoPatrimonioAnterior).toBe(2022);
+		expect(r.variacaoPatrimonio).toBeCloseTo(5469224.98, 2);
+		expect(r.variacaoPatrimonioPercentual).toBeGreaterThan(20000);
+	});
 
-		// Mock da listagem 2026
-		fetchMock.mockImplementation((url: string) => {
-			if (url.includes("2026") && url.includes("/candidatos")) {
-				return Promise.resolve({
-					ok: true,
-					json: () =>
-						Promise.resolve({
-							candidatos: [
-								{
-									id: 190002540158,
-									nomeUrna: "OTONI DE PAULA",
-									nomeCompleto: "OTONI MOURA DE PAULO JUNIOR",
-									cargo: { nome: "Deputado Federal" },
-									partido: { sigla: "PSD" },
-								},
-							],
-						}),
-				});
-			}
-
-			if (url.includes("2026") && url.includes("/candidato/190002540158")) {
-				return Promise.resolve({
-					ok: true,
-					text: () =>
-						Promise.resolve(
-							JSON.stringify({
-								cpf: "07217877709",
-								nomeCompleto: "OTONI MOURA DE PAULO JUNIOR",
-								totalDeBens: 5487552.64,
-								bens: [
-									{ descricao: "Apartamento", valor: 4444000 },
-									{ descricao: "Veículo", valor: 530000 },
-								],
-								cargo: { nome: "Deputado Federal" },
-								partido: { sigla: "PSD" },
-							}),
-						),
-				});
-			}
-
-			// Mock de 2022
-			if (url.includes("2022") && url.includes("/candidatos")) {
-				return Promise.resolve({
-					ok: true,
-					json: () =>
-						Promise.resolve({
-							candidatos: [
-								{
-									id: 190001644973,
-									nomeUrna: "OTONI DE PAULA",
-									nomeCompleto: "OTONI MOURA DE PAULO JUNIOR",
-									cargo: { nome: "Deputado Federal" },
-									partido: { sigla: "MDB" },
-								},
-							],
-						}),
-				});
-			}
-
-			if (url.includes("2022") && url.includes("/candidato/190001644973")) {
-				return Promise.resolve({
-					ok: true,
-					json: () =>
-						Promise.resolve({
-							cpf: "07217877709",
-							nomeCompleto: "OTONI MOURA DE PAULO JUNIOR",
-							totalDeBens: 18327.66,
-							bens: [{ descricao: "Quotas", valor: 18327.66 }],
-							cargo: { nome: "Deputado Federal" },
-							partido: { sigla: "MDB" },
-						}),
-				});
-			}
-
-			// Demais anos não encontrados
-			return Promise.resolve({
-				ok: false,
-				status: 404,
-			});
-		});
-
-		const resultado = await buscarCpfNoTSE("Otoni de Paula", "RJ", "6");
-
-		expect(resultado).not.toBeNull();
-		expect(resultado?.cpf).toBe("07217877709");
-		expect(resultado?.anoEleicao).toBe(2026);
-		expect(resultado?.patrimonioTotal).toBe(5487552.64);
-		expect(resultado?.patrimonioAnterior).toBe(18327.66);
-		expect(resultado?.anoPatrimonioAnterior).toBe(2022);
-		expect(resultado?.variacaoPatrimonio).toBeCloseTo(5469224.98, 2);
-		expect(resultado?.variacaoPatrimonioPercentual).toBeGreaterThan(20000);
-		expect(resultado?.historicoPatrimonio?.length).toBeGreaterThanOrEqual(2);
+	it("sem declaração anterior não há variação; anterior zerada vale 100%", () => {
+		expect(calcularVariacoesPatrimonio([item(2026, 1000)])).toEqual({});
+		expect(calcularVariacoesPatrimonio([item(2026, 1000), item(2022, 0)]).variacaoPatrimonioPercentual).toBe(100);
 	});
 });

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase-perfil", () => ({ supabasePerfilAdmin: {} }));
 
-import { candidatoDaAssembleia, deputadosDaAssembleiaNaBase, juntarCandidatosEstaduais } from "@/services/integrations/assembleias/deputados-base";
+import { candidatoDaAssembleia, deputadosDaAssembleiaNaBase, juntarComAssembleia } from "@/services/integrations/assembleias/deputados-base";
 import { interpretarRef } from "@/services/core/alvo-ref";
 
 const AGORA = new Date("2026-10-12T12:00:00Z");
@@ -77,9 +77,19 @@ describe("deputado estadual pela lista da própria assembleia", () => {
 		expect(await cargoForaDoExercicio("ALERJ", "Rodrigo", AGORA, cliente(linhas).c)).toBeNull();
 	});
 
-	it("com o TSE respondendo, a mesma pessoa não aparece duas vezes (o do TSE traz o CPF)", () => {
-		const doTse = [{ ...candidatoDaAssembleia("ALERJ", "RODRIGO DA SILVA BACELLAR"), ref: "ALERJ:DEPUTADO_ESTADUAL:RODRIGO%20DA%20SILVA%20BACELLAR:08661032792" }];
-		const daBase = [candidatoDaAssembleia("ALERJ", "Rodrigo Da Silva Bacellar (Rodrigo Bacellar)"), candidatoDaAssembleia("ALERJ", "Rodrigo Amorim Dos Santos (Rodrigo Amorim)")];
-		expect(juntarCandidatosEstaduais(doTse, daBase).map((x) => x.ref)).toEqual([doTse[0].ref, daBase[1].ref]);
+	it("base de eleitos + assembleia: a mesma pessoa não aparece duas vezes (a da base traz o CPF) e leva a marca de fora do exercício", () => {
+		const daBase = [
+			{ ...candidatoDaAssembleia("ALERJ", "RODRIGO DA SILVA BACELLAR"), ref: "ALERJ:DEPUTADO_ESTADUAL:RODRIGO%20DA%20SILVA%20BACELLAR:08661032792" },
+			// Vereador homônimo de outra casa: nunca casa com o deputado.
+			{ nome: "RODRIGO AMORIM DOS SANTOS", ref: "RJ:VEREADOR:rio-de-janeiro:SQ-1", casa: "CAMARA_MUNICIPAL_RJ", cargo: "Vereador em Rio de Janeiro", uf: "RJ", id: "1" },
+		];
+		const daAssembleia = [
+			candidatoDaAssembleia("ALERJ", "Rodrigo Da Silva Bacellar (Rodrigo Bacellar)", "2026-03-01"),
+			candidatoDaAssembleia("ALERJ", "Rodrigo Amorim Dos Santos (Rodrigo Amorim)"),
+		];
+		const r = juntarComAssembleia<any>(daBase, daAssembleia);
+		expect(r.map((x) => x.ref)).toEqual([daBase[0].ref, daBase[1].ref, daAssembleia[1].ref]);
+		expect(r[0]).toMatchObject({ cargo: "Ex-deputado estadual (RJ) — sem verba de gabinete desde 03/2026", emExercicio: false });
+		expect(r[1].cargo).toBe("Vereador em Rio de Janeiro");
 	});
 });

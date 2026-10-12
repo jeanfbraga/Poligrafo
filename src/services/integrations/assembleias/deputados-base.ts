@@ -121,11 +121,24 @@ export async function cargoForaDoExercicio(
 	return achados.length === 1 && achados[0].emExercicio === false ? achados[0].cargo : null;
 }
 
+type Estadual = { nome: string; casa?: string; cargo?: string; emExercicio?: boolean };
+
+/** Mesma pessoa na mesma assembleia (um vereador homônimo nunca casa com o deputado). */
+function mesmaPessoa(daAssembleia: Estadual, daBase: Estadual): boolean {
+	return daAssembleia.casa === daBase.casa && formas(daBase.nome).some((f) => bateComBusca(daAssembleia.nome, f));
+}
+
 /**
- * Junta o resultado do TSE ao vivo (com CPF, quando responde) com o da assembleia,
- * sem repetir a mesma pessoa: o do TSE vence, porque traz o documento.
+ * Junta os eleitos da base tse_eleitos (com CPF) com a lista da assembleia, sem repetir a
+ * mesma pessoa: o da base vence porque traz o documento, mas leva a marca de fora do
+ * exercício que só a assembleia sabe (renúncia, cassação). Quem só está na assembleia —
+ * Rodrigo Bacellar, que o TSE passou a marcar "NÃO ELEITO" — entra como veio.
  */
-export function juntarCandidatosEstaduais<T extends { nome: string }>(doTse: T[], daBase: T[]): T[] {
-	const novos = daBase.filter((b) => !doTse.some((t) => formas(t.nome).some((f) => bateComBusca(b.nome, f))));
-	return [...doTse, ...novos];
+export function juntarComAssembleia<T extends Estadual>(daBase: T[], daAssembleia: T[]): T[] {
+	const base = daBase.map((b) => {
+		const fora = daAssembleia.find((a) => a.emExercicio === false && mesmaPessoa(a, b));
+		return fora ? { ...b, cargo: fora.cargo, emExercicio: false } : b;
+	});
+	const novos = daAssembleia.filter((a) => !daBase.some((b) => mesmaPessoa(a, b)));
+	return [...base, ...novos];
 }

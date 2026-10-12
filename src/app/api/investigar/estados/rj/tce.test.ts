@@ -1,47 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buscarProxyOsint } from "../../proxy_osint";
 import * as tseModule from "../../tse";
-import { buscarDespesasVereadorRJ, buscarMunicipalRJ } from "./tce";
+import { buscarDespesasVereadorRJ } from "./tce";
 
-// Mock da dependência TSE
+// Mock da dependência de rede (o vereador vem da base de eleitos, não do TSE ao vivo).
 vi.mock("../../tse", () => ({
-	buscarCpfNoTSE: vi.fn(),
 	fetchWithTimeout: vi.fn(),
 }));
 
 describe("Módulo de Extração: Rio de Janeiro", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-	});
-
-	describe("buscarMunicipalRJ", () => {
-		it("deve retornar VEREADOR com isCnpj quando TSE retorna CNPJ de campanha", async () => {
-			vi.mocked(tseModule.buscarCpfNoTSE).mockResolvedValueOnce({
-				cpf: "56646419000170",
-				documentoPrincipal: "56646419000170",
-				cnpjCampanha: "56646419000170",
-				isCnpj: true,
-				municipio: "rio-de-janeiro",
-				idUe: "60011",
-				nome: "GIRLANDIA DOS SANTOS GRACIANO",
-			});
-			vi.mocked(tseModule.buscarCpfNoTSE).mockResolvedValueOnce(null);
-
-			const resultados = await buscarMunicipalRJ("Gigi Castilho");
-
-			expect(resultados).toHaveLength(1);
-			expect(resultados[0].ref).toBe(
-				"RJ:VEREADOR:rio-de-janeiro:56646419000170",
-			);
-			expect(resultados[0].isCnpj).toBe(true);
-			expect(resultados[0].casa).toBe("CAMARA_MUNICIPAL_RJ");
-		});
-
-		it("deve retornar vazio se o político não for encontrado", async () => {
-			vi.mocked(tseModule.buscarCpfNoTSE).mockResolvedValue(null);
-			const resultados = await buscarMunicipalRJ("Desconhecido");
-			expect(resultados).toHaveLength(0);
-		});
 	});
 
 	describe("buscarProxyOsint (Proxy OSINT)", () => {

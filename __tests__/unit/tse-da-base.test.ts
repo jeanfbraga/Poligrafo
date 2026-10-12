@@ -74,29 +74,35 @@ describe("TSE pela nossa base (eleitos + bens declarados)", () => {
 	});
 });
 
-describe("investigação lê a base antes do TSE ao vivo", () => {
+describe("investigação lê o TSE só da nossa base (o ao vivo saiu em 12/10/2026)", () => {
 	const consulta = { alvo: { id: "178992", cpfOficial: CPF, nome: "FULANO", uf: "SP", cargoTse: "6" } };
 
 	function deps(daBase: DependenciasTse["daBase"]) {
-		return { buscarEleito: vi.fn(async () => eleito), daBase, aoVivo: vi.fn(async () => null), nomeCivilSenador: vi.fn(async () => null) };
+		return { buscarEleito: vi.fn(async () => eleito), daBase, nomeCivilSenador: vi.fn(async () => null) };
 	}
 
-	it("base com o eleito: não chama o TSE ao vivo e avisa na tela que veio da base", async () => {
+	it("base com o eleito: avisa na tela que veio da base (arquivos oficiais do TSE)", async () => {
 		const eventos: [string, any][] = [];
 		const d = deps((e) => tseDaBase(e, async () => bens));
 		const r = await dadosTseDoAlvo(consulta, (t, p) => eventos.push([t, p]), d);
 		expect(r.tseResult?.cpf).toBe(CPF);
 		expect(r.eleito).toBe(eleito);
-		expect(d.aoVivo).not.toHaveBeenCalled();
+		expect(eventos.find(([t]) => t === "STATUS")?.[1].msg).toBe("[TSE] Dados eleitorais e patrimônio lidos da nossa base (arquivos oficiais do TSE).");
 		const etapa = eventos.find(([t]) => t === "ETAPA")?.[1];
 		expect(etapa).toMatchObject({ fonte: "tse", estado: "concluida", detalhe: "Eleito e patrimônio declarado (2026 e 2022)" });
 	});
 
-	it("base sem o eleito (ou fora do ar): cai no TSE ao vivo com os mesmos parâmetros de antes", async () => {
+	it("base sem o eleito (ou fora do ar): segue sem dados do TSE, com a etapa 'sem registro' e sem rede", async () => {
+		const fetchFn = vi.fn();
+		vi.stubGlobal("fetch", fetchFn);
+		const eventos: [string, any][] = [];
 		const d = deps(async () => { throw new Error("base fora"); });
-		await dadosTseDoAlvo({ ...consulta, nomeCivil: "FULANO DE TAL", municipio: "x" }, () => {}, d);
-		expect(d.aoVivo).toHaveBeenCalledWith("FULANO", "SP", "6", "FULANO DE TAL", "x");
+		const r = await dadosTseDoAlvo({ ...consulta, nomeCivil: "FULANO DE TAL", municipio: "x" }, (t, p) => eventos.push([t, p]), d);
+		expect(r.tseResult).toBeNull();
+		expect(eventos).toEqual([["ETAPA", { fonte: "tse", estado: "vazia", origem: "Base do TSE no Polígrafo (eleitos e bens declarados)", detalhe: "Sem eleito correspondente na base do TSE" }]]);
+		expect(fetchFn).not.toHaveBeenCalled();
 		expect(d.nomeCivilSenador).not.toHaveBeenCalled();
+		vi.unstubAllGlobals();
 	});
 });
 
@@ -110,28 +116,26 @@ describe("senador: nome civil do Senado confirma o eleito achado pelo nome de ur
 		return {
 			buscarEleito: vi.fn(async () => senador),
 			daBase: vi.fn((e: EleitoDoAlvo | null) => tseDaBase(e, async () => [])),
-			aoVivo: vi.fn(async () => null),
 			nomeCivilSenador: vi.fn(async () => civil),
 		};
 	}
 
-	it("nome civil igual (sem acento e caixa): o CPF da base vale e o TSE ao vivo não é chamado", async () => {
+	it("nome civil igual (sem acento e caixa): o CPF da base vale", async () => {
 		const eventos: [string, any][] = [];
 		const d = deps("Flávio Nantes Bolsonaro");
 		const r = await dadosTseDoAlvo(consulta, (t, p) => eventos.push([t, p]), d);
 		expect(d.nomeCivilSenador).toHaveBeenCalledWith("5894");
 		expect(r.eleito).toMatchObject({ porNome: false, confirmadoPor: "nome civil confirmado pelo Senado Federal" });
 		expect(r.tseResult?.cpf).toBe(CPF);
-		expect(d.aoVivo).not.toHaveBeenCalled();
 		expect(eventos.find(([t]) => t === "STATUS")?.[1].msg).toContain("lidos da nossa base");
 	});
 
-	it("nome civil diferente ou Senado fora do ar: segue achado só por nome e vai ao TSE ao vivo", async () => {
+	it("nome civil diferente ou Senado fora do ar: segue achado só por nome, sem CPF adotado", async () => {
 		for (const civil of ["Flávio Bolsonaro Filho", null]) {
 			const d = deps(civil);
 			const r = await dadosTseDoAlvo(consulta, () => {}, d);
 			expect(r.eleito?.porNome).toBe(true);
-			expect(d.aoVivo).toHaveBeenCalled();
+			expect(r.tseResult).toBeNull();
 		}
 	});
 

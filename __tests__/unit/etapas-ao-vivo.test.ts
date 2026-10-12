@@ -220,10 +220,19 @@ describe("etapas pela tela (evento ETAPA)", () => {
 	});
 
 	it("fonte com problema conta como terminada no progresso; ao concluir, 'lenta' não fica pendurada", () => {
-		const s = reg({ fonte: "tse", estado: "falhou", origem: "TSE (Justiça Eleitoral)", detalhe: "recusou o acesso" }, { fonte: "casa", estado: "lenta", origem: "Câmara dos Deputados", detalhe: "x" });
+		const s = reg({ fonte: "cgu", estado: "falhou", origem: "Portal da Transparência", detalhe: "recusou o acesso" }, { fonte: "casa", estado: "lenta", origem: "Câmara dos Deputados", detalhe: "x" });
 		expect(calcularProgresso(s, true)).toBeGreaterThan(0);
 		expect(statusDaFonte(marcarConcluida(s), "casa", false)).toBe("ok");
-		expect(statusDaFonte(marcarConcluida(s), "tse", false)).toBe("fora");
+		expect(statusDaFonte(marcarConcluida(s), "cgu", false)).toBe("fora");
+	});
+
+	it("falha do TSE ao vivo guardada em dossiê antigo não vira aviso; a base do TSE continua valendo (12/10/2026)", () => {
+		const s = reg(
+			{ fonte: "tse", estado: "falhou", origem: "TSE (Justiça Eleitoral)", detalhe: "recusou o acesso" },
+			{ fonte: "tse", estado: "concluida", origem: "Base do TSE no Polígrafo (eleitos e bens declarados)", detalhe: "Eleito e patrimônio declarado (2022)" },
+		);
+		expect(statusDaFonte(marcarConcluida(s), "tse", false)).toBe("ok");
+		expect(notaDaFonte(s, "tse", "ok")).toBe("Eleito e patrimônio declarado (2022)");
 	});
 
 	it("dossiê e painel: o evento ETAPA chega à lista de fontes, ao quadro de problemas e ao log sem etiqueta", () => {
@@ -231,12 +240,12 @@ describe("etapas pela tela (evento ETAPA)", () => {
 		dossie = aplicarEventos(dossie, [
 			{ tipo: "STATUS", payload: { msg: "[PNCP] Governo (Distrito Federal): 61 contrato(s) nos últimos 12 meses." } },
 			{ tipo: "ETAPA", payload: { fonte: "pncp", estado: "concluida", origem: PNCP_NOME, detalhe: "61 contratos: Governo (Distrito Federal)" } },
-			{ tipo: "ETAPA", payload: { fonte: "tse", estado: "falhou", origem: "TSE (Justiça Eleitoral)", detalhe: "recusou o acesso" } },
+			{ tipo: "ETAPA", payload: { fonte: "cgu", estado: "falhou", origem: "Portal da Transparência", detalhe: "recusou o acesso" } },
 		]);
 		const v = jobView({ ...STORE_INICIAL, alvo: { nome: "Alice" }, dossie, inicio: 0 }, { nome: "Alice" });
 		expect(v.etapas.find((e) => e.id === "pncp")).toMatchObject({ status: "ok", texto: "ok", nota: "61 contratos: Governo (Distrito Federal)" });
-		expect(v.etapas.find((e) => e.id === "tse")).toMatchObject({ status: "fora", texto: "não respondeu", nota: "TSE (Justiça Eleitoral): recusou o acesso" });
-		expect(v.problemas).toEqual([{ fonte: "tse", nome: "TSE", texto: "TSE (Justiça Eleitoral): recusou o acesso", gravidade: "fora" }]);
+		expect(v.etapas.find((e) => e.id === "cgu")).toMatchObject({ status: "fora", texto: "não respondeu", nota: "Portal da Transparência: recusou o acesso" });
+		expect(v.problemas).toEqual([{ fonte: "cgu", nome: "Portal da Transparência", texto: "Portal da Transparência: recusou o acesso", gravidade: "fora" }]);
 		expect(v.log).toBe("PNCP · Governo (Distrito Federal): 61 contrato(s) nos últimos 12 meses.");
 		expect(textoDoLog("[POLÍGRAFO IA]: Analisando")).toBe("POLÍGRAFO IA · Analisando");
 		expect(textoDoLog("Sem etiqueta")).toBe("Sem etiqueta");

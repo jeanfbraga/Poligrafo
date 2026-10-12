@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ordenarMunicipios, slugMunicipio } from "../../src/app/api/investigar/tse";
+import { slugMunicipio } from "../../src/app/api/investigar/tse";
 import { podeConsultarPorCpf, resolverIdentidade } from "../../src/services/core/identidade";
 
 const CPF_A = "52998224725";
@@ -95,18 +95,5 @@ describe("município do alvo no TSE", () => {
 		expect(slugMunicipio("São Paulo")).toBe("sao-paulo");
 		expect(slugMunicipio("SAO_PAULO")).toBe("sao-paulo");
 		expect(slugMunicipio("Niterói")).toBe("niteroi");
-	});
-
-	it("município da ref vem primeiro e é marcado como encontrado", () => {
-		const r = ordenarMunicipios(
-			[{ codigo: "1", nome: "ANGRA DOS REIS" }, { codigo: "60011", nome: "RIO DE JANEIRO" }, { codigo: "58653", nome: "NITERÓI" }],
-			"niteroi",
-		);
-		expect(r).toEqual({ codigos: ["58653", "60011", "1"], preferido: true });
-	});
-
-	it("sem município: capitais primeiro (o comparador antigo não ordenava)", () => {
-		const r = ordenarMunicipios([{ codigo: "1", nome: "A" }, { codigo: "71072", nome: "SÃO PAULO" }]);
-		expect(r).toEqual({ codigos: ["71072", "1"], preferido: false });
 	});
 });
