@@ -49,20 +49,24 @@ const MAX_PAGINAS = 50;
 /**
  * Todas as proposições do deputado na 57ª Legislatura. A API devolve no máximo 100 por
  * página: sem seguir o link "next", quem tem mais de 100 ficava truncado.
+ *
+ * Ordem por id, não por ano: com ordenarPor=ano a ordem entre páginas é instável e a API
+ * repete uns itens e pula outros (12/10/2026: 1.238 itens, só 747 diferentes). As repetidas
+ * derrubavam o upsert inteiro ("cannot affect row a second time") de 511 de 648 deputados.
  */
 export async function buscarProposicoesDoDeputado(depId: number, anoAtual: number): Promise<any[]> {
     let anosQuery = '';
     for (let ano = 2023; ano <= anoAtual; ano++) {
         anosQuery += `&ano=${ano}`;
     }
-    let url: string | null = `${API_BASE}/proposicoes?idDeputadoAutor=${depId}${anosQuery}&itens=100&ordem=DESC&ordenarPor=ano`;
-    const todas: any[] = [];
+    let url: string | null = `${API_BASE}/proposicoes?idDeputadoAutor=${depId}${anosQuery}&itens=100&ordem=DESC&ordenarPor=id`;
+    const porId = new Map<string, any>();
     for (let pagina = 0; url && pagina < MAX_PAGINAS; pagina++) {
         const data = await fetchJson(url);
-        todas.push(...(data?.dados || []));
+        for (const prop of data?.dados || []) porId.set(String(prop.id), prop);
         url = data?.links?.find((l: any) => l.rel === 'next')?.href ?? null;
     }
-    return todas;
+    return [...porId.values()];
 }
 
 export async function run() {

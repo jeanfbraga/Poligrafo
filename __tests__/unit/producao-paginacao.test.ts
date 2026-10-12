@@ -34,6 +34,16 @@ describe('buscarProposicoesDoDeputado (produção legislativa)', () => {
         expect(fetchJson.mock.calls[1][0]).toBe('https://api/p2');
     });
 
+    it('ordena por id e não repete proposição que volta em outra página (upsert recusava o lote)', async () => {
+        fetchJson
+            .mockResolvedValueOnce(pagina([10, 9, 8], 'https://api/p2'))
+            .mockResolvedValueOnce(pagina([8, 7]));
+        const { buscarProposicoesDoDeputado } = await import('../../scripts/etl/producao-legislativa-sync');
+        const todas = await buscarProposicoesDoDeputado(204536, 2026);
+        expect(todas.map(p => p.id)).toEqual([10, 9, 8, 7]);
+        expect(fetchJson.mock.calls[0][0]).toContain('&ordem=DESC&ordenarPor=id');
+    });
+
     it('para quando a página não tem próximo', async () => {
         fetchJson.mockResolvedValueOnce(pagina([1, 2]));
         const { buscarProposicoesDoDeputado } = await import('../../scripts/etl/producao-legislativa-sync');
