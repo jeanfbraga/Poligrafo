@@ -95,6 +95,7 @@ const ESTRUTURAIS = new Set([
 	"CONTRATO",
 	"RESUMO_GASTOS",
 	"DIARIO_OFICIAL_NODE",
+	"SERVIDOR",
 ]);
 
 /* -------------------------------------------------------------------------- */
@@ -226,10 +227,20 @@ function adicionarEvidencia(s: DossieState, node: DossieNode): DossieState {
 	return { ...s, evidencias: upsertNode(s.evidencias, node) };
 }
 
+/**
+ * PESSOA ligada a outro nó não é o investigado: servidor do gabinete da CMRJ em cache antigo
+ * (até 12/10/2026 eles vinham como PESSOA e eram fundidos no político, que virava o último servidor).
+ */
+function ehPessoaSecundaria(node: DossieNode): boolean {
+	const origem = String(node.data?._origemId ?? (node as { _origemId?: string })._origemId ?? "");
+	return node.type === "PESSOA" && Boolean(origem) && origem !== node.id;
+}
+
 function aoAdicionarNode(s: DossieState, node: DossieNode): DossieState {
 	if (ehBemLegado(node)) return s;
 	// O resumo da cota não é nó: o total/recorte é calculado de `lib/investigacao/cota` (também p/ caches antigos).
 	if (node.type === "CEAP_RESUMO") return s;
+	if (ehPessoaSecundaria(node)) return adicionarEstrutural(s, { ...node, type: "SERVIDOR" });
 	if (node.type === "PESSOA") return adicionarPessoa(s, node);
 	if (ESTRUTURAIS.has(node.type ?? "")) return adicionarEstrutural(s, node);
 	if (scoreDe(node) >= SCORE_ATENCAO) return adicionarSuspeito(s, node);

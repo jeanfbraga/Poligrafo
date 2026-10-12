@@ -117,9 +117,16 @@ describe("urlDossie / alvoDosParams", () => {
 		expect(alvoDosParams(q)).toEqual({ nome: "Carla", ref: "FEDERAL:SENADO:9", uf: "FEDERAL" });
 	});
 
-	it("sem alvo retorna null", () => {
-		expect(alvoDosParams(new URLSearchParams("nome=Fulano"))).toBeNull();
+	it("sem nome retorna null (a tela volta ao início)", () => {
 		expect(alvoDosParams(new URLSearchParams(""))).toBeNull();
+		expect(alvoDosParams(new URLSearchParams("nome=%20%20&uf=RJ"))).toBeNull();
+	});
+
+	it("busca ao vivo da barra (só nome e UF, sem ref) é um alvo válido", () => {
+		// 12/10/2026: vereador do RJ fora do índice local → /dossie?nome=…&uf=RJ voltava ao início sem buscar.
+		const url = urlDossie({ nome: "Rafael Aloisio Freitas", uf: "RJ" });
+		expect(url).toBe("/dossie?nome=Rafael+Aloisio+Freitas&uf=RJ");
+		expect(alvoDosParams(new URLSearchParams(url.split("?")[1]))).toEqual({ nome: "Rafael Aloisio Freitas", ref: undefined, uf: "RJ" });
 	});
 
 	it("alvo só com nome (sem ref) preserva a UF", () => {

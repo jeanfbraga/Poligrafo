@@ -165,13 +165,17 @@ export function urlDossie(alvo: Alvo): string {
 	return `/dossie?${q.toString()}`;
 }
 
-/** Lê o alvo dos query params do Dossiê (aceita também o formato legado `?alvo=Nome&ref=`). */
+/**
+ * Lê o alvo dos query params do Dossiê (aceita também o formato legado `?alvo=Nome&ref=`).
+ * Só o nome (`?nome=Fulano&uf=RJ`) é a busca ao vivo da barra de busca, quando o político não
+ * está no índice local (quase todo vereador, prefeito e deputado estadual): o servidor devolve
+ * os candidatos. Antes essa URL voltava `null` e a tela ia para o início sem buscar nada.
+ */
 export function alvoDosParams(params: URLSearchParams): Alvo | null {
-	const alvoParam = params.get("alvo") || params.get("ref");
-	const nome = params.get("nome") || params.get("alvo");
-	if (!alvoParam || !nome) return null;
-	const refLegado = params.get("ref");
-	const ref = refLegado || (alvoParam.includes(":") ? alvoParam : undefined);
+	const alvoParam = params.get("alvo");
+	const nome = (params.get("nome") || alvoParam || "").trim();
+	if (!nome) return null;
+	const ref = params.get("ref") || (alvoParam?.includes(":") ? alvoParam : undefined);
 	return { nome, ref, uf: params.get("uf") || undefined };
 }
 

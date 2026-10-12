@@ -208,8 +208,11 @@ export async function analisarEmendasComInteligencia(
 		(o, a) => aplicarAvaliacaoItem(o, a, "Análise via IA sem achados."), fallbackL4Emendas);
 }
 
+/** Pessoas (o investigado e os servidores do gabinete) não vão à triagem da IA. */
+const FORA_DA_IA = new Set(["PESSOA", "SERVIDOR"]);
+
 function resumirNoParaIA(n: any): any {
-	if (n.type === "PESSOA") return null;
+	if (FORA_DA_IA.has(n.type)) return null;
 	if (n._isContextOnly) return n;
 	return {
 		id: n.id,
@@ -260,7 +263,7 @@ export async function analisarMalhaOsintComInteligencia(
 	const loteOtimizado = malhaOsint.map(resumirNoParaIA).filter(Boolean);
 	if (loteOtimizado.length === 0) return [];
 
-	const avaliaveis = malhaOsint.filter((n: any) => !n._isContextOnly && n.type !== "PESSOA");
+	const avaliaveis = malhaOsint.filter((n: any) => !n._isContextOnly && !FORA_DA_IA.has(n.type));
 	const ids = avaliaveis.map((n: any) => String(n.id));
 	const promptText = construirPromptOSINT(ufPolitico, loteOtimizado, esferaPolitico, casaLegislativa, normaLocal);
 

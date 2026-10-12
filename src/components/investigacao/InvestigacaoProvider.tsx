@@ -111,7 +111,9 @@ export function InvestigacaoProvider({
 	const restaurar = useCallback(
 		(alvo: Alvo) => {
 			const atual = store.getState();
-			if (mesmoAlvo(atual.alvo, alvo) && temConteudoDossie(atual.dossie)) return true;
+			// Já rodando para este alvo (ex.: a busca ao vivo achou o candidato e a URL ganhou a ref): não recomeça.
+			const emAndamento = atual.dossie.status === "running";
+			if (mesmoAlvo(atual.alvo, alvo) && (emAndamento || temConteudoDossie(atual.dossie))) return true;
 			const p = lerSessao();
 			if (!p || !mesmoAlvo(p.alvo, alvo) || !temConteudoDossie(p.dossie)) return false;
 			store.dispatch({ t: "RESTAURAR", alvo: p.alvo, dossie: p.dossie, inicio: p.inicio, fim: p.fim });

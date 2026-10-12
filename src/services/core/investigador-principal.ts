@@ -1163,7 +1163,8 @@ export async function executarInvestigacaoPrincipal(params: any) {
 				servidoresCMRJ.forEach((serv: any, i: number) => {
 					const servPayload = {
 						id: `servidor-cmrj-${Date.now()}-${i}`,
-						type: "PESSOA",
+						// SERVIDOR, não PESSOA: a tela funde toda PESSOA no político investigado.
+						type: "SERVIDOR",
 						_origemId: pessoaId,
 						data: {
 							label: serv.nome,

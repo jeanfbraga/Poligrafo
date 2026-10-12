@@ -188,6 +188,19 @@ describe("NODE_NOVO — roteamento", () => {
 		expect(s.evidencias).toHaveLength(0);
 	});
 
+	it("servidor do gabinete não substitui o vereador (SERVIDOR novo e PESSOA de cache antigo)", () => {
+		// 12/10/2026: os servidores da CMRJ vinham como PESSOA e o cartão do vereador virava o último servidor.
+		let s = aplicarEvento(rodando(), ev("NODE_NOVO", { ...pessoa(), data: { label: "Rafael Aloisio Freitas", cpf: "08249495799" } }));
+		s = aplicarEvento(s, ev("NODE_NOVO", { id: "servidor-cmrj-1-0", type: "PESSOA", _origemId: "pessoa-1", data: { label: "Wiviane Miranda da Silva", cargo: "ASSISTENTE I" } }));
+		s = aplicarEvento(s, ev("NODE_NOVO", { id: "servidor-cmrj-1-1", type: "SERVIDOR", _origemId: "pessoa-1", data: { label: "Outro Servidor", cargo: "ASSESSOR" } }));
+		const pessoas = s.nodes.filter((n) => n.type === "PESSOA");
+		expect(pessoas).toHaveLength(1);
+		expect(pessoas[0]).toMatchObject({ id: "pessoa-1", data: { label: "Rafael Aloisio Freitas" } });
+		expect(s.pessoaId).toBe("pessoa-1");
+		expect(s.nodes.filter((n) => n.type === "SERVIDOR").map((n) => n.id)).toEqual(["servidor-cmrj-1-0", "servidor-cmrj-1-1"]);
+		expect(s.edges.filter((e) => e.source === "pessoa-1" && e.target.startsWith("servidor-")).length).toBe(2);
+	});
+
 	it("Raio-X de Gastos do vereador (RESUMO_GASTOS) continua no canvas", () => {
 		// Em 08/10/2026 a limpeza do nó agregador de cotas passou a descartar todo RESUMO_GASTOS.
 		let s = aplicarEvento(rodando(), ev("NODE_NOVO", pessoa()));
