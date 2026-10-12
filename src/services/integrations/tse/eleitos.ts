@@ -28,6 +28,8 @@ export interface Eleito {
 	nr_cpf_candidato: string | null;
 	sg_partido: string | null;
 	ds_sit_tot_turno: string | null;
+	/** CPF completado de candidatura anterior (2024 esconde o CPF): "consulta_cand_2020 (título e nascimento)". */
+	cpf_fonte?: string | null;
 }
 
 /** Prefixo do número do candidato na ref, para nunca ser confundido com CPF. */
@@ -39,7 +41,7 @@ export function sqDaRef(valor: unknown): string | null {
 	return s.startsWith(PREFIXO_SQ) && /^\d+$/.test(s.slice(PREFIXO_SQ.length)) ? s.slice(PREFIXO_SQ.length) : null;
 }
 
-const COLUNAS = "sq_candidato,ano_eleicao,cd_cargo,ds_cargo,sg_uf,nm_ue,municipio_slug,cd_municipio_ibge,nm_candidato,nm_urna_candidato,nr_cpf_candidato,sg_partido,ds_sit_tot_turno";
+const COLUNAS = "sq_candidato,ano_eleicao,cd_cargo,ds_cargo,sg_uf,nm_ue,municipio_slug,cd_municipio_ibge,nm_candidato,nm_urna_candidato,nr_cpf_candidato,sg_partido,ds_sit_tot_turno,cpf_fonte";
 /** Cargos procurados na busca: governador, dep. estadual/distrital, prefeito, vereador. */
 export const CARGOS_BUSCA = ["3", "7", "8", "11", "13"];
 const LIMITE_BUSCA = 30;

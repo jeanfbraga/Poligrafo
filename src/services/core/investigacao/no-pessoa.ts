@@ -60,7 +60,8 @@ export function montarNoPessoa(inv: Investigacao) {
 			nomeCivil: inv.detalhes?.nomeCivil || dep.nome,
 			...documento(inv),
 			uf: dep.uf,
-			cargo: inv.perfil.cargoDisplay,
+			// cargoDisplay do alvo: ex-deputado estadual sem verba (alvo-direto.ts); senão, o da alçada.
+			cargo: dep.cargoDisplay ?? inv.perfil.cargoDisplay,
 			idLegislatura: dep.idLegislatura,
 			casa: dep.casa,
 			...dadosDoPatrimonio(ficha, inv.tse),

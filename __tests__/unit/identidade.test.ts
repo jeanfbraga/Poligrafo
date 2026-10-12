@@ -70,6 +70,12 @@ describe("resolverIdentidade (v2, base de eleitos)", () => {
 		expect(podeConsultarPorCpf(id)).toBe(false);
 	});
 
+	it("CPF de 2024 completado de candidatura anterior: a evidência diz de onde veio", () => {
+		const id = resolverIdentidade({ eleito: { ...PREFEITO, nr_cpf_candidato: CPF_A, cpf_fonte: "consulta_cand_2020 (título e nascimento)" } });
+		expect(id).toMatchObject({ cpf: CPF_A, confianca: "alta" });
+		expect(id.evidencias[0]).toBe("CPF do candidato eleito (base de eleitos do TSE), completado de consulta_cand_2020 (título e nascimento)");
+	});
+
 	it("eleito achado por nome e confirmado por outra fonte oficial (Senado): CPF adotado e a fonte aparece", () => {
 		const id = resolverIdentidade({ eleito: { ...PREFEITO, nr_cpf_candidato: CPF_A, porNome: false, confirmadoPor: "nome civil confirmado pelo Senado Federal" } });
 		expect(id).toMatchObject({ cpf: CPF_A, confianca: "alta" });

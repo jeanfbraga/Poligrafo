@@ -28,6 +28,7 @@ import unzipper from "unzipper";
 import { credenciaisBancoPerfil } from "./banco-perfil";
 import {
 	type Dominios,
+	downloadIncompleto,
 	type EmpresaReceita,
 	empresaDaLinha,
 	type LinhaSocioPolitico,
@@ -54,10 +55,41 @@ const LOTE = 1000;
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function listarMeses(): Promise<string[]> {
+async function listarUmaVez(): Promise<string[]> {
 	const res = await fetch(`${WEBDAV}/`, { method: "PROPFIND", headers: { Authorization: AUTH, Depth: "1" }, signal: AbortSignal.timeout(60_000) });
 	if (!res.ok) throw new Error(`[RECEITA] Listagem do compartilhamento: HTTP ${res.status}`);
 	return [...(await res.text()).matchAll(/<d:href>([^<]+)<\/d:href>/g)].map((m) => m[1]);
+}
+
+async function pastaExiste(mes: string): Promise<boolean> {
+	const res = await fetch(`${WEBDAV}/${mes}/Socios0.zip`, { headers: { Authorization: AUTH, Range: "bytes=0-0" }, signal: AbortSignal.timeout(60_000) });
+	return res.ok;
+}
+
+/** Sem listagem: a pasta mais recente entre o mês atual e os 3 anteriores que tenha os arquivos. */
+async function mesPorTentativa(agora = new Date()): Promise<string[]> {
+	for (let i = 0; i <= 3; i++) {
+		const d = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth() - i, 1));
+		const mes = d.toISOString().slice(0, 7);
+		if (await pastaExiste(mes)) return [`/public.php/webdav/${mes}/`];
+	}
+	return [];
+}
+
+/**
+ * O servidor da Receita às vezes responde 200 com corpo vazio na listagem (12/10/2026, por
+ * horas, enquanto os arquivos baixavam normalmente): tenta de novo e, sem listagem, testa as
+ * pastas dos últimos meses.
+ */
+async function listarMeses(): Promise<string[]> {
+	for (let tentativa = 1; tentativa <= 2; tentativa++) {
+		const hrefs = await listarUmaVez();
+		if (hrefs.length > 0) return hrefs;
+		console.warn(`[RECEITA] Listagem vazia (tentativa ${tentativa}/2); nova tentativa em 15 s.`);
+		await esperar(15_000);
+	}
+	console.warn("[RECEITA] Sem listagem: testando as pastas dos últimos meses.");
+	return mesPorTentativa();
 }
 
 async function baixarUmaVez(url: string, destino: string): Promise<void> {
@@ -65,6 +97,11 @@ async function baixarUmaVez(url: string, destino: string): Promise<void> {
 	if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
 	const parcial = `${destino}.parcial`;
 	await pipeline(Readable.fromWeb(res.body as never), fs.createWriteStream(parcial));
+	const problema = downloadIncompleto(Number(res.headers.get("content-length")), fs.statSync(parcial).size);
+	if (problema) {
+		fs.rmSync(parcial, { force: true });
+		throw new Error(problema);
+	}
 	fs.renameSync(parcial, destino);
 }
 
@@ -105,10 +142,22 @@ interface Opcoes {
 	manter: boolean;
 }
 
+/** Zip corrompido que passou pelo download (ex.: FILE_ENDED): apaga, baixa de novo e relê, uma vez. */
+async function baixarELer(mes: string, arquivo: string, aoLer: (colunas: string[]) => void): Promise<{ zip: string; linhas: number }> {
+	const zip = await baixar(mes, arquivo);
+	try {
+		return { zip, linhas: await lerCsvDoZip(zip, aoLer) };
+	} catch (e) {
+		console.warn(`[RECEITA] ${arquivo} ilegível (${(e as Error).message}); baixando de novo.`);
+		fs.rmSync(zip, { force: true });
+		const novo = await baixar(mes, arquivo);
+		return { zip: novo, linhas: await lerCsvDoZip(novo, aoLer) };
+	}
+}
+
 async function lerPartes(o: Opcoes, prefixo: string, aoLer: (colunas: string[]) => void): Promise<void> {
 	for (const i of PARTES) {
-		const zip = await baixar(o.mes, `${prefixo}${i}.zip`);
-		const linhas = await lerCsvDoZip(zip, aoLer);
+		const { zip, linhas } = await baixarELer(o.mes, `${prefixo}${i}.zip`, aoLer);
 		console.log(`[RECEITA] ${prefixo}${i}: ${linhas.toLocaleString("pt-BR")} linhas lidas.`);
 		if (!o.manter) fs.rmSync(zip, { force: true });
 	}

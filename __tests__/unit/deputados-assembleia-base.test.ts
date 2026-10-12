@@ -66,6 +66,17 @@ describe("deputado estadual pela lista da própria assembleia", () => {
 		expect(ordenarCandidatos(r, "Rodrigo", "RJ").map((x) => x.id)).toEqual(["RODRIGO AMORIM DOS SANTOS", "RODRIGO DA SILVA BACELLAR"]);
 	});
 
+	it("cargo do dossiê: ex-deputado só quando a verba parou; em exercício ou nome ambíguo, o de sempre", async () => {
+		const { cargoForaDoExercicio } = await import("@/services/integrations/assembleias/deputados-base");
+		const linhas = [
+			{ deputado: "Rodrigo Da Silva Bacellar (Rodrigo Bacellar)", ultimo_ano: 2026, ultimo_mes: "2026-03-01" },
+			{ deputado: "Rodrigo Amorim Dos Santos (Rodrigo Amorim)", ultimo_ano: 2026, ultimo_mes: "2026-07-01" },
+		];
+		expect(await cargoForaDoExercicio("ALERJ", "RODRIGO DA SILVA BACELLAR", AGORA, cliente(linhas).c)).toBe("Ex-deputado estadual (RJ) — sem verba de gabinete desde 03/2026");
+		expect(await cargoForaDoExercicio("ALERJ", "RODRIGO AMORIM DOS SANTOS", AGORA, cliente(linhas).c)).toBeNull();
+		expect(await cargoForaDoExercicio("ALERJ", "Rodrigo", AGORA, cliente(linhas).c)).toBeNull();
+	});
+
 	it("com o TSE respondendo, a mesma pessoa não aparece duas vezes (o do TSE traz o CPF)", () => {
 		const doTse = [{ ...candidatoDaAssembleia("ALERJ", "RODRIGO DA SILVA BACELLAR"), ref: "ALERJ:DEPUTADO_ESTADUAL:RODRIGO%20DA%20SILVA%20BACELLAR:08661032792" }];
 		const daBase = [candidatoDaAssembleia("ALERJ", "Rodrigo Da Silva Bacellar (Rodrigo Bacellar)"), candidatoDaAssembleia("ALERJ", "Rodrigo Amorim Dos Santos (Rodrigo Amorim)")];

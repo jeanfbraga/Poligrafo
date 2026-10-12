@@ -23,9 +23,14 @@ import {
 	type BancoGravacao,
 	CICLOS,
 	deduplicar,
+	completarCpfPeloTitulo,
+	type CpfAnterior,
 	type EleitoNaBase,
+	type IdentificacaoEleitoral,
+	identificacaoDaLinha,
 	LIMITE_SAIDA,
 	quemSaiu,
+	registrarCpfAnterior,
 	gravarLinhas,
 	type LinhaEleito,
 	linhaParaEleito,
@@ -49,22 +54,54 @@ async function mapaIbge(eleicaoMunicipal?: string): Promise<Map<string, string>>
 	return montarMapaIbge(await res.json());
 }
 
-async function lerCsv(arquivo: string, ano: number, cargos: string[] | undefined, mapa: Map<string, string>) {
-	const linhas: { linha: LinhaEleito; turno: number }[] = [];
+/** Percorre o CSV nacional (latin1, `;`) e apaga o extraído; fica só o ZIP em .tmp_tse/ (cache). */
+async function percorrerCsv(arquivo: string, aoLer: (r: Record<string, string>) => void): Promise<void> {
 	const parser = fs.createReadStream(arquivo, "latin1").pipe(
 		parse({ columns: true, delimiter: ";", skip_empty_lines: true, relax_quotes: true, relax_column_count: true }),
 	);
 	try {
-		for await (const r of parser) {
-			if (cargos && !cargos.includes(String(r.CD_CARGO))) continue;
-			const linha = linhaParaEleito(r, ano, mapa);
-			if (linha) linhas.push({ linha, turno: Number(r.NR_TURNO) || 1 });
-		}
+		for await (const r of parser) aoLer(r as Record<string, string>);
 	} finally {
-		// O CSV extraído sai; fica só o ZIP em .tmp_tse/ (cache que pode ser apagado).
 		fs.rmSync(arquivo, { force: true });
 	}
-	return deduplicar(linhas);
+}
+
+async function csvDoAno(ano: number): Promise<string> {
+	fs.mkdirSync(TEMP_DIR, { recursive: true });
+	const zip = path.join(TEMP_DIR, `consulta_cand_${ano}.zip`);
+	await downloadZipComCurl(`https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_${ano}.zip`, zip);
+	return extrairArquivoZip(zip, new RegExp(`consulta_cand_${ano}_BRASIL\\.csv$`, "i"), TEMP_DIR);
+}
+
+async function lerCsv(arquivo: string, ano: number, cargos: string[] | undefined, mapa: Map<string, string>) {
+	const linhas: { linha: LinhaEleito; turno: number }[] = [];
+	const idPorSq = new Map<string, IdentificacaoEleitoral>();
+	await percorrerCsv(arquivo, (r) => {
+		if (cargos && !cargos.includes(String(r.CD_CARGO))) return;
+		const linha = linhaParaEleito(r, ano, mapa);
+		if (!linha) return;
+		linhas.push({ linha, turno: Number(r.NR_TURNO) || 1 });
+		const id = identificacaoDaLinha(r);
+		if (id) idPorSq.set(linha.sq_candidato, id);
+	});
+	return { linhas: deduplicar(linhas), idPorSq };
+}
+
+/**
+ * CPF escondido (2024): o das candidaturas anteriores com o mesmo título + nascimento.
+ * Lê só os títulos que interessam, da eleição mais recente à mais antiga.
+ */
+async function completarCpfDeAnteriores(ciclo: (typeof CICLOS)[number], linhas: LinhaEleito[], idPorSq: Map<string, IdentificacaoEleitoral>): Promise<void> {
+	if (!ciclo.cpfPeloTituloDe) return;
+	const semCpf = linhas.filter((l) => !l.nr_cpf_candidato);
+	const titulos = new Set(semCpf.flatMap((l) => (idPorSq.get(l.sq_candidato) ? [idPorSq.get(l.sq_candidato)!.titulo] : [])));
+	const anteriores = new Map<string, CpfAnterior>();
+	for (const ano of ciclo.cpfPeloTituloDe) {
+		await percorrerCsv(await csvDoAno(ano), (r) => registrarCpfAnterior(anteriores, r, titulos, ano));
+		console.log(`[TSE ELEITOS ${ciclo.ano}] ${anteriores.size} título(s) com CPF até ${ano}.`);
+	}
+	const n = completarCpfPeloTitulo(linhas, idPorSq, anteriores);
+	console.log(`[TSE ELEITOS ${ciclo.ano}] CPF completado em ${n} de ${semCpf.length} eleitos sem CPF (mesmo título e nascimento numa candidatura anterior).`);
 }
 
 function bancoPerfil(): SupabaseClient {
@@ -108,11 +145,8 @@ async function gravar(ciclo: (typeof CICLOS)[number], linhas: LinhaEleito[]) {
 }
 
 async function sincronizarCiclo(ciclo: (typeof CICLOS)[number], seco: boolean): Promise<number> {
-	fs.mkdirSync(TEMP_DIR, { recursive: true });
-	const zip = path.join(TEMP_DIR, `consulta_cand_${ciclo.ano}.zip`);
-	await downloadZipComCurl(`https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_${ciclo.ano}.zip`, zip);
-	const csv = extrairArquivoZip(zip, new RegExp(`consulta_cand_${ciclo.ano}_BRASIL\\.csv$`, "i"), TEMP_DIR);
-	const linhas = await lerCsv(csv, ciclo.ano, ciclo.cargos, await mapaIbge(ciclo.eleicaoMunicipal));
+	const { linhas, idPorSq } = await lerCsv(await csvDoAno(ciclo.ano), ciclo.ano, ciclo.cargos, await mapaIbge(ciclo.eleicaoMunicipal));
+	await completarCpfDeAnteriores(ciclo, linhas, idPorSq);
 	const minimo = MINIMOS[ciclo.ano] ?? 1;
 	if (linhas.length < minimo) {
 		throw new Error(`[TSE ELEITOS ${ciclo.ano}] ${linhas.length} registros, abaixo do mínimo ${minimo}: nada gravado.`);

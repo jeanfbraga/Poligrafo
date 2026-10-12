@@ -6,6 +6,7 @@
 import { buscarPolitico, buscarSenadoresLista } from "@/app/api/investigar/scrapers/legislativo";
 import { buscarCpfNoTSE } from "@/app/api/investigar/tse";
 import { alvoLocalDaRef, interpretarRef } from "@/services/core/alvo-ref";
+import { cargoForaDoExercicio } from "@/services/integrations/assembleias/deputados-base";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
 import { PREFIXO_SQ, titularDoCargo } from "@/services/integrations/tse/eleitos";
 import { type Execucao, status } from "./contexto";
@@ -84,6 +85,16 @@ async function executivo(e: Execucao, ref: string): Promise<any> {
 
 const EXECUTIVOS = /^(GOVERNADOR|PREFEITO|PRESIDENTE):/;
 
+/**
+ * ALERJ/ALESP: sem verba de gabinete há mais de 3 meses, o nó PESSOA diz "Ex-deputado
+ * estadual … desde MM/AAAA" (Rodrigo Bacellar, diploma cassado em 2026).
+ */
+async function comSituacaoNaAssembleia(local: any): Promise<any> {
+	if (local.casa !== "ALERJ" && local.casa !== "ALESP") return local;
+	const cargo = await cargoForaDoExercicio(local.casa, local.nome).catch(() => null);
+	return cargo ? { ...local, cargoDisplay: cargo } : local;
+}
+
 /** null = ref sem alvo (a rota avisa e encerra). */
 export async function resolverAlvoDireto(e: Execucao): Promise<any | null> {
 	const ref = e.p.forceRef ?? "";
@@ -92,6 +103,6 @@ export async function resolverAlvoDireto(e: Execucao): Promise<any | null> {
 	// Municipais e assembleias, inclusive ESTADUAL:{UF}:{doc} (antes sem tratamento)
 	// e prefeito de SP/RJ (antes virava vereador): ver services/core/alvo-ref.ts
 	const local = alvoLocalDaRef(interpretarRef(ref), e.p.nomeBruto || e.p.nomeParaBusca);
-	if (local) return local;
+	if (local) return comSituacaoNaAssembleia(local);
 	return EXECUTIVOS.test(ref) ? executivo(e, ref) : null;
 }

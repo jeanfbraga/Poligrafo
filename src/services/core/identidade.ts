@@ -44,6 +44,8 @@ export interface EleitoIdentidade {
 	porNome?: boolean;
 	/** Achado por nome e confirmado por outra fonte oficial (ex.: nome civil do Senado). */
 	confirmadoPor?: string;
+	/** CPF completado de candidatura anterior (ex.: "consulta_cand_2020 (título e nascimento)"). */
+	cpf_fonte?: string | null;
 }
 
 export interface EntradaIdentidade {
@@ -95,12 +97,18 @@ interface Base {
 	fonte: string;
 }
 
+/** 2024 esconde o CPF: quando ele veio de candidatura anterior (mesmo título e nascimento), diz qual. */
+function fonteDoEleito(eleito: EleitoIdentidade | null | undefined): string {
+	const base = "CPF do candidato eleito (base de eleitos do TSE)";
+	return eleito?.cpf_fonte ? `${base}, completado de ${eleito.cpf_fonte}` : base;
+}
+
 /** CPF com maior precedência: oficial da casa > ref escolhida > base de eleitos > TSE ao vivo. */
 function escolherCpf(e: EntradaIdentidade, cpfTse: string | null): Base {
 	const ordem: [string | null, string][] = [
 		[cpfOuNulo(e.cpfOficial), "CPF da API oficial da casa legislativa"],
 		[cpfOuNulo(e.docDaRef), "CPF da referência escolhida (lista oficial/TSE)"],
-		[e.eleito?.porNome ? null : cpfOuNulo(e.eleito?.nr_cpf_candidato), "CPF do candidato eleito (base de eleitos do TSE)"],
+		[e.eleito?.porNome ? null : cpfOuNulo(e.eleito?.nr_cpf_candidato), fonteDoEleito(e.eleito)],
 		[cpfTse, "CPF do TSE (consulta por cargo e UF)"],
 	];
 	const achado = ordem.find(([cpf]) => cpf);

@@ -24,6 +24,54 @@ export interface LinhaEleito {
 	sg_partido: string | null;
 	ds_sit_tot_turno: string | null;
 	nomes_busca: string;
+	/** De onde veio o CPF quando não é do próprio arquivo (ex.: "consulta_cand_2020 (título e nascimento)"). */
+	cpf_fonte?: string | null;
+}
+
+/** Título de eleitor e data de nascimento: identificam a pessoa entre eleições. */
+export interface IdentificacaoEleitoral {
+	titulo: string;
+	nascimento: string;
+}
+
+export function identificacaoDaLinha(r: Record<string, string>): IdentificacaoEleitoral | null {
+	const titulo = soDigitos(r.NR_TITULO_ELEITORAL_CANDIDATO);
+	const nascimento = texto(r.DT_NASCIMENTO);
+	return titulo.length >= 10 && nascimento ? { titulo, nascimento } : null;
+}
+
+export interface CpfAnterior {
+	cpf: string;
+	nascimento: string | null;
+	ano: number;
+}
+
+/**
+ * Linha de uma eleição anterior (2016–2022, CPF ainda publicado): guarda o CPF pelo título,
+ * só para títulos que interessam e na primeira vez (as eleições são lidas da mais recente).
+ */
+export function registrarCpfAnterior(mapa: Map<string, CpfAnterior>, r: Record<string, string>, titulos: Set<string>, ano: number): void {
+	const titulo = soDigitos(r.NR_TITULO_ELEITORAL_CANDIDATO);
+	if (!titulos.has(titulo) || mapa.has(titulo) || !cpfValido(r.NR_CPF_CANDIDATO)) return;
+	mapa.set(titulo, { cpf: soDigitos(r.NR_CPF_CANDIDATO), nascimento: texto(r.DT_NASCIMENTO), ano });
+}
+
+/**
+ * O TSE esconde o CPF de 2024 ("-4") mas publica título e nascimento: o eleito sem CPF ganha o
+ * da candidatura anterior com o MESMO título e a MESMA data de nascimento (as duas coisas;
+ * em 12/10/2026, 50.539 de 51.130 ligações pelo título conferiam o nascimento). Devolve quantos.
+ */
+export function completarCpfPeloTitulo(linhas: LinhaEleito[], idPorSq: Map<string, IdentificacaoEleitoral>, anteriores: Map<string, CpfAnterior>): number {
+	let completados = 0;
+	for (const l of linhas) {
+		const id = idPorSq.get(l.sq_candidato);
+		const anterior = id ? anteriores.get(id.titulo) : undefined;
+		if (l.nr_cpf_candidato || !anterior || anterior.nascimento !== id?.nascimento) continue;
+		l.nr_cpf_candidato = anterior.cpf;
+		l.cpf_fonte = `consulta_cand_${anterior.ano} (título e nascimento)`;
+		completados++;
+	}
+	return completados;
 }
 
 /** Cargos municipais (a UE é o município): prefeito, vice e vereador. */
@@ -104,6 +152,7 @@ export function linhaParaEleito(r: Record<string, string>, ano: number, mapaIbge
 		sg_partido: texto(r.SG_PARTIDO),
 		ds_sit_tot_turno: e.situacao,
 		nomes_busca: nomesBusca(e.nome, urna),
+		cpf_fonte: null,
 	};
 }
 
@@ -160,9 +209,13 @@ export function quemSaiu(naBase: EleitoNaBase[], novos: LinhaEleito[]): EleitoNa
 	return naBase.length > 0 && sairam.length / naBase.length > LIMITE_SAIDA ? null : sairam;
 }
 
-/** Ciclos carregados e cargos de cada um (2018: só senadores, ainda em mandato até 2027). */
-export const CICLOS: { ano: number; cargos?: string[]; eleicaoMunicipal?: string }[] = [
+/**
+ * Ciclos carregados e cargos de cada um (2018: só senadores, ainda em mandato até 2027).
+ * `cpfPeloTituloDe`: eleições anteriores (da mais recente à mais antiga) que completam o CPF
+ * escondido, pelo título de eleitor + data de nascimento.
+ */
+export const CICLOS: { ano: number; cargos?: string[]; eleicaoMunicipal?: string; cpfPeloTituloDe?: number[] }[] = [
 	{ ano: 2018, cargos: ["5"] },
 	{ ano: 2022 },
-	{ ano: 2024, eleicaoMunicipal: "619" },
+	{ ano: 2024, eleicaoMunicipal: "619", cpfPeloTituloDe: [2022, 2020, 2018, 2016] },
 ];

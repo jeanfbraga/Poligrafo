@@ -88,7 +88,7 @@ export const ALVOS: AlvoMatriz[] = [
 		descricao: "Deputado estadual (RJ / ALERJ) — ex-deputado: diploma cassado pelo TSE em 2026",
 		alcada: "estadual",
 		consulta: { nome: "Rodrigo Bacellar", uf: "RJ" },
-		cargoEsperado: "Deputado Estadual",
+		cargoEsperado: "Ex-deputado estadual (RJ) — sem verba de gabinete desde 03/2026",
 		exercita: "DOCIGP vira só mensagem; busca pela lista da ALERJ marca quem está sem verba (fora do exercício)",
 	},
 	{

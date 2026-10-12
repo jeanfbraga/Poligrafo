@@ -6,8 +6,11 @@ import {
 	type LinhaEleito,
 	linhaParaEleito,
 	montarMapaIbge,
+	completarCpfPeloTitulo,
+	identificacaoDaLinha,
 	nomesBusca,
 	quemSaiu,
+	registrarCpfAnterior,
 	situacaoInteressa,
 } from "../../scripts/etl/tse-eleitos";
 import { interpretarRef } from "../../src/services/core/alvo-ref";
@@ -98,6 +101,34 @@ const ELEITO: Eleito = {
 	municipio_slug: "rio-de-janeiro", cd_municipio_ibge: "3304557", nm_candidato: "RAFAEL ALOISIO FREITAS",
 	nm_urna_candidato: "RAFAEL ALOISIO FREITAS", nr_cpf_candidato: null, sg_partido: "PSD", ds_sit_tot_turno: "ELEITO POR QP",
 };
+
+describe("ETL tse_eleitos — CPF escondido em 2024, completado pelo título de eleitor", () => {
+	const eleito2024 = (sq: string) => ({ sq_candidato: sq, nr_cpf_candidato: null, cpf_fonte: null }) as unknown as LinhaEleito;
+	const linhaAnterior = (titulo: string, cpf: string, nasc: string) => ({ NR_TITULO_ELEITORAL_CANDIDATO: titulo, NR_CPF_CANDIDATO: cpf, DT_NASCIMENTO: nasc });
+
+	it("mesmo título E mesma data de nascimento: o CPF da candidatura anterior entra, com a origem", () => {
+		expect(identificacaoDaLinha({ NR_TITULO_ELEITORAL_CANDIDATO: "066811370469", DT_NASCIMENTO: "18/08/1967" })).toEqual({ titulo: "066811370469", nascimento: "18/08/1967" });
+		const anteriores = new Map();
+		const titulos = new Set(["066811370469", "000000000191"]);
+		registrarCpfAnterior(anteriores, linhaAnterior("066811370469", CPF, "18/08/1967"), titulos, 2020);
+		registrarCpfAnterior(anteriores, linhaAnterior("066811370469", "11144477735", "18/08/1967"), titulos, 2016); // mais antiga não sobrescreve
+		registrarCpfAnterior(anteriores, linhaAnterior("999999999999", "11144477735", "01/01/1970"), titulos, 2020); // título fora do interesse
+		registrarCpfAnterior(anteriores, linhaAnterior("000000000191", "-4", "01/01/1970"), titulos, 2020); // sem CPF
+		expect([...anteriores.keys()]).toEqual(["066811370469"]);
+		const linhas = [eleito2024("1"), eleito2024("2")];
+		const idPorSq = new Map([["1", { titulo: "066811370469", nascimento: "18/08/1967" }], ["2", { titulo: "000000000191", nascimento: "01/01/1970" }]]);
+		expect(completarCpfPeloTitulo(linhas, idPorSq, anteriores)).toBe(1);
+		expect(linhas[0]).toMatchObject({ nr_cpf_candidato: CPF, cpf_fonte: "consulta_cand_2020 (título e nascimento)" });
+		expect(linhas[1].nr_cpf_candidato).toBeNull();
+	});
+
+	it("título igual com data de nascimento diferente não liga (as duas coisas precisam bater)", () => {
+		const anteriores = new Map([["066811370469", { cpf: CPF, nascimento: "19/08/1967", ano: 2020 }]]);
+		const linhas = [eleito2024("1")];
+		expect(completarCpfPeloTitulo(linhas, new Map([["1", { titulo: "066811370469", nascimento: "18/08/1967" }]]), anteriores)).toBe(0);
+		expect(linhas[0].nr_cpf_candidato).toBeNull();
+	});
+});
 
 describe("ETL tse_eleitos — quem saiu do arquivo do TSE", () => {
 	const naBase = (n: number) => Array.from({ length: n }, (_, i) => ({ sq_candidato: String(i), nm_candidato: `ELEITO ${i}`, ds_cargo: "DEPUTADO ESTADUAL", sg_uf: "RJ" }));

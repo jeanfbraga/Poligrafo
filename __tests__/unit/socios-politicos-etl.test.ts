@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	cnpjDaMatriz,
 	dataReceita,
+	downloadIncompleto,
 	empresaDaLinha,
 	mapaPoliticos,
 	montarRegistro,
@@ -22,6 +23,16 @@ const DOMINIOS = { qualificacoes: new Map([["22", "Sócio"]]), naturezas: new Ma
 
 // Linhas no formato de Socios*.csv da Receita (2026-09).
 const linha = (nome: string, cpfMascarado: string, identificador = "2") => ["21636316", identificador, nome, cpfMascarado, "22", "20150107", "", "***000000**", "", "00", "5"];
+
+describe("ETL socios_politicos — download da Receita", () => {
+	it("zip vazio ou cortado não passa como baixado (Socios9.zip com 0 byte, 12/10/2026)", () => {
+		expect(downloadIncompleto(0, 0)).toBe("download vazio (0 byte)");
+		expect(downloadIncompleto(1000, 0)).toBe("download vazio (0 byte)");
+		expect(downloadIncompleto(1000, 600)).toBe("download incompleto (600 de 1000 bytes)");
+		expect(downloadIncompleto(1000, 1000)).toBeNull();
+		expect(downloadIncompleto(Number.NaN, 1000)).toBeNull();
+	});
+});
 
 describe("ETL socios_politicos — quem é sócio", () => {
 	it("só eleito com CPF válido e nome de duas palavras ou mais entra no mapa", () => {

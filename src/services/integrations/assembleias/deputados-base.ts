@@ -107,6 +107,21 @@ export async function deputadosDaAssembleiaNaBase<C extends CasaEstadual>(
 }
 
 /**
+ * Cargo para o nó PESSOA de quem veio por ref de assembleia: "Ex-deputado estadual … desde MM/AAAA"
+ * quando a lista da assembleia mostra que a verba parou (ex.: mandato cassado). null = em
+ * exercício, nome ausente/ambíguo ou base fora do ar (vale o cargo de sempre).
+ */
+export async function cargoForaDoExercicio(
+	casa: CasaEstadual,
+	nome: string,
+	agora = new Date(),
+	cliente: ClienteSupabase = supabasePerfilAdmin,
+): Promise<string | null> {
+	const achados = await deputadosDaAssembleiaNaBase(casa, nome, agora, cliente);
+	return achados.length === 1 && achados[0].emExercicio === false ? achados[0].cargo : null;
+}
+
+/**
  * Junta o resultado do TSE ao vivo (com CPF, quando responde) com o da assembleia,
  * sem repetir a mesma pessoa: o do TSE vence, porque traz o documento.
  */

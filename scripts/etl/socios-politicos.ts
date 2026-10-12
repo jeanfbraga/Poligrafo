@@ -153,6 +153,16 @@ export function montarRegistro(v: VinculoSocio, empresa: EmpresaReceita | undefi
 	};
 }
 
+/**
+ * O servidor da Receita às vezes responde 200 sem corpo ou fecha a conexão antes do fim,
+ * sem erro (12/10/2026: Socios9.zip veio com 0 byte e o unzip parou em FILE_ENDED).
+ */
+export function downloadIncompleto(esperado: number, recebido: number): string | null {
+	if (recebido === 0) return "download vazio (0 byte)";
+	if (esperado > 0 && recebido !== esperado) return `download incompleto (${recebido} de ${esperado} bytes)`;
+	return null;
+}
+
 /** Pasta mensal mais recente na listagem WebDAV ("/public.php/webdav/2026-09/"). */
 export function pastaMaisRecente(hrefs: string[]): string | null {
 	const meses = hrefs.map((h) => h.match(/\/(\d{4}-\d{2})\/?$/)?.[1]).filter((m): m is string => Boolean(m));
