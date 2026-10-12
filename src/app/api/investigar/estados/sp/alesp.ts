@@ -1,4 +1,5 @@
 import { buscarDespesasAlespDaBase } from "@/services/integrations/alesp/despesas-base";
+import { deputadosDaAssembleiaNaBase, juntarCandidatosEstaduais } from "@/services/integrations/assembleias/deputados-base";
 import { buscarCpfNoTSE } from "../../tse";
 
 export async function buscarDeputadoEstadualSP(nomeBuscado: string): Promise<
@@ -21,8 +22,11 @@ export async function buscarDeputadoEstadualSP(nomeBuscado: string): Promise<
 		casa: "ALESP";
 	}[] = [];
 
-	// Busca o CPF no TSE do candidato a Deputado Estadual (Cargo 7) em SP
-	const tseResult = await buscarCpfNoTSE(termo, "SP", "7");
+	// CPF no TSE (cargo 7, SP) e, em paralelo, a lista da ALESP (o TSE ao vivo recusa a Vercel).
+	const [tseResult, daBase] = await Promise.all([
+		buscarCpfNoTSE(termo, "SP", "7").catch(() => null),
+		deputadosDaAssembleiaNaBase("ALESP", nomeBuscado).catch(() => []),
+	]);
 
 	if (tseResult) {
 		const nomeCompleto =
@@ -44,7 +48,7 @@ export async function buscarDeputadoEstadualSP(nomeBuscado: string): Promise<
 		});
 	}
 
-	return resultados;
+	return juntarCandidatosEstaduais(resultados, daBase);
 }
 
 function normalizaNome(s: string): string {

@@ -1,4 +1,5 @@
 import { buscarDespesasAlerjDaBase } from "@/services/integrations/alerj/despesas-base";
+import { deputadosDaAssembleiaNaBase, juntarCandidatosEstaduais } from "@/services/integrations/assembleias/deputados-base";
 import { buscarCpfNoTSE } from "../../tse";
 
 const DOCIGP_BASE = "https://docigp.alerj.rj.gov.br/api/v1";
@@ -16,7 +17,11 @@ export async function buscarDeputadoEstadualRJ(nomeBuscado: string): Promise<
 	const termo = nomeBuscado.toLowerCase().trim();
 	const resultados: any[] = [];
 
-	const tseResult = await buscarCpfNoTSE(termo, "RJ", "7");
+	// A lista do DOCIGP funciona na Vercel; o TSE ao vivo, não (403): os dois em paralelo.
+	const [tseResult, daBase] = await Promise.all([
+		buscarCpfNoTSE(termo, "RJ", "7").catch(() => null),
+		deputadosDaAssembleiaNaBase("ALERJ", nomeBuscado).catch(() => []),
+	]);
 
 	if (tseResult) {
 		const nomeCompleto =
@@ -33,7 +38,7 @@ export async function buscarDeputadoEstadualRJ(nomeBuscado: string): Promise<
 		});
 	}
 
-	return resultados;
+	return juntarCandidatosEstaduais(resultados, daBase);
 }
 
 function normalizarTexto(s: string): string {
