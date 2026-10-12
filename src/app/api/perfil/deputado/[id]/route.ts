@@ -47,6 +47,7 @@ function mesclarPerfilComIndex(perfilData: any, info: any) {
 
 import { fetchWithTimeout } from "@/app/api/investigar/tse";
 import { type MandatoHistorico, mandatoDoHistorico } from "@/lib/mandato";
+import { ehTipoDeProducao, filtroTiposCamara, TIPOS_PRODUCAO } from "@/lib/producao-tipos";
 
 /** Fatos do mandato (posse, retorno, saída, origem) a partir do histórico da Câmara; a tela decide o texto (lib/mandato.ts). */
 function camposDoMandato(mandato: MandatoHistorico) {
@@ -221,14 +222,15 @@ function mapearProposicaoCamara(p: any, idDeputadoNum: number) {
 async function buscarProducaoLiveCamara(idDeputadoNum: number) {
   const API_BASE = "https://dadosabertos.camara.leg.br/api/v2";
   try {
-    const url = `${API_BASE}/proposicoes?idDeputadoAutor=${idDeputadoNum}&itens=100&ordem=DESC&ordenarPor=ano`;
+    // Só os tipos que contam como produção (producao-tipos.ts); ordem por id é estável entre páginas.
+    const url = `${API_BASE}/proposicoes?idDeputadoAutor=${idDeputadoNum}${filtroTiposCamara()}&itens=100&ordem=DESC&ordenarPor=id`;
     const res = await fetchWithTimeout(url, { timeout: 8000 });
     if (!res.ok) return [];
     const json = await res.json();
     const dados = json?.dados || [];
     if (!Array.isArray(dados) || dados.length === 0) return [];
 
-    const producao = dados.map((p: any) => mapearProposicaoCamara(p, idDeputadoNum));
+    const producao = dados.filter((p: any) => ehTipoDeProducao(p.siglaTipo)).map((p: any) => mapearProposicaoCamara(p, idDeputadoNum));
     void persistirProducaoNoBanco(producao);
     return producao;
   } catch (e) {
@@ -242,6 +244,7 @@ async function buscarProducaoBanco(supabase: any, idDeputadoNum: number) {
     .from("camara_producao_legislativa")
     .select("*")
     .eq("id_deputado", idDeputadoNum)
+    .in("tipo", [...TIPOS_PRODUCAO])
     .order("ano", { ascending: false });
 
   return data || [];

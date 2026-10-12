@@ -4,6 +4,7 @@ import path from 'path';
 import { pathToFileURL } from 'node:url';
 import { fetchCamaraJson as fetchJson, exigirDeputados } from './camara-http';
 import { credenciaisBancoPerfil } from './banco-perfil';
+import { ehTipoDeProducao, filtroTiposCamara } from '../../src/lib/producao-tipos';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
@@ -59,11 +60,13 @@ export async function buscarProposicoesDoDeputado(depId: number, anoAtual: numbe
     for (let ano = 2023; ano <= anoAtual; ano++) {
         anosQuery += `&ano=${ano}`;
     }
-    let url: string | null = `${API_BASE}/proposicoes?idDeputadoAutor=${depId}${anosQuery}&itens=100&ordem=DESC&ordenarPor=id`;
+    let url: string | null = `${API_BASE}/proposicoes?idDeputadoAutor=${depId}${anosQuery}${filtroTiposCamara()}&itens=100&ordem=DESC&ordenarPor=id`;
     const porId = new Map<string, any>();
     for (let pagina = 0; url && pagina < MAX_PAGINAS; pagina++) {
         const data = await fetchJson(url);
-        for (const prop of data?.dados || []) porId.set(String(prop.id), prop);
+        for (const prop of data?.dados || []) {
+            if (ehTipoDeProducao(prop.siglaTipo)) porId.set(String(prop.id), prop);
+        }
         url = data?.links?.find((l: any) => l.rel === 'next')?.href ?? null;
     }
     return [...porId.values()];

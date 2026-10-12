@@ -9,7 +9,7 @@ vi.mock('../../scripts/etl/camara-http', async importOriginal => ({
 }));
 
 const pagina = (ids: number[], next?: string) => ({
-    dados: ids.map(id => ({ id })),
+    dados: ids.map(id => ({ id, siglaTipo: 'PL' })),
     links: next ? [{ rel: 'next', href: next }] : [],
 });
 
@@ -42,6 +42,14 @@ describe('buscarProposicoesDoDeputado (produção legislativa)', () => {
         const todas = await buscarProposicoesDoDeputado(204536, 2026);
         expect(todas.map(p => p.id)).toEqual([10, 9, 8, 7]);
         expect(fetchJson.mock.calls[0][0]).toContain('&ordem=DESC&ordenarPor=id');
+    });
+
+    it('pede só os tipos de produção à Câmara e descarta requerimento de rotina que vier mesmo assim', async () => {
+        fetchJson.mockResolvedValueOnce({ dados: [{ id: 1, siglaTipo: 'PL' }, { id: 2, siglaTipo: 'REQ' }, { id: 3, siglaTipo: 'RIC' }], links: [] });
+        const { buscarProposicoesDoDeputado } = await import('../../scripts/etl/producao-legislativa-sync');
+        const todas = await buscarProposicoesDoDeputado(204536, 2026);
+        expect(todas.map(p => p.id)).toEqual([1, 3]);
+        expect(fetchJson.mock.calls[0][0]).toContain('&siglaTipo=PL&siglaTipo=PLP&siglaTipo=PEC&siglaTipo=PDL&siglaTipo=MPV&siglaTipo=RIC&');
     });
 
     it('para quando a página não tem próximo', async () => {
