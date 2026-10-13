@@ -241,6 +241,14 @@ const federais: Sonda[] = [
 		"https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2024.zip",
 		{ metodo: "HEAD", soStatus: true },
 	), true),
+	sonda("tse-cdn-bens", "federal", "TSE — bens declarados 2024", "ETL tse_bens (patrimônio de quem está na janela)", get(
+		"https://cdn.tse.jus.br/estatistica/sead/odsele/bem_candidato/bem_candidato_2024.zip",
+		{ metodo: "HEAD", soStatus: true },
+	), true),
+	sonda("tse-cdn-contas", "federal", "TSE — prestação de contas 2024", "ETL tse_campanha_contas (doadores e fornecedores)", get(
+		"https://cdn.tse.jus.br/estatistica/sead/odsele/prestacao_contas/prestacao_de_contas_eleitorais_candidatos_2024.zip",
+		{ metodo: "HEAD", soStatus: true },
+	), true),
 	sonda("tse-mapa-municipios", "municipal", "TSE — mapa municípios TSE↔IBGE", "ETL tse_eleitos (Fase 3)", get(
 		"https://resultados.tse.jus.br/oficial/ele2024/619/config/mun-e000619-cm.json",
 		{ avaliar: (c, res) => (res.ok && typeof c === "object" ? vereditoStatus(res) : { estado: "FALHA", detalhe: `HTTP ${res.status}` }) },
