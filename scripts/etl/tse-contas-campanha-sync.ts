@@ -31,8 +31,11 @@ dotenv.config({ path: ".env.local" });
 
 const TEMP_DIR = path.join(process.cwd(), ".tmp_tse");
 const LOTE = 1000;
-/** 2018: senadores eleitos em 2018 (em mandato até 2027) e a chapa presidencial. */
-const ANOS = [2018, 2022, 2024];
+/**
+ * 2018: senadores eleitos em 2018 (em mandato até 2027) e a chapa presidencial. 2026: os eleitos
+ * entram sozinhos depois da posse (antes disso a janela de mandato não os inclui).
+ */
+const ANOS = [2018, 2022, 2024, 2026];
 
 /**
  * Lê o CSV extraído e APAGA o arquivo no fim: os CSVs do TSE passam de 2,5 GB.
@@ -120,6 +123,8 @@ async function main() {
 	for (const ano of anos) {
 		const eleitos = await eleitosDoAno(ano);
 		console.log(`[TSE CAMPANHA ${ano}] ${eleitos.size} eleitos no filtro.`);
+		// Eleitos de 2026 antes da posse: ninguém na janela ainda, nada a baixar.
+		if (eleitos.size === 0) continue;
 		const ag = await agregar(ano, eleitos);
 		const linhas = ag.linhas();
 		console.log(relatorio(ano, linhas, ag.descartadosNaoEleitos));

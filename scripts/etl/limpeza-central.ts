@@ -66,14 +66,11 @@ export const REGRAS: RegraRetencao[] = [
 		descricao: "Cota agrupada por fornecedor (cruzamentos): mesma janela de 4 anos da cota.",
 		filtro: (q, agora) => q.lt("ano", agora.getFullYear() - 3),
 	},
-	{
-		id: "bens-eleicoes-antigas", banco: "principal", tabela: "tse_bens_historico", estado: "ativa",
-		descricao: "Patrimônio declarado em eleições de mais de 8 anos atrás.",
-		filtro: (q, agora) => q.lt("ano_eleicao", agora.getFullYear() - 8),
-	},
 ];
 // `tse_doadores_cache` (doadores pelo nome) foi aposentada em 08/10/2026: os doadores vêm das
 // contas de campanha por número do candidato (Banco de Perfil). As regras dela saíram daqui.
+// `tse_bens_historico` (Principal) saiu em 13/10/2026: os bens ficam em `tse_bens` (Perfil), e
+// quem sai da janela de mandato sai pela própria carga (scripts/etl/tse-bens-sync.ts).
 
 /** Cliente Supabase (só o que a limpeza usa); injetável nos testes. */
 export interface ClienteLimpeza {

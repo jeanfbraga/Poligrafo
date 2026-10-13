@@ -18,7 +18,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse";
 import dotenv from "dotenv";
 import { cpfValido, soDigitos } from "../../src/lib/documento";
-import { naJanela } from "../../src/lib/janela-mandato";
+import { naJanela, posseRecente } from "../../src/lib/janela-mandato";
 import { credenciaisBancoPerfil } from "./banco-perfil";
 import { downloadZipComCurl, extrairArquivoZip } from "./tse-arquivos";
 import {
@@ -168,7 +168,10 @@ async function main() {
 	if (linhas.length < MINIMO) throw new Error(`[TSE BENS] ${linhas.length} declarações, abaixo do mínimo ${MINIMO}: nada gravado.`);
 	console.log(`[TSE BENS] ${medir(linhas)}.`);
 	if (seco) return;
-	await gravarBens(banco, linhas, process.argv.includes("--troca-de-periodo"));
+	// Troca de período: na posse (ou até 45 dias depois) a saída grande de quem deixou a janela é esperada.
+	const troca = process.argv.includes("--troca-de-periodo") || posseRecente();
+	if (troca) console.log("[TSE BENS] Troca de período (posse recente ou --troca-de-periodo): quem saiu da janela sai da base.");
+	await gravarBens(banco, linhas, troca);
 	console.log("[TSE BENS] Concluído.");
 }
 

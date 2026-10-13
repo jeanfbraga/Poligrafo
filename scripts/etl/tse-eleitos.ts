@@ -250,6 +250,14 @@ export function chapaEleita(r: Record<string, string>, ano: number, mapaIbge: Ma
 	return linhaParaEleito({ ...r, DS_SIT_TOT_TURNO: "ELEITO (chapa presidencial vencedora)" }, ano, mapaIbge);
 }
 
+/**
+ * Eleição deste ano (ou futura) com nenhum eleito no arquivo: o TSE ainda não publicou o
+ * resultado no CSV. Não é defeito do arquivo — a carga espera, sem deixar a action vermelha.
+ */
+export function aguardandoResultado(ano: number, eleitos: number, agora: Date = new Date()): boolean {
+	return eleitos === 0 && ano >= agora.getUTCFullYear();
+}
+
 /** Assembleias com lista própria no Banco de Perfil (quem recebeu verba de gabinete no mandato). */
 export const ASSEMBLEIAS_COM_LISTA: Record<string, "ALERJ" | "ALESP"> = { RJ: "ALERJ", SP: "ALESP" };
 
@@ -294,6 +302,9 @@ export const CICLOS: { ano: number; cargos?: string[]; eleicaoMunicipal?: string
 	{ ano: 2014, cargos: ["1", "2"], cpfPeloTituloDe: [2010] },
 	{ ano: 2018, cargos: ["1", "2", "5"] },
 	{ ano: 2022, assembleias: true },
+	// Eleitos de 2026: ficam guardados à espera da posse (fora da busca até lá, pela janela de
+	// mandato); o arquivo é atualizado até a diplomação e a carga mensal acompanha.
+	{ ano: 2026 },
 	// 2010: quem ficou fora de 2012 a 2022 (Sandro Mabel, deputado federal eleito em 2010, prefeito de Goiânia).
 	{ ano: 2024, eleicaoMunicipal: "619", cpfPeloTituloDe: [2022, 2020, 2018, 2016, 2014, 2012, 2010] },
 ];

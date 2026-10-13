@@ -20,6 +20,7 @@ import { parse } from "csv-parse";
 import dotenv from "dotenv";
 import { credenciaisBancoPerfil } from "./banco-perfil";
 import {
+	aguardandoResultado,
 	ASSEMBLEIAS_COM_LISTA,
 	type BancoGravacao,
 	CICLOS,
@@ -47,7 +48,7 @@ dotenv.config({ path: ".env.local" });
 const TEMP_DIR = path.join(process.cwd(), ".tmp_tse");
 const LOTE = 1000;
 /** Mínimos por ciclo: abaixo disso algo deu errado no arquivo (não grava pela metade). */
-const MINIMOS: Record<number, number> = { 2018: 40, 2022: 1_500, 2024: 50_000 };
+const MINIMOS: Record<number, number> = { 2018: 40, 2022: 1_500, 2024: 50_000, 2026: 1_500 };
 
 async function mapaIbge(eleicaoMunicipal?: string): Promise<Map<string, string>> {
 	if (!eleicaoMunicipal) return new Map();
@@ -185,6 +186,10 @@ async function sincronizarCiclo(ciclo: (typeof CICLOS)[number], seco: boolean): 
 	const { idPorSq } = lido;
 	const linhas = await exercicioNasAssembleias(bancoPerfil(), ciclo, lido.linhas, lido.deAssembleia);
 	await completarCpfDeAnteriores(ciclo, linhas, idPorSq);
+	if (aguardandoResultado(ciclo.ano, linhas.length)) {
+		console.log(`[TSE ELEITOS ${ciclo.ano}] O arquivo do TSE ainda não traz o resultado (nenhum eleito): ciclo aguardando a apuração.`);
+		return 0;
+	}
 	const minimo = MINIMOS[ciclo.ano] ?? 1;
 	if (linhas.length < minimo) {
 		throw new Error(`[TSE ELEITOS ${ciclo.ano}] ${linhas.length} registros, abaixo do mínimo ${minimo}: nada gravado.`);

@@ -7,6 +7,7 @@ import {
 	legislaturaVigente,
 	mandatosVigentes,
 	naJanela,
+	posseRecente,
 } from "@/lib/janela-mandato";
 
 const em = (iso: string) => new Date(`${iso}T12:00:00Z`);
@@ -51,6 +52,14 @@ describe("janela de mandato — quem o Polígrafo investiga", () => {
 		expect(naJanela(CARGO_TSE.PRESIDENTE, 2014, HOJE)).toBe(true);
 		expect(naJanela(CARGO_TSE.VICE_PRESIDENTE, 2014, HOJE)).toBe(true); // Temer
 		expect(naJanela(CARGO_TSE.GOVERNADOR, 2018, HOJE)).toBe(false);
+	});
+
+	it("posse recente (45 dias): libera a saída grande nas cargas só na troca de período", () => {
+		expect(posseRecente(HOJE)).toBe(false);
+		expect(posseRecente(em("2027-01-05"))).toBe(true); // presidente
+		expect(posseRecente(em("2027-02-20"))).toBe(true); // deputados e senadores (1º/fev)
+		expect(posseRecente(em("2027-04-01"))).toBe(false);
+		expect(posseRecente(em("2029-01-10"))).toBe(true); // prefeitos e vereadores
 	});
 
 	it("cargas guardam os mandatos vigentes e a eleição já realizada à espera da posse", () => {

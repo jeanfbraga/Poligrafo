@@ -130,6 +130,18 @@ export function eleicoesParaCarregar(data: Date = new Date()): number[] {
 	return [...anos].sort((a, b) => a - b);
 }
 
+/**
+ * Houve posse de algum cargo nos últimos `dias` dias? Na troca de período (jan/fev de 2027,
+ * jan de 2029) muita gente sai da janela de uma vez, e as cargas deixam essa saída grande passar.
+ */
+export function posseRecente(data: Date = new Date(), dias = 45): boolean {
+	const limite = hoje(new Date(data.getTime() - dias * 864e5));
+	const dia = hoje(data);
+	return Object.keys(GRUPO_DO_CARGO)
+		.map(Number)
+		.some((cargo) => mandatosVigentes(cargo, data).some((m) => m.inicio > limite && m.inicio <= dia));
+}
+
 /** Legislatura da Câmara na data (57ª: 2023–2027). */
 export function legislaturaVigente(data: Date = new Date()): number {
 	const m = mandatosVigentes(CARGO_TSE.DEPUTADO_FEDERAL, data)[0];

@@ -100,7 +100,11 @@ export async function buscarEleitosPorNome(
 	return (data ?? []) as unknown as Eleito[];
 }
 
-/** O eleito do documento da ref: "SQ-…" (número do candidato) ou CPF válido. */
+/**
+ * O eleito do documento da ref: "SQ-…" (número do candidato) ou CPF válido. Pelo CPF a mesma
+ * pessoa pode ter várias eleições: vale a do mandato vigente (deputado reeleito em 2026 continua
+ * com a eleição de 2022 até a posse, onde estão os bens e os doadores do mandato atual).
+ */
 export async function buscarEleitoDaRef(doc: unknown, cliente: ClienteSupabase = supabasePerfilAdmin): Promise<Eleito | null> {
 	const sq = sqDaRef(doc);
 	const cpf = cpfValido(doc) ? soDigitos(doc) : null;
@@ -110,12 +114,13 @@ export async function buscarEleitoDaRef(doc: unknown, cliente: ClienteSupabase =
 		.select(COLUNAS)
 		.eq(sq ? "sq_candidato" : "nr_cpf_candidato", sq ?? cpf)
 		.order("ano_eleicao", { ascending: false })
-		.limit(1);
+		.limit(5);
 	if (error) {
 		avisar(error.message);
 		return null;
 	}
-	return ((data ?? [])[0] as unknown as Eleito) ?? null;
+	const lista = (data ?? []) as unknown as Eleito[];
+	return lista.find((e) => naJanela(Number(e.cd_cargo), e.ano_eleicao)) ?? lista[0] ?? null;
 }
 
 /** "SÃO JOÃO DE MERITI" → "São João de Meriti" (o CSV do TSE vem em maiúsculas). */
@@ -178,7 +183,9 @@ async function titularesDaBase(cargo: string, uf: string | null, cliente: Client
 function escolherTitular(cargo: string, lista: Eleito[], nome: string): Eleito | null {
 	// Presidentes ficam sempre (janela-mandato.ts): o ex-presidente é o titular da eleição que venceu.
 	if (cargo === "1") return lista.find((e) => nomeCompativel(e, nome)) ?? null;
-	const daUltima = lista.filter((e) => e.ano_eleicao === lista[0]?.ano_eleicao);
+	// Governador: o do mandato vigente (o eleito em 2026 só vira titular na posse de 6/jan/2027).
+	const vigentes = lista.filter((e) => naJanela(Number(e.cd_cargo), e.ano_eleicao));
+	const daUltima = vigentes.filter((e) => e.ano_eleicao === vigentes[0]?.ano_eleicao);
 	return daUltima.length === 1 && nomeCompativel(daUltima[0], nome) ? daUltima[0] : null;
 }
 

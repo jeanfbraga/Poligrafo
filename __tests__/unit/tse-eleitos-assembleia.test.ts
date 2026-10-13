@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase-perfil", () => ({ supabasePerfilAdmin: {} }));
 
-import { CICLOS, chapaEleita, exercicioPelaAssembleia, type LinhaEleito, linhasQueMudaram, nomeCivilDaLista } from "../../scripts/etl/tse-eleitos";
+import { aguardandoResultado, CICLOS, chapaEleita, exercicioPelaAssembleia, type LinhaEleito, linhasQueMudaram, nomeCivilDaLista } from "../../scripts/etl/tse-eleitos";
 import { type Eleito, eleitoNaJanela, eleitoParaCandidato } from "../../src/services/integrations/tse/eleitos";
 
 const candidato = (sq: string, nome: string, situacao: string, cpf: string | null = "08661032792"): LinhaEleito => ({
@@ -42,6 +42,16 @@ describe("exerceu mandato pela lista da assembleia (cassado ou suplente que assu
 		expect(CICLOS.find((c) => c.ano === 2022)?.assembleias).toBe(true);
 		expect(CICLOS.find((c) => c.ano === 2024)?.cpfPeloTituloDe).toEqual([2022, 2020, 2018, 2016, 2014, 2012, 2010]);
 		expect(CICLOS.find((c) => c.ano === 2014)?.cpfPeloTituloDe).toEqual([2010]);
+	});
+});
+
+describe("eleição de 2026 à espera da posse", () => {
+	it("arquivo do ano sem nenhum eleito = aguardando a apuração (sem erro); ano passado sem eleito = defeito", () => {
+		const outubro2026 = new Date("2026-10-13T12:00:00Z");
+		expect(aguardandoResultado(2026, 0, outubro2026)).toBe(true);
+		expect(aguardandoResultado(2026, 1650, outubro2026)).toBe(false);
+		expect(aguardandoResultado(2024, 0, outubro2026)).toBe(false);
+		expect(CICLOS.some((c) => c.ano === 2026)).toBe(true);
 	});
 });
 

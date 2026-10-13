@@ -1,11 +1,30 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase-perfil", () => ({ supabasePerfilAdmin: {} }));
 
 import { buscarPoliticosCamaraLista } from "../../src/app/api/investigar/scrapers/legislativo";
-import { titularDoCargo } from "../../src/services/integrations/tse/eleitos";
+import { buscarEleitoDaRef, titularDoCargo } from "../../src/services/integrations/tse/eleitos";
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe("eleito pelo CPF com mais de uma eleição (reeleito em 2026)", () => {
+	afterEach(() => vi.useRealTimers());
+	const CPF = "52998224725";
+	const de2022 = { sq_candidato: "250001600001", ano_eleicao: 2022, cd_cargo: "6", nr_cpf_candidato: CPF };
+	const de2026 = { ...de2022, sq_candidato: "250002000002", ano_eleicao: 2026 };
+	const cliente = (data: unknown[]) => {
+		const q: Record<string, unknown> = { select: () => q, eq: () => q, order: () => q, limit: async () => ({ data, error: null }) };
+		return { from: () => q } as never;
+	};
+
+	it("até a posse vale a eleição do mandato vigente (bens e doadores do mandato atual); depois, a nova", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-10-13T12:00:00Z"));
+		expect(await buscarEleitoDaRef(CPF, cliente([de2026, de2022]))).toMatchObject({ ano_eleicao: 2022 });
+		vi.setSystemTime(new Date("2027-02-01T12:00:00Z"));
+		expect(await buscarEleitoDaRef(CPF, cliente([de2026, de2022]))).toMatchObject({ ano_eleicao: 2026 });
+	});
+});
 
 describe("busca na Câmara por UF", () => {
 	// 12/10/2026: nome + siglaUf + idLegislatura juntos deixavam a API em 12–15 s (504) e o pipe
@@ -28,7 +47,22 @@ describe("busca na Câmara por UF", () => {
 });
 
 describe("titular do cargo (governador e presidente)", () => {
+	// A janela de mandato depende da data: os testes rodam sempre em 13/10/2026.
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-10-13T12:00:00Z"));
+	});
+	afterEach(() => vi.useRealTimers());
+
 	const TARCISIO = { sq_candidato: "250001615967", ano_eleicao: 2022, cd_cargo: "3", sg_uf: "SP", nm_candidato: "TARCISIO GOMES DE FREITAS", nm_urna_candidato: "TARCÍSIO", nr_cpf_candidato: "52998224725" };
+
+	it("governador eleito em 2026 só vira titular na posse (6/jan/2027): até lá vale o de 2022", async () => {
+		const eleito2026 = { ...TARCISIO, sq_candidato: "250002000001", ano_eleicao: 2026, nm_candidato: "FULANO DE TAL", nm_urna_candidato: "FULANO" };
+		expect(await titularDoCargo("3", "SP", "Tarcísio", cliente([eleito2026, TARCISIO]).c)).toMatchObject({ ano_eleicao: 2022 });
+		expect(await titularDoCargo("3", "SP", "Fulano de Tal", cliente([eleito2026, TARCISIO]).c)).toBeNull();
+		vi.setSystemTime(new Date("2027-01-06T12:00:00Z"));
+		expect(await titularDoCargo("3", "SP", "Fulano de Tal", cliente([eleito2026, TARCISIO]).c)).toMatchObject({ ano_eleicao: 2026 });
+	});
 
 	function cliente(data: unknown[], error: { message: string } | null = null) {
 		const filtros: [string, unknown][] = [];

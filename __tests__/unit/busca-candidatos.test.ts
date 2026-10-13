@@ -6,6 +6,7 @@ import {
 	buscarCandidatos,
 	coberturaNome,
 	type DependenciasBusca,
+	LEGISLATURA_ATUAL,
 	naJanelaDaBusca,
 	ordenarCandidatos,
 } from "../../src/services/core/busca-candidatos";
@@ -65,7 +66,7 @@ describe("janela de mandato na busca (12/10/2026)", () => {
 		expect(naJanelaDaBusca({ nome: "X", ref: "FEDERAL:CAMARA:1", casa: "CAMARA", idLegislatura: 56 })).toBe(false);
 		expect(naJanelaDaBusca({ nome: "X", ref: "ESTADUAL:GO:SQ-1", suplente: true })).toBe(false);
 		expect(naJanelaDaBusca({ nome: "X", ref: "ALERJ:DEPUTADO_ESTADUAL:X:", casa: "ALERJ", emExercicio: false })).toBe(true);
-		expect(naJanelaDaBusca({ nome: "X", ref: "FEDERAL:CAMARA:1", casa: "CAMARA", idLegislatura: 57 })).toBe(true);
+		expect(naJanelaDaBusca({ nome: "X", ref: "FEDERAL:CAMARA:1", casa: "CAMARA", idLegislatura: LEGISLATURA_ATUAL })).toBe(true);
 	});
 
 	it("ex-deputado federal (legislatura 54) hoje prefeito: só o prefeito aparece", async () => {

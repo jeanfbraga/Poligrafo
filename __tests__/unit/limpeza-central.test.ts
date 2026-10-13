@@ -39,12 +39,12 @@ describe("limpeza central dos bancos", () => {
 	});
 
 	it("com --aplicar apaga pelas regras ativas com linhas; propostas são só medidas", async () => {
-		const principal = bancoFalso({ pesquisas: 3, ceap_despesas_cache: 0, tse_bens_historico: 2, tabela_x: 9 });
+		const principal = bancoFalso({ pesquisas: 3, ceap_despesas_cache: 2, tabela_x: 9 });
 		const perfil = bancoFalso({ pncp_contratos_cache: 2 });
 		const r = await executarLimpeza({ principal: principal.cliente, perfil: perfil.cliente }, { agora: AGORA, aplicar: true, regras: [...REGRAS, PROPOSTA] });
 		expect(principal.chamadas.filter((c) => c.startsWith("apagar"))).toEqual([
 			"apagar pesquisas atualizado_em<2026-09-08T12:00:00.000Z",
-			"apagar tse_bens_historico ano_eleicao<2018",
+			"apagar ceap_despesas_cache ano<2023",
 		]);
 		expect(perfil.chamadas.filter((c) => c.startsWith("apagar"))).toEqual(["apagar pncp_contratos_cache consultado_em<2026-09-08T12:00:00.000Z"]);
 		// Janela de 4 anos da cota (decisão do dono): em 2026 só sai o que for anterior a 2023.
@@ -55,18 +55,18 @@ describe("limpeza central dos bancos", () => {
 	});
 
 	it("uma regra com erro não para as outras; o erro aparece no log e no resumo", async () => {
-		const principal = bancoFalso({ pesquisas: 1 }, ["tse_bens_historico"]);
+		const principal = bancoFalso({ pesquisas: 1 }, ["ceap_despesas_cache"]);
 		const perfil = bancoFalso({});
 		const r = await executarLimpeza({ principal: principal.cliente, perfil: perfil.cliente }, { agora: AGORA, aplicar: true });
-		expect(r.find((l) => l.regra.id === "bens-eleicoes-antigas")).toMatchObject({ medidas: null, erro: "permission denied" });
+		expect(r.find((l) => l.regra.id === "ceap-janela-4-anos")).toMatchObject({ medidas: null, erro: "permission denied" });
 		expect(r.find((l) => l.regra.id === "pesquisas-30d")).toMatchObject({ removidas: 1 });
 		const md = resumoMarkdown(r, true);
 		expect(md).toContain("## Limpeza central dos bancos — aplicada (regras ativas)");
-		expect(md).toContain("| bens-eleicoes-antigas | Principal · `tse_bens_historico` | ativa | ? | erro: permission denied |");
+		expect(md).toContain("| ceap-janela-4-anos | Principal · `ceap_despesas_cache` | ativa | ? | erro: permission denied |");
 	});
 
-	it("regras aprovadas pelo dono em 08/10/2026; a tabela antiga de doadores saiu", () => {
-		expect(REGRAS.map((r) => `${r.id}:${r.estado}`)).toEqual(["pesquisas-30d:ativa", "pncp-30d:ativa", "ceap-janela-4-anos:ativa", "cota-agrupada-janela-4-anos:ativa", "bens-eleicoes-antigas:ativa"]);
-		expect(REGRAS.some((r) => r.tabela === "tse_doadores_cache")).toBe(false);
+	it("regras aprovadas pelo dono; as tabelas antigas de doadores e de bens saíram (13/10/2026)", () => {
+		expect(REGRAS.map((r) => `${r.id}:${r.estado}`)).toEqual(["pesquisas-30d:ativa", "pncp-30d:ativa", "ceap-janela-4-anos:ativa", "cota-agrupada-janela-4-anos:ativa"]);
+		expect(REGRAS.some((r) => ["tse_doadores_cache", "tse_bens_historico"].includes(r.tabela))).toBe(false);
 	});
 });
