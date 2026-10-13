@@ -105,9 +105,11 @@ export async function run() {
                     if (proposicoes.length > 0) {
                         const payload = proposicoes.map((prop: any) => mapearProposicao(prop, dep.id, anoAtual));
 
+                        // Só insere o que é novo: regravar as 62 mil proposições todo dia deixava ~12 MB
+                        // de linhas mortas por dia no Banco de Perfil (13/10/2026).
                         const { error } = await supabaseAdmin.from('camara_producao_legislativa').upsert(
                             payload,
-                            { onConflict: 'id_deputado,id_proposicao' }
+                            { onConflict: 'id_deputado,id_proposicao', ignoreDuplicates: true }
                         );
 
                         if (error) {

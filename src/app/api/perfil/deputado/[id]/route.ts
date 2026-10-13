@@ -196,7 +196,7 @@ async function persistirProducaoNoBanco(producao: any[]) {
     if (producao.length === 0) return;
     await supabasePerfilAdmin.from("camara_producao_legislativa").upsert(
       producao,
-      { onConflict: "id_deputado,id_proposicao" }
+      { onConflict: "id_deputado,id_proposicao", ignoreDuplicates: true }
     );
   } catch (err) {
     console.warn("[Producao Auto-Persist Erro]", err);

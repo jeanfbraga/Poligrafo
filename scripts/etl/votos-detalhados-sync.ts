@@ -34,6 +34,12 @@ const supabaseAdmin = createClient(bancoPerfil.url, bancoPerfil.key, {
 const API_BASE = 'https://dadosabertos.camara.leg.br/api/v2';
 const ARQUIVOS_BASE = 'https://dadosabertos.camara.leg.br/arquivos';
 const BATCH_SIZE = 1000;
+/**
+ * Voto registrado não muda: só insere o que falta (ON CONFLICT DO NOTHING). Regravar o ano
+ * inteiro todo dia deixava dezenas de milhares de linhas mortas no Banco de Perfil, perto do
+ * limite de 500 MB do plano gratuito (acima dele o banco fica só leitura) — 13/10/2026.
+ */
+const VOTOS_SO_NOVOS = { onConflict: 'id_deputado,id_votacao', ignoreDuplicates: true };
 /** Primeiro ano da legislatura vigente (57ª: 2023), pela janela de mandato. */
 const ANO_INICIO_LEGISLATURA = Number(inicioLegislaturaVigente().slice(0, 4));
 const ANO_ATUAL = new Date().getFullYear();
@@ -197,7 +203,7 @@ async function salvarVotacoesMaster(entries: any[]): Promise<void> {
         const batch = entries.slice(i, i + BATCH_SIZE);
         const { error } = await supabaseAdmin
             .from('camara_votacoes_master')
-            .upsert(batch, { onConflict: 'id_votacao' });
+            .upsert(batch, { onConflict: 'id_votacao', ignoreDuplicates: true });
         if (error) {
             console.error(`[VOTOS SYNC] Erro ao salvar lote de votações master:`, error.message);
         }
@@ -236,14 +242,14 @@ async function processarVotosCSV(ano: number, validDeputados: Set<number>): Prom
         votosBatch.push({ id_deputado: idDeputado, id_votacao: idVotacao, voto });
 
         if (votosBatch.length >= BATCH_SIZE) {
-            await supabaseAdmin.from('camara_votos_detalhados').upsert(votosBatch, { onConflict: 'id_deputado,id_votacao' });
+            await supabaseAdmin.from('camara_votos_detalhados').upsert(votosBatch, VOTOS_SO_NOVOS);
             totalVotosSalvos += votosBatch.length;
             votosBatch = [];
         }
     }
 
     if (votosBatch.length > 0) {
-        await supabaseAdmin.from('camara_votos_detalhados').upsert(votosBatch, { onConflict: 'id_deputado,id_votacao' });
+        await supabaseAdmin.from('camara_votos_detalhados').upsert(votosBatch, VOTOS_SO_NOVOS);
         totalVotosSalvos += votosBatch.length;
     }
 
@@ -341,7 +347,7 @@ async function processarVotacaoPendenteApi(votacao: any, validDeputados: Set<num
     for (let i = 0; i < payload.length; i += BATCH_SIZE) {
         await supabaseAdmin.from('camara_votos_detalhados').upsert(
             payload.slice(i, i + BATCH_SIZE),
-            { onConflict: 'id_deputado,id_votacao' }
+            VOTOS_SO_NOVOS
         );
     }
     return true;
