@@ -1,10 +1,7 @@
 /**
- * Dados eleitorais do alvo montados pelas NOSSAS bases, sem ir ao DivulgaCand do TSE:
- * eleito (tse_eleitos, Banco de Perfil) + patrimônio declarado (tse_bens_historico, Principal).
- *
- * O DivulgaCand recusa parte das chamadas (403) e cada consulta leva segundos; antes a
- * investigação ia sempre a ele, e a tela mostrava "TSE não respondeu" mesmo com tudo na base.
- * Agora a consulta ao vivo é só reserva, quando a base não tem o eleito com CPF.
+ * Dados eleitorais do alvo montados pelas NOSSAS bases (arquivos oficiais do TSE): eleito
+ * (tse_eleitos) + patrimônio declarado (tse_bens), ambos no Banco de Perfil. O DivulgaCand
+ * (TSE ao vivo) recusa servidores de nuvem e não é consultado desde 12/10/2026.
  */
 import { cpfValido, soDigitos } from "@/lib/documento";
 import {
@@ -48,8 +45,9 @@ function municipioDoEleito(eleito: EleitoDoAlvo): string {
 type BuscarBens = (cpf: string) => Promise<TseBensHistorico[]>;
 
 /**
- * Resultado no mesmo formato do TSE ao vivo, ou null quando a base não basta (eleito não achado,
- * achado só por nome — o CPF dele não é adotado — ou sem CPF válido): aí vale a consulta ao vivo.
+ * Resultado com CPF, patrimônio e variação, ou null quando a base não basta (eleito não achado,
+ * achado só por nome — o CPF dele não é adotado — ou sem CPF válido; nesse caso o patrimônio
+ * ainda vem pelo número do candidato, em resolverPatrimonioTSE).
  * O ano do resultado é o da declaração de bens mais recente (o patrimônio mostrado é dela).
  */
 export async function tseDaBase(

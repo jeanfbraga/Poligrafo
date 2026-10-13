@@ -1,64 +1,60 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from "vitest";
 
-const { supabaseAdmin } = vi.hoisted(() => ({
-  supabaseAdmin: {
-    from: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    order: vi.fn().mockReturnThis(),
-  }
-}));
+vi.mock("@/lib/supabase-perfil", () => ({ supabasePerfilAdmin: {} }));
 
-vi.mock('../../src/lib/supabase-admin', () => ({
-  supabaseAdmin
-}));
+import { buscarBensHistoricoTSE, buscarBensPorSqTSE, resolverPatrimonioTSE } from "../../src/services/integrations/tse/bens";
 
-import { buscarBensHistoricoTSE } from '../../src/services/integrations/tse/bens';
+const CPF = "52998224725";
+const linha = (ano: number, total: number) => ({ sq_candidato: "250002351684", ano_eleicao: ano, cpf: CPF, nome: "FULANA DE TAL", valor_total: String(total), bens: [{ t: "Casa", d: "CASA", v: total }] });
 
-describe('TSE Histórico Client Supabase', () => {
-  it('should return historico de bens on success', async () => {
-    supabaseAdmin.order.mockResolvedValueOnce({
-      data: [{ ano_eleicao: 2022, valor_total: 1000 }],
-      error: null
-    } as any);
+function cliente(data: unknown[] | null, error: { message: string } | null = null) {
+	const filtros: [string, string][] = [];
+	return {
+		filtros,
+		c: {
+			from: (tabela: string) => {
+				filtros.push(["tabela", tabela]);
+				return {
+					select: () => ({
+						eq: (coluna: string, valor: string) => {
+							filtros.push([coluna, valor]);
+							return { order: async () => ({ data, error }) };
+						},
+					}),
+				};
+			},
+		} as never,
+	};
+}
 
-    const result = await buscarBensHistoricoTSE('123.456.789-00');
-    expect(result).toHaveLength(1);
-    expect(result[0].ano_eleicao).toBe(2022);
-    expect(supabaseAdmin.from).toHaveBeenCalledWith('tse_bens_historico');
-    expect(supabaseAdmin.eq).toHaveBeenCalledWith('cpf_candidato', '12345678900');
-  });
+describe("bens declarados pela base tse_bens (Banco de Perfil)", () => {
+	it("pelo CPF: lê tse_bens e devolve no formato do dossiê ({ tipoBem, descricao, valor })", async () => {
+		const { c, filtros } = cliente([linha(2026, 1500), linha(2022, 1000)]);
+		const r = await buscarBensHistoricoTSE("529.982.247-25", c);
+		expect(filtros).toEqual([["tabela", "tse_bens"], ["cpf", CPF]]);
+		expect(r[0]).toEqual({ sq_candidato: "250002351684", cpf_candidato: CPF, nome_candidato: "FULANA DE TAL", ano_eleicao: 2026, valor_total: 1500, descricao_bens: [{ tipoBem: "Casa", descricao: "CASA", valor: 1500 }] });
+	});
 
-  it('should return empty array on error (fail-safe)', async () => {
-    supabaseAdmin.order.mockResolvedValueOnce({
-      data: null,
-      error: new Error('DB timeout')
-    } as any);
+	it("CPF inválido não consulta; sem CPF público, vale o número do candidato", async () => {
+		const { c, filtros } = cliente([linha(2024, 30000)]);
+		expect(await buscarBensHistoricoTSE("-4", c)).toEqual([]);
+		expect(filtros).toEqual([]);
+		expect((await buscarBensPorSqTSE("250002351684", c))[0].valor_total).toBe(30000);
+		expect(filtros).toEqual([["tabela", "tse_bens"], ["sq_candidato", "250002351684"]]);
+		expect(await buscarBensPorSqTSE(null, c)).toEqual([]);
+	});
 
-    const result = await buscarBensHistoricoTSE('ERROR');
-    expect(result).toEqual([]);
-  });
+	it("base fora do ar: lista vazia e aviso no console", async () => {
+		const aviso = vi.spyOn(console, "warn").mockImplementation(() => {});
+		expect(await buscarBensHistoricoTSE(CPF, cliente(null, { message: "timeout" }).c)).toEqual([]);
+		expect(aviso).toHaveBeenCalledWith("[TSE] Erro ao buscar bens declarados na base:", "timeout");
+		aviso.mockRestore();
+	});
 
-  it('por nome: só o nome completo idêntico (o nome de urna curto não basta)', async () => {
-    const linhas = [{ cpf_candidato: '12345678900', nome_candidato: 'MARIO LUIS FRIAS', ano_eleicao: 2022, valor_total: 500000 }];
-    supabaseAdmin.from.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        ilike: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue({ data: linhas, error: null }) }),
-      }),
-    } as any);
-
-    const { buscarBensPorNomeTSE } = await import('../../src/services/integrations/tse/bens');
-    expect(await buscarBensPorNomeTSE('Mario Frias')).toEqual([]);
-    expect(await buscarBensPorNomeTSE('Mário Luís Frias')).toEqual(linhas);
-  });
-
-  it('por nome: dois CPFs com o mesmo nome completo (homônimos) = nada, para não misturar patrimônios', async () => {
-    const { bensDeUmaPessoa } = await import('../../src/services/integrations/tse/bens');
-    const a = { cpf_candidato: '11111111111', nome_candidato: 'JOSE DA SILVA', ano_eleicao: 2022, valor_total: 1, descricao_bens: [] };
-    const b = { ...a, cpf_candidato: '22222222222' };
-    expect(bensDeUmaPessoa([a, b], 'José da Silva')).toEqual([]);
-    expect(bensDeUmaPessoa([a, { ...a, ano_eleicao: 2018 }], 'José da Silva')).toHaveLength(2);
-  });
+	it("ficha: patrimônio do resultado do TSE quando há; o status conta de onde veio quando é da base", async () => {
+		const ficha: any = { alertasPessoais: [] };
+		await resolverPatrimonioTSE(ficha, { patrimonioTotal: 2000, anoEleicao: 2026, bensDeclarados: [] }, CPF, null);
+		expect(ficha).toMatchObject({ patrimonioTotal: 2000, anoPatrimonio: 2026 });
+		expect(ficha.alertasPessoais).toEqual(["[TSE] Patrimônio Declarado (2026): R$ 2.000,00"]);
+	});
 });
-

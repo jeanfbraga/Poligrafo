@@ -1,8 +1,9 @@
 name: Sync TSE Contas de Campanha (Banco de Perfil)
 
-# Doadores (pessoa física) e fornecedores (CNPJ) das campanhas dos ELEITOS →
-# tabela tse_campanha_contas no BANCO DE PERFIL, agregados por candidato +
-# papel + documento (upsert idempotente: rodar de novo não duplica).
+# Doadores (pessoa física) e fornecedores (CNPJ) das campanhas de quem está na janela de
+# mandato (base tse_eleitos) → tabela tse_campanha_contas no BANCO DE PERFIL, agregados por
+# candidato + papel + documento. Só insere o que falta (contas passadas não mudam).
+# 2018: senadores eleitos em 2018 (em mandato até 2027) e a chapa presidencial.
 # Os ZIPs do TSE (até 1,3 GB) são baixados do CDN público a cada execução e
 # descartados no fim: nada é guardado fora do banco.
 # Depende de tse_eleitos (rode o sync de eleitos antes, no dia 3).
@@ -13,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       ano:
-        description: 'Só um ciclo (2022 ou 2024). Vazio = todos.'
+        description: 'Só um ciclo (2018, 2022 ou 2024). Vazio = todos.'
         required: false
         default: ''
 

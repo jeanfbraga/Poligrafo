@@ -122,17 +122,21 @@ function municipio(cargo: string, ue: string | null, nmUe: string | null, mapaIb
 	};
 }
 
-/** Campos obrigatórios presentes e situação que interessa (eleito/suplente)? */
-function essenciais(r: Record<string, string>) {
+/** Campos obrigatórios presentes e situação que interessa (eleito/suplente, ou qualquer uma)? */
+function essenciais(r: Record<string, string>, qualquerSituacao: boolean) {
 	const campos = { cargo: texto(r.CD_CARGO), situacao: texto(r.DS_SIT_TOT_TURNO), nome: texto(r.NM_CANDIDATO), sq: texto(r.SQ_CANDIDATO) };
 	const { cargo, situacao } = campos;
-	if (Object.values(campos).some((v) => !v) || !situacaoInteressa(cargo as string, situacao as string)) return null;
+	if (Object.values(campos).some((v) => !v)) return null;
+	if (!qualquerSituacao && !situacaoInteressa(cargo as string, situacao as string)) return null;
 	return campos as { cargo: string; situacao: string; nome: string; sq: string };
 }
 
-/** Linha do CSV → registro, ou null se não for eleito/suplente que interessa. */
-export function linhaParaEleito(r: Record<string, string>, ano: number, mapaIbge: Map<string, string>): LinhaEleito | null {
-	const e = essenciais(r);
+/**
+ * Linha do CSV → registro, ou null se não for eleito/suplente que interessa. `qualquerSituacao`:
+ * todo candidato (para conferir quem exerceu mandato pela lista da assembleia).
+ */
+export function linhaParaEleito(r: Record<string, string>, ano: number, mapaIbge: Map<string, string>, qualquerSituacao = false): LinhaEleito | null {
+	const e = essenciais(r, qualquerSituacao);
 	if (!e) return null;
 	const ue = texto(r.SG_UE);
 	const nmUe = texto(r.NM_UE);
@@ -193,6 +197,24 @@ export interface EleitoNaBase {
 	nm_candidato: string;
 	ds_cargo: string | null;
 	sg_uf: string;
+	nr_cpf_candidato?: string | null;
+	ds_sit_tot_turno?: string | null;
+	cpf_fonte?: string | null;
+}
+
+const CAMPOS_COMPARADOS = ["nm_candidato", "nr_cpf_candidato", "ds_sit_tot_turno", "cpf_fonte"] as const;
+
+/**
+ * Só o que é novo ou mudou (CPF, situação, nome, origem do CPF). Regravar as 69 mil linhas
+ * de 2024 todo mês deixava dezenas de MB de linhas mortas no Banco de Perfil, perto do limite
+ * de 500 MB do plano gratuito (acima dele o banco fica só leitura) — 12/10/2026.
+ */
+export function linhasQueMudaram(novos: LinhaEleito[], naBase: EleitoNaBase[]): LinhaEleito[] {
+	const base = new Map(naBase.map((e) => [e.sq_candidato, e]));
+	return novos.filter((l) => {
+		const atual = base.get(l.sq_candidato);
+		return !atual || CAMPOS_COMPARADOS.some((c) => (atual[c] ?? null) !== (l[c] ?? null));
+	});
 }
 
 /** Acima disso, sair de uma vez indica arquivo com defeito: nada é apagado. */
@@ -210,12 +232,68 @@ export function quemSaiu(naBase: EleitoNaBase[], novos: LinhaEleito[]): EleitoNa
 }
 
 /**
- * Ciclos carregados e cargos de cada um (2018: só senadores, ainda em mandato até 2027).
- * `cpfPeloTituloDe`: eleições anteriores (da mais recente à mais antiga) que completam o CPF
- * escondido, pelo título de eleitor + data de nascimento.
+ * Chapas presidenciais vencedoras (resultado oficial). Os arquivos de 2002 a 2014 trazem a
+ * chapa com a situação "#NULO#" (só a linha do 1º turno): sem esta lista, nenhum presidente
+ * dessas eleições entrava. Nome civil como está no arquivo do TSE, sem acento.
  */
-export const CICLOS: { ano: number; cargos?: string[]; eleicaoMunicipal?: string; cpfPeloTituloDe?: number[] }[] = [
-	{ ano: 2018, cargos: ["5"] },
-	{ ano: 2022 },
-	{ ano: 2024, eleicaoMunicipal: "619", cpfPeloTituloDe: [2022, 2020, 2018, 2016] },
+export const CHAPAS_ELEITAS: Record<number, string[]> = {
+	2002: ["luiz inacio lula da silva", "jose alencar gomes da silva"],
+	2006: ["luiz inacio lula da silva", "jose alencar gomes da silva"],
+	2010: ["dilma vana rousseff", "michel miguel elias temer lulia"],
+	2014: ["dilma vana rousseff", "michel miguel elias temer lulia"],
+	2018: ["jair messias bolsonaro", "antonio hamilton martins mourao"],
+};
+
+/** Presidente ou vice da chapa vencedora do ano, mesmo com a situação vazia no arquivo. */
+export function chapaEleita(r: Record<string, string>, ano: number, mapaIbge: Map<string, string>): LinhaEleito | null {
+	if (!["1", "2"].includes(String(r.CD_CARGO)) || !CHAPAS_ELEITAS[ano]?.includes(semAcento(String(r.NM_CANDIDATO ?? "")))) return null;
+	return linhaParaEleito({ ...r, DS_SIT_TOT_TURNO: "ELEITO (chapa presidencial vencedora)" }, ano, mapaIbge);
+}
+
+/** Assembleias com lista própria no Banco de Perfil (quem recebeu verba de gabinete no mandato). */
+export const ASSEMBLEIAS_COM_LISTA: Record<string, "ALERJ" | "ALESP"> = { RJ: "ALERJ", SP: "ALESP" };
+
+/** "Rodrigo Da Silva Bacellar (Rodrigo Bacellar)" → "rodrigo da silva bacellar". */
+export function nomeCivilDaLista(deputado: string): string {
+	return semAcento(deputado.replace(/\s*\([^)]*\)\s*/g, " ")).replace(/\s+/g, " ");
+}
+
+/**
+ * Exerceu mandato pela lista da assembleia, mas o TSE não o tem como eleito: diploma cassado
+ * e votos anulados (Rodrigo Bacellar, "NÃO ELEITO" no arquivo de 2022) ou suplente que assumiu.
+ * Duas fontes oficiais concordando — nome civil COMPLETO idêntico na lista e em UM SÓ candidato
+ * a deputado estadual da mesma UF na eleição (como o nome civil do Senado confirma o senador).
+ * Devolve as linhas a gravar, com a situação dizendo de onde veio. Eleito já na base fica como está.
+ */
+export function exercicioPelaAssembleia(candidatos: LinhaEleito[], nomesNaLista: string[], casa: string): LinhaEleito[] {
+	const porNome = new Map<string, LinhaEleito[]>();
+	for (const c of candidatos) porNome.set(semAcento(c.nm_candidato), [...(porNome.get(semAcento(c.nm_candidato)) ?? []), c]);
+	const saida: LinhaEleito[] = [];
+	for (const nome of new Set(nomesNaLista.map(nomeCivilDaLista))) {
+		const achados = porNome.get(nome) ?? [];
+		const unico = achados.length === 1 ? achados[0] : null;
+		if (!unico || semAcento(unico.ds_sit_tot_turno ?? "").startsWith("eleito")) continue;
+		saida.push({ ...unico, ds_sit_tot_turno: `EXERCEU MANDATO (lista da ${casa}; TSE: ${unico.ds_sit_tot_turno})` });
+	}
+	return saida;
+}
+
+/**
+ * Ciclos carregados e cargos de cada um. 2018: senadores (em mandato até 2027) e chapa
+ * presidencial; 2002–2014: só a chapa presidencial (presidentes ficam sempre, decisão de
+ * 12/10/2026 — o vice entra porque Temer assumiu). `cpfPeloTituloDe`: eleições anteriores
+ * (da mais recente à mais antiga) que completam o CPF escondido, pelo título de eleitor +
+ * data de nascimento (2014 e 2012 trazem quem voltou depois de anos sem concorrer, como o
+ * prefeito de Goiânia). `assembleias`: confere quem exerceu mandato pela lista da assembleia.
+ */
+export const CICLOS: { ano: number; cargos?: string[]; eleicaoMunicipal?: string; cpfPeloTituloDe?: number[]; assembleias?: boolean }[] = [
+	{ ano: 2002, cargos: ["1", "2"] },
+	{ ano: 2006, cargos: ["1", "2"] },
+	{ ano: 2010, cargos: ["1", "2"] },
+	// 2014 publica a chapa sem CPF (Dilma e Temer): vem do arquivo de 2010 pelo título.
+	{ ano: 2014, cargos: ["1", "2"], cpfPeloTituloDe: [2010] },
+	{ ano: 2018, cargos: ["1", "2", "5"] },
+	{ ano: 2022, assembleias: true },
+	// 2010: quem ficou fora de 2012 a 2022 (Sandro Mabel, deputado federal eleito em 2010, prefeito de Goiânia).
+	{ ano: 2024, eleicaoMunicipal: "619", cpfPeloTituloDe: [2022, 2020, 2018, 2016, 2014, 2012, 2010] },
 ];

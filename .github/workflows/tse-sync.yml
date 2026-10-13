@@ -1,13 +1,21 @@
-name: Sync TSE Bens
+name: Sync TSE Bens (Banco de Perfil)
+
+# Bens declarados ao TSE (bem_candidato_{ano}.zip) de quem está na janela de mandato e dos
+# presidentes → tabela tse_bens no BANCO DE PERFIL (scripts/etl/tse-bens-sync.ts).
+# Depende de tse_eleitos (dia 3), que diz quem está na janela. Grava só o que mudou.
+# Antes (até 12/10/2026): todos os candidatos no Banco Principal, e 2024 gravava 0 linha com a
+# action verde. Na posse de 2027, rode manualmente com troca_de_periodo = true.
+
 on:
   schedule:
-    - cron: '0 2 * * 0' # Todo domingo as 02:00
+    - cron: '0 9 5 * *' # dia 5 de cada mês, 09:00 UTC (06:00 BRT)
   workflow_dispatch:
     inputs:
-      ano:
-        description: 'Ano eleitoral a sincronizar (ex: 2026, 2024, 2022, todos)'
+      troca_de_periodo:
+        description: 'Posse de novo período: deixa sair de uma vez quem saiu da janela.'
         required: false
-        default: 'todos'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -15,7 +23,7 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
@@ -25,10 +33,14 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
-      - name: Run TSE Sync
+      - name: Run TSE Bens Sync
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/etl/tse-sync-real.ts --ano=${{ github.event.inputs.ano || 'todos' }}
-
-
+          NEXT_PUBLIC_SUPABASE_PERFIL_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_PERFIL_URL }}
+          SUPABASE_PERFIL_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_PERFIL_SERVICE_ROLE_KEY }}
+          TROCA: ${{ github.event.inputs.troca_de_periodo }}
+        run: |
+          if [ "$TROCA" = "true" ]; then
+            npm run sync:tse-bens -- --troca-de-periodo
+          else
+            npm run sync:tse-bens
+          fi

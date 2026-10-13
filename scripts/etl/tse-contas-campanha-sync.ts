@@ -17,22 +17,22 @@ import { createClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse";
 import dotenv from "dotenv";
 import { credenciaisBancoPerfil } from "./banco-perfil";
+import { naJanela } from "../../src/lib/janela-mandato";
 import {
 	AgregadorContas,
 	despesaParaRegistro,
-	ehEleito,
 	estimarMb,
 	type LinhaConta,
 	receitaParaRegistro,
 } from "./tse-contas-campanha";
-import { linhaParaEleito } from "./tse-eleitos";
-import { downloadZipComCurl, extrairArquivoZip } from "./tse-sync-real";
+import { downloadZipComCurl, extrairArquivoZip } from "./tse-arquivos";
 
 dotenv.config({ path: ".env.local" });
 
 const TEMP_DIR = path.join(process.cwd(), ".tmp_tse");
 const LOTE = 1000;
-const ANOS = [2022, 2024];
+/** 2018: senadores eleitos em 2018 (em mandato até 2027) e a chapa presidencial. */
+const ANOS = [2018, 2022, 2024];
 
 /**
  * Lê o CSV extraído e APAGA o arquivo no fim: os CSVs do TSE passam de 2,5 GB.
@@ -57,19 +57,25 @@ async function arquivoDoZip(url: string, nomeZip: string, padrao: RegExp): Promi
 	return extrairArquivoZip(zip, padrao, TEMP_DIR);
 }
 
-/** sq_candidato de quem foi eleito (sem suplentes: ver ehEleito). */
+function bancoPerfil() {
+	const { url, key } = credenciaisBancoPerfil();
+	return createClient(url, key, { auth: { persistSession: false } });
+}
+
+/**
+ * sq_candidato de quem está na janela de mandato nesse ano, pela base tse_eleitos (12/10/2026):
+ * em 2018 só os senadores e a chapa presidencial; em 2022 também quem exerceu mandato pela
+ * assembleia (cassado ou suplente que assumiu). Suplente que não assumiu fica fora.
+ */
 async function eleitosDoAno(ano: number): Promise<Set<string>> {
-	const csv = await arquivoDoZip(
-		`https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_${ano}.zip`,
-		`consulta_cand_${ano}.zip`,
-		new RegExp(`consulta_cand_${ano}_BRASIL\\.csv$`, "i"),
-	);
+	const banco = bancoPerfil();
 	const sqs = new Set<string>();
-	for await (const r of linhasCsv(csv)) {
-		const e = linhaParaEleito(r, ano, new Map());
-		if (e && ehEleito(e.ds_sit_tot_turno)) sqs.add(e.sq_candidato);
+	for (let de = 0; ; de += LOTE) {
+		const { data, error } = await banco.from("tse_eleitos").select("sq_candidato,cd_cargo").eq("ano_eleicao", ano).neq("ds_sit_tot_turno", "SUPLENTE").order("id").range(de, de + LOTE - 1);
+		if (error) throw new Error(`[TSE CAMPANHA ${ano}] Leitura de tse_eleitos: ${error.message}`);
+		for (const e of data ?? []) if (naJanela(Number(e.cd_cargo), ano)) sqs.add(String(e.sq_candidato));
+		if (!data || data.length < LOTE) return sqs;
 	}
-	return sqs;
 }
 
 async function agregar(ano: number, eleitos: Set<string>): Promise<AgregadorContas> {
@@ -93,13 +99,16 @@ function relatorio(ano: number, linhas: LinhaConta[], descartados: number): stri
 	].join("\n");
 }
 
+/**
+ * Só insere o que falta (ON CONFLICT DO NOTHING): as contas de eleições passadas não mudam, e
+ * regravar as 450 mil linhas deixava dezenas de MB de linhas mortas no Banco de Perfil.
+ */
 async function gravar(linhas: LinhaConta[]) {
-	const { url, key } = credenciaisBancoPerfil();
-	const banco = createClient(url, key, { auth: { persistSession: false } });
+	const banco = bancoPerfil();
 	for (let i = 0; i < linhas.length; i += LOTE) {
 		const { error } = await banco
 			.from("tse_campanha_contas")
-			.upsert(linhas.slice(i, i + LOTE), { onConflict: "sq_candidato,ano_eleicao,tipo,documento" });
+			.upsert(linhas.slice(i, i + LOTE), { onConflict: "sq_candidato,ano_eleicao,tipo,documento", ignoreDuplicates: true });
 		if (error) throw new Error(`[TSE CAMPANHA] upsert falhou: ${error.message} — a migração scripts/sql/migracao_perfil_tse_campanha.sql foi rodada?`);
 	}
 }

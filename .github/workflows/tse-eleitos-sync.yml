@@ -1,8 +1,9 @@
 name: Sync TSE Eleitos (Banco de Perfil)
 
 # Eleitos e suplentes das casas legislativas (CSV nacional do TSE) → tabela
-# tse_eleitos no BANCO DE PERFIL. O Banco Principal não recebe tabela nova
-# (passou do limite de espaço). Pré-requisito: scripts/sql/migracao_perfil_tse_eleitos.sql.
+# tse_eleitos no BANCO DE PERFIL. Ciclos em scripts/etl/tse-eleitos.ts (CICLOS): chapas
+# presidenciais 2002–2018, senadores 2018, 2022 (com quem exerceu mandato pela lista da
+# ALERJ/ALESP) e 2024 (CPF pelo título de eleitor). Grava só o que mudou.
 # Em ano de eleição o TSE atualiza o CSV com frequência: rode manualmente após a apuração.
 
 on:
@@ -11,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       ano:
-        description: 'Só um ciclo (2018, 2022 ou 2024). Vazio = todos.'
+        description: 'Só um ciclo (2002, 2006, 2010, 2014, 2018, 2022 ou 2024). Vazio = todos.'
         required: false
         default: ''
 

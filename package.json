@@ -17,6 +17,7 @@
     "sync:tse-eleitos": "tsx scripts/etl/tse-eleitos-sync.ts",
     "sync:socios-politicos": "tsx scripts/etl/socios-politicos-sync.ts",
     "sync:tse-campanha": "tsx scripts/etl/tse-contas-campanha-sync.ts",
+    "sync:tse-bens": "tsx scripts/etl/tse-bens-sync.ts",
     "sync:alesp": "tsx scripts/etl/alesp-despesas-sync.ts",
     "sync:alerj": "tsx scripts/etl/alerj-docigp-sync.ts",
     "sync:perfil": "tsx scripts/etl/perfil-politico-sync.ts",

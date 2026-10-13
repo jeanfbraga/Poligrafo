@@ -49,6 +49,8 @@ describe("janela de mandato — quem o Polígrafo investiga", () => {
 		expect(naJanela(CARGO_TSE.DEPUTADO_FEDERAL, 2018, HOJE)).toBe(false);
 		expect(naJanela(CARGO_TSE.VEREADOR, 2020, HOJE)).toBe(false);
 		expect(naJanela(CARGO_TSE.PRESIDENTE, 2014, HOJE)).toBe(true);
+		expect(naJanela(CARGO_TSE.VICE_PRESIDENTE, 2014, HOJE)).toBe(true); // Temer
+		expect(naJanela(CARGO_TSE.GOVERNADOR, 2018, HOJE)).toBe(false);
 	});
 
 	it("cargas guardam os mandatos vigentes e a eleição já realizada à espera da posse", () => {

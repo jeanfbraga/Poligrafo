@@ -89,8 +89,9 @@ export async function buscarEleitosPorNome(
 	let consulta = cliente.from("tse_eleitos").select(COLUNAS).in("cd_cargo", opcoes.cargos ?? CARGOS_BUSCA);
 	for (const p of palavras) consulta = consulta.filter("nomes_busca", "imatch", `\\m${p}\\M`);
 	if (ufValida(opcoes.uf)) consulta = consulta.eq("sg_uf", opcoes.uf);
-	// Os 14 mil suplentes de 2022 ocupariam o limite da busca e esconderiam os eleitos.
-	if (opcoes.semSuplentes) consulta = consulta.not("ds_sit_tot_turno", "ilike", "%SUPLENTE%");
+	// Os 14 mil suplentes de 2022 ocupariam o limite da busca e esconderiam os eleitos. Quem
+	// assumiu pela assembleia tem outra situação ("EXERCEU MANDATO …") e continua.
+	if (opcoes.semSuplentes) consulta = consulta.neq("ds_sit_tot_turno", "SUPLENTE");
 	const { data, error } = await consulta.order("ano_eleicao", { ascending: false }).limit(LIMITE_BUSCA);
 	if (error) {
 		avisar(error.message);
@@ -266,15 +267,18 @@ export function eleitoParaCandidato(e: Eleito): Candidato | null {
 		nome: urnaDiferente ? `${e.nm_candidato} (${e.nm_urna_candidato})` : e.nm_candidato,
 		uf: e.sg_uf,
 		idLegislatura: e.ano_eleicao,
-		suplente: /suplente/i.test(e.ds_sit_tot_turno ?? ""),
+		suplente: ehSuplenteSemMandato(e.ds_sit_tot_turno),
 		partido: e.sg_partido ?? undefined,
 		fonteIdentidade: "tse_eleitos",
 	};
 }
 
+/** Suplente que não assumiu (quem assumiu pela assembleia tem "EXERCEU MANDATO …"). */
+export const ehSuplenteSemMandato = (situacao: string | null | undefined) => /^suplente$/i.test(String(situacao ?? "").trim());
+
 /** Mandato no período atual (janela-mandato.ts) e não suplente: quem a busca pode mostrar. */
 export function eleitoNaJanela(e: Eleito, agora: Date = new Date()): boolean {
-	return naJanela(Number(e.cd_cargo), e.ano_eleicao, agora) && !/suplente/i.test(e.ds_sit_tot_turno ?? "");
+	return naJanela(Number(e.cd_cargo), e.ano_eleicao, agora) && !ehSuplenteSemMandato(e.ds_sit_tot_turno);
 }
 
 /** Dependência `eleitos` da busca de candidatos, só com quem está na janela. null = base indisponível. */

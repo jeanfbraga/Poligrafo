@@ -1,95 +1,70 @@
-import { cpfValido } from "@/lib/documento";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+/**
+ * Bens declarados ao TSE pela base `tse_bens` (BANCO DE PERFIL), carregada dos arquivos oficiais
+ * por scripts/etl/tse-bens-sync.ts: só quem está na janela de mandato e os presidentes.
+ *
+ * Desde 12/10/2026: sem a tabela antiga do Banco Principal (tse_bens_historico, todos os
+ * candidatos, chave só pelo CPF), sem procurar bens pelo nome (juntava homônimos) e sem gravar
+ * nada a partir da investigação. Prefeito ou vereador sem CPF público: pelo número do candidato.
+ */
+import { cpfValido, soDigitos } from "@/lib/documento";
+import { supabasePerfilAdmin } from "@/lib/supabase-perfil";
 
 export interface TseBensHistorico {
-	id?: number;
-	cpf_candidato: string;
+	sq_candidato?: string;
+	cpf_candidato: string | null;
 	nome_candidato?: string;
 	ano_eleicao: number;
 	valor_total: number;
 	descricao_bens: any;
 }
 
-const STOPWORDS_NOME = new Set(["de", "da", "do", "dos", "das", "e"]);
-
-function extrairTokensBusca(nome: string): string[] {
-	if (!nome || typeof nome !== "string") return [];
-	return nome
-		.trim()
-		.split(/\s+/)
-		.map((t) => t.trim())
-		.filter((t) => t.length >= 2 && !STOPWORDS_NOME.has(t.toLowerCase()))
-		.slice(0, 3);
+interface LinhaTseBens {
+	sq_candidato: string;
+	ano_eleicao: number;
+	cpf: string | null;
+	nome: string;
+	valor_total: number | string;
+	bens: { t: string; d: string; v: number }[] | null;
 }
 
-export async function buscarBensHistoricoTSE(
-	cpf: string,
-): Promise<TseBensHistorico[]> {
-	try {
-		const docLimpo = cpf.replace(/\D/g, "");
-		if (!docLimpo || docLimpo.length !== 11) return [];
+type ClienteSupabase = Pick<typeof supabasePerfilAdmin, "from">;
 
-		const { data, error } = await supabaseAdmin
-			.from("tse_bens_historico")
-			.select("*")
-			.eq("cpf_candidato", docLimpo)
+/** Linha gravada (chaves curtas) → formato que o dossiê usa ({ tipoBem, descricao, valor }). */
+export function paraHistorico(l: LinhaTseBens): TseBensHistorico {
+	return {
+		sq_candidato: l.sq_candidato,
+		cpf_candidato: l.cpf,
+		nome_candidato: l.nome,
+		ano_eleicao: l.ano_eleicao,
+		valor_total: Number(l.valor_total) || 0,
+		descricao_bens: (l.bens ?? []).map((b) => ({ tipoBem: b.t, descricao: b.d, valor: b.v })),
+	};
+}
+
+async function lerBens(coluna: "cpf" | "sq_candidato", valor: string, cliente: ClienteSupabase): Promise<TseBensHistorico[]> {
+	try {
+		const { data, error } = await cliente
+			.from("tse_bens")
+			.select("sq_candidato,ano_eleicao,cpf,nome,valor_total,bens")
+			.eq(coluna, valor)
 			.order("ano_eleicao", { ascending: false });
-
 		if (error) throw error;
-		return data || [];
+		return ((data ?? []) as LinhaTseBens[]).map(paraHistorico);
 	} catch (e: any) {
-		console.warn(
-			"[TSE] Erro ao buscar bens históricos no Supabase:",
-			e.message || e,
-		);
+		console.warn("[TSE] Erro ao buscar bens declarados na base:", e.message || e);
 		return [];
 	}
 }
 
-const nomeNormalizado = (n: string | undefined) =>
-	String(n ?? "")
-		.normalize("NFD")
-		.replace(/[̀-ͯ]/g, "")
-		.toUpperCase()
-		.replace(/\s+/g, " ")
-		.trim();
-
-/**
- * Sem CPF (ex.: deputado da ALERJ cassado, que saiu da base de eleitos): só o NOME COMPLETO
- * idêntico e um CPF só entre as linhas achadas. A busca antiga juntava linhas de pessoas
- * diferentes que tinham as 3 primeiras palavras do nome (homônimos) — 12/10/2026.
- */
-export function bensDeUmaPessoa(linhas: TseBensHistorico[], nome: string): TseBensHistorico[] {
-	const alvo = nomeNormalizado(nome);
-	const iguais = linhas.filter((l) => nomeNormalizado(l.nome_candidato) === alvo);
-	return new Set(iguais.map((l) => l.cpf_candidato)).size === 1 ? iguais : [];
+/** Todas as declarações da pessoa (da mais recente para a mais antiga), pelo CPF. */
+export async function buscarBensHistoricoTSE(cpf: string, cliente: ClienteSupabase = supabasePerfilAdmin): Promise<TseBensHistorico[]> {
+	const doc = soDigitos(cpf);
+	return cpfValido(doc) ? lerBens("cpf", doc, cliente) : [];
 }
 
-export async function buscarBensPorNomeTSE(
-	nome: string,
-): Promise<TseBensHistorico[]> {
-	try {
-		const tokens = extrairTokensBusca(nome);
-		if (tokens.length < 2) return [];
-
-		let query = supabaseAdmin.from("tse_bens_historico").select("*");
-		for (const token of tokens) {
-			query = query.ilike("nome_candidato", `%${token}%`);
-		}
-
-		const { data, error } = await query
-			.order("ano_eleicao", { ascending: false })
-			.limit(10);
-
-		if (error) throw error;
-		return bensDeUmaPessoa(data || [], nome);
-	} catch (e: any) {
-		console.warn(
-			"[TSE] Erro ao buscar bens por nome no Supabase:",
-			e.message || e,
-		);
-		return [];
-	}
+/** Declaração da candidatura pelo número do candidato (eleito sem CPF público, como em 2024). */
+export async function buscarBensPorSqTSE(sq: string | null | undefined, cliente: ClienteSupabase = supabasePerfilAdmin): Promise<TseBensHistorico[]> {
+	return sq ? lerBens("sq_candidato", String(sq), cliente) : [];
 }
 
 function formatarMoeda(valor: number): string {
@@ -187,88 +162,21 @@ function aplicarBensCacheNaFicha(
 	});
 }
 
-function isCpfValidoParaPersistencia(cpf: string): boolean {
-	const limpo = cpf.replace(/\D/g, "");
-	return cpfValido(limpo);
-}
-
-function montarRegistroPrincipal(docLimpo: string, nomePolitico: string, tseData: any) {
-	if (!tseData?.patrimonioTotal || tseData.patrimonioTotal <= 0) return null;
-	return {
-		cpf_candidato: docLimpo,
-		nome_candidato: nomePolitico,
-		ano_eleicao: tseData.anoEleicao || 2026,
-		valor_total: tseData.patrimonioTotal,
-		descricao_bens: tseData.bensDeclarados || [],
-	};
-}
-
-function montarRegistrosHistoricos(docLimpo: string, nomePolitico: string, tseData: any) {
-	if (!Array.isArray(tseData?.historicoPatrimonio)) return [];
-	return tseData.historicoPatrimonio
-		.filter((h: any) => h?.patrimonioTotal > 0 && h.ano !== tseData.anoEleicao)
-		.map((h: any) => ({
-			cpf_candidato: docLimpo,
-			nome_candidato: h.nomeCompleto || nomePolitico,
-			ano_eleicao: h.ano,
-			valor_total: h.patrimonioTotal,
-			descricao_bens: h.bensDeclarados || [],
-		}));
-}
-
-export async function persistirBensHistoricosTSE(
-	cpfLimpo: string,
-	nomePolitico: string,
-	tseData: any,
-): Promise<void> {
-	if (!isCpfValidoParaPersistencia(cpfLimpo)) return;
-	const docLimpo = cpfLimpo.replace(/\D/g, "");
-
-	try {
-		const regPrincipal = montarRegistroPrincipal(docLimpo, nomePolitico, tseData);
-		const regHistoricos = montarRegistrosHistoricos(docLimpo, nomePolitico, tseData);
-		const registros = regPrincipal ? [regPrincipal, ...regHistoricos] : regHistoricos;
-
-		if (registros.length === 0) return;
-
-		const { error } = await supabaseAdmin
-			.from("tse_bens_historico")
-			.upsert(registros, { onConflict: "cpf_candidato,ano_eleicao" });
-		if (error) console.warn("[TSE] Erro ao persistir bens históricos no Supabase:", error.message);
-	} catch (e: any) {
-		console.warn("[TSE] Falha ao persistir bens históricos:", e?.message || e);
-	}
-}
-
+/**
+ * Patrimônio da ficha: o do resultado do TSE (base de eleitos + bens, com a variação) ou, sem
+ * ele, as declarações na base pelo CPF confirmado ou pelo número do candidato confirmado.
+ */
 export async function resolverPatrimonioTSE(
 	fichaPolitico: any,
 	tseData: any,
 	cpfLimpo: string,
-	nomePolitico: string,
+	sqCandidato?: string | null,
 	sendEvent?: (tipo: string, payload: any) => void,
-	nomeCivil?: string,
 ): Promise<void> {
 	if (tseData?.patrimonioTotal !== undefined && tseData.patrimonioTotal > 0) {
 		aplicarDadosTseNaFicha(fichaPolitico, tseData);
-		void persistirBensHistoricosTSE(cpfLimpo, nomePolitico, tseData);
 		return;
 	}
-
-	let bens =
-		cpfValido(cpfLimpo)
-			? await buscarBensHistoricoTSE(cpfLimpo)
-			: [];
-
-	if (bens.length === 0 && nomeCivil) {
-		bens = await buscarBensPorNomeTSE(nomeCivil);
-	}
-
-	if (bens.length === 0 && nomePolitico) {
-		bens = await buscarBensPorNomeTSE(nomePolitico);
-	}
-
-	if (bens.length > 0) {
-		aplicarBensCacheNaFicha(fichaPolitico, bens, sendEvent);
-	}
+	const bens = cpfValido(cpfLimpo) ? await buscarBensHistoricoTSE(cpfLimpo) : await buscarBensPorSqTSE(sqCandidato);
+	if (bens.length > 0) aplicarBensCacheNaFicha(fichaPolitico, bens, sendEvent);
 }
-

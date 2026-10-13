@@ -104,7 +104,8 @@ export function emMandato(cargoTse: number, anoEleicao: number, data: Date = new
 
 /** Presidentes da República (atual e ex) ficam sempre: poucos dados e interesse público. */
 export function sempreGuardado(cargoTse: number): boolean {
-	return cargoTse === CARGO_TSE.PRESIDENTE;
+	// O vice entra junto: Temer (vice eleito em 2014) foi presidente. São poucas linhas.
+	return cargoTse === CARGO_TSE.PRESIDENTE || cargoTse === CARGO_TSE.VICE_PRESIDENTE;
 }
 
 /** Entra na busca e nas bases: mandato vigente ou presidente. */

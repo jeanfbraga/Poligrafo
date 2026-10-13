@@ -51,12 +51,14 @@ function avisosDaIdentidade(e: Execucao, identidade: ReturnType<typeof resolverI
 	}
 }
 
-/** Ficha (CGU, TCU, processos) e patrimônio do TSE (com reserva nas nossas bases). */
-async function fichaEPatrimonio(e: Execucao, dep: any, cpf: string | null, pessoaId: string, detalhes: any) {
+/**
+ * Ficha (CGU, TCU, processos) e patrimônio declarado (base tse_bens): pelo CPF confirmado ou,
+ * sem ele (vereador de 2024 sem CPF público), pelo número do candidato confirmado.
+ */
+async function fichaEPatrimonio(e: Execucao, dep: any, cpf: string | null, pessoaId: string, sqCandidato: string | null) {
 	const ficha = await investigarPolitico(cpf ?? "", dep.nome, dep.uf, pessoaId, e.sendEvent);
-	// Resolução resiliente do patrimônio do político (TSE DivulgaCand + Fallback em cascata Supabase)
 	const { resolverPatrimonioTSE } = await import("@/services/integrations/tse/bens");
-	await resolverPatrimonioTSE(ficha, dep._tseResult, cpf ?? "", dep.nome, e.sendEvent, detalhes?.nomeCivil);
+	await resolverPatrimonioTSE(ficha, dep._tseResult, cpf ?? "", sqCandidato, e.sendEvent);
 	return ficha;
 }
 
@@ -83,7 +85,7 @@ export async function identificar(e: Execucao, dep: any): Promise<Investigacao> 
 	});
 	// Se o documento é um CNPJ de campanha, pula a investigação de patrimônio pessoal profunda (mas mantém o que veio do TSE)
 	status(e, mensagemDocumento(cpf, identidade.documentoIsCnpj));
-	const ficha = await fichaEPatrimonio(e, dep, cpf, pessoaId, detalhes);
+	const ficha = await fichaEPatrimonio(e, dep, cpf, pessoaId, identidade.sqCandidato);
 	return {
 		...e,
 		dep,
