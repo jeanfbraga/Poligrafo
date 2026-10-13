@@ -74,6 +74,8 @@ async function percorrerCsv(arquivo: string, aoLer: (r: Record<string, string>) 
 async function csvDoAno(ano: number): Promise<string> {
 	fs.mkdirSync(TEMP_DIR, { recursive: true });
 	const zip = path.join(TEMP_DIR, `consulta_cand_${ano}.zip`);
+	// Eleição do ano corrente: o TSE atualiza o arquivo até a diplomação; o zip guardado envelhece.
+	if (ano >= new Date().getUTCFullYear()) fs.rmSync(zip, { force: true });
 	await downloadZipComCurl(`https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_${ano}.zip`, zip);
 	return extrairArquivoZip(zip, new RegExp(`consulta_cand_${ano}_BRASIL\\.csv$`, "i"), TEMP_DIR);
 }
