@@ -84,14 +84,14 @@ function getCardTheme(score = 0, isFantasma = false) {
 
 function getSocialShareUrl(platform: "whatsapp" | "telegram" | "twitter", data: ShareData): string {
 	const valor = data.achadoValor?.toLocaleString("pt-BR") || "0";
-	const text = `🚨 ALERTA POLÍGRAFO: Verifiquei o dossiê de ${data.politicoNome} e encontrei um registro suspeito de ${data.achadoTipo} no valor de R$ ${valor}.\n\nFaça você também a sua auditoria em: https://poligrafo.app.br`;
+	const text = `🚨 ALERTA POLÍGRAFO: Verifiquei o dossiê de ${data.politicoNome} e encontrei um registro suspeito de ${data.achadoTipo} no valor de R$ ${valor}.\n\nFaça você também a sua auditoria em: https://www.poligrafo.app.br`;
 	const encoded = encodeURIComponent(text);
 
 	if (platform === "whatsapp") {
 		return `https://api.whatsapp.com/send?text=${encoded}`;
 	}
 	if (platform === "telegram") {
-		return `https://t.me/share/url?url=${encodeURIComponent("https://poligrafo.app.br")}&text=${encoded}`;
+		return `https://t.me/share/url?url=${encodeURIComponent("https://www.poligrafo.app.br")}&text=${encoded}`;
 	}
 	return `https://twitter.com/intent/tweet?text=${encoded}`;
 }

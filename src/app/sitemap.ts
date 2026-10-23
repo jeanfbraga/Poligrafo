@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import congressoIndex from "@/services/integrations/data/congresso-index.json";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poligrafo.app.br";
+	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.poligrafo.app.br";
 
 	// Páginas estáticas / institucionais
 	const staticPages: MetadataRoute.Sitemap = [

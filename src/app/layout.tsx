@@ -26,7 +26,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
 	metadataBase: new URL(
-		process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+		process.env.NEXT_PUBLIC_SITE_URL || "https://www.poligrafo.app.br",
 	),
 	title: "Polígrafo - Scan de Políticos",
 	description:
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
 		title: "Polígrafo - Auditoria Cidadã",
 		description:
 			"Cruze dados públicos de políticos para gerar dossiês e encontrar conexões suspeitas em tempo real.",
-		url: "https://poligrafo.app.br",
+		url: "https://www.poligrafo.app.br",
 		siteName: "Polígrafo",
 		locale: "pt_BR",
 		type: "website",
@@ -73,7 +73,7 @@ export default function RootLayout({
 	const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "G-1VS9S268X2";
 	const clarityId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
 
-	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poligrafo.app.br";
+	const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.poligrafo.app.br";
 
 	const jsonLd = {
 		"@context": "https://schema.org",

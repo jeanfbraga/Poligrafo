@@ -48,7 +48,7 @@ export const PROVEDORES: Record<IdProvedor, Provedor> = {
 	openrouter: {
 		id: "openrouter", nome: "OpenRouter", transporte: "openai-compat", variaveisChave: ["OPENROUTER_API_KEY"],
 		baseUrl: () => "https://openrouter.ai/api/v1",
-		cabecalhosExtras: { "HTTP-Referer": "https://poligrafo.app.br", "X-Title": "Poligrafo OSINT" },
+		cabecalhosExtras: { "HTTP-Referer": "https://www.poligrafo.app.br", "X-Title": "Poligrafo OSINT" },
 		limiteDaConta: true,
 	},
 	gemini: {
